@@ -3,7 +3,7 @@
   --panel: rgba(14, 21, 23, 0.91);
   --panel-soft: rgba(21, 30, 31, 0.84);
   --line: rgba(224, 214, 183, 0.16);
-  --muted: #9ba8a6;
+  --muted: #b7c0bd;
   --paper: #e9e2d1;
   --gold: #d4b56e;
   --teal: #7fa9a6;
@@ -149,12 +149,12 @@ button:focus-visible {
 .brand strong {
   letter-spacing: 0.16em;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .brand span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.09em;
 }
 
@@ -196,7 +196,7 @@ button:focus-visible {
 
 .time-left {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 13px;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -248,7 +248,7 @@ button:focus-visible {
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.04);
   border-radius: 3px;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .mobile-party-button {
@@ -257,7 +257,7 @@ button:focus-visible {
 
 .game-layout {
   display: grid;
-  grid-template-columns: 258px minmax(600px, 1fr) 252px;
+  grid-template-columns: 276px minmax(600px, 1fr) 268px;
   min-height: calc(100vh - 72px);
 }
 
@@ -303,7 +303,7 @@ button:focus-visible {
 }
 
 .eyebrow {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.16em;
   color: var(--muted);
   font-weight: 700;
@@ -321,7 +321,7 @@ button:focus-visible {
   background: rgba(104, 152, 169, 0.09);
   border-left: 2px solid #7398a8;
   text-transform: uppercase;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.11em;
 }
 
@@ -388,14 +388,14 @@ button:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
 }
 
 .hero-name em {
   color: var(--gold);
   font-style: normal;
-  font-size: 8px;
+  font-size: 10px;
   letter-spacing: 0.12em;
 }
 
@@ -406,7 +406,7 @@ button:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .hp-line {
@@ -429,7 +429,7 @@ button:focus-visible {
 .hp-line small {
   width: 12px;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .add-player {
@@ -443,7 +443,7 @@ button:focus-visible {
   background: transparent;
   border: 1px dashed rgba(255, 255, 255, 0.18);
   border-radius: 3px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .add-player:hover {
@@ -480,7 +480,7 @@ button:focus-visible {
   background: rgba(7, 12, 14, 0.62);
   border: 1px solid var(--line);
   border-radius: 3px;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   backdrop-filter: blur(8px);
 }
@@ -529,7 +529,7 @@ button:focus-visible {
   justify-content: center;
   position: relative;
   color: var(--gold);
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.16em;
 }
@@ -556,7 +556,7 @@ button:focus-visible {
   max-width: 660px;
   margin: 0 auto;
   color: #c0c7c3;
-  font: 400 12px/1.65 Georgia, "Times New Roman", serif;
+  font: 400 15px/1.7 Georgia, "Times New Roman", serif;
 }
 
 .story-link {
@@ -567,7 +567,7 @@ button:focus-visible {
   gap: 3px;
   color: var(--gold);
   background: none;
-  font-size: 9px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.12em;
 }
@@ -648,12 +648,12 @@ button:focus-visible {
 }
 
 .objective-card strong {
-  font: 500 12px/1.3 Georgia, "Times New Roman", serif;
+  font: 500 14px/1.4 Georgia, "Times New Roman", serif;
 }
 
 .objective-card small {
   color: var(--muted);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .dice-panel {
@@ -698,7 +698,7 @@ button:focus-visible {
 
 .dice-copy small {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .roll-button,
@@ -713,7 +713,7 @@ button:focus-visible {
   background: var(--gold);
   border-radius: 2px;
   font-weight: 800;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -745,7 +745,7 @@ button:focus-visible {
 }
 
 .hand-heading strong {
-  font: 500 12px Georgia, "Times New Roman", serif;
+  font: 500 14px Georgia, "Times New Roman", serif;
 }
 
 .hand-heading > span {
@@ -753,7 +753,7 @@ button:focus-visible {
   align-items: center;
   gap: 5px;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -793,7 +793,7 @@ button:focus-visible {
   top: 7px;
   right: 8px;
   color: var(--gold);
-  font-size: 7px;
+  font-size: 9px;
   letter-spacing: 0.12em;
 }
 
@@ -823,26 +823,26 @@ button:focus-visible {
   margin-bottom: 2px;
   color: var(--muted);
   text-transform: uppercase;
-  font-size: 7px;
+  font-size: 9px;
   letter-spacing: 0.13em;
 }
 
 .action-card strong {
   display: block;
-  font: 500 12px Georgia, "Times New Roman", serif;
+  font: 500 15px Georgia, "Times New Roman", serif;
 }
 
 .action-card p {
   min-height: 29px;
   margin: 5px 0 6px;
-  color: #9fa9a6;
-  font-size: 8px;
-  line-height: 1.4;
+  color: #c0c8c5;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .action-card small {
   color: #c59c78;
-  font-size: 7px;
+  font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
@@ -865,7 +865,7 @@ button:focus-visible {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.11em;
 }
 
@@ -891,7 +891,7 @@ button:focus-visible {
   display: block;
   margin-top: 5px;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 10px;
   text-align: right;
 }
 
@@ -947,12 +947,12 @@ button:focus-visible {
 }
 
 .faction-title span {
-  font: 500 11px Georgia, "Times New Roman", serif;
+  font: 500 13px Georgia, "Times New Roman", serif;
 }
 
 .faction-title strong {
   color: var(--muted);
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -962,8 +962,8 @@ button:focus-visible {
   min-height: 30px;
   margin: 8px 0;
   color: var(--muted);
-  font-size: 8px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .influence-track i {
@@ -989,7 +989,7 @@ button:focus-visible {
 .room-card small {
   grid-column: 1 / -1;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .chat-button {
@@ -1001,7 +1001,7 @@ button:focus-visible {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--line);
   border-radius: 3px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .chat-button span {
@@ -1079,8 +1079,8 @@ button:focus-visible {
 .chronicle-note p {
   margin: 5px 0 0;
   color: var(--muted);
-  font-size: 10px;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .chronicle-note {
@@ -1212,7 +1212,7 @@ button:focus-visible {
   }
 
   .realm-meta .eyebrow {
-    font-size: 8px;
+    font-size: 10px;
   }
 
   .seed-button {
@@ -1232,7 +1232,7 @@ button:focus-visible {
   }
 
   .story-card p {
-    font-size: 11px;
+    font-size: 14px;
   }
 
   .encounter-row {
