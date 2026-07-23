@@ -28,6 +28,7 @@ type LobbyProps = {
   onSelectPlayer: (id: string) => void;
   onToggleReady: (id: string) => void;
   onLeave: (id: string) => void;
+  onRemovePlayer: (id: string) => void;
   onEnterGame: () => void;
   onHeroSelect: (heroName: string) => void;
 };
@@ -46,6 +47,7 @@ export function Lobby({
   onSelectPlayer,
   onToggleReady,
   onLeave,
+  onRemovePlayer,
   onEnterGame,
   onHeroSelect
 }: LobbyProps) {
@@ -141,7 +143,12 @@ export function Lobby({
                   <button onClick={() => onSelectPlayer(player.id)}><Eye size={14} /> Review deck</button>
                   {player.id === localSessionId ? (
                     <><button className={player.ready ? "unready-button" : "ready-button"} onClick={() => onToggleReady(player.id)}>{player.ready ? "Cancel ready" : "Ready"}</button><button className="leave-button" onClick={() => onLeave(player.id)} aria-label={`Remove ${player.displayName}`} title="Leave lobby"><UserMinus size={15} /></button></>
-                  ) : <span className="remote-player-label">Controlled in another browser</span>}
+                  ) : (
+                    <>
+                      <span className="remote-player-label">Controlled in another browser</span>
+                      {localPlayer && <button className="remove-player-button" onClick={() => onRemovePlayer(player.id)} aria-label={`Remove ${player.displayName}`} title={`Remove ${player.displayName} from the room`}><UserMinus size={14} /> Remove</button>}
+                    </>
+                  )}
                 </div>
               </article>
             ))}

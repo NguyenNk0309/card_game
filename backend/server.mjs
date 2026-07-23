@@ -99,6 +99,46 @@ function ownSession(socket, requestedId) {
   return Boolean(sessionId && sessionId === requestedId);
 }
 
+function removePlayerFromRoom(targetId, removedBy) {
+  const removingIndex = room.players.findIndex((player) => player.id === targetId);
+  if (removingIndex < 0) return null;
+  const removedPlayer = room.players[removingIndex];
+  const wasActive = room.phase === 'game' && room.game && removingIndex === room.game.activePlayerIndex;
+  room.players.splice(removingIndex, 1);
+
+  if (room.phase === 'game' && room.game) {
+    delete room.game.playerStates[targetId];
+    if (!room.players.length) {
+      room.phase = 'lobby';
+      room.game = null;
+    } else {
+      if (removingIndex < room.game.activePlayerIndex) room.game.activePlayerIndex -= 1;
+      else if (wasActive) room.game.activePlayerIndex = Math.min(removingIndex, room.players.length - 1);
+      if (wasActive && !room.game.ended) {
+        const now = Date.now();
+        room.game.turnStartedAt = now;
+        room.game.turnDeadline = now + (room.game.turnSeconds || 30) * 1000;
+        room.game.outcome = {
+          success: false,
+          total: 0,
+          target: room.game.adventure.target,
+          label: `${removedPlayer.displayName} was removed`,
+          detail: `${removedBy} removed this player. The next turn begins now.`
+        };
+      }
+      if (room.players.length < 2) {
+        room.game.ended = true;
+        room.game.endReason = 'The adventure ended because fewer than two players remain.';
+        room.game.turnDeadline = 0;
+      } else if (room.game.ended) {
+        room.game.turnDeadline = 0;
+      }
+    }
+  }
+
+  return removedPlayer;
+}
+
 function advanceTimedOutTurn(now = Date.now()) {
   const game = room.game;
   if (room.phase !== 'game' || !game || game.ended || !game.turnDeadline || now < game.turnDeadline || !room.players.length) return false;
@@ -179,6 +219,17 @@ function handleMessage(socket, rawMessage) {
     if (room.phase !== 'lobby') return reject(socket, 'Players cannot leave during an active adventure.');
     if (!ownSession(socket, message.sessionId)) return reject(socket, 'You can only remove your own player.');
     room.players = room.players.filter((current) => current.id !== message.sessionId);
+    broadcast();
+    return;
+  }
+
+  if (message.type === 'remove-player') {
+    if (!ownSession(socket, message.sessionId)) return reject(socket, 'Only a joined player can remove another player.');
+    const requester = room.players.find((player) => player.id === message.sessionId);
+    if (!requester) return reject(socket, 'Join the room before removing a player.');
+    if (message.targetSessionId === message.sessionId) return reject(socket, 'Use Leave to remove your own player.');
+    const removed = removePlayerFromRoom(String(message.targetSessionId || ''), requester.displayName);
+    if (!removed) return reject(socket, 'That player is no longer in the room.');
     broadcast();
     return;
   }

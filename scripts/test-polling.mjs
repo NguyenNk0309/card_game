@@ -4,6 +4,7 @@ const roomUrl = process.env.ROOM_HTTP_URL || "http://127.0.0.1:3105/api/room";
 const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 const firstId = `poll-first-${runId}`;
 const secondId = `poll-second-${runId}`;
+const thirdId = `poll-third-${runId}`;
 
 function player(id, displayName, team) {
   return {
@@ -40,9 +41,16 @@ try {
   assert(joined.players.some((item) => item.id === firstId));
   assert(joined.players.some((item) => item.id === secondId));
 
+  const removedFromLobby = await command(firstId, { type: "remove-player", targetSessionId: secondId });
+  assert(!removedFromLobby.players.some((item) => item.id === secondId));
+  await command(secondId, { type: "join", player: player(secondId, `Second ${runId}`, "ember") });
+  await command(thirdId, { type: "join", player: player(thirdId, `Third ${runId}`, "veil") });
+
   await command(firstId, { type: "ready", ready: true });
-  const ready = await command(secondId, { type: "ready", ready: true });
-  assert(ready.players.filter((item) => item.id === firstId || item.id === secondId).every((item) => item.ready));
+  await command(secondId, { type: "ready", ready: true });
+  const ready = await command(thirdId, { type: "ready", ready: true });
+  assert.equal(ready.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).length, 3);
+  assert(ready.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).every((item) => item.ready));
 
   const game = {
     adventure: { seed: "POLL", realm: {}, chapter: 1, maxChapters: 18, story: "Test", event: "Test", target: 12, worldDoom: 0, veilInfluence: 0, emberInfluence: 0 },
@@ -52,7 +60,8 @@ try {
     outcome: null,
     playerStates: {
       [firstId]: { sessionId: firstId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${firstId}`], drawPile: [], discardPile: [] },
-      [secondId]: { sessionId: secondId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${secondId}`], drawPile: [], discardPile: [] }
+      [secondId]: { sessionId: secondId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${secondId}`], drawPile: [], discardPile: [] },
+      [thirdId]: { sessionId: thirdId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${thirdId}`], drawPile: [], discardPile: [] }
     },
     turnStartedAt: Date.now(),
     turnDeadline: Date.now() + 300,
@@ -68,13 +77,19 @@ try {
   assert.equal(timedOut.game.completedTurns, 1);
   assert.equal(timedOut.game.activePlayerIndex, 1);
 
+  const removedDuringGame = await command(firstId, { type: "remove-player", targetSessionId: thirdId });
+  assert(!removedDuringGame.players.some((item) => item.id === thirdId));
+  assert.equal(removedDuringGame.game.ended, false);
+  assert.equal(removedDuringGame.game.playerStates[thirdId], undefined);
+
   const ended = await command(secondId, { type: "end-game" });
   assert.equal(ended.game.ended, true);
   const left = await command(secondId, { type: "leave-game" });
   assert(!left.players.some((item) => item.id === secondId));
-  console.log("Polling test passed: shared lobby, timed auto-pass, end game, and leave game.");
+  console.log("Polling test passed: shared lobby, player removal, timed auto-pass, end game, and leave game.");
 } finally {
   await command(firstId, { type: "return:lobby" }).catch(() => {});
   await command(firstId, { type: "leave" }).catch(() => {});
   await command(secondId, { type: "leave" }).catch(() => {});
+  await command(thirdId, { type: "leave" }).catch(() => {});
 }

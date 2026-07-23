@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Crown, Heart, Shield, Swords } from "lucide-react";
+import { Check, Crown, Heart, Shield, Swords, UserMinus } from "lucide-react";
 import type { PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
 
 const teamMeta: Record<TeamId, { name: string; icon: typeof Shield }> = {
@@ -11,11 +11,15 @@ const teamMeta: Record<TeamId, { name: string; icon: typeof Shield }> = {
 export function PartyRail({
   players,
   activePlayerId,
-  game
+  game,
+  localSessionId,
+  onRemovePlayer
 }: {
   players: PlayerSession[];
   activePlayerId: string;
   game?: SyncedGameState | null;
+  localSessionId?: string;
+  onRemovePlayer?: (id: string) => void;
 }) {
   return (
     <aside className="party-rail">
@@ -43,7 +47,7 @@ export function PartyRail({
               const maxHp = runState?.maxHp ?? hero.maxHp;
               const active = player.id === activePlayerId;
               return (
-                <article className={`hero-row ${active ? "is-active" : ""}`} key={player.id}>
+                <article className={`hero-row ${active ? "is-active" : ""} ${player.id === localSessionId ? "is-you" : ""}`} key={player.id}>
                   <div className="portrait" style={{ "--hero-color": hero.color } as React.CSSProperties}>
                     {hero.initials}
                     {index === 0 && <Crown size={11} className="leader-mark" />}
@@ -51,7 +55,14 @@ export function PartyRail({
                   <div className="hero-copy">
                     <div className="hero-name">
                       <strong>{player.displayName}</strong>
-                      {active && <em>TURN</em>}
+                      <span className="hero-name-actions">
+                        {active && <em>TURN</em>}
+                        {localSessionId && player.id !== localSessionId && onRemovePlayer && (
+                          <button className="rail-remove-player" onClick={() => onRemovePlayer(player.id)} aria-label={`Remove ${player.displayName}`} title={`Remove ${player.displayName} from the game`}>
+                            <UserMinus size={12} />
+                          </button>
+                        )}
+                      </span>
                     </div>
                     <span>{hero.name} · {hero.role}</span>
                     <div className="hp-line">

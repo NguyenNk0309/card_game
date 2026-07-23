@@ -205,6 +205,13 @@ export default function GameApp() {
 
   const endGame = () => send({ type: "end-game", sessionId });
   const leaveGame = () => send({ type: "leave-game", sessionId });
+  const removePlayer = (targetSessionId: string) => {
+    const target = players.find((player) => player.id === targetSessionId);
+    if (!localPlayer || !target || targetSessionId === sessionId) return;
+    if (!window.confirm(`Remove ${target.displayName} from the ${phase === "game" ? "game" : "lobby"}?`)) return;
+    send({ type: "remove-player", sessionId, targetSessionId });
+    setSelectedPlayerId((current) => current === targetSessionId ? null : current);
+  };
 
   return (
     <main className={`game-shell ${adventure.realm.sceneClass}`}>
@@ -254,6 +261,7 @@ export default function GameApp() {
           onSelectPlayer={setSelectedPlayerId}
           onToggleReady={toggleReady}
           onLeave={leaveLobby}
+          onRemovePlayer={removePlayer}
           onEnterGame={enterGame}
           onHeroSelect={(heroName) => { setSelectedHeroName(heroName); setLobbyError(""); }}
         />
@@ -261,9 +269,9 @@ export default function GameApp() {
         <div className="game-layout">
           <div className={mobileParty ? "mobile-rail open" : "mobile-rail"}>
             <button className="mobile-close icon-button" onClick={() => setMobileParty(false)} aria-label="Close party"><X size={17} /></button>
-            <PartyRail players={players} activePlayerId={activePlayer?.id ?? ""} game={game} />
+            <PartyRail players={players} activePlayerId={activePlayer?.id ?? ""} game={game} localSessionId={localPlayer ? sessionId : ""} onRemovePlayer={removePlayer} />
           </div>
-          <PartyRail players={players} activePlayerId={activePlayer?.id ?? ""} game={game} />
+          <PartyRail players={players} activePlayerId={activePlayer?.id ?? ""} game={game} localSessionId={localPlayer ? sessionId : ""} onRemovePlayer={removePlayer} />
 
           <section className="world-stage">
             <div className="realm-meta">

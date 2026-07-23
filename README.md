@@ -32,7 +32,7 @@ Open `http://localhost:3000`.
 5. On each 30-second turn, the active player chooses one of five cards in hand, selects a valid target, and rolls.
 6. Cards can heal allies, damage rivals, grant shields, support the realm, or resolve story checks.
 7. Played cards enter the graveyard. When the draw pile empties, the graveyard is shuffled into a new draw pile.
-8. An expired turn passes automatically and raises World Doom. Players may leave an active run, and any joined player may end it.
+8. An expired turn passes automatically and raises World Doom. Players may leave, end the run, or remove another player after confirmation.
 9. Both factions gain influence while failure raises shared World Doom; the realm must survive before either team can win.
 
 The shared room is authoritative and in-memory: separate browser sessions see

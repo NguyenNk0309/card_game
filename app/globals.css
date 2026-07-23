@@ -383,6 +383,30 @@ button:focus-visible {
   gap: 5px;
 }
 
+.hero-name-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.rail-remove-player {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: #d88d83;
+  background: rgba(158, 65, 58, 0.12);
+  border: 1px solid rgba(204, 129, 120, 0.34);
+  cursor: pointer;
+}
+
+.rail-remove-player:hover {
+  color: #ffe0dc;
+  border-color: #cc8178;
+  background: rgba(158, 65, 58, 0.28);
+}
+
 .hero-name strong {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1838,6 +1862,17 @@ button:focus-visible {
   padding: 0;
   width: 32px;
   color: #cc8178;
+}
+
+.joined-actions .remove-player-button {
+  color: #d88d83;
+  border-color: rgba(204, 129, 120, 0.38);
+}
+
+.joined-actions .remove-player-button:hover {
+  color: #ffe0dc;
+  background: rgba(158, 65, 58, 0.2);
+  border-color: #cc8178;
 }
 
 .ready-gate {

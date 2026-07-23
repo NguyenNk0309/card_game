@@ -75,11 +75,13 @@ function connect(sessionId) {
 
 const firstId = `browser-first-${runId}`;
 const secondId = `browser-second-${runId}`;
+const thirdId = `browser-third-${runId}`;
 const first = connect(firstId);
 const second = connect(secondId);
+const third = connect(thirdId);
 
 try {
-  await Promise.all([first.opened, second.opened]);
+  await Promise.all([first.opened, second.opened, third.opened]);
   first.send({ type: "join", player: player(firstId, `First ${runId}`, "veil") });
   await first.waitFor((state) => state.players.some((item) => item.id === firstId));
 
@@ -90,11 +92,22 @@ try {
   ]);
   assert.equal(firstView.players.length, secondView.players.length);
 
+  first.send({ type: "remove-player", sessionId: firstId, targetSessionId: secondId });
+  await Promise.all([
+    first.waitFor((state) => !state.players.some((item) => item.id === secondId)),
+    second.waitFor((state) => !state.players.some((item) => item.id === secondId))
+  ]);
+  second.send({ type: "join", player: player(secondId, `Second ${runId}`, "ember") });
+  await first.waitFor((state) => state.players.some((item) => item.id === secondId));
+  third.send({ type: "join", player: player(thirdId, `Third ${runId}`, "veil") });
+  await first.waitFor((state) => state.players.some((item) => item.id === thirdId));
+
   first.send({ type: "ready", sessionId: firstId, ready: true });
   second.send({ type: "ready", sessionId: secondId, ready: true });
+  third.send({ type: "ready", sessionId: thirdId, ready: true });
   await Promise.all([
-    first.waitFor((state) => state.players.filter((item) => item.id === firstId || item.id === secondId).every((item) => item.ready)),
-    second.waitFor((state) => state.players.filter((item) => item.id === firstId || item.id === secondId).every((item) => item.ready))
+    first.waitFor((state) => state.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).length === 3 && state.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).every((item) => item.ready)),
+    second.waitFor((state) => state.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).length === 3 && state.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).every((item) => item.ready))
   ]);
 
   const game = {
@@ -105,7 +118,8 @@ try {
     outcome: null,
     playerStates: {
       [firstId]: { sessionId: firstId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${firstId}`], drawPile: [], discardPile: [] },
-      [secondId]: { sessionId: secondId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${secondId}`], drawPile: [], discardPile: [] }
+      [secondId]: { sessionId: secondId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${secondId}`], drawPile: [], discardPile: [] },
+      [thirdId]: { sessionId: thirdId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${thirdId}`], drawPile: [], discardPile: [] }
     },
     turnStartedAt: Date.now(),
     turnDeadline: Date.now() + 400,
@@ -124,17 +138,24 @@ try {
   assert.equal(timedOut.game.activePlayerIndex, 1);
   assert.match(timedOut.game.outcome.label, /ran out of time/);
 
+  first.send({ type: "remove-player", sessionId: firstId, targetSessionId: thirdId });
+  const removedDuringGame = await first.waitFor((state) => !state.players.some((item) => item.id === thirdId));
+  assert.equal(removedDuringGame.game.ended, false);
+  assert.equal(removedDuringGame.game.playerStates[thirdId], undefined);
+
   second.send({ type: "end-game", sessionId: secondId });
   await first.waitFor((state) => state.game?.ended === true);
   second.send({ type: "leave-game", sessionId: secondId });
   await first.waitFor((state) => !state.players.some((item) => item.id === secondId));
 
-  console.log("Realtime test passed: shared lobby, timed auto-pass, end game, and leave game.");
+  console.log("Realtime test passed: shared lobby, player removal, timed auto-pass, end game, and leave game.");
 } finally {
   first.send({ type: "return:lobby" });
   await first.waitFor((state) => state.phase === "lobby").catch(() => {});
   first.send({ type: "leave", sessionId: firstId });
   second.send({ type: "leave", sessionId: secondId });
+  third.send({ type: "leave", sessionId: thirdId });
   first.socket.close();
   second.socket.close();
+  third.socket.close();
 }
