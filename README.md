@@ -43,3 +43,25 @@ defines the durable room/player model for a future persistent adapter.
 To exercise the multi-client protocol while the development server is running,
 point `ROOM_URL` or `ROOM_HTTP_URL` at its port and run `npm run test:realtime`
 or `npm run test:polling` in another terminal.
+
+## Free internet deployment
+
+The complete UI and shared realtime backend can deploy as one Cloudflare Worker.
+Cloudflare's free plan is suitable for this hobby game. The first anonymous
+preview deployment can be created with:
+
+```bash
+npm run redeploy:temporary
+```
+
+Wrangler prints the playable URL and a claim link. Claim it within 60 minutes.
+After claiming the Worker or signing in once with `npx wrangler login`, redeploy
+every future code change with the single command:
+
+```bash
+npm run redeploy
+```
+
+Both commands run TypeScript validation, create the production build, start that
+build locally, and exercise the WebSocket and HTTP multiplayer protocols before
+uploading anything.

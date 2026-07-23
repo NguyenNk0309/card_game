@@ -2,6 +2,7 @@
 
 import {
   Check,
+  Crown,
   DoorOpen,
   Eye,
   Flame,
@@ -203,11 +204,12 @@ export function Lobby({
 
               <div className="lobby-skill-deck">
                 {shownDeck.map((card) => (
-                  <article className="skill-card" key={card.id}>
+                  <article className={`skill-card ${card.unique ? "hero-unique-card" : "common-skill-card"}`} key={card.id} style={{ "--hero-color": shownHero.color } as React.CSSProperties}>
+                    {card.unique && <div className="unique-card-banner"><Crown size={13} /> {shownHero.name} special</div>}
                     <div className={`card-sigil ${card.type.toLowerCase()}`}>
                       {card.type === "Might" ? <Swords size={18} /> : card.type === "Wit" ? <Eye size={18} /> : <Sparkles size={18} />}
                     </div>
-                    <span>{card.unique ? "Unique" : "Common"} · {card.type} · +{card.bonus}</span>
+                    <span className="skill-kind">{card.unique ? "Character skill" : "Common card"} · {card.type} · +{card.bonus}</span>
                     <strong>{card.name}</strong>
                     <p>{card.description}</p>
                     <small>{card.effect} · {card.target} · Risk {card.risk || "none"}</small>

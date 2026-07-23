@@ -313,11 +313,12 @@ export default function GameApp() {
               {activeCard && !["none", "self"].includes(activeCard.target) && <label className="target-picker"><Target size={16} /><span>Choose {activeCard.target} target</span><select value={targetPlayerId} onChange={(event) => setTargetPlayerId(event.target.value)} disabled={activePlayer?.id !== sessionId}>{targetOptions.map((player) => <option value={player.id} key={player.id}>{player.displayName} · {player.hero.name} · {game?.playerStates[player.id]?.hp ?? player.hero.hp} HP</option>)}</select></label>}
               <div className="action-hand five-cards">
                 {activeHand.map((card) => (
-                  <button className={`action-card ${selectedCard === card.id ? "selected" : ""}`} key={card.id} onClick={() => setSelectedCard(card.id)} disabled={activePlayer?.id !== sessionId || runComplete}>
+                  <button className={`action-card ${card.unique ? "hero-special-card" : "common-action-card"} ${selectedCard === card.id ? "selected" : ""}`} style={{ "--hero-color": activePlayer?.hero.color } as React.CSSProperties} key={card.id} onClick={() => setSelectedCard(card.id)} disabled={activePlayer?.id !== sessionId || runComplete}>
+                    {card.unique && <span className="special-skill-banner"><Crown size={12} /> {activePlayer?.hero.name} special</span>}
                     <div className={`card-sigil ${card.type.toLowerCase()}`}>
                       {card.type === "Might" ? <Swords size={18} /> : card.type === "Wit" ? <Eye size={18} /> : <Sparkles size={18} />}
                     </div>
-                    <span>{card.unique ? "Unique" : "Common"} · {card.type} · +{card.bonus}</span><strong>{card.name}</strong><p>{card.description}</p><small>{card.effect} {card.value || ""} · {card.target} · Risk {card.risk || "none"}</small>
+                    <span>{card.unique ? "Character skill" : "Common card"} · {card.type} · +{card.bonus}</span><strong>{card.name}</strong><p>{card.description}</p><small>{card.effect} {card.value || ""} · {card.target} · Risk {card.risk || "none"}</small>
                   </button>
                 ))}
               </div>

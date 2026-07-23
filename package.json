@@ -8,7 +8,10 @@
     "test:polling": "node scripts/test-polling.mjs",
     "build": "next build && node scripts/prepare-sites.mjs",
     "start": "node backend/server.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run typecheck && npm run build && node scripts/verify-all.mjs",
+    "redeploy": "npm run verify && wrangler deploy",
+    "redeploy:temporary": "npm run verify && wrangler deploy --temporary"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
@@ -21,6 +24,7 @@
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.3",
     "@types/react-dom": "^19.0.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "wrangler": "^4.113.0"
   }
 }

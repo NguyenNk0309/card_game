@@ -35,6 +35,16 @@ async function readRoom() {
   return result.state;
 }
 
+async function waitForRoom(predicate, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const state = await readRoom();
+    if (predicate(state)) return state;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error("Timed out waiting for the shared polling room state.");
+}
+
 try {
   await command(firstId, { type: "join", player: player(firstId, `First ${runId}`, "veil") });
   const joined = await command(secondId, { type: "join", player: player(secondId, `Second ${runId}`, "ember") });
@@ -72,8 +82,7 @@ try {
   };
   const started = await command(secondId, { type: "start", game });
   assert.equal(started.phase, "game");
-  await new Promise((resolve) => setTimeout(resolve, 650));
-  const timedOut = await readRoom();
+  const timedOut = await waitForRoom((state) => state.game?.completedTurns === 1);
   assert.equal(timedOut.game.completedTurns, 1);
   assert.equal(timedOut.game.activePlayerIndex, 1);
 
