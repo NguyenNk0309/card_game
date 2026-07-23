@@ -1,7 +1,13 @@
-import { cpSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 
 mkdirSync('dist/server', { recursive: true });
 mkdirSync('dist/.openai', { recursive: true });
+mkdirSync('dist/assets', { recursive: true });
+
+for (const entry of readdirSync('dist')) {
+  if (entry === 'assets' || entry === 'server' || entry === '.openai') continue;
+  cpSync(`dist/${entry}`, `dist/assets/${entry}`, { recursive: true });
+}
 
 writeFileSync(
   'dist/server/index.js',
@@ -24,4 +30,4 @@ writeFileSync(
 );
 
 cpSync('.openai/hosting.json', 'dist/.openai/hosting.json');
-console.log('Prepared Sites artifact: dist/server/index.js');
+console.log('Prepared Sites artifact: Worker entrypoint and static assets');
