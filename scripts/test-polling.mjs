@@ -12,7 +12,7 @@ function player(id, displayName, team) {
     ready: false,
     joinedAt: Date.now(),
     hero: { id: `hero-${id}`, name: `${displayName} Hero`, title: "Test Oath", role: "Scout", skill: "Test Skill", skillText: "Test", hp: 8, maxHp: 8, team, color: "#a78bfa", initials: displayName.slice(0, 2).toUpperCase() },
-    skillDeck: [{ id: `card-${id}`, name: "Test Skill", type: "Wit", description: "Test", bonus: 4, risk: 1 }]
+    skillDeck: [{ id: `card-${id}`, name: "Test Skill", type: "Wit", description: "Test", bonus: 4, risk: 1, effect: "check", target: "none", value: 0, unique: true }]
   };
 }
 
@@ -22,6 +22,13 @@ async function command(sessionId, message) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...message, sessionId })
   });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || `Room request failed with ${response.status}.`);
+  return result.state;
+}
+
+async function readRoom() {
+  const response = await fetch(roomUrl, { cache: "no-store" });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || `Room request failed with ${response.status}.`);
   return result.state;
@@ -42,11 +49,30 @@ try {
     activePlayerIndex: 0,
     completedTurns: 0,
     roll: null,
-    outcome: null
+    outcome: null,
+    playerStates: {
+      [firstId]: { sessionId: firstId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${firstId}`], drawPile: [], discardPile: [] },
+      [secondId]: { sessionId: secondId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${secondId}`], drawPile: [], discardPile: [] }
+    },
+    turnStartedAt: Date.now(),
+    turnDeadline: Date.now() + 300,
+    turnSeconds: 1,
+    maxTurns: 36,
+    ended: false,
+    endReason: null
   };
   const started = await command(secondId, { type: "start", game });
   assert.equal(started.phase, "game");
-  console.log("Polling test passed: separate sessions shared players, readiness, and game start.");
+  await new Promise((resolve) => setTimeout(resolve, 650));
+  const timedOut = await readRoom();
+  assert.equal(timedOut.game.completedTurns, 1);
+  assert.equal(timedOut.game.activePlayerIndex, 1);
+
+  const ended = await command(secondId, { type: "end-game" });
+  assert.equal(ended.game.ended, true);
+  const left = await command(secondId, { type: "leave-game" });
+  assert(!left.players.some((item) => item.id === secondId));
+  console.log("Polling test passed: shared lobby, timed auto-pass, end game, and leave game.");
 } finally {
   await command(firstId, { type: "return:lobby" }).catch(() => {});
   await command(firstId, { type: "leave" }).catch(() => {});

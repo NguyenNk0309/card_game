@@ -1,7 +1,7 @@
 const emptyRoom = () => ({ players: [], phase: 'lobby', game: null, revision: 0 });
 let room = emptyRoom();
 const peers = new Map();
-const roomCacheKey = new Request('https://shattered-oath-room.internal/shared-state-v2');
+const roomCacheKey = new Request('https://shattered-oath-room.internal/shared-state-v3');
 
 function publicState() {
   return { players: room.players, phase: room.phase, game: room.game, revision: room.revision };
@@ -45,6 +45,26 @@ async function commitRoom() {
   broadcast();
 }
 
+async function advanceTimedOutTurn(now = Date.now()) {
+  const game = room.game;
+  if (room.phase !== 'game' || !game || game.ended || !game.turnDeadline || now < game.turnDeadline || !room.players.length) return false;
+  const expiredPlayer = room.players[game.activePlayerIndex];
+  const completedTurns = game.completedTurns + 1;
+  const completesChapter = completedTurns % room.players.length === 0;
+  const ended = completedTurns >= game.maxTurns || game.adventure.worldDoom + 3 >= 100;
+  game.completedTurns = completedTurns;
+  game.adventure = { ...game.adventure, chapter: completesChapter ? Math.min(game.adventure.maxChapters, game.adventure.chapter + 1) : game.adventure.chapter, worldDoom: Math.min(100, game.adventure.worldDoom + 3) };
+  game.outcome = { success: false, total: 0, target: game.adventure.target, label: `${expiredPlayer?.displayName || 'A player'} ran out of time`, detail: 'The turn was passed and World Doom rose by 3.' };
+  game.roll = null;
+  game.ended = ended;
+  game.endReason = ended ? (game.adventure.worldDoom >= 100 ? 'World Doom consumed the realm.' : 'The final turn has passed.') : null;
+  if (!ended) game.activePlayerIndex = (game.activePlayerIndex + 1) % room.players.length;
+  game.turnStartedAt = now;
+  game.turnDeadline = ended ? 0 : now + (game.turnSeconds || 30) * 1000;
+  await commitRoom();
+  return true;
+}
+
 async function applyCommand(ownerId, message) {
   if (message.type === 'join') {
     const player = message.player;
@@ -54,6 +74,7 @@ async function applyCommand(ownerId, message) {
     if (room.players.some((current) => current.id === player.id)) return null;
     if (room.players.length >= 10) return 'This lobby already has 10 players.';
     if (room.players.some((current) => current.displayName.toLowerCase() === player.displayName.toLowerCase())) return 'That player name is already joined.';
+    if (room.players.some((current) => current.hero.name === player.hero.name)) return 'That character has already been chosen.';
     const veilCount = room.players.filter((current) => current.hero.team === 'veil').length;
     player.hero.team = veilCount <= room.players.length - veilCount ? 'veil' : 'ember';
     room.players.push({ ...player, ready: false });
@@ -91,11 +112,50 @@ async function applyCommand(ownerId, message) {
   }
 
   if (message.type === 'game:update') {
+    await advanceTimedOutTurn();
     if (room.phase !== 'game' || !room.game) return 'There is no active adventure.';
     const activePlayer = room.players[room.game.activePlayerIndex];
     if (!activePlayer || ownerId !== activePlayer.id) return 'Only the current player can resolve this turn.';
     if (!message.game?.adventure) return 'The turn update is incomplete.';
     room.game = message.game;
+    await commitRoom();
+    return null;
+  }
+
+  if (message.type === 'end-game') {
+    if (room.phase !== 'game' || !room.game) return 'There is no active adventure.';
+    if (!ownerId || ownerId !== message.sessionId || !room.players.some((player) => player.id === ownerId)) return 'Only a joined player can end the game.';
+    const player = room.players.find((current) => current.id === ownerId);
+    room.game.ended = true;
+    room.game.endReason = `The adventure was ended by ${player?.displayName || 'a player'}.`;
+    room.game.turnDeadline = 0;
+    await commitRoom();
+    return null;
+  }
+
+  if (message.type === 'leave-game') {
+    if (room.phase !== 'game' || !room.game) return 'There is no active adventure.';
+    if (!ownerId || ownerId !== message.sessionId) return 'You can only remove your own player.';
+    const leavingIndex = room.players.findIndex((player) => player.id === ownerId);
+    if (leavingIndex < 0) return 'That player is not in the adventure.';
+    const wasActive = leavingIndex === room.game.activePlayerIndex;
+    room.players.splice(leavingIndex, 1);
+    delete room.game.playerStates[ownerId];
+    if (!room.players.length) {
+      room.phase = 'lobby';
+      room.game = null;
+    } else {
+      if (leavingIndex < room.game.activePlayerIndex) room.game.activePlayerIndex -= 1;
+      else if (wasActive) room.game.activePlayerIndex = Math.min(leavingIndex, room.players.length - 1);
+      const now = Date.now();
+      room.game.turnStartedAt = now;
+      room.game.turnDeadline = room.game.ended ? 0 : now + (room.game.turnSeconds || 30) * 1000;
+      if (room.players.length < 2) {
+        room.game.ended = true;
+        room.game.endReason = 'The adventure ended because fewer than two players remain.';
+        room.game.turnDeadline = 0;
+      }
+    }
     await commitRoom();
     return null;
   }
@@ -125,6 +185,7 @@ async function handleSocketMessage(socket, text) {
     return;
   }
   await hydrateRoom();
+  await advanceTimedOutTurn();
   const error = await applyCommand(peers.get(socket), message);
   if (error) send(socket, { type: 'error', message: error });
   else send(socket, { type: 'state', state: publicState() });
@@ -149,6 +210,7 @@ function json(payload, status = 200) {
 
 async function handleRoomApi(request) {
   await hydrateRoom();
+  await advanceTimedOutTurn();
   if (request.method === 'GET') return json({ state: publicState() });
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
 

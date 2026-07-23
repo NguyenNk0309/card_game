@@ -12,7 +12,7 @@ import {
   UserPlus,
   Users
 } from "lucide-react";
-import type { PlayerSession } from "@/shared/types";
+import type { CharacterOption, PlayerSession } from "@/shared/types";
 
 type LobbyProps = {
   players: PlayerSession[];
@@ -21,12 +21,15 @@ type LobbyProps = {
   selectedPlayerId: string | null;
   localSessionId: string;
   connectionStatus: string;
+  characterOptions: CharacterOption[];
+  selectedHeroName: string;
   onNameChange: (name: string) => void;
   onJoin: () => void;
   onSelectPlayer: (id: string) => void;
   onToggleReady: (id: string) => void;
   onLeave: (id: string) => void;
   onEnterGame: () => void;
+  onHeroSelect: (heroName: string) => void;
 };
 
 export function Lobby({
@@ -36,24 +39,31 @@ export function Lobby({
   selectedPlayerId,
   localSessionId,
   connectionStatus,
+  characterOptions,
+  selectedHeroName,
   onNameChange,
   onJoin,
   onSelectPlayer,
   onToggleReady,
   onLeave,
-  onEnterGame
+  onEnterGame,
+  onHeroSelect
 }: LobbyProps) {
-  const selected = players.find((player) => player.id === selectedPlayerId) ?? players[0];
+  const localPlayer = players.find((player) => player.id === localSessionId);
+  const selected = localPlayer ? players.find((player) => player.id === selectedPlayerId) ?? localPlayer : undefined;
+  const selectedOption = characterOptions.find((option) => option.hero.name === selectedHeroName) ?? characterOptions[0];
+  const shownHero = selected?.hero ?? selectedOption?.hero;
+  const shownDeck = selected?.skillDeck ?? selectedOption?.skillDeck ?? [];
   const readyCount = players.filter((player) => player.ready).length;
   const allReady = players.length >= 2 && readyCount === players.length;
-  const localPlayer = players.find((player) => player.id === localSessionId);
+  const takenHeroes = new Set(players.map((player) => player.hero.name));
 
   return (
     <section className="lobby-stage">
       <div className="lobby-intro">
         <span className="eyebrow">THE OATHBOUND ASSEMBLE</span>
         <h1>Join the company.</h1>
-        <p>Every name creates one player session, a random hero, and a personal deck of three unique skill cards.</p>
+        <p>Choose your hero, review a personal 15-card deck, then join the shared company.</p>
       </div>
 
       <div className="lobby-grid">
@@ -86,7 +96,7 @@ export function Lobby({
                 maxLength={24}
                 autoComplete="off"
               />
-              <button className="join-button" type="submit">
+              <button className="join-button" type="submit" disabled={!shownHero || takenHeroes.has(shownHero.name)}>
                 <UserPlus size={18} /> {players.length >= 10 ? "Lobby full" : "Join"}
               </button>
             </div>
@@ -148,27 +158,35 @@ export function Lobby({
         </section>
 
         <aside className="character-panel">
-          {selected ? (
+          {shownHero ? (
             <>
+              {!localPlayer && (
+                <div className="hero-picker">
+                  <div className="deck-heading"><div><span className="eyebrow">CHOOSE YOUR CHARACTER</span><strong>Each hero may be claimed once</strong></div><Users size={18} /></div>
+                  <div className="hero-picker-grid">
+                    {characterOptions.map((option) => {
+                      const taken = takenHeroes.has(option.hero.name);
+                      return <button key={option.hero.name} className={selectedHeroName === option.hero.name ? "selected" : ""} disabled={taken} onClick={() => onHeroSelect(option.hero.name)}><span style={{ "--hero-color": option.hero.color } as React.CSSProperties}>{option.hero.initials}</span><strong>{option.hero.name}</strong><small>{taken ? "Chosen" : option.hero.role}</small></button>;
+                    })}
+                  </div>
+                </div>
+              )}
               <div className="character-banner">
-                <div className="large-portrait" style={{ "--hero-color": selected.hero.color } as React.CSSProperties}>
-                  {selected.hero.initials}
+                <div className="large-portrait" style={{ "--hero-color": shownHero.color } as React.CSSProperties}>
+                  {shownHero.initials}
                 </div>
                 <div>
-                  <span className="eyebrow">{selected.displayName}&apos;S CHARACTER</span>
-                  <h2>{selected.hero.name}</h2>
-                  <p>{selected.hero.title} · {selected.hero.role}</p>
+                  <span className="eyebrow">{selected ? `${selected.displayName}'S CHARACTER` : "YOUR CHARACTER PICK"}</span>
+                  <h2>{shownHero.name}</h2>
+                  <p>{shownHero.title} · {shownHero.role}</p>
                 </div>
-                <div className={`team-chip ${selected.hero.team}`}>
-                  {selected.hero.team === "veil" ? <Eye size={15} /> : <Flame size={15} />}
-                  {selected.hero.team === "veil" ? "Veilbound" : "Embercourt"}
-                </div>
+                {selected ? <div className={`team-chip ${shownHero.team}`}>{shownHero.team === "veil" ? <Eye size={15} /> : <Flame size={15} />}{shownHero.team === "veil" ? "Veilbound" : "Embercourt"}</div> : <span className="team-pending">Team assigned on join</span>}
               </div>
 
               <div className="character-stats">
-                <span><strong>{selected.hero.hp}</strong> Health</span>
-                <span><strong>3</strong> Skill cards</span>
-                <span><strong>{selected.hero.skill}</strong> Signature</span>
+                <span><strong>{shownHero.hp}</strong> Health</span>
+                <span><strong>15</strong> Cards · 5 unique</span>
+                <span><strong>{shownHero.skill}</strong> Signature</span>
               </div>
 
               <div className="deck-heading">
@@ -177,15 +195,15 @@ export function Lobby({
               </div>
 
               <div className="lobby-skill-deck">
-                {selected.skillDeck.map((card) => (
+                {shownDeck.map((card) => (
                   <article className="skill-card" key={card.id}>
                     <div className={`card-sigil ${card.type.toLowerCase()}`}>
                       {card.type === "Might" ? <Swords size={18} /> : card.type === "Wit" ? <Eye size={18} /> : <Sparkles size={18} />}
                     </div>
-                    <span>{card.type} · +{card.bonus}</span>
+                    <span>{card.unique ? "Unique" : "Common"} · {card.type} · +{card.bonus}</span>
                     <strong>{card.name}</strong>
                     <p>{card.description}</p>
-                    <small>Risk {card.risk || "none"}</small>
+                    <small>{card.effect} · {card.target} · Risk {card.risk || "none"}</small>
                   </article>
                 ))}
               </div>
@@ -194,7 +212,7 @@ export function Lobby({
             <div className="no-character">
               <Sparkles size={28} />
               <h2>Your hero is waiting</h2>
-              <p>Join the lobby to receive a random character and skill-card deck.</p>
+              <p>Choose a character to inspect their unique skill cards.</p>
             </div>
           )}
         </aside>

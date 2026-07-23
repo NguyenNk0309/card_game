@@ -14,11 +14,16 @@ export const HERO_TEMPLATES: Omit<Hero, "id" | "team" | "isYou">[] = [
 ];
 
 export const ACTION_CARDS: ActionCard[] = [
-  { id: "stand", name: "Stand as One", type: "Spirit", description: "Link your oaths. Safer for the realm; both teams benefit.", bonus: 3, risk: 0 },
-  { id: "flank", name: "Through the Ruin", type: "Wit", description: "Split the party and strike from the forgotten passage.", bonus: 5, risk: 3 },
-  { id: "bargain", name: "A Dangerous Bargain", type: "Spirit", description: "Offer the warden a secret. High influence, uncertain cost.", bonus: 6, risk: 5 },
-  { id: "force", name: "Break Their Line", type: "Might", description: "Meet steel with steel before the storm closes in.", bonus: 4, risk: 4 },
-  { id: "scout", name: "Read the Ash", type: "Wit", description: "Search for signs and lower the next chapter's target.", bonus: 2, risk: 1 }
+  { id: "stand", name: "Stand as One", type: "Spirit", description: "Steady the company and reduce World Doom by 3 on success.", bonus: 3, risk: 0, effect: "support", target: "none", value: 3, unique: false },
+  { id: "flank", name: "Through the Ruin", type: "Wit", description: "Exploit a forgotten passage and wound a rival for 2.", bonus: 5, risk: 3, effect: "damage", target: "enemy", value: 2, unique: false },
+  { id: "bargain", name: "A Dangerous Bargain", type: "Spirit", description: "Risk a secret for a powerful world check and influence.", bonus: 6, risk: 5, effect: "check", target: "none", value: 0, unique: false },
+  { id: "force", name: "Break Their Line", type: "Might", description: "Drive an opposing hero back and deal 3 damage.", bonus: 4, risk: 4, effect: "damage", target: "enemy", value: 3, unique: false },
+  { id: "scout", name: "Read the Ash", type: "Wit", description: "Read the danger and press the shared objective safely.", bonus: 2, risk: 1, effect: "check", target: "none", value: 0, unique: false },
+  { id: "mend", name: "Field Dressing", type: "Spirit", description: "Restore 3 health to yourself or an ally.", bonus: 3, risk: 0, effect: "heal", target: "ally", value: 3, unique: false },
+  { id: "guard", name: "Raise the Guard", type: "Might", description: "Give yourself 3 shield against the next attack.", bonus: 3, risk: 1, effect: "guard", target: "self", value: 3, unique: false },
+  { id: "rally", name: "Rally the Fallen", type: "Spirit", description: "Restore 2 health and grant 1 shield to an ally.", bonus: 4, risk: 1, effect: "heal", target: "ally", value: 2, unique: false },
+  { id: "feint", name: "False Opening", type: "Wit", description: "Bait a rival into danger and deal 2 damage through shields.", bonus: 5, risk: 2, effect: "damage", target: "enemy", value: 2, unique: false },
+  { id: "ward", name: "Shared Ward", type: "Spirit", description: "Give any hero 2 shield and calm the realm by 1 Doom.", bonus: 3, risk: 0, effect: "guard", target: "any", value: 2, unique: false }
 ];
 
 export const REALMS: Realm[] = [

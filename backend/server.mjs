@@ -99,6 +99,30 @@ function ownSession(socket, requestedId) {
   return Boolean(sessionId && sessionId === requestedId);
 }
 
+function advanceTimedOutTurn(now = Date.now()) {
+  const game = room.game;
+  if (room.phase !== 'game' || !game || game.ended || !game.turnDeadline || now < game.turnDeadline || !room.players.length) return false;
+  const expiredPlayer = room.players[game.activePlayerIndex];
+  const completedTurns = game.completedTurns + 1;
+  const completesChapter = completedTurns % room.players.length === 0;
+  const ended = completedTurns >= game.maxTurns || game.adventure.worldDoom + 3 >= 100;
+  game.completedTurns = completedTurns;
+  game.adventure = {
+    ...game.adventure,
+    chapter: completesChapter ? Math.min(game.adventure.maxChapters, game.adventure.chapter + 1) : game.adventure.chapter,
+    worldDoom: Math.min(100, game.adventure.worldDoom + 3)
+  };
+  game.outcome = { success: false, total: 0, target: game.adventure.target, label: `${expiredPlayer?.displayName || 'A player'} ran out of time`, detail: 'The turn was passed and World Doom rose by 3.' };
+  game.roll = null;
+  game.ended = ended;
+  game.endReason = ended ? (game.adventure.worldDoom >= 100 ? 'World Doom consumed the realm.' : 'The final turn has passed.') : null;
+  if (!ended) game.activePlayerIndex = (game.activePlayerIndex + 1) % room.players.length;
+  game.turnStartedAt = now;
+  game.turnDeadline = ended ? 0 : now + (game.turnSeconds || 30) * 1000;
+  broadcast();
+  return true;
+}
+
 function handleMessage(socket, rawMessage) {
   let message;
   try {
@@ -128,6 +152,9 @@ function handleMessage(socket, rawMessage) {
     if (room.players.length >= 10) return reject(socket, 'This lobby already has 10 players.');
     if (room.players.some((current) => current.displayName.toLowerCase() === player.displayName.toLowerCase())) {
       return reject(socket, 'That player name is already joined.');
+    }
+    if (room.players.some((current) => current.hero.name === player.hero.name)) {
+      return reject(socket, 'That character has already been chosen.');
     }
 
     const veilCount = room.players.filter((current) => current.hero.team === 'veil').length;
@@ -168,6 +195,7 @@ function handleMessage(socket, rawMessage) {
   }
 
   if (message.type === 'game:update') {
+    advanceTimedOutTurn();
     if (room.phase !== 'game' || !room.game) return reject(socket, 'There is no active adventure.');
     const activePlayer = room.players[room.game.activePlayerIndex];
     if (!activePlayer || !ownSession(socket, activePlayer.id)) {
@@ -175,6 +203,44 @@ function handleMessage(socket, rawMessage) {
     }
     if (!message.game?.adventure) return reject(socket, 'The turn update is incomplete.');
     room.game = message.game;
+    broadcast();
+    return;
+  }
+
+  if (message.type === 'end-game') {
+    if (room.phase !== 'game' || !room.game) return reject(socket, 'There is no active adventure.');
+    if (!ownSession(socket, message.sessionId) || !room.players.some((player) => player.id === message.sessionId)) return reject(socket, 'Only a joined player can end the game.');
+    const player = room.players.find((current) => current.id === message.sessionId);
+    room.game.ended = true;
+    room.game.endReason = `The adventure was ended by ${player?.displayName || 'a player'}.`;
+    room.game.turnDeadline = 0;
+    broadcast();
+    return;
+  }
+
+  if (message.type === 'leave-game') {
+    if (room.phase !== 'game' || !room.game) return reject(socket, 'There is no active adventure.');
+    if (!ownSession(socket, message.sessionId)) return reject(socket, 'You can only remove your own player.');
+    const leavingIndex = room.players.findIndex((player) => player.id === message.sessionId);
+    if (leavingIndex < 0) return reject(socket, 'That player is not in the adventure.');
+    const wasActive = leavingIndex === room.game.activePlayerIndex;
+    room.players.splice(leavingIndex, 1);
+    delete room.game.playerStates[message.sessionId];
+    if (!room.players.length) {
+      room.phase = 'lobby';
+      room.game = null;
+    } else {
+      if (leavingIndex < room.game.activePlayerIndex) room.game.activePlayerIndex -= 1;
+      else if (wasActive) room.game.activePlayerIndex = Math.min(leavingIndex, room.players.length - 1);
+      const now = Date.now();
+      room.game.turnStartedAt = now;
+      room.game.turnDeadline = room.game.ended ? 0 : now + (room.game.turnSeconds || 30) * 1000;
+      if (room.players.length < 2) {
+        room.game.ended = true;
+        room.game.endReason = 'The adventure ended because fewer than two players remain.';
+        room.game.turnDeadline = 0;
+      }
+    }
     broadcast();
     return;
   }
@@ -269,3 +335,5 @@ server.listen(port, hostname, () => {
   console.log(`Shattered Oath ready at http://${hostname}:${port}`);
   console.log(`Shared WebSocket room ready at ws://${hostname}:${port}/ws`);
 });
+
+setInterval(() => advanceTimedOutTurn(), 500);

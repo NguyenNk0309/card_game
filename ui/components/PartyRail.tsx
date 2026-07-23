@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Crown, Heart, Shield, Swords } from "lucide-react";
-import type { PlayerSession, TeamId } from "@/shared/types";
+import type { PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
 
 const teamMeta: Record<TeamId, { name: string; icon: typeof Shield }> = {
   veil: { name: "Veilbound", icon: Shield },
@@ -10,10 +10,12 @@ const teamMeta: Record<TeamId, { name: string; icon: typeof Shield }> = {
 
 export function PartyRail({
   players,
-  activePlayerId
+  activePlayerId,
+  game
 }: {
   players: PlayerSession[];
   activePlayerId: string;
+  game?: SyncedGameState | null;
 }) {
   return (
     <aside className="party-rail">
@@ -36,6 +38,9 @@ export function PartyRail({
             </div>
             {members.map((player, index) => {
               const hero = player.hero;
+              const runState = game?.playerStates[player.id];
+              const hp = runState?.hp ?? hero.hp;
+              const maxHp = runState?.maxHp ?? hero.maxHp;
               const active = player.id === activePlayerId;
               return (
                 <article className={`hero-row ${active ? "is-active" : ""}`} key={player.id}>
@@ -51,8 +56,8 @@ export function PartyRail({
                     <span>{hero.name} · {hero.role}</span>
                     <div className="hp-line">
                       <Heart size={10} fill="currentColor" />
-                      <i><b style={{ width: `${(hero.hp / hero.maxHp) * 100}%` }} /></i>
-                      <small>{hero.hp}</small>
+                      <i><b style={{ width: `${(hp / maxHp) * 100}%` }} /></i>
+                      <small>{hp}{runState?.shield ? ` +${runState.shield}` : ""}</small>
                     </div>
                   </div>
                 </article>

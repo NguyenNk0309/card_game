@@ -23,7 +23,7 @@ function player(id, displayName, team) {
       color: "#a78bfa",
       initials: displayName.slice(0, 2).toUpperCase()
     },
-    skillDeck: [{ id: `card-${id}`, name: "Test Skill", type: "Wit", description: "Test", bonus: 4, risk: 1 }]
+    skillDeck: [{ id: `card-${id}`, name: "Test Skill", type: "Wit", description: "Test", bonus: 4, risk: 1, effect: "check", target: "none", value: 0, unique: true }]
   };
 }
 
@@ -102,7 +102,17 @@ try {
     activePlayerIndex: 0,
     completedTurns: 0,
     roll: null,
-    outcome: null
+    outcome: null,
+    playerStates: {
+      [firstId]: { sessionId: firstId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${firstId}`], drawPile: [], discardPile: [] },
+      [secondId]: { sessionId: secondId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${secondId}`], drawPile: [], discardPile: [] }
+    },
+    turnStartedAt: Date.now(),
+    turnDeadline: Date.now() + 400,
+    turnSeconds: 1,
+    maxTurns: 36,
+    ended: false,
+    endReason: null
   };
   second.send({ type: "start", game });
   await Promise.all([
@@ -110,7 +120,16 @@ try {
     second.waitFor((state) => state.phase === "game")
   ]);
 
-  console.log("Realtime test passed: two browser sessions shared players, readiness, and game start.");
+  const timedOut = await first.waitFor((state) => state.game?.completedTurns === 1);
+  assert.equal(timedOut.game.activePlayerIndex, 1);
+  assert.match(timedOut.game.outcome.label, /ran out of time/);
+
+  second.send({ type: "end-game", sessionId: secondId });
+  await first.waitFor((state) => state.game?.ended === true);
+  second.send({ type: "leave-game", sessionId: secondId });
+  await first.waitFor((state) => !state.players.some((item) => item.id === secondId));
+
+  console.log("Realtime test passed: shared lobby, timed auto-pass, end game, and leave game.");
 } finally {
   first.send({ type: "return:lobby" });
   await first.waitFor((state) => state.phase === "lobby").catch(() => {});

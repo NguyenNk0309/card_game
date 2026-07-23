@@ -26,17 +26,20 @@ Open `http://localhost:3000`.
 ## Prototype loop
 
 1. Each player enters a unique name and presses **Join** to create one session.
-2. Every session receives a random hero, team, and personal three-card skill deck.
-3. Players review their character, then each presses **Ready**.
+2. Each browser chooses an unclaimed hero and reviews that hero's 15-card deck before joining.
+3. Every deck has five character-specific skill cards and ten common interaction cards; teams are balanced on join.
 4. Once everyone is ready, any player can press **Enter the game**. Every connected browser moves into the same adventure.
-5. Every joined player chooses a character skill and rolls once per chapter.
-6. The chapter count scales with party size to produce roughly 36–40 total turns per adventure.
-7. Both factions gain influence while failure raises shared World Doom; the realm must survive before either team can win.
+5. On each 30-second turn, the active player chooses one of five cards in hand, selects a valid target, and rolls.
+6. Cards can heal allies, damage rivals, grant shields, support the realm, or resolve story checks.
+7. Played cards enter the graveyard. When the draw pile empties, the graveyard is shuffled into a new draw pile.
+8. An expired turn passes automatically and raises World Doom. Players may leave an active run, and any joined player may end it.
+9. Both factions gain influence while failure raises shared World Doom; the realm must survive before either team can win.
 
 The shared room is authoritative and in-memory: separate browser sessions see
 the same players, readiness, start event, turns, dice results, and story state in
 real time. Restarting the server or deployment clears the room. `db/schema.sql`
 defines the durable room/player model for a future persistent adapter.
 
-To exercise the multi-client protocol while the development server is running
-on port 3102, run `npm run test:realtime` in another terminal.
+To exercise the multi-client protocol while the development server is running,
+point `ROOM_URL` or `ROOM_HTTP_URL` at its port and run `npm run test:realtime`
+or `npm run test:polling` in another terminal.
