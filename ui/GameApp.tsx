@@ -71,18 +71,11 @@ export default function GameApp() {
     window.setTimeout(() => setCopied(false), 1800);
   };
 
-  const refreshAdventure = async () => {
+  const refreshAdventure = () => {
     setOutcome(null);
     setRoll(null);
-    try {
-      const response = await fetch("/api/adventure", { cache: "no-store" });
-      const data = await response.json();
-      setAdventure(data.adventure);
-      setHeroes(data.party);
-    } catch {
-      setAdventure(createAdventure());
-      setHeroes(createParty(6));
-    }
+    setAdventure(createAdventure());
+    setHeroes(createParty(6));
   };
 
   const castDie = () => {

@@ -6,3 +6,4 @@ out/
 !.env.example
 .open-next/
 site-archive.tar.gz
+*.tsbuildinfo
