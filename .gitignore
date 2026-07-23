@@ -6,5 +6,6 @@ dist/
 .env*
 !.env.example
 .open-next/
+.wrangler/
 site-archive.tar.gz
 *.tsbuildinfo

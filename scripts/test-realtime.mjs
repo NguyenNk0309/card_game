@@ -66,7 +66,7 @@ function connect(sessionId) {
         setTimeout(() => {
           const index = waiters.indexOf(waiter);
           if (index >= 0) waiters.splice(index, 1);
-          reject(new Error("Timed out waiting for shared room state."));
+          reject(new Error(`Timed out waiting for shared room state. Latest state: ${JSON.stringify(latest)}`));
         }, timeoutMs);
       });
     }

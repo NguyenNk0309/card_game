@@ -2,6 +2,8 @@ const emptyRoom = () => ({ players: [], phase: 'lobby', game: null, revision: 0 
 let room = emptyRoom();
 const peers = new Map();
 const roomCacheKey = new Request('https://shattered-oath-room.internal/shared-state-v3');
+let durableStorage = null;
+let roomQueue = Promise.resolve();
 
 function publicState() {
   return { players: room.players, phase: room.phase, game: room.game, revision: room.revision };
@@ -9,6 +11,11 @@ function publicState() {
 
 async function hydrateRoom() {
   try {
+    if (durableStorage) {
+      const state = await durableStorage.get('shared-room');
+      if (state?.revision >= room.revision && Array.isArray(state.players)) room = state;
+      return;
+    }
     const cached = await caches.default.match(roomCacheKey);
     if (!cached) return;
     const state = await cached.json();
@@ -20,12 +27,27 @@ async function hydrateRoom() {
 
 async function persistRoom() {
   try {
+    if (durableStorage) {
+      await durableStorage.put('shared-room', publicState());
+      if (room.phase === 'game' && room.game?.turnDeadline && !room.game.ended) {
+        await durableStorage.setAlarm(room.game.turnDeadline);
+      } else {
+        await durableStorage.deleteAlarm();
+      }
+      return;
+    }
     await caches.default.put(roomCacheKey, new Response(JSON.stringify(publicState()), {
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400' }
     }));
   } catch {
     // Continue with in-isolate state; clients will retry on the next poll.
   }
+}
+
+function serialized(task) {
+  const next = roomQueue.then(task, task);
+  roomQueue = next.catch(() => {});
+  return next;
 }
 
 function send(socket, payload) {
@@ -248,7 +270,9 @@ async function connectWebSocket() {
   server.accept();
   peers.set(server, '');
   send(server, { type: 'state', state: publicState() });
-  server.addEventListener('message', (event) => handleSocketMessage(server, event.data));
+  server.addEventListener('message', (event) => {
+    void serialized(() => handleSocketMessage(server, event.data));
+  });
   server.addEventListener('close', () => peers.delete(server));
   server.addEventListener('error', () => peers.delete(server));
   return new Response(null, { status: 101, webSocket: client });
@@ -274,12 +298,56 @@ async function handleRoomApi(request) {
   return json({ state: publicState(), error: error || null }, error ? 400 : 200);
 }
 
+async function handleRoomRequest(request) {
+  const url = new URL(request.url);
+  if (url.pathname === '/api/room') return serialized(() => handleRoomApi(request));
+  if (url.pathname === '/ws' && request.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
+    return serialized(() => connectWebSocket());
+  }
+  return json({ error: 'Room route not found.' }, 404);
+}
+
+function proxyRoomRequest(request, origin) {
+  const upstream = new URL(request.url);
+  const target = new URL(origin);
+  upstream.protocol = target.protocol;
+  upstream.host = target.host;
+  return fetch(new Request(upstream, request));
+}
+
+export class GameRoom {
+  constructor(state) {
+    durableStorage = state.storage;
+    this.ready = state.blockConcurrencyWhile(async () => {
+      const stored = await durableStorage.get('shared-room');
+      if (stored && Array.isArray(stored.players)) room = stored;
+    });
+  }
+
+  async fetch(request) {
+    await this.ready;
+    return handleRoomRequest(request);
+  }
+
+  async alarm() {
+    await this.ready;
+    await serialized(async () => {
+      await hydrateRoom();
+      await advanceTimedOutTurn();
+    });
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname === '/api/room') return handleRoomApi(request);
-    if (url.pathname === '/ws' && request.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
-      return connectWebSocket();
+    if (url.pathname === '/api/room' || url.pathname === '/ws') {
+      if (env.GAME_ROOM) {
+        const id = env.GAME_ROOM.idFromName('shared-room');
+        return env.GAME_ROOM.get(id).fetch(request);
+      }
+      if (env.REALTIME_ORIGIN) return proxyRoomRequest(request, env.REALTIME_ORIGIN);
+      return handleRoomRequest(request);
     }
 
     const response = await env.ASSETS.fetch(request);

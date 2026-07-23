@@ -62,6 +62,14 @@ export function useRoomSocket() {
     sessionIdRef.current = stableSessionId;
     setSessionId(stableSessionId);
 
+    if (window.location.hostname.endsWith(".chatgpt.site")) {
+      startPolling();
+      return () => {
+        disposedRef.current = true;
+        if (pollTimerRef.current) window.clearInterval(pollTimerRef.current);
+      };
+    }
+
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
     socketRef.current = socket;
