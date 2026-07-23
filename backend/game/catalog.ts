@@ -22,7 +22,7 @@ export const ACTION_CARDS: ActionCard[] = [
 ];
 
 export const REALMS: Realm[] = [
-  { id: "moonfall", name: "Moonfall Citadel", region: "The Weeping March", weather: "Black rain", objective: "Seal the starless gate before the fifth bell.", threat: "The Hollow Warden", accent: "#a8c6d1", sceneClass: "scene-moonfall" },
+  { id: "moonfall", name: "Moonfall Citadel", region: "The Weeping March", weather: "Black rain", objective: "Seal the starless gate before the tenth bell.", threat: "The Hollow Warden", accent: "#a8c6d1", sceneClass: "scene-moonfall" },
   { id: "embercrag", name: "Embercrag Bastion", region: "The Glass Frontier", weather: "Cinder wind", objective: "Recover the furnace-heart before the mountain wakes.", threat: "The Ashen Choir", accent: "#d4935a", sceneClass: "scene-ember" },
   { id: "fogvale", name: "Fogvale Abbey", region: "The Drowned Lowlands", weather: "Living fog", objective: "Name the saint buried beneath the drowned cloister.", threat: "The Bell Without a Tongue", accent: "#84afa2", sceneClass: "scene-fog" }
 ];
@@ -32,7 +32,12 @@ export const STORY_BEATS = [
   "The road ends at a chapel built upside-down into the cliff. Something inside knows every hero's true name.",
   "A wounded courier offers two seals: one can save the valley, the other can secure a team's victory.",
   "The dead river begins to flow uphill. Beneath its surface, an army marches toward tomorrow.",
-  "At the final gate, the rival banners must share one key—or decide who will carry the crown beyond it."
+  "At the final gate, the rival banners must share one key—or decide who will carry the crown beyond it.",
+  "The orchard grows iron fruit overnight. Inside each one waits a memory stolen from a living hero.",
+  "A bridge made from sleeping giants crosses the chasm. The safest step may wake the oldest among them.",
+  "The company finds its own camp abandoned ten years in the future, with one unfamiliar grave beside the fire.",
+  "A masked court offers safe passage if one banner publicly betrays the other before sunset.",
+  "The fortress bells answer in a language only the newest hero understands—and the message is a warning."
 ];
 
 export const EVENTS = [
@@ -40,5 +45,10 @@ export const EVENTS = [
   "World Event · A forgotten oath awakens",
   "World Event · The enemy hears your plans",
   "World Event · The road changes behind you",
-  "World Event · Dawn arrives one hour early"
+  "World Event · Dawn arrives one hour early",
+  "World Event · Every shadow points north",
+  "World Event · The dead remember their banners",
+  "World Event · Iron begins to whisper",
+  "World Event · A second moon rises",
+  "World Event · The gate demands a name"
 ];

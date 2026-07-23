@@ -25,11 +25,12 @@ Open `http://localhost:3000`.
 
 ## Prototype loop
 
-1. A random realm, weather, story, party, skills, and faction contest are dealt.
-2. Players choose an action card together.
-3. A d20 plus the selected card bonus resolves the chapter.
-4. Both factions gain influence, while failure raises shared World Doom.
-5. After five chapters, the realm must survive and one faction wins the oath.
+1. Each player enters a unique name and presses **Join** to create one session.
+2. Every session receives a random hero, team, and personal three-card skill deck.
+3. Players review their character, then each presses **Ready**; the game starts only when everyone is ready.
+4. Every joined player chooses a character skill and rolls once per chapter.
+5. The chapter count scales with party size to produce roughly 36–40 total turns per adventure.
+6. Both factions gain influence while failure raises shared World Doom; the realm must survive before either team can win.
 
 The current repository adapter is in-memory for local play. `db/schema.sql`
 defines the durable room/player model for a hosted Postgres adapter.

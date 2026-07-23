@@ -24,6 +24,15 @@ export type ActionCard = {
   risk: number;
 };
 
+export type PlayerSession = {
+  id: string;
+  displayName: string;
+  ready: boolean;
+  joinedAt: number;
+  hero: Hero;
+  skillDeck: ActionCard[];
+};
+
 export type Realm = {
   id: string;
   name: string;

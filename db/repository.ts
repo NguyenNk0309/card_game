@@ -1,9 +1,9 @@
-import type { Adventure, Hero } from "@/shared/types";
+import type { Adventure, PlayerSession } from "@/shared/types";
 
 export type GameRoom = {
   id: string;
   adventure: Adventure;
-  players: Hero[];
+  players: PlayerSession[];
   updatedAt: number;
 };
 
