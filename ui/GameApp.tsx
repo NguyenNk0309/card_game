@@ -119,7 +119,8 @@ export default function GameApp() {
   };
 
   const toggleReady = (id: string) => {
-    send({ type: "ready", sessionId: id });
+    const player = players.find((current) => current.id === id);
+    send({ type: "ready", sessionId: id, ready: !player?.ready });
   };
 
   const leaveLobby = (id: string) => {

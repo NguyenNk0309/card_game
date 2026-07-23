@@ -143,7 +143,7 @@ function handleMessage(socket, rawMessage) {
     if (!ownSession(socket, message.sessionId)) return reject(socket, 'You can only ready your own player.');
     const player = room.players.find((current) => current.id === message.sessionId);
     if (!player) return reject(socket, 'Join the lobby before pressing Ready.');
-    player.ready = !player.ready;
+    player.ready = typeof message.ready === 'boolean' ? message.ready : !player.ready;
     broadcast();
     return;
   }

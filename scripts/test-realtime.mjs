@@ -90,8 +90,8 @@ try {
   ]);
   assert.equal(firstView.players.length, secondView.players.length);
 
-  first.send({ type: "ready", sessionId: firstId });
-  second.send({ type: "ready", sessionId: secondId });
+  first.send({ type: "ready", sessionId: firstId, ready: true });
+  second.send({ type: "ready", sessionId: secondId, ready: true });
   await Promise.all([
     first.waitFor((state) => state.players.filter((item) => item.id === firstId || item.id === secondId).every((item) => item.ready)),
     second.waitFor((state) => state.players.filter((item) => item.id === firstId || item.id === secondId).every((item) => item.ready))

@@ -33,8 +33,8 @@ try {
   assert(joined.players.some((item) => item.id === firstId));
   assert(joined.players.some((item) => item.id === secondId));
 
-  await command(firstId, { type: "ready" });
-  const ready = await command(secondId, { type: "ready" });
+  await command(firstId, { type: "ready", ready: true });
+  const ready = await command(secondId, { type: "ready", ready: true });
   assert(ready.players.filter((item) => item.id === firstId || item.id === secondId).every((item) => item.ready));
 
   const game = {

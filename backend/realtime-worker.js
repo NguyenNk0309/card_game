@@ -66,7 +66,7 @@ async function applyCommand(ownerId, message) {
     if (!ownerId || ownerId !== message.sessionId) return 'You can only ready your own player.';
     const player = room.players.find((current) => current.id === message.sessionId);
     if (!player) return 'Join the lobby before pressing Ready.';
-    player.ready = !player.ready;
+    player.ready = typeof message.ready === 'boolean' ? message.ready : !player.ready;
     await commitRoom();
     return null;
   }
