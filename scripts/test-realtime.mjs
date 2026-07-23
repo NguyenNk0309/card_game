@@ -56,7 +56,9 @@ function connect(sessionId) {
     socket,
     opened,
     send(message) {
+      if (socket.readyState !== WebSocket.OPEN) return false;
       socket.send(JSON.stringify(message));
+      return true;
     },
     waitFor(predicate, timeoutMs = 5000) {
       if (latest && predicate(latest)) return Promise.resolve(latest);
