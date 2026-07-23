@@ -187,9 +187,58 @@ function handleMessage(socket, rawMessage) {
   }
 }
 
+async function handleRoomApi(request, response) {
+  response.setHeader('Content-Type', 'application/json; charset=utf-8');
+  response.setHeader('Cache-Control', 'no-store');
+  if (request.method === 'GET') {
+    response.end(JSON.stringify({ state: publicState() }));
+    return;
+  }
+  if (request.method !== 'POST') {
+    response.writeHead(405).end(JSON.stringify({ error: 'Method not allowed.', state: publicState() }));
+    return;
+  }
+
+  let body = '';
+  for await (const chunk of request) {
+    body += chunk;
+    if (body.length > 1_000_000) {
+      response.writeHead(413).end(JSON.stringify({ error: 'Room message is too large.', state: publicState() }));
+      return;
+    }
+  }
+
+  let message;
+  try {
+    message = JSON.parse(body);
+  } catch {
+    response.writeHead(400).end(JSON.stringify({ error: 'The room received an invalid message.', state: publicState() }));
+    return;
+  }
+
+  let result = null;
+  const requestPeer = {
+    OPEN: 1,
+    readyState: 1,
+    send(payload) {
+      result = JSON.parse(payload);
+    }
+  };
+  peers.set(requestPeer, String(message.sessionId || ''));
+  handleMessage(requestPeer, Buffer.from(JSON.stringify(message)));
+  peers.delete(requestPeer);
+  const error = result?.type === 'error' ? result.message : null;
+  response.writeHead(error ? 400 : 200).end(JSON.stringify({ state: publicState(), error }));
+}
+
 if (app) await app.prepare();
 
 const server = createServer((request, response) => {
+  const pathname = new URL(request.url || '/', `http://${request.headers.host}`).pathname;
+  if (pathname === '/api/room') {
+    handleRoomApi(request, response).catch(() => response.writeHead(500).end(JSON.stringify({ error: 'Server error.' })));
+    return;
+  }
   if (app) {
     app.getRequestHandler()(request, response);
     return;

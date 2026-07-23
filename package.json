@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "node backend/server.mjs --dev",
     "test:realtime": "node scripts/test-realtime.mjs",
+    "test:polling": "node scripts/test-polling.mjs",
     "build": "next build && node scripts/prepare-sites.mjs",
     "start": "node backend/server.mjs",
     "typecheck": "tsc --noEmit"
