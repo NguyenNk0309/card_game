@@ -1,4 +1,4 @@
-import { ACTION_CARDS, EVENTS, HERO_TEMPLATES, REALMS, STORY_BEATS } from "./catalog";
+import { ACTION_CARDS, CHARACTER_SKILL_CARDS, EVENTS, HERO_TEMPLATES, REALMS, STORY_BEATS } from "./catalog";
 import type { ActionCard, Adventure, CharacterOption, Hero, PlayerRunState, PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
 
 const pick = <T,>(items: T[], index = Math.floor(Math.random() * items.length)) =>
@@ -43,85 +43,35 @@ const shuffle = <T,>(items: T[]) => {
   return next;
 };
 
-export function createSkillDeck(hero: Omit<Hero, "id" | "team" | "isYou">, heroIndex: number): ActionCard[] {
-  const types: ActionCard["type"][] = ["Spirit", "Wit", "Might"];
-  const signatureType = types[heroIndex % types.length];
-  const roleType = types[(heroIndex + 1) % types.length];
-  const oathType = types[(heroIndex + 2) % types.length];
-  const prefix = hero.initials.toLowerCase();
-  const signatureEffects: ActionCard["effect"][] = ["guard", "damage", "support", "heal", "damage"];
-  const signatureTargets: ActionCard["target"][] = ["ally", "enemy", "none", "ally", "enemy"];
-  const uniqueCards: ActionCard[] = [
-    {
-      id: `${prefix}-signature`,
-      name: hero.skill,
-      type: signatureType,
-      description: hero.skillText,
-      bonus: 5 + (heroIndex % 2),
-      risk: 2,
-      effect: signatureEffects[heroIndex % signatureEffects.length],
-      target: signatureTargets[heroIndex % signatureTargets.length],
-      value: 3 + (heroIndex % 2),
-      unique: true
-    },
-    {
-      id: `${prefix}-role`,
-      name: `${hero.role}'s Instinct`,
-      type: roleType,
-      description: `Use ${hero.role.toLowerCase()} training to protect an ally and shape the next encounter.`,
-      bonus: 4,
-      risk: 1,
-      effect: "guard",
-      target: "ally",
-      value: 3,
-      unique: true
-    },
-    {
-      id: `${prefix}-oath`,
-      name: hero.title,
-      type: oathType,
-      description: "Invoke your hidden oath for greater influence, accepting a dangerous consequence on failure.",
-      bonus: 7,
-      risk: 5,
-      effect: "check",
-      target: "none",
-      value: 0,
-      unique: true
-    },
-    {
-      id: `${prefix}-bond`,
-      name: `${hero.name.split(" ")[0]}'s Lifeline`,
-      type: "Spirit",
-      description: "Turn a personal bond into healing for a wounded companion.",
-      bonus: 4 + (heroIndex % 2),
-      risk: 1,
-      effect: "heal",
-      target: "ally",
-      value: 3 + (heroIndex % 3),
-      unique: true
-    },
-    {
-      id: `${prefix}-rival`,
-      name: `${hero.role}'s Challenge`,
-      type: "Might",
-      description: "Challenge a rival hero directly and steal momentum for your banner.",
-      bonus: 5,
-      risk: 3,
-      effect: "damage",
-      target: "enemy",
-      value: 3 + (heroIndex % 2),
-      unique: true
-    }
-  ];
+export function createSkillDeck(hero: Omit<Hero, "id" | "team" | "isYou">): ActionCard[] {
+  const uniqueCards = CHARACTER_SKILL_CARDS[hero.name];
+  if (!uniqueCards || uniqueCards.length !== 5) {
+    throw new Error(`${hero.name} must have exactly five character skill cards.`);
+  }
+  if (new Set(uniqueCards.map((card) => card.id)).size !== 5) {
+    throw new Error(`${hero.name} has duplicate character skill card IDs.`);
+  }
+  if (uniqueCards[0]?.name !== hero.skill) {
+    throw new Error(`${hero.name}'s first character card must be their signature skill.`);
+  }
 
+  const totalBonus = uniqueCards.reduce((sum, card) => sum + card.bonus, 0);
+  const totalRisk = uniqueCards.reduce((sum, card) => sum + card.risk, 0);
+  if (totalBonus < 21 || totalBonus > 27 || totalRisk < 6 || totalRisk > 14) {
+    throw new Error(`${hero.name}'s character deck falls outside the balance budget.`);
+  }
+
+  const prefix = hero.initials.toLowerCase();
   const commonCards = ACTION_CARDS.map((card) => ({ ...card, id: `${prefix}-common-${card.id}` }));
-  return [...uniqueCards, ...commonCards];
+  const deck = [...uniqueCards.map((card) => ({ ...card, unique: true })), ...commonCards];
+  if (deck.length !== 15) throw new Error(`${hero.name} must have a 15-card deck.`);
+  return deck;
 }
 
 export function getCharacterOptions(): CharacterOption[] {
   return HERO_TEMPLATES.map((template, index) => {
     const hero: Hero = { ...template, id: `preview-${index}`, team: "veil" };
-    return { hero, skillDeck: createSkillDeck(template, index) };
+    return { hero, skillDeck: createSkillDeck(template) };
   });
 }
 
@@ -147,7 +97,7 @@ export function createPlayerSession(
     ready: false,
     joinedAt: Date.now(),
     hero,
-    skillDeck: createSkillDeck(template, heroIndex)
+    skillDeck: createSkillDeck(template)
   };
 }
 
@@ -232,6 +182,10 @@ export function resolveCardTurn(
 
   const nextCompletedTurns = game.completedTurns + 1;
   const completesChapter = nextCompletedTurns % players.length === 0;
+  const previousDoom = game.adventure.worldDoom;
+  const previousInfluence = activePlayer.hero.team === "veil"
+    ? game.adventure.veilInfluence
+    : game.adventure.emberInfluence;
   const resolved = resolveAction(game.adventure, card.id, roll, completesChapter, activePlayer.skillDeck, activePlayer.hero.team);
   const nextStates = Object.fromEntries(Object.entries(game.playerStates).map(([id, state]) => [id, { ...state, hand: [...state.hand], drawPile: [...state.drawPile], discardPile: [...state.discardPile] }]));
   const target = validTarget(card, activePlayer, players, targetId);
@@ -245,7 +199,7 @@ export function resolveCardTurn(
       if (card.id.includes("common-rally")) targetState.shield += 1;
       detail = `${target.displayName} recovers ${targetState.hp - before} health.`;
     } else if (card.effect === "damage") {
-      const ignoresShield = card.id.includes("common-feint");
+      const ignoresShield = card.id.includes("common-feint") || card.id.includes("pierce");
       const absorbed = ignoresShield ? 0 : Math.min(targetState.shield, card.value);
       targetState.shield -= absorbed;
       const damage = Math.max(0, card.value - absorbed);
@@ -266,6 +220,9 @@ export function resolveCardTurn(
   if (resolved.success && card.id.includes("common-ward")) {
     adventure = { ...adventure, worldDoom: Math.max(0, adventure.worldDoom - 1) };
   }
+  const nextInfluence = activePlayer.hero.team === "veil"
+    ? adventure.veilInfluence
+    : adventure.emberInfluence;
 
   nextStates[activePlayer.id] = drawReplacement(nextStates[activePlayer.id], card.id);
   const ended = nextCompletedTurns >= game.maxTurns || adventure.worldDoom >= 100;
@@ -279,11 +236,22 @@ export function resolveCardTurn(
     completedTurns: nextCompletedTurns,
     roll,
     outcome: {
+      kind: "card",
       success: resolved.success,
       total: resolved.total,
       target: game.adventure.target,
       label: resolved.success ? `${activePlayer.displayName} plays ${card.name}` : "The realm takes its due",
-      detail
+      detail,
+      actorName: activePlayer.displayName,
+      cardName: card.name,
+      cardType: card.type,
+      effect: card.effect,
+      targetName: target.displayName,
+      roll,
+      bonus: card.bonus,
+      risk: card.risk,
+      doomChange: adventure.worldDoom - previousDoom,
+      influenceChange: nextInfluence - previousInfluence
     },
     playerStates: nextStates,
     turnStartedAt: now,
@@ -322,8 +290,8 @@ export function resolveAction(
       event: advanceChapter ? EVENTS[(storyIndex + 1) % EVENTS.length] : adventure.event,
       target: 12 + ((roll + nextChapter) % 6),
       worldDoom: Math.min(100, Math.max(0, adventure.worldDoom + doomDelta)),
-      veilInfluence: adventure.veilInfluence + (team === "veil" ? teamGain + (card.type === "Wit" ? 1 : 0) : 0),
-      emberInfluence: adventure.emberInfluence + (team === "ember" ? teamGain + (card.type === "Might" ? 1 : 0) : 0)
+      veilInfluence: adventure.veilInfluence + (team === "veil" ? teamGain : 0),
+      emberInfluence: adventure.emberInfluence + (team === "ember" ? teamGain : 0)
     }
   };
 }

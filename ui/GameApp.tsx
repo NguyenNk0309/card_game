@@ -11,7 +11,6 @@ import {
   Dices,
   Eye,
   Flame,
-  HeartHandshake,
   Hand,
   LockKeyhole,
   LogOut,
@@ -55,6 +54,7 @@ export default function GameApp() {
   const [rolling, setRolling] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [showStory, setShowStory] = useState(false);
+  const [dismissedOutcomeKey, setDismissedOutcomeKey] = useState("");
   const [soundOn, setSoundOn] = useState(true);
   const [mobileParty, setMobileParty] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -86,6 +86,14 @@ export default function GameApp() {
   const runComplete = phase === "game" && Boolean(game?.ended || completedTurns >= maxTurns);
   const secondsLeft = game?.turnDeadline ? Math.max(0, Math.ceil((game.turnDeadline - now) / 1000)) : 0;
   const localPlayer = players.find((player) => player.id === sessionId);
+  const outcomeKey = outcome ? `${game?.turnStartedAt ?? 0}-${outcome.kind ?? "legacy"}-${outcome.label}` : "";
+  const showOutcomePanel = Boolean(
+    outcome
+    && (outcome.kind === "card" || outcome.kind === "timeout")
+    && outcomeKey !== dismissedOutcomeKey
+    && !runComplete
+  );
+  const nextPlayer = players[activePlayerIndex];
   const leadingTeam = adventure.veilInfluence === adventure.emberInfluence
     ? null
     : adventure.veilInfluence > adventure.emberInfluence ? "veil" : "ember";
@@ -213,6 +221,18 @@ export default function GameApp() {
     setSelectedPlayerId((current) => current === targetSessionId ? null : current);
   };
 
+  const closeModal = () => {
+    if (showGuide) {
+      setShowGuide(false);
+      return;
+    }
+    if (showStory) {
+      setShowStory(false);
+      return;
+    }
+    if (showOutcomePanel) setDismissedOutcomeKey(outcomeKey);
+  };
+
   return (
     <main className={`game-shell ${adventure.realm.sceneClass}`}>
       <div className="world-backdrop" />
@@ -290,13 +310,6 @@ export default function GameApp() {
               <button className="story-link" onClick={() => setShowStory(true)}>Read the chronicle <ChevronRight size={15} /></button>
             </section>
 
-            {outcome && (
-              <div className={`outcome-toast ${outcome.success ? "success" : "failure"}`}>
-                {outcome.success ? <Check size={18} /> : <Skull size={18} />}
-                <div><strong>{outcome.label}</strong><span>{outcome.detail ?? `Total ${outcome.total} against ${outcome.target}`}</span></div>
-              </div>
-            )}
-
             <div className="encounter-row">
               <section className="objective-card">
                 <div className="objective-icon"><LockKeyhole size={22} /></div>
@@ -352,17 +365,97 @@ export default function GameApp() {
         </div>
       )}
 
-      {(showGuide || showStory || runComplete) && (
+      {(showGuide || showStory || runComplete || showOutcomePanel) && (
         <div className="modal-backdrop" role="dialog" aria-modal="true">
-          <section className="modal-card">
-            <button className="modal-close icon-button" onClick={() => { setShowGuide(false); setShowStory(false); }} aria-label="Close"><X size={18} /></button>
+          <section className={`modal-card ${showGuide ? "tutorial-modal" : ""} ${showOutcomePanel && !showGuide && !showStory ? "resolution-card" : ""}`}>
+            <button className="modal-close icon-button" onClick={closeModal} aria-label="Close"><X size={18} /></button>
             {runComplete ? (
               <><span className="eyebrow">THE OATH IS SETTLED</span><h2>{adventure.worldDoom < 100 ? "The adventure has ended." : "The realm remembers your failure."}</h2><p className="modal-lead">{game?.endReason ?? (adventure.veilInfluence === adventure.emberInfluence ? "Neither banner could eclipse the other." : `${adventure.veilInfluence > adventure.emberInfluence ? "Veilbound" : "Embercourt"} claims the final word.`)}</p><button className="primary-button" onClick={returnToLobby}><RefreshCw size={17} /> Return to lobby</button></>
             ) : showGuide ? (
-              <><span className="eyebrow">A 30–45 MINUTE DECK ROGUELIKE</span><h2>Choose, interact, cooperate, and compete.</h2><div className="guide-grid"><div><Users size={22} /><strong>Choose a unique hero</strong><p>Pick before joining. Every hero has a different 15-card deck: five character cards and ten common actions.</p></div><div><Check size={22} /><strong>Ready, then enter</strong><p>After at least two players join and everyone presses Ready, any player can enter the game.</p></div><div><Dices size={22} /><strong>Play from your hand</strong><p>Choose one of five cards and a target. Played cards enter the graveyard; when the draw pile empties, the graveyard reshuffles.</p></div><div><HeartHandshake size={22} /><strong>Heal, guard, or fight</strong><p>Help allies, attack rival-team heroes, protect anyone with shields, and still keep World Doom below 100. Idle turns auto-pass after 30 seconds.</p></div></div></>
-            ) : (
+              <div className="tutorial-scroll">
+                <span className="eyebrow">A 30–45 MINUTE DECK ROGUELIKE</span>
+                <h2>How to survive the Shattered Oath</h2>
+                <p className="modal-lead">Two rival teams share one endangered realm. Cooperate to keep World Doom below 100, but earn more Influence than the other banner to claim the final victory.</p>
+
+                <section className="tutorial-section">
+                  <h3><Users size={20} /> Before the adventure</h3>
+                  <div className="tutorial-steps">
+                    <article><b>1</b><div><strong>Choose a hero</strong><p>Every hero may be claimed once. Read their role, strength, weakness, party impact, and five gold character cards before joining.</p></div></article>
+                    <article><b>2</b><div><strong>Join and ready</strong><p>Enter a name and press Join. The game needs at least two players; when everyone is Ready, any joined player can press Enter the game.</p></div></article>
+                    <article><b>3</b><div><strong>Learn your banner</strong><p>Heroes are assigned to Veilbound or Embercourt. Rival players can attack each other, but every team loses if World Doom reaches 100.</p></div></article>
+                  </div>
+                </section>
+
+                <section className="tutorial-section">
+                  <h3><Dices size={20} /> What happens on your turn</h3>
+                  <div className="tutorial-steps">
+                    <article><b>1</b><div><strong>Choose one card</strong><p>Your hand holds five cards. Gold cards are unique to your hero; dark cards are common actions shared by every deck.</p></div></article>
+                    <article><b>2</b><div><strong>Choose a legal target</strong><p>Heal and guard your team, damage an enemy, or play a check/support card on the world. The target selector shows who the card can affect.</p></div></article>
+                    <article><b>3</b><div><strong>Roll the d20</strong><p>Your result is d20 + the card bonus. Meet or beat the encounter Target to succeed. A detailed result panel then explains the card, target, roll, Doom, and Influence changes.</p></div></article>
+                    <article><b>4</b><div><strong>Draw a replacement</strong><p>The played card enters your graveyard and a new one is drawn. When the draw pile is empty, the graveyard reshuffles so every card can return.</p></div></article>
+                  </div>
+                </section>
+
+                <section className="tutorial-section">
+                  <h3><Target size={20} /> Read a card</h3>
+                  <div className="stat-guide">
+                    <article className="might"><Swords size={20} /><strong>Might</strong><p>Physical pressure: damage, challenges, and sturdy protection. Might does not grant a hidden team bonus.</p></article>
+                    <article className="wit"><Eye size={20} /><strong>Wit</strong><p>Precision and control: safer checks, scouting, tricks, and shield-piercing attacks.</p></article>
+                    <article className="spirit"><Sparkles size={20} /><strong>Spirit</strong><p>Resolve and fellowship: healing, guarding allies, reducing Doom, and supporting the company.</p></article>
+                  </div>
+                  <div className="card-rules">
+                    <p><strong>Bonus</strong> is added to the d20. Higher is more reliable.</p>
+                    <p><strong>Risk</strong> controls how much extra Doom a failed card creates. Risk does nothing when the roll succeeds.</p>
+                    <p><strong>Effect and value</strong> show whether the card heals, guards, damages, supports, or makes a world check—and how powerful it is.</p>
+                  </div>
+                </section>
+
+                <section className="tutorial-section warning-section">
+                  <h3><Clock3 size={20} /> The 30-second turn clock</h3>
+                  <p>If a player does not act before the clock reaches zero, their turn is automatically passed, World Doom rises by 3, and everyone sees a timeout panel before the next player continues.</p>
+                </section>
+              </div>
+            ) : showStory ? (
               <><span className="eyebrow">FROM THE COMPANY CHRONICLE</span><h2>{adventure.realm.name}</h2><p className="modal-lead">{adventure.story}</p><div className="chronicle-note"><Eye size={19} /><div><strong>The choice beneath the choice</strong><p>{adventure.realm.threat} is watching the current player. A Wit skill may reveal why.</p></div></div></>
-            )}
+            ) : outcome?.kind === "timeout" ? (
+              <div className="resolution-content timeout-resolution">
+                <div className="resolution-hero timeout"><Clock3 size={34} /></div>
+                <span className="eyebrow">TURN EXPIRED</span>
+                <h2>{outcome.actorName ?? "A player"}&apos;s turn was passed</h2>
+                <p className="modal-lead">{outcome.detail}</p>
+                <div className="resolution-metrics">
+                  <div><span>World Doom</span><strong className="negative">+{outcome.doomChange ?? 3}</strong></div>
+                  <div><span>Next player</span><strong>{nextPlayer?.displayName ?? "—"}</strong></div>
+                </div>
+                <button className="primary-button continue-button" onClick={() => setDismissedOutcomeKey(outcomeKey)}>Continue adventure <ChevronRight size={17} /></button>
+              </div>
+            ) : outcome ? (
+              <div className="resolution-content">
+                <div className={`resolution-hero ${outcome.success ? "success" : "failure"}`}>{outcome.success ? <Check size={34} /> : <Skull size={34} />}</div>
+                <span className="eyebrow">ACTION RESOLVED</span>
+                <h2>{outcome.actorName ?? "A hero"} played {outcome.cardName ?? "a card"}</h2>
+                <div className="resolution-chips">
+                  {outcome.cardType && <span>{outcome.cardType}</span>}
+                  {outcome.effect && <span>{outcome.effect}</span>}
+                  {outcome.targetName && <span>Target: {outcome.targetName}</span>}
+                </div>
+                <div className="resolution-equation">
+                  <span><small>d20</small><strong>{outcome.roll ?? 0}</strong></span>
+                  <i>+</i>
+                  <span><small>card bonus</small><strong>{outcome.bonus ?? 0}</strong></span>
+                  <i>=</i>
+                  <span className={outcome.success ? "success" : "failure"}><small>total vs {outcome.target}</small><strong>{outcome.total}</strong></span>
+                </div>
+                <strong className={`resolution-verdict ${outcome.success ? "success" : "failure"}`}>{outcome.success ? "Success" : `Failed — Risk ${outcome.risk ?? 0}`}</strong>
+                <p className="modal-lead">{outcome.detail}</p>
+                <div className="resolution-metrics">
+                  <div><span>World Doom</span><strong className={(outcome.doomChange ?? 0) > 0 ? "negative" : "positive"}>{(outcome.doomChange ?? 0) > 0 ? "+" : ""}{outcome.doomChange ?? 0}</strong></div>
+                  <div><span>Team Influence</span><strong className="positive">+{outcome.influenceChange ?? 0}</strong></div>
+                  <div><span>Next player</span><strong>{nextPlayer?.displayName ?? "—"}</strong></div>
+                </div>
+                <button className="primary-button continue-button" onClick={() => setDismissedOutcomeKey(outcomeKey)}>Continue adventure <ChevronRight size={17} /></button>
+              </div>
+            ) : null}
           </section>
         </div>
       )}

@@ -85,6 +85,8 @@ try {
   const timedOut = await waitForRoom((state) => state.game?.completedTurns === 1);
   assert.equal(timedOut.game.completedTurns, 1);
   assert.equal(timedOut.game.activePlayerIndex, 1);
+  assert.equal(timedOut.game.outcome.kind, 'timeout');
+  assert.equal(timedOut.game.outcome.doomChange, 3);
 
   const removedDuringGame = await command(firstId, { type: "remove-player", targetSessionId: thirdId });
   assert(!removedDuringGame.players.some((item) => item.id === thirdId));

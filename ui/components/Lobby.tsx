@@ -174,7 +174,7 @@ export function Lobby({
                   <div className="hero-picker-grid">
                     {characterOptions.map((option) => {
                       const taken = takenHeroes.has(option.hero.name);
-                      return <button key={option.hero.name} className={selectedHeroName === option.hero.name ? "selected" : ""} disabled={taken} onClick={() => onHeroSelect(option.hero.name)}><span style={{ "--hero-color": option.hero.color } as React.CSSProperties}>{option.hero.initials}</span><strong>{option.hero.name}</strong><small>{taken ? "Chosen" : option.hero.role}</small></button>;
+                      return <button key={option.hero.name} className={selectedHeroName === option.hero.name ? "selected" : ""} disabled={taken} onClick={() => onHeroSelect(option.hero.name)} title={option.hero.summary}><span style={{ "--hero-color": option.hero.color } as React.CSSProperties}>{option.hero.initials}</span><strong>{option.hero.name}</strong><small>{taken ? "Chosen" : option.hero.role}</small></button>;
                     })}
                   </div>
                 </div>
@@ -189,6 +189,15 @@ export function Lobby({
                   <p>{shownHero.title} · {shownHero.role}</p>
                 </div>
                 {selected ? <div className={`team-chip ${shownHero.team}`}>{shownHero.team === "veil" ? <Eye size={15} /> : <Flame size={15} />}{shownHero.team === "veil" ? "Veilbound" : "Embercourt"}</div> : <span className="team-pending">Team assigned on join</span>}
+              </div>
+
+              <div className="character-profile">
+                <p>{shownHero.summary}</p>
+                <div className="character-impact-grid">
+                  <div className="character-trait strength"><span>Strength</span><strong>{shownHero.strength}</strong></div>
+                  <div className="character-trait weakness"><span>Weakness</span><strong>{shownHero.weakness}</strong></div>
+                </div>
+                <div className="impact-note"><Sparkles size={18} /><div><span>Party impact</span><p>{shownHero.impact}</p></div></div>
               </div>
 
               <div className="character-stats">

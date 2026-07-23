@@ -139,6 +139,8 @@ try {
   const timedOut = await first.waitFor((state) => state.game?.completedTurns === 1);
   assert.equal(timedOut.game.activePlayerIndex, 1);
   assert.match(timedOut.game.outcome.label, /ran out of time/);
+  assert.equal(timedOut.game.outcome.kind, 'timeout');
+  assert.equal(timedOut.game.outcome.doomChange, 3);
 
   first.send({ type: "remove-player", sessionId: firstId, targetSessionId: thirdId });
   const removedDuringGame = await first.waitFor((state) => !state.players.some((item) => item.id === thirdId));

@@ -119,11 +119,13 @@ function removePlayerFromRoom(targetId, removedBy) {
         room.game.turnStartedAt = now;
         room.game.turnDeadline = now + (room.game.turnSeconds || 30) * 1000;
         room.game.outcome = {
+          kind: 'system',
           success: false,
           total: 0,
           target: room.game.adventure.target,
           label: `${removedPlayer.displayName} was removed`,
-          detail: `${removedBy} removed this player. The next turn begins now.`
+          detail: `${removedBy} removed this player. The next turn begins now.`,
+          actorName: removedBy
         };
       }
       if (room.players.length < 2) {
@@ -152,7 +154,7 @@ function advanceTimedOutTurn(now = Date.now()) {
     chapter: completesChapter ? Math.min(game.adventure.maxChapters, game.adventure.chapter + 1) : game.adventure.chapter,
     worldDoom: Math.min(100, game.adventure.worldDoom + 3)
   };
-  game.outcome = { success: false, total: 0, target: game.adventure.target, label: `${expiredPlayer?.displayName || 'A player'} ran out of time`, detail: 'The turn was passed and World Doom rose by 3.' };
+  game.outcome = { kind: 'timeout', success: false, total: 0, target: game.adventure.target, label: `${expiredPlayer?.displayName || 'A player'} ran out of time`, detail: 'The turn was passed and World Doom rose by 3.', actorName: expiredPlayer?.displayName || 'A player', doomChange: 3 };
   game.roll = null;
   game.ended = ended;
   game.endReason = ended ? (game.adventure.worldDoom >= 100 ? 'World Doom consumed the realm.' : 'The final turn has passed.') : null;

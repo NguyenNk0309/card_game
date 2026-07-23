@@ -9,6 +9,10 @@ export type Hero = {
   role: string;
   skill: string;
   skillText: string;
+  summary: string;
+  strength: string;
+  weakness: string;
+  impact: string;
   hp: number;
   maxHp: number;
   team: TeamId;
@@ -50,6 +54,17 @@ export type GameOutcome = {
   target: number;
   label: string;
   detail?: string;
+  kind?: "card" | "timeout" | "system";
+  actorName?: string;
+  cardName?: string;
+  cardType?: ActionCard["type"];
+  effect?: CardEffect;
+  targetName?: string;
+  roll?: number;
+  bonus?: number;
+  risk?: number;
+  doomChange?: number;
+  influenceChange?: number;
 };
 
 export type PlayerRunState = {
