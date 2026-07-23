@@ -12,6 +12,19 @@ const EMPTY_ROOM: SharedRoomState = {
   revision: 0
 };
 
+const BASE_POLL_DELAY_MS = 3000;
+const HIDDEN_POLL_DELAY_MS = 15000;
+const MAX_POLL_DELAY_MS = 30000;
+
+function retryDelay(response: Response, fallback: number) {
+  const retryAfter = response.headers.get("Retry-After");
+  if (!retryAfter) return fallback;
+  const seconds = Number(retryAfter);
+  if (Number.isFinite(seconds)) return Math.min(MAX_POLL_DELAY_MS, Math.max(1000, seconds * 1000));
+  const date = Date.parse(retryAfter);
+  return Number.isNaN(date) ? fallback : Math.min(MAX_POLL_DELAY_MS, Math.max(1000, date - Date.now()));
+}
+
 export function useRoomSocket() {
   const [room, setRoom] = useState<SharedRoomState>(EMPTY_ROOM);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
@@ -20,6 +33,9 @@ export function useRoomSocket() {
   const socketRef = useRef<WebSocket | null>(null);
   const pollingRef = useRef(false);
   const pollTimerRef = useRef<number | null>(null);
+  const pollInFlightRef = useRef(false);
+  const pollDelayRef = useRef(BASE_POLL_DELAY_MS);
+  const pollRoomRef = useRef<() => Promise<void>>(async () => {});
   const sessionIdRef = useRef("");
   const disposedRef = useRef(false);
 
@@ -29,27 +45,56 @@ export function useRoomSocket() {
     else setError("");
   }, []);
 
+  const schedulePoll = useCallback((delay: number) => {
+    if (disposedRef.current || !pollingRef.current) return;
+    if (pollTimerRef.current !== null) window.clearTimeout(pollTimerRef.current);
+    pollTimerRef.current = window.setTimeout(() => void pollRoomRef.current(), delay);
+  }, []);
+
   const pollRoom = useCallback(async () => {
+    if (pollInFlightRef.current || disposedRef.current || !pollingRef.current) return;
+    pollInFlightRef.current = true;
+    let nextDelay = document.visibilityState === "hidden" ? HIDDEN_POLL_DELAY_MS : BASE_POLL_DELAY_MS;
     try {
       const response = await fetch("/api/room", { cache: "no-store" });
+      if (response.status === 429) {
+        pollDelayRef.current = Math.min(MAX_POLL_DELAY_MS, Math.max(8000, pollDelayRef.current * 2));
+        nextDelay = retryDelay(response, pollDelayRef.current);
+        setStatus("reconnecting");
+        setError(`The shared room is busy. Retrying in ${Math.ceil(nextDelay / 1000)} seconds…`);
+        return;
+      }
       if (!response.ok) throw new Error(`Room request failed with ${response.status}.`);
-      acceptResponse(await response.json());
+      const payload = await response.json() as { state?: SharedRoomState; error?: string | null };
+      acceptResponse(payload);
+      pollDelayRef.current = BASE_POLL_DELAY_MS;
+      const playerCount = Math.max(1, payload.state?.players.length ?? 1);
+      nextDelay = document.visibilityState === "hidden"
+        ? HIDDEN_POLL_DELAY_MS
+        : Math.min(10000, Math.max(BASE_POLL_DELAY_MS, playerCount * 1000));
       setStatus("connected");
     } catch {
       if (!disposedRef.current) {
-        setStatus("offline");
-        setError("The shared room is temporarily unavailable. Reconnecting…");
+        pollDelayRef.current = Math.min(MAX_POLL_DELAY_MS, Math.max(BASE_POLL_DELAY_MS, pollDelayRef.current * 2));
+        nextDelay = pollDelayRef.current;
+        setStatus("reconnecting");
+        setError(`The shared room is temporarily unavailable. Retrying in ${Math.ceil(nextDelay / 1000)} seconds…`);
       }
+    } finally {
+      pollInFlightRef.current = false;
+      schedulePoll(nextDelay);
     }
-  }, [acceptResponse]);
+  }, [acceptResponse, schedulePoll]);
+
+  pollRoomRef.current = pollRoom;
 
   const startPolling = useCallback(() => {
     if (pollingRef.current || disposedRef.current) return;
     pollingRef.current = true;
+    pollDelayRef.current = BASE_POLL_DELAY_MS;
     setStatus("reconnecting");
-    void pollRoom();
-    pollTimerRef.current = window.setInterval(pollRoom, 800);
-  }, [pollRoom]);
+    schedulePoll(0);
+  }, [schedulePoll]);
 
   useEffect(() => {
     disposedRef.current = false;
@@ -66,7 +111,8 @@ export function useRoomSocket() {
       startPolling();
       return () => {
         disposedRef.current = true;
-        if (pollTimerRef.current) window.clearInterval(pollTimerRef.current);
+        pollingRef.current = false;
+        if (pollTimerRef.current !== null) window.clearTimeout(pollTimerRef.current);
       };
     }
 
@@ -109,9 +155,10 @@ export function useRoomSocket() {
 
     return () => {
       disposedRef.current = true;
+      pollingRef.current = false;
       window.clearTimeout(fallbackTimer);
       socket.close();
-      if (pollTimerRef.current) window.clearInterval(pollTimerRef.current);
+      if (pollTimerRef.current !== null) window.clearTimeout(pollTimerRef.current);
     };
   }, [acceptResponse, startPolling]);
 
@@ -128,6 +175,14 @@ export function useRoomSocket() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       }).then(async (response) => {
+        if (response.status === 429) {
+          const delay = retryDelay(response, Math.min(MAX_POLL_DELAY_MS, Math.max(8000, pollDelayRef.current * 2)));
+          pollDelayRef.current = delay;
+          setStatus("reconnecting");
+          setError(`The room is busy. Your action was not sent; try again in ${Math.ceil(delay / 1000)} seconds.`);
+          schedulePoll(delay);
+          return;
+        }
         const result = await response.json();
         acceptResponse(result);
         if (!response.ok && !result.error) setError("The shared room rejected that action.");
@@ -139,7 +194,7 @@ export function useRoomSocket() {
     }
     setError("The shared room is connecting. Try again in a moment.");
     return false;
-  }, [acceptResponse]);
+  }, [acceptResponse, schedulePoll]);
 
   return {
     room,
