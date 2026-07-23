@@ -65,8 +65,15 @@ export function useRoomSocket() {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
     socketRef.current = socket;
+    const fallbackTimer = window.setTimeout(() => {
+      if (socket.readyState !== WebSocket.OPEN) {
+        socket.close();
+        startPolling();
+      }
+    }, 1800);
 
     socket.addEventListener("open", () => {
+      window.clearTimeout(fallbackTimer);
       setStatus("connected");
       setError("");
       socket.send(JSON.stringify({ type: "hello", sessionId: stableSessionId }));
@@ -94,6 +101,7 @@ export function useRoomSocket() {
 
     return () => {
       disposedRef.current = true;
+      window.clearTimeout(fallbackTimer);
       socket.close();
       if (pollTimerRef.current) window.clearInterval(pollTimerRef.current);
     };
