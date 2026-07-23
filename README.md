@@ -27,10 +27,16 @@ Open `http://localhost:3000`.
 
 1. Each player enters a unique name and presses **Join** to create one session.
 2. Every session receives a random hero, team, and personal three-card skill deck.
-3. Players review their character, then each presses **Ready**; the game starts only when everyone is ready.
-4. Every joined player chooses a character skill and rolls once per chapter.
-5. The chapter count scales with party size to produce roughly 36–40 total turns per adventure.
-6. Both factions gain influence while failure raises shared World Doom; the realm must survive before either team can win.
+3. Players review their character, then each presses **Ready**.
+4. Once everyone is ready, any player can press **Enter the game**. Every connected browser moves into the same adventure.
+5. Every joined player chooses a character skill and rolls once per chapter.
+6. The chapter count scales with party size to produce roughly 36–40 total turns per adventure.
+7. Both factions gain influence while failure raises shared World Doom; the realm must survive before either team can win.
 
-The current repository adapter is in-memory for local play. `db/schema.sql`
-defines the durable room/player model for a hosted Postgres adapter.
+The shared room is authoritative and in-memory: separate browser sessions see
+the same players, readiness, start event, turns, dice results, and story state in
+real time. Restarting the server or deployment clears the room. `db/schema.sql`
+defines the durable room/player model for a future persistent adapter.
+
+To exercise the multi-client protocol while the development server is running
+on port 3102, run `npm run test:realtime` in another terminal.

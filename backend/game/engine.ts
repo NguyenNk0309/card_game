@@ -71,14 +71,15 @@ function createSkillDeck(hero: Omit<Hero, "id" | "team" | "isYou">, heroIndex: n
 export function createPlayerSession(
   displayName: string,
   seatIndex: number,
-  usedHeroNames: string[] = []
+  usedHeroNames: string[] = [],
+  sessionId?: string
 ): PlayerSession {
   const available = HERO_TEMPLATES
     .map((hero, index) => ({ hero, index }))
     .filter(({ hero }) => !usedHeroNames.includes(hero.name));
   const choice = pick(available.length ? available : HERO_TEMPLATES.map((hero, index) => ({ hero, index })));
   const team = (seatIndex % 2 === 0 ? "veil" : "ember") as TeamId;
-  const id = `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const id = sessionId ?? `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const hero: Hero = {
     ...choice.hero,
     id: `hero-${id}`,

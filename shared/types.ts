@@ -33,6 +33,28 @@ export type PlayerSession = {
   skillDeck: ActionCard[];
 };
 
+export type GameOutcome = {
+  success: boolean;
+  total: number;
+  target: number;
+  label: string;
+};
+
+export type SyncedGameState = {
+  adventure: Adventure;
+  activePlayerIndex: number;
+  completedTurns: number;
+  roll: number | null;
+  outcome: GameOutcome | null;
+};
+
+export type SharedRoomState = {
+  players: PlayerSession[];
+  phase: "lobby" | "game";
+  game: SyncedGameState | null;
+  revision: number;
+};
+
 export type Realm = {
   id: string;
   name: string;

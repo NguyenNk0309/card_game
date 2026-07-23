@@ -25,13 +25,11 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { createAdventure, createPlayerSession, nextStory, resolveAction } from "@/backend/game/engine";
-import type { Adventure, PlayerSession, TeamId } from "@/shared/types";
+import type { SyncedGameState, TeamId } from "@/shared/types";
 import { DiceRoller } from "./components/DiceRoller";
 import { Lobby } from "./components/Lobby";
 import { PartyRail } from "./components/PartyRail";
-
-type Outcome = { success: boolean; total: number; target: number; label: string } | null;
-type GamePhase = "lobby" | "game";
+import { useRoomSocket } from "./hooks/useRoomSocket";
 
 const teamCopy: Record<TeamId, { title: string; objective: string }> = {
   veil: { title: "Veilbound", objective: "Preserve three forbidden truths until the final gate." },
@@ -39,23 +37,27 @@ const teamCopy: Record<TeamId, { title: string; objective: string }> = {
 };
 
 export default function GameApp() {
-  const [phase, setPhase] = useState<GamePhase>("lobby");
-  const [players, setPlayers] = useState<PlayerSession[]>([]);
+  const { room, status, error: roomError, sessionId, send, clearError } = useRoomSocket();
   const [playerName, setPlayerName] = useState("");
   const [lobbyError, setLobbyError] = useState("");
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [adventure, setAdventure] = useState<Adventure>(() => createAdventure("MOON42"));
-  const [activePlayerIndex, setActivePlayerIndex] = useState(0);
-  const [completedTurns, setCompletedTurns] = useState(0);
+  const [lobbyAdventure] = useState(() => createAdventure("MOON42"));
   const [selectedCard, setSelectedCard] = useState("");
-  const [roll, setRoll] = useState<number | null>(null);
+  const [animatedRoll, setAnimatedRoll] = useState<number | null>(null);
   const [rolling, setRolling] = useState(false);
-  const [outcome, setOutcome] = useState<Outcome>(null);
   const [showGuide, setShowGuide] = useState(false);
   const [showStory, setShowStory] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [mobileParty, setMobileParty] = useState(false);
 
+  const players = room.players;
+  const phase = room.phase;
+  const game = room.game;
+  const adventure = game?.adventure ?? lobbyAdventure;
+  const activePlayerIndex = game?.activePlayerIndex ?? 0;
+  const completedTurns = game?.completedTurns ?? 0;
+  const roll = game?.roll ?? null;
+  const outcome = game?.outcome ?? null;
   const activePlayer = players[activePlayerIndex];
   const activeDeck = activePlayer?.skillDeck ?? [];
   const activeCard = useMemo(
@@ -70,26 +72,29 @@ export default function GameApp() {
     : adventure.veilInfluence > adventure.emberInfluence ? "veil" : "ember";
 
   useEffect(() => {
-    const allReady = players.length >= 2 && players.every((player) => player.ready);
-    if (phase !== "lobby" || !allReady) return;
+    if (activePlayer?.skillDeck[0]) setSelectedCard(activePlayer.skillDeck[0].id);
+  }, [activePlayer?.id]);
 
-    const timer = window.setTimeout(() => {
-      const nextAdventure = createAdventure();
-      nextAdventure.maxChapters = Math.max(4, Math.ceil(36 / players.length));
-      setAdventure(nextAdventure);
-      setActivePlayerIndex(0);
-      setCompletedTurns(0);
-      setSelectedCard(players[0].skillDeck[0].id);
-      setRoll(null);
-      setOutcome(null);
-      setPhase("game");
-    }, 900);
-
-    return () => window.clearTimeout(timer);
-  }, [phase, players]);
+  useEffect(() => {
+    if (!players.length) {
+      setSelectedPlayerId(null);
+      return;
+    }
+    if (!players.some((player) => player.id === selectedPlayerId)) {
+      setSelectedPlayerId(players.find((player) => player.id === sessionId)?.id ?? players[0].id);
+    }
+  }, [players, selectedPlayerId, sessionId]);
 
   const joinPlayer = () => {
     const name = playerName.trim();
+    if (status !== "connected" || !sessionId) {
+      setLobbyError("The shared room is still connecting. Try again in a moment.");
+      return;
+    }
+    if (players.some((player) => player.id === sessionId)) {
+      setLobbyError("This browser already controls a joined player session.");
+      return;
+    }
     if (players.length >= 10) {
       setLobbyError("This lobby already has 10 players. A player must leave before another session can join.");
       return;
@@ -106,31 +111,47 @@ export default function GameApp() {
     const veilCount = players.filter((player) => player.hero.team === "veil").length;
     const emberCount = players.length - veilCount;
     const balancedTeamSeat = veilCount <= emberCount ? 0 : 1;
-    const session = createPlayerSession(name, balancedTeamSeat, players.map((player) => player.hero.name));
-    setPlayers((current) => [...current, session]);
+    const session = createPlayerSession(name, balancedTeamSeat, players.map((player) => player.hero.name), sessionId);
+    if (!send({ type: "join", player: session })) return;
     setSelectedPlayerId(session.id);
     setPlayerName("");
     setLobbyError("");
   };
 
   const toggleReady = (id: string) => {
-    setPlayers((current) => current.map((player) => player.id === id ? { ...player, ready: !player.ready } : player));
+    send({ type: "ready", sessionId: id });
   };
 
   const leaveLobby = (id: string) => {
-    setPlayers((current) => current.filter((player) => player.id !== id));
+    send({ type: "leave", sessionId: id });
     setSelectedPlayerId((current) => current === id ? null : current);
     setLobbyError("");
   };
 
+  const enterGame = () => {
+    if (players.length < 2 || !players.every((player) => player.ready)) {
+      setLobbyError("Every joined player must be ready before the adventure can start.");
+      return;
+    }
+    const nextAdventure = createAdventure();
+    nextAdventure.maxChapters = Math.max(4, Math.ceil(36 / players.length));
+    const nextGame: SyncedGameState = {
+      adventure: nextAdventure,
+      activePlayerIndex: 0,
+      completedTurns: 0,
+      roll: null,
+      outcome: null
+    };
+    send({ type: "start", game: nextGame });
+  };
+
   const castDie = () => {
-    if (rolling || !activePlayer || !activeCard || runComplete) return;
+    if (rolling || !game || !activePlayer || activePlayer.id !== sessionId || !activeCard || runComplete || status !== "connected") return;
     setRolling(true);
-    setOutcome(null);
     const targetAtRoll = adventure.target;
     let ticks = 0;
     const timer = window.setInterval(() => {
-      setRoll(Math.floor(Math.random() * 20) + 1);
+      setAnimatedRoll(Math.floor(Math.random() * 20) + 1);
       ticks += 1;
       if (ticks >= 9) {
         window.clearInterval(timer);
@@ -138,32 +159,33 @@ export default function GameApp() {
         const nextCompletedTurns = completedTurns + 1;
         const completesChapter = nextCompletedTurns % players.length === 0;
         const resolved = resolveAction(adventure, selectedCard, finalRoll, completesChapter, activeDeck);
-        setRoll(finalRoll);
-        setAdventure(resolved.adventure);
-        setCompletedTurns(nextCompletedTurns);
-        setOutcome({
-          success: resolved.success,
-          total: resolved.total,
-          target: targetAtRoll,
-          label: resolved.success ? `${activePlayer.displayName} prevails` : "The realm takes its due"
-        });
+        const nextIndex = nextCompletedTurns < maxTurns ? (activePlayerIndex + 1) % players.length : activePlayerIndex;
+        const nextGame: SyncedGameState = {
+          adventure: resolved.adventure,
+          activePlayerIndex: nextIndex,
+          completedTurns: nextCompletedTurns,
+          roll: finalRoll,
+          outcome: {
+            success: resolved.success,
+            total: resolved.total,
+            target: targetAtRoll,
+            label: resolved.success ? `${activePlayer.displayName} prevails` : "The realm takes its due"
+          }
+        };
+        send({ type: "game:update", game: nextGame });
+        setAnimatedRoll(finalRoll);
         setRolling(false);
-
-        if (nextCompletedTurns < maxTurns) {
-          const nextIndex = (activePlayerIndex + 1) % players.length;
-          setActivePlayerIndex(nextIndex);
-          setSelectedCard(players[nextIndex].skillDeck[0].id);
-        }
       }
     }, 85);
   };
 
+  const refreshStory = () => {
+    if (!game || activePlayer?.id !== sessionId || status !== "connected") return;
+    send({ type: "game:update", game: { ...game, adventure: nextStory(adventure) } });
+  };
+
   const returnToLobby = () => {
-    setPlayers((current) => current.map((player) => ({ ...player, ready: false })));
-    setSelectedPlayerId(players[0]?.id ?? null);
-    setOutcome(null);
-    setRoll(null);
-    setPhase("lobby");
+    send({ type: "return:lobby" });
   };
 
   return (
@@ -200,13 +222,16 @@ export default function GameApp() {
         <Lobby
           players={players}
           playerName={playerName}
-          error={lobbyError}
+          error={lobbyError || roomError}
           selectedPlayerId={selectedPlayerId}
-          onNameChange={(name) => { setPlayerName(name); setLobbyError(""); }}
+          localSessionId={sessionId}
+          connectionStatus={status}
+          onNameChange={(name) => { setPlayerName(name); setLobbyError(""); clearError(); }}
           onJoin={joinPlayer}
           onSelectPlayer={setSelectedPlayerId}
           onToggleReady={toggleReady}
           onLeave={leaveLobby}
+          onEnterGame={enterGame}
         />
       ) : (
         <div className="game-layout">
@@ -226,7 +251,7 @@ export default function GameApp() {
             <section className="story-card">
               <div className="story-kicker">
                 <span><BookOpen size={15} /> CHAPTER {adventure.chapter} · {activePlayer?.displayName.toUpperCase()}&apos;S TURN</span>
-                <button className="icon-button" onClick={() => setAdventure(nextStory(adventure))} aria-label="Refresh story event" title="Refresh story event"><RefreshCw size={15} /></button>
+                <button className="icon-button" onClick={refreshStory} disabled={activePlayer?.id !== sessionId || status !== "connected"} aria-label="Refresh story event" title="Only the current player can refresh the story"><RefreshCw size={15} /></button>
               </div>
               <h2>{adventure.event}</h2>
               <p>{adventure.story}</p>
@@ -245,7 +270,7 @@ export default function GameApp() {
                 <div className="objective-icon"><LockKeyhole size={22} /></div>
                 <div><span className="eyebrow">SHARED OATH</span><strong>{adventure.realm.objective}</strong><small>Every player acts once per chapter. Fail together if doom reaches 100.</small></div>
               </section>
-              <DiceRoller roll={roll} rolling={rolling} target={adventure.target} bonus={activeCard?.bonus ?? 0} onRoll={castDie} />
+              <DiceRoller roll={rolling ? animatedRoll : roll} rolling={rolling} target={adventure.target} bonus={activeCard?.bonus ?? 0} onRoll={castDie} disabled={activePlayer?.id !== sessionId || status !== "connected"} disabledLabel={status !== "connected" ? "Reconnecting…" : `Waiting for ${activePlayer?.displayName ?? "player"}`} />
             </div>
 
             <section className="hand-zone">
@@ -255,7 +280,7 @@ export default function GameApp() {
               </div>
               <div className="action-hand three-cards">
                 {activeDeck.map((card) => (
-                  <button className={`action-card ${selectedCard === card.id ? "selected" : ""}`} key={card.id} onClick={() => setSelectedCard(card.id)}>
+                  <button className={`action-card ${selectedCard === card.id ? "selected" : ""}`} key={card.id} onClick={() => setSelectedCard(card.id)} disabled={activePlayer?.id !== sessionId}>
                     <div className={`card-sigil ${card.type.toLowerCase()}`}>
                       {card.type === "Might" ? <Swords size={18} /> : card.type === "Wit" ? <Eye size={18} /> : <Sparkles size={18} />}
                     </div>
@@ -300,7 +325,7 @@ export default function GameApp() {
             {runComplete ? (
               <><span className="eyebrow">THE OATH IS SETTLED</span><h2>{adventure.worldDoom < 100 ? "The realm survives." : "The realm remembers your failure."}</h2><p className="modal-lead">{adventure.veilInfluence === adventure.emberInfluence ? "Neither banner could eclipse the other. For one rare dawn, victory is shared." : `${adventure.veilInfluence > adventure.emberInfluence ? "Veilbound" : "Embercourt"} claims the final word—yet every joined player was needed to reach it.`}</p><button className="primary-button" onClick={returnToLobby}><RefreshCw size={17} /> Return to lobby</button></>
             ) : showGuide ? (
-              <><span className="eyebrow">A 30–45 MINUTE ROGUELIKE</span><h2>Join, ready, cooperate, and compete.</h2><div className="guide-grid"><div><Users size={22} /><strong>Join one session each</strong><p>Enter a unique player name. Every joined player receives a random hero and a personal three-card skill deck.</p></div><div><Check size={22} /><strong>Everyone must be ready</strong><p>The adventure starts automatically only after at least two players join and every player presses Ready.</p></div><div><Dices size={22} /><strong>Every player takes a turn</strong><p>A chapter advances after the whole company acts. The chapter count scales to keep each run near 36–40 total turns.</p></div><div><HeartHandshake size={22} /><strong>One survival, two victories</strong><p>Both teams lose if doom reaches 100, but only the banner with the strongest influence claims the final oath.</p></div></div></>
+              <><span className="eyebrow">A 30–45 MINUTE ROGUELIKE</span><h2>Join, ready, cooperate, and compete.</h2><div className="guide-grid"><div><Users size={22} /><strong>Join one session each</strong><p>Enter a unique player name. Every joined player receives a random hero and a personal three-card skill deck.</p></div><div><Check size={22} /><strong>Everyone must be ready</strong><p>After at least two players join and everyone presses Ready, any player can press Enter the game.</p></div><div><Dices size={22} /><strong>Every player takes a turn</strong><p>A chapter advances after the whole company acts. The chapter count scales to keep each run near 36–40 total turns.</p></div><div><HeartHandshake size={22} /><strong>One survival, two victories</strong><p>Both teams lose if doom reaches 100, but only the banner with the strongest influence claims the final oath.</p></div></div></>
             ) : (
               <><span className="eyebrow">FROM THE COMPANY CHRONICLE</span><h2>{adventure.realm.name}</h2><p className="modal-lead">{adventure.story}</p><div className="chronicle-note"><Eye size={19} /><div><strong>The choice beneath the choice</strong><p>{adventure.realm.threat} is watching the current player. A Wit skill may reveal why.</p></div></div></>
             )}

@@ -3,16 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node backend/server.mjs --dev",
+    "test:realtime": "node scripts/test-realtime.mjs",
     "build": "next build && node scripts/prepare-sites.mjs",
-    "start": "next start",
+    "start": "node backend/server.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
     "next": "^15.1.3",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

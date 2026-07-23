@@ -7,13 +7,17 @@ export function DiceRoller({
   rolling,
   target,
   bonus,
-  onRoll
+  onRoll,
+  disabled = false,
+  disabledLabel = "Waiting for your turn"
 }: {
   roll: number | null;
   rolling: boolean;
   target: number;
   bonus: number;
   onRoll: () => void;
+  disabled?: boolean;
+  disabledLabel?: string;
 }) {
   return (
     <section className="dice-panel">
@@ -25,9 +29,9 @@ export function DiceRoller({
         <strong>Target {target}</strong>
         <small>d20 + {bonus} card bonus</small>
       </div>
-      <button className="roll-button" onClick={onRoll} disabled={rolling}>
+      <button className="roll-button" onClick={onRoll} disabled={rolling || disabled}>
         {rolling ? <Sparkles size={17} /> : <Dices size={18} />}
-        {rolling ? "Casting…" : "Cast the die"}
+        {rolling ? "Casting…" : disabled ? disabledLabel : "Cast the die"}
       </button>
     </section>
   );

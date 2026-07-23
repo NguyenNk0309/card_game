@@ -19,11 +19,14 @@ type LobbyProps = {
   playerName: string;
   error: string;
   selectedPlayerId: string | null;
+  localSessionId: string;
+  connectionStatus: string;
   onNameChange: (name: string) => void;
   onJoin: () => void;
   onSelectPlayer: (id: string) => void;
   onToggleReady: (id: string) => void;
   onLeave: (id: string) => void;
+  onEnterGame: () => void;
 };
 
 export function Lobby({
@@ -31,15 +34,19 @@ export function Lobby({
   playerName,
   error,
   selectedPlayerId,
+  localSessionId,
+  connectionStatus,
   onNameChange,
   onJoin,
   onSelectPlayer,
   onToggleReady,
-  onLeave
+  onLeave,
+  onEnterGame
 }: LobbyProps) {
   const selected = players.find((player) => player.id === selectedPlayerId) ?? players[0];
   const readyCount = players.filter((player) => player.ready).length;
   const allReady = players.length >= 2 && readyCount === players.length;
+  const localPlayer = players.find((player) => player.id === localSessionId);
 
   return (
     <section className="lobby-stage">
@@ -56,12 +63,13 @@ export function Lobby({
               <span className="eyebrow">SINGLE SHARED LOBBY</span>
               <h2>Enter your player name</h2>
             </div>
-            <div className={players.length >= 10 ? "capacity full" : "capacity"}>
-              <Users size={16} /> {players.length}/10
+            <div className="lobby-heading-status">
+              <span className={`connection-pill ${connectionStatus}`}>{connectionStatus}</span>
+              <div className={players.length >= 10 ? "capacity full" : "capacity"}><Users size={16} /> {players.length}/10</div>
             </div>
           </div>
 
-          <form
+          {!localPlayer ? <form
             className="join-form"
             onSubmit={(event) => {
               event.preventDefault();
@@ -82,7 +90,9 @@ export function Lobby({
                 <UserPlus size={18} /> {players.length >= 10 ? "Lobby full" : "Join"}
               </button>
             </div>
-          </form>
+          </form> : (
+            <div className="joined-session-note"><Check size={17} /><div><strong>You joined as {localPlayer.displayName}</strong><span>This browser controls only this player session.</span></div></div>
+          )}
 
           {error && <div className="lobby-error" role="alert">{error}</div>}
 
@@ -91,7 +101,7 @@ export function Lobby({
               <span className="eyebrow">JOINED PLAYERS</span>
               <strong>{readyCount} of {players.length} ready</strong>
             </div>
-            <span>Game starts automatically when everyone is ready.</span>
+            <span>When everyone is ready, any player may enter the game.</span>
           </div>
 
           <div className="joined-list">
@@ -110,7 +120,7 @@ export function Lobby({
                     {player.hero.initials}
                   </div>
                   <div>
-                    <div className="joined-name"><strong>{player.displayName}</strong><span>Session {index + 1}</span></div>
+                    <div className="joined-name"><strong>{player.displayName}</strong><span>{player.id === localSessionId ? "Your session" : `Session ${index + 1}`}</span></div>
                     <p>{player.hero.name} · {player.hero.role}</p>
                   </div>
                   <span className={`ready-badge ${player.ready ? "is-ready" : ""}`}>
@@ -119,12 +129,9 @@ export function Lobby({
                 </button>
                 <div className="joined-actions">
                   <button onClick={() => onSelectPlayer(player.id)}><Eye size={14} /> Review deck</button>
-                  <button className={player.ready ? "unready-button" : "ready-button"} onClick={() => onToggleReady(player.id)}>
-                    {player.ready ? "Cancel ready" : "Ready"}
-                  </button>
-                  <button className="leave-button" onClick={() => onLeave(player.id)} aria-label={`Remove ${player.displayName}`} title="Leave lobby">
-                    <UserMinus size={15} />
-                  </button>
+                  {player.id === localSessionId ? (
+                    <><button className={player.ready ? "unready-button" : "ready-button"} onClick={() => onToggleReady(player.id)}>{player.ready ? "Cancel ready" : "Ready"}</button><button className="leave-button" onClick={() => onLeave(player.id)} aria-label={`Remove ${player.displayName}`} title="Leave lobby"><UserMinus size={15} /></button></>
+                  ) : <span className="remote-player-label">Controlled in another browser</span>}
                 </div>
               </article>
             ))}
@@ -134,8 +141,9 @@ export function Lobby({
             {allReady ? <Check size={19} /> : <Shield size={19} />}
             <div>
               <strong>{allReady ? "Every oath is sworn" : players.length < 2 ? "Waiting for another player" : "Waiting for every player"}</strong>
-              <span>{allReady ? "The adventure is beginning…" : "All joined players must press Ready before the game can start."}</span>
+              <span>{allReady ? "Anyone may now enter the game." : "All joined players must press Ready before the game can start."}</span>
             </div>
+            <button className="enter-game-button" onClick={onEnterGame} disabled={!allReady || connectionStatus !== "connected"}><Swords size={17} /> Enter the game</button>
           </div>
         </section>
 
