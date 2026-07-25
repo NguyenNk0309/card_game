@@ -3326,3 +3326,154 @@ button:focus-visible {
   font-size: 11px;
   font-weight: 800;
 }
+
+/* Readable battle typography: keep display headings at their established scale. */
+.game-shell p,
+.game-shell small,
+.game-shell label,
+.game-shell button,
+.game-shell input,
+.game-shell select,
+.game-shell option,
+.game-shell b,
+.game-shell span:not(.eyebrow) {
+  font-size: 15px !important;
+  line-height: 1.45;
+}
+
+.game-shell .action-card strong,
+.game-shell .skill-card strong,
+.game-shell .public-deck-card strong,
+.game-shell .history-entry strong,
+.game-shell .turn-queue-item strong,
+.game-shell .joined-name > strong,
+.game-shell .hero-name > strong {
+  font-size: 15px !important;
+}
+
+/* Keep the event library physically anchored between the timeline and timer. */
+.run-status > .world-event-library-button {
+  position: static;
+  inset: auto;
+  flex: 0 0 auto;
+  min-height: 34px;
+  margin: 0;
+  padding: 7px 10px;
+}
+
+.chapter-pips i.world-event-turn.future {
+  background: rgba(181, 53, 42, 0.2);
+  box-shadow: 0 0 4px rgba(226, 65, 47, 0.14);
+}
+
+/* Put conditional ally/enemy selection on its own full-width row. */
+.objective-card {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.objective-card > .objective-summary {
+  width: 100%;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.objective-summary > .objective-copy {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.objective-card > .target-selection-panel {
+  width: 100%;
+  display: block;
+  flex: 0 0 auto;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(212, 181, 110, 0.2);
+}
+
+.target-selection-panel .target-picker {
+  width: 100%;
+  margin: 0;
+}
+
+/* Private pile movement VFX, driven by actual hand/pile state changes. */
+.card-zone-vfx {
+  position: fixed;
+  z-index: 155;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.card-motion {
+  --motion-color: #d4b56e;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 180px;
+  min-height: 128px;
+  padding: 13px;
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  align-content: center;
+  align-items: center;
+  gap: 4px 10px;
+  color: var(--paper);
+  border: 1px solid var(--motion-color);
+  background: linear-gradient(145deg, rgba(17, 27, 29, 0.98), rgba(6, 11, 12, 0.98));
+  box-shadow: 0 0 25px color-mix(in srgb, var(--motion-color) 45%, transparent), 0 18px 45px rgba(0, 0, 0, 0.55);
+  transform-origin: center;
+}
+
+.card-motion.effect-damage,
+.card-motion.effect-aoe { --motion-color: #f0c84f; }
+.card-motion.effect-heal { --motion-color: #78d49b; }
+.card-motion.effect-guard { --motion-color: #78aeda; }
+.card-motion.effect-support { --motion-color: #d8b86c; }
+.card-motion.effect-none { --motion-color: #a5a9ad; }
+
+.card-motion > span,
+.card-motion > small {
+  grid-column: 1 / -1;
+  color: var(--motion-color);
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.card-motion > strong { font: 600 16px Georgia, "Times New Roman", serif; }
+.card-motion > .card-sigil { color: var(--motion-color); border-color: var(--motion-color); }
+.card-motion.draw-to-hand { animation: card-draw-flight 1.25s cubic-bezier(.18, .8, .24, 1) both; }
+.card-motion.hand-to-discard { animation: card-discard-flight 1.25s cubic-bezier(.55, .05, .72, .35) both; }
+
+@keyframes card-draw-flight {
+  0% { opacity: 0; transform: translate(37vw, -33vh) scale(.4) rotate(14deg); }
+  16% { opacity: 1; }
+  76% { opacity: 1; transform: translate(-12vw, 31vh) scale(1.05) rotate(-2deg); }
+  100% { opacity: 0; transform: translate(-12vw, 31vh) scale(.9) rotate(0); }
+}
+
+@keyframes card-discard-flight {
+  0% { opacity: 0; transform: translate(-12vw, 31vh) scale(.88) rotate(-2deg); }
+  14% { opacity: 1; }
+  72% { opacity: 1; transform: translate(37vw, -33vh) scale(.72) rotate(12deg); }
+  100% { opacity: 0; transform: translate(37vw, -33vh) scale(.35) rotate(18deg); }
+}
+
+@media (max-width: 940px) {
+  .run-status { gap: 8px; }
+  .run-status > .world-event-library-button { right: auto; }
+  .card-motion { width: 155px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-motion.draw-to-hand,
+  .card-motion.hand-to-discard { animation-duration: .2s; }
+}
