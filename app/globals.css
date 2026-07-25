@@ -44,17 +44,6 @@ button:focus-visible {
   isolation: isolate;
 }
 
-.world-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: -3;
-  background-image: url("/art/moonfall-citadel.png");
-  background-position: center center;
-  background-size: cover;
-  transform: scale(1.015);
-  transition: filter 500ms ease, background-position 500ms ease;
-}
-
 .game-shell::before {
   content: "";
   position: fixed;
@@ -63,16 +52,6 @@ button:focus-visible {
   background:
     linear-gradient(90deg, rgba(6, 10, 12, 0.94) 0%, rgba(7, 11, 13, 0.48) 34%, rgba(7, 11, 13, 0.28) 61%, rgba(5, 9, 11, 0.91) 100%),
     linear-gradient(0deg, rgba(4, 8, 10, 0.95) 0%, transparent 50%, rgba(5, 9, 11, 0.68) 100%);
-}
-
-.scene-ember .world-backdrop {
-  filter: sepia(0.3) saturate(1.18) hue-rotate(-12deg);
-  background-position: 62% center;
-}
-
-.scene-fog .world-backdrop {
-  filter: saturate(0.65) brightness(1.05) hue-rotate(20deg);
-  background-position: 42% center;
 }
 
 .grain {
@@ -848,7 +827,7 @@ button:focus-visible {
 }
 
 .action-card.selected::after {
-  content: "SELECTED";
+  content: "ĐÃ CHỌN";
   position: absolute;
   top: 7px;
   right: 8px;
@@ -1322,6 +1301,122 @@ button:focus-visible {
     padding: 28px 21px;
     overflow-y: auto;
   }
+}
+
+/* Focused 30-turn arena UI */
+.game-shell.arena-focus {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(102, 81, 42, 0.18), transparent 40%),
+    linear-gradient(135deg, #071013 0%, #111719 48%, #080c0e 100%);
+}
+
+.game-shell.arena-focus::before {
+  background: linear-gradient(90deg, rgba(4, 9, 11, 0.72), transparent 45%, rgba(4, 8, 10, 0.75));
+}
+
+.combat-stage {
+  gap: 14px;
+  background-image: linear-gradient(rgba(212, 181, 110, 0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(212, 181, 110, 0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.combat-banner {
+  min-height: 86px;
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(90deg, rgba(212, 181, 110, 0.14), rgba(12, 18, 19, 0.86));
+  border: 1px solid rgba(212, 181, 110, 0.28);
+  border-left: 4px solid var(--gold);
+}
+
+.combat-banner > svg { color: var(--gold); flex: 0 0 auto; }
+.combat-banner strong { font: 500 22px Georgia, serif; }
+.combat-banner p { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+.dice-copy em {
+  max-width: 160px;
+  margin-top: 2px;
+  color: var(--gold);
+  font-size: 9px;
+  font-style: normal;
+  line-height: 1.25;
+}
+
+.action-card .card-impact,
+.skill-card .card-impact {
+  min-height: 0;
+  margin-top: 8px;
+  padding-top: 8px;
+  color: #e0d8c4;
+  border-top: 1px solid rgba(212, 181, 110, 0.2);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.passive-callout {
+  margin: 12px 0;
+  padding: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #17130a;
+  background: linear-gradient(110deg, #d4b56e, #eed899);
+  border: 1px solid #f4dfa6;
+}
+
+.passive-callout svg { flex: 0 0 auto; }
+.passive-callout div { display: flex; flex-direction: column; gap: 3px; }
+.passive-callout span { font-size: 9px; font-weight: 900; letter-spacing: .11em; }
+.passive-callout strong { font-size: 12px; line-height: 1.45; }
+
+.history-panel { min-height: 0; flex: 1; display: flex; flex-direction: column; }
+.history-list { max-height: 42vh; overflow-y: auto; padding-right: 4px; }
+.history-entry { padding: 9px 10px; margin-bottom: 6px; background: rgba(255,255,255,.035); border-left: 2px solid #768388; }
+.history-entry.damage, .history-entry.aoe { border-left-color: #cc775b; }
+.history-entry.heal, .history-entry.support { border-left-color: #74ad89; }
+.history-entry.world { border-left-color: var(--gold); background: rgba(212,181,110,.08); }
+.history-entry.failure { opacity: .72; }
+.history-entry span { color: var(--gold); font-size: 9px; font-weight: 800; text-transform: uppercase; }
+.history-entry p, .empty-history { margin: 4px 0 0; color: #c4ceca; font-size: 11px; line-height: 1.45; }
+.history-dice { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
+.history-dice span, .history-dice strong { padding: 3px 5px; border: 1px solid rgba(212,181,110,.2); background: rgba(0,0,0,.18); color: #cdd5d2; font-size: 9px; letter-spacing: .02em; text-transform: none; }
+.history-dice strong { color: var(--gold); }
+
+.hero-row.is-dead { opacity: .45; filter: grayscale(1); }
+.hero-row.is-dead .hp-line b { width: 0 !important; }
+.hero-row.is-dead em { color: #f0a198; }
+.buff-line { margin-top: 4px; color: var(--gold); font-size: 9px; word-spacing: 5px; }
+.negative-buff { color: #e58b7b; font-style: normal; }
+
+.turn-queue-card { padding-bottom: 17px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+.turn-queue-list { display: grid; gap: 5px; max-height: 174px; overflow-y: auto; padding-right: 3px; }
+.turn-queue-item { display: grid; grid-template-columns: 52px 28px 1fr; align-items: center; gap: 7px; padding: 6px 7px; border: 1px solid var(--line); background: rgba(255,255,255,.025); }
+.turn-queue-item.current { border-color: var(--gold); background: rgba(212,181,110,.1); }
+.turn-queue-item > b { color: var(--muted); font-size: 8px; letter-spacing: .08em; text-align: center; }
+.turn-queue-item.current > b { color: var(--gold); }
+.turn-queue-item .portrait.mini { width: 28px; height: 28px; font-size: 9px; }
+.turn-queue-item > div:last-child { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.turn-queue-item strong { overflow: hidden; color: var(--paper); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.turn-queue-item span { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.negative-card-effect { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; margin: -5px 0 4px; padding: 9px; border: 1px solid rgba(224,105,87,.45); background: rgba(224,105,87,.1); color: #efaa9d; font-size: 12px; }
+
+.resolution-hero.world { color: #f3d27e; background: rgba(212,181,110,.15); border: 1px solid rgba(212,181,110,.55); }
+.world-event-resolution .modal-lead { max-width: 560px; }
+
+.chapter-pips { max-width: 330px; grid-template-columns: repeat(15, 1fr); flex-wrap: wrap; }
+.chapter-pips .current { background: #fff0b9; box-shadow: 0 0 7px var(--gold); }
+
+@media (max-width: 1100px) {
+  .combat-banner { min-height: 72px; }
+  .history-list { max-height: 260px; }
+}
+
+@media (max-width: 720px) {
+  .combat-banner { align-items: flex-start; }
+  .combat-banner strong { font-size: 18px; }
+  .dice-copy em { display: none; }
 }
 
 /* Character drafting, combat interactions, and deck-cycle controls */

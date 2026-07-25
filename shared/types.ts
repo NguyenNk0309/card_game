@@ -1,12 +1,18 @@
 export type TeamId = "veil" | "ember";
-export type CardEffect = "check" | "heal" | "damage" | "guard" | "support";
-export type CardTarget = "none" | "self" | "ally" | "enemy" | "any";
+export type CardEffect = "heal" | "damage" | "aoe" | "guard" | "support";
+export type CardTarget = "self" | "ally" | "all-allies" | "enemy" | "all-enemies";
+export type SupportType = "attack" | "shield" | "healing" | "dice" | "enemy-dice" | "delay-enemy" | "advance-ally" | "dispel-enemy";
+export type FailureEffect = "self-damage" | "team-damage" | "lose-shield" | "enemy-shield";
 
 export type Hero = {
   id: string;
   name: string;
   title: string;
   role: string;
+  classId: string;
+  className: string;
+  passiveName: string;
+  passiveText: string;
   skill: string;
   skillText: string;
   summary: string;
@@ -27,10 +33,13 @@ export type ActionCard = {
   type: "Might" | "Wit" | "Spirit";
   description: string;
   bonus: number;
-  risk: number;
   effect: CardEffect;
   target: CardTarget;
   value: number;
+  supportType?: SupportType;
+  ignoresShield?: boolean;
+  failureEffect?: FailureEffect;
+  failureValue?: number;
   unique: boolean;
 };
 
@@ -62,9 +71,42 @@ export type GameOutcome = {
   targetName?: string;
   roll?: number;
   bonus?: number;
-  risk?: number;
   doomChange?: number;
   influenceChange?: number;
+  amount?: number;
+  defeated?: boolean;
+  nextTarget?: number;
+  diceBuff?: number;
+  dicePenalty?: number;
+  failureDetail?: string;
+};
+
+export type GameHistoryEntry = {
+  id: string;
+  turn: number;
+  kind: CardEffect | "timeout" | "world" | "system";
+  actorName: string;
+  actorTeam?: TeamId;
+  targetName?: string;
+  cardName?: string;
+  message: string;
+  success: boolean;
+  amount?: number;
+  diceRoll?: number;
+  diceTarget?: number;
+  diceBonus?: number;
+  dicePenalty?: number;
+  diceTotal?: number;
+  createdAt: number;
+};
+
+export type WorldEventOutcome = {
+  id: string;
+  turn: number;
+  level: number;
+  title: string;
+  description: string;
+  affectedTeam?: TeamId;
 };
 
 export type PlayerRunState = {
@@ -72,6 +114,9 @@ export type PlayerRunState = {
   hp: number;
   maxHp: number;
   shield: number;
+  attackBuff: number;
+  diceBuff: number;
+  dicePenalty: number;
   drawPile: string[];
   hand: string[];
   discardPile: string[];
@@ -90,6 +135,10 @@ export type SyncedGameState = {
   maxTurns: number;
   ended: boolean;
   endReason: string | null;
+  winnerTeam: TeamId | null;
+  history: GameHistoryEntry[];
+  worldEvent: WorldEventOutcome | null;
+  turnOrder?: string[];
 };
 
 export type SharedRoomState = {

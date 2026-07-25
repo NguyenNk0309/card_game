@@ -1,37 +1,19 @@
 import { ACTION_CARDS, CHARACTER_SKILL_CARDS, EVENTS, HERO_TEMPLATES, REALMS, STORY_BEATS } from "./catalog";
-import type { ActionCard, Adventure, CharacterOption, Hero, PlayerRunState, PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
+import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, Hero, PlayerRunState, PlayerSession, SyncedGameState, TeamId, WorldEventOutcome } from "@/shared/types";
 
-const pick = <T,>(items: T[], index = Math.floor(Math.random() * items.length)) =>
-  items[Math.abs(index) % items.length];
+const pick = <T,>(items: T[], index = Math.floor(Math.random() * items.length)) => items[Math.abs(index) % items.length];
+const teamName = (team: TeamId) => team === "veil" ? "Veilbound" : "Embercourt";
 
 export function createSeed() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
 export function createAdventure(seed = createSeed()): Adventure {
-  const key = [...seed].reduce((total, char) => total + char.charCodeAt(0), 0);
-  const realm = pick(REALMS, key);
-  return {
-    seed,
-    realm,
-    chapter: 1,
-    maxChapters: 10,
-    story: pick(STORY_BEATS, key + 1),
-    event: pick(EVENTS, key + 2),
-    target: 13 + (key % 4),
-    worldDoom: 18,
-    veilInfluence: 0,
-    emberInfluence: 0
-  };
+  return { seed, realm: REALMS[0], chapter: 1, maxChapters: 30, story: STORY_BEATS[0], event: EVENTS[0], target: 12, worldDoom: 0, veilInfluence: 0, emberInfluence: 0 };
 }
 
 export function createParty(size = 6): Hero[] {
-  return HERO_TEMPLATES.slice(0, Math.min(10, Math.max(2, size))).map((hero, index) => ({
-    ...hero,
-    id: `hero-${index + 1}`,
-    team: (index % 2 === 0 ? "veil" : "ember") as TeamId,
-    isYou: index === 0
-  }));
+  return HERO_TEMPLATES.slice(0, Math.min(10, Math.max(2, size))).map((hero, index) => ({ ...hero, id: `hero-${index + 1}`, team: (index % 2 === 0 ? "veil" : "ember") as TeamId, isYou: index === 0 }));
 }
 
 const shuffle = <T,>(items: T[]) => {
@@ -45,253 +27,282 @@ const shuffle = <T,>(items: T[]) => {
 
 export function createSkillDeck(hero: Omit<Hero, "id" | "team" | "isYou">): ActionCard[] {
   const uniqueCards = CHARACTER_SKILL_CARDS[hero.name];
-  if (!uniqueCards || uniqueCards.length !== 5) {
-    throw new Error(`${hero.name} must have exactly five character skill cards.`);
-  }
-  if (new Set(uniqueCards.map((card) => card.id)).size !== 5) {
-    throw new Error(`${hero.name} has duplicate character skill card IDs.`);
-  }
-  if (uniqueCards[0]?.name !== hero.skill) {
-    throw new Error(`${hero.name}'s first character card must be their signature skill.`);
-  }
-
-  const totalBonus = uniqueCards.reduce((sum, card) => sum + card.bonus, 0);
-  const totalRisk = uniqueCards.reduce((sum, card) => sum + card.risk, 0);
-  if (totalBonus < 21 || totalBonus > 27 || totalRisk < 6 || totalRisk > 14) {
-    throw new Error(`${hero.name}'s character deck falls outside the balance budget.`);
-  }
-
+  if (!uniqueCards || uniqueCards.length !== 3) throw new Error(`${hero.name} phải có đúng 3 lá đặc biệt.`);
   const prefix = hero.initials.toLowerCase();
   const commonCards = ACTION_CARDS.map((card) => ({ ...card, id: `${prefix}-common-${card.id}` }));
   const deck = [...uniqueCards.map((card) => ({ ...card, unique: true })), ...commonCards];
-  if (deck.length !== 15) throw new Error(`${hero.name} must have a 15-card deck.`);
+  if (deck.length !== 8) throw new Error(`${hero.name} phải có bộ bài 8 lá.`);
   return deck;
 }
 
 export function getCharacterOptions(): CharacterOption[] {
-  return HERO_TEMPLATES.map((template, index) => {
-    const hero: Hero = { ...template, id: `preview-${index}`, team: "veil" };
-    return { hero, skillDeck: createSkillDeck(template) };
-  });
+  return HERO_TEMPLATES.map((template, index) => ({ hero: { ...template, id: `preview-${index}`, team: "veil" }, skillDeck: createSkillDeck(template) }));
 }
 
-export function createPlayerSession(
-  displayName: string,
-  seatIndex: number,
-  heroName: string,
-  sessionId?: string
-): PlayerSession {
+export function createPlayerSession(displayName: string, seatIndex: number, heroName: string, sessionId?: string): PlayerSession {
   const heroIndex = Math.max(0, HERO_TEMPLATES.findIndex((hero) => hero.name === heroName));
   const template = HERO_TEMPLATES[heroIndex];
-  const team = (seatIndex % 2 === 0 ? "veil" : "ember") as TeamId;
   const id = sessionId ?? `session-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  const hero: Hero = {
-    ...template,
-    id: `hero-${id}`,
-    team
-  };
-
-  return {
-    id,
-    displayName,
-    ready: false,
-    joinedAt: Date.now(),
-    hero,
-    skillDeck: createSkillDeck(template)
-  };
+  return { id, displayName, ready: false, joinedAt: Date.now(), hero: { ...template, id: `hero-${id}`, team: (seatIndex % 2 === 0 ? "veil" : "ember") as TeamId }, skillDeck: createSkillDeck(template) };
 }
 
 function createRunState(player: PlayerSession): PlayerRunState {
   const drawPile = shuffle(player.skillDeck.map((card) => card.id));
-  return {
-    sessionId: player.id,
-    hp: player.hero.maxHp,
-    maxHp: player.hero.maxHp,
-    shield: 0,
-    hand: drawPile.splice(0, 5),
-    drawPile,
-    discardPile: []
-  };
+  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, hand: drawPile.splice(0, 4), drawPile, discardPile: [] };
 }
 
 export function createInitialGame(players: PlayerSession[], adventure = createAdventure(), turnSeconds = 30): SyncedGameState {
-  const maxTurns = Math.max(36, players.length * 8);
-  adventure.maxChapters = Math.ceil(maxTurns / players.length);
   const now = Date.now();
-  return {
-    adventure,
-    activePlayerIndex: 0,
-    completedTurns: 0,
-    roll: null,
-    outcome: null,
-    playerStates: Object.fromEntries(players.map((player) => [player.id, createRunState(player)])),
-    turnStartedAt: now,
-    turnDeadline: now + turnSeconds * 1000,
-    turnSeconds,
-    maxTurns,
-    ended: false,
-    endReason: null
-  };
+  return { adventure: { ...adventure, maxChapters: 30, target: 12 }, activePlayerIndex: 0, completedTurns: 0, roll: null, outcome: null, playerStates: Object.fromEntries(players.map((player) => [player.id, createRunState(player)])), turnStartedAt: now, turnDeadline: now + turnSeconds * 1000, turnSeconds, maxTurns: 30, ended: false, endReason: null, winnerTeam: null, history: [], worldEvent: null, turnOrder: players.map((player) => player.id) };
 }
 
 export function nextStory(adventure: Adventure): Adventure {
   const key = Math.floor(Math.random() * STORY_BEATS.length);
-  return {
-    ...adventure,
-    story: STORY_BEATS[key],
-    event: EVENTS[(key + adventure.chapter) % EVENTS.length],
-    target: 12 + Math.floor(Math.random() * 6)
-  };
+  return { ...adventure, story: STORY_BEATS[key], event: EVENTS[key % EVENTS.length] };
 }
 
 function drawReplacement(state: PlayerRunState, playedCardId: string): PlayerRunState {
   let drawPile = [...state.drawPile];
   let discardPile = [...state.discardPile, playedCardId];
   const hand = state.hand.filter((cardId) => cardId !== playedCardId);
-  if (!drawPile.length) {
-    drawPile = shuffle(discardPile);
-    discardPile = [];
-  }
+  if (!drawPile.length) { drawPile = shuffle(discardPile); discardPile = []; }
   const replacement = drawPile.shift();
   return { ...state, drawPile, discardPile, hand: replacement ? [...hand, replacement] : hand };
 }
 
-function validTarget(card: ActionCard, active: PlayerSession, players: PlayerSession[], requestedId?: string) {
-  const requested = players.find((player) => player.id === requestedId);
-  if (card.target === "self" || card.target === "none") return active;
-  if (card.target === "ally" && requested?.hero.team === active.hero.team) return requested;
-  if (card.target === "enemy" && requested && requested.hero.team !== active.hero.team) return requested;
-  if (card.target === "any" && requested) return requested;
-  return card.target === "enemy"
-    ? players.find((player) => player.hero.team !== active.hero.team) ?? active
-    : players.find((player) => player.hero.team === active.hero.team) ?? active;
+export function findNextLivingPlayerIndex(players: PlayerSession[], states: Record<string, PlayerRunState>, currentIndex: number) {
+  for (let offset = 1; offset <= players.length; offset += 1) {
+    const candidate = (currentIndex + offset) % players.length;
+    if ((states[players[candidate]?.id]?.hp ?? 0) > 0) return candidate;
+  }
+  return currentIndex;
 }
 
-export function resolveCardTurn(
-  game: SyncedGameState,
-  players: PlayerSession[],
-  cardId: string,
-  targetId: string | undefined,
-  roll: number
-): SyncedGameState {
-  const activePlayer = players[game.activePlayerIndex];
-  if (!activePlayer) return game;
-  const activeState = game.playerStates[activePlayer.id];
-  const card = activePlayer.skillDeck.find((item) => item.id === cardId);
-  if (!activeState || !card || !activeState.hand.includes(card.id)) return game;
+export function normalizeTurnOrder(game: SyncedGameState, players: PlayerSession[], states = game.playerStates) {
+  const currentId = players[game.activePlayerIndex]?.id;
+  const fallback = currentId ? [...players.slice(game.activePlayerIndex), ...players.slice(0, game.activePlayerIndex)].map((player) => player.id) : players.map((player) => player.id);
+  const source = game.turnOrder?.length ? game.turnOrder : fallback;
+  const validIds = new Set(players.map((player) => player.id));
+  const order = source.filter((id, index) => validIds.has(id) && source.indexOf(id) === index);
+  for (const player of players) if (!order.includes(player.id)) order.push(player.id);
+  return order.filter((id) => (states[id]?.hp ?? 0) > 0);
+}
 
-  const nextCompletedTurns = game.completedTurns + 1;
-  const completesChapter = nextCompletedTurns % players.length === 0;
-  const previousDoom = game.adventure.worldDoom;
-  const previousInfluence = activePlayer.hero.team === "veil"
-    ? game.adventure.veilInfluence
-    : game.adventure.emberInfluence;
-  const resolved = resolveAction(game.adventure, card.id, roll, completesChapter, activePlayer.skillDeck, activePlayer.hero.team);
-  const nextStates = Object.fromEntries(Object.entries(game.playerStates).map(([id, state]) => [id, { ...state, hand: [...state.hand], drawPile: [...state.drawPile], discardPile: [...state.discardPile] }]));
-  const target = validTarget(card, activePlayer, players, targetId);
-  const targetState = nextStates[target.id];
-  let detail = resolved.success ? `${card.name} takes effect.` : `${card.name} fails and its risk feeds the realm.`;
+function moveTurnTarget(order: string[], targetId: string, mode: "advance" | "delay") {
+  const index = order.indexOf(targetId);
+  if (index < 0 || (mode === "advance" && index === 0)) return order;
+  const next = order.filter((id) => id !== targetId);
+  if (mode === "advance") next.splice(1, 0, targetId);
+  else next.push(targetId);
+  return next;
+}
 
-  if (resolved.success && targetState) {
-    if (card.effect === "heal") {
-      const before = targetState.hp;
-      targetState.hp = Math.min(targetState.maxHp, targetState.hp + card.value);
-      if (card.id.includes("common-rally")) targetState.shield += 1;
-      detail = `${target.displayName} recovers ${targetState.hp - before} health.`;
-    } else if (card.effect === "damage") {
-      const ignoresShield = card.id.includes("common-feint") || card.id.includes("pierce");
-      const absorbed = ignoresShield ? 0 : Math.min(targetState.shield, card.value);
-      targetState.shield -= absorbed;
-      const damage = Math.max(0, card.value - absorbed);
-      targetState.hp = Math.max(0, targetState.hp - damage);
-      detail = `${target.displayName} takes ${damage} damage${absorbed ? ` (${absorbed} blocked)` : ""}.`;
+function rotateTurnOrder(order: string[], actorId: string, states: Record<string, PlayerRunState>) {
+  const livingOrder = order.filter((id) => (states[id]?.hp ?? 0) > 0 && id !== actorId);
+  if ((states[actorId]?.hp ?? 0) > 0) livingOrder.push(actorId);
+  return livingOrder;
+}
+
+function living(players: PlayerSession[], states: Record<string, PlayerRunState>, team?: TeamId) {
+  return players.filter((player) => (!team || player.hero.team === team) && (states[player.id]?.hp ?? 0) > 0);
+}
+
+function totals(players: PlayerSession[], states: Record<string, PlayerRunState>, team: TeamId) {
+  const members = players.filter((player) => player.hero.team === team);
+  return { hp: members.reduce((sum, player) => sum + (states[player.id]?.hp ?? 0), 0), alive: members.filter((player) => (states[player.id]?.hp ?? 0) > 0).length, shield: members.reduce((sum, player) => sum + (states[player.id]?.shield ?? 0), 0) };
+}
+
+function decideWinner(players: PlayerSession[], states: Record<string, PlayerRunState>, adventure: Adventure, lastTeam: TeamId, finalTurn: boolean): TeamId | null {
+  const veil = totals(players, states, "veil");
+  const ember = totals(players, states, "ember");
+  if (veil.alive === 0 && ember.alive > 0) return "ember";
+  if (ember.alive === 0 && veil.alive > 0) return "veil";
+  if (veil.alive === 0 && ember.alive === 0) {
+    if (adventure.veilInfluence !== adventure.emberInfluence) return adventure.veilInfluence > adventure.emberInfluence ? "veil" : "ember";
+    return lastTeam;
+  }
+  if (!finalTurn) return null;
+  if (veil.hp !== ember.hp) return veil.hp > ember.hp ? "veil" : "ember";
+  if (veil.alive !== ember.alive) return veil.alive > ember.alive ? "veil" : "ember";
+  if (veil.shield !== ember.shield) return veil.shield > ember.shield ? "veil" : "ember";
+  if (adventure.veilInfluence !== adventure.emberInfluence) return adventure.veilInfluence > adventure.emberInfluence ? "veil" : "ember";
+  return lastTeam;
+}
+
+function applyWorldEvent(turn: number, players: PlayerSession[], states: Record<string, PlayerRunState>): { event: WorldEventOutcome; history: GameHistoryEntry } {
+  const level = Math.ceil(turn / 5);
+  const team = (Math.random() < 0.5 ? "veil" : "ember") as TeamId;
+  const kind = Math.floor(Math.random() * 5);
+  let title = "Địa chấn chiến trường";
+  let description = "";
+  if (kind === 0) {
+    for (const player of living(players, states)) {
+      const reduction = player.hero.classId === "oracle" || living(players, states, player.hero.team).some((ally) => ally.hero.classId === "oracle") ? 1 : 0;
+      states[player.id].hp = Math.max(0, states[player.id].hp - Math.max(0, level - reduction));
+    }
+    description = `Mọi người còn sống nhận ${level} sát thương (đội có Tiên tri giảm 1).`;
+  } else if (kind === 1) {
+    title = "Tiếp tế khẩn cấp";
+    for (const player of living(players, states, team)) states[player.id].hp = Math.min(states[player.id].maxHp, states[player.id].hp + level);
+    description = `${teamName(team)} hồi ${level} HP cho mọi thành viên còn sống.`;
+  } else if (kind === 2) {
+    title = "Sóng phá giáp";
+    for (const state of Object.values(states)) state.shield = Math.max(0, state.shield - level * 2);
+    description = `Mọi người mất tối đa ${level * 2} khiên.`;
+  } else if (kind === 3) {
+    title = "Khí thế cuồng nộ";
+    for (const player of living(players, states, team)) states[player.id].attackBuff += level;
+    description = `${teamName(team)} nhận +${level} sát thương cho đòn đánh kế tiếp.`;
+  } else {
+    title = "Mưa tên vô chủ";
+    for (const player of living(players, states, team)) {
+      const reduction = living(players, states, team).some((ally) => ally.hero.classId === "oracle") ? 1 : 0;
+      states[player.id].hp = Math.max(0, states[player.id].hp - Math.max(0, level + 1 - reduction));
+    }
+    description = `${teamName(team)} nhận ${level + 1} sát thương bất ngờ (Tiên tri giảm 1).`;
+  }
+  const event = { id: `world-${turn}-${Date.now()}`, turn, level, title, description, affectedTeam: kind === 0 || kind === 2 ? undefined : team };
+  return { event, history: { id: `${event.id}-history`, turn, kind: "world", actorName: "Sự kiện thế giới", message: `${title}: ${description}`, success: true, createdAt: Date.now() } };
+}
+
+export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[], cardId: string, targetId: string | undefined, roll: number): SyncedGameState {
+  let turnOrder = normalizeTurnOrder(game, players);
+  const actor = players.find((player) => player.id === turnOrder[0]) ?? players[game.activePlayerIndex];
+  const actorIndex = players.findIndex((player) => player.id === actor?.id);
+  const actorState = actor && game.playerStates[actor.id];
+  const card = actor?.skillDeck.find((item) => item.id === cardId);
+  if (!actor || !actorState || actorState.hp <= 0 || !card || !actorState.hand.includes(card.id) || game.ended) return game;
+
+  const states = Object.fromEntries(Object.entries(game.playerStates).map(([id, state]) => [id, { ...state, hand: [...state.hand], drawPile: [...state.drawPile], discardPile: [...state.discardPile] }]));
+  const diceBuff = actorState.diceBuff ?? 0;
+  const dicePenalty = actorState.dicePenalty ?? 0;
+  const totalBonus = card.bonus + diceBuff;
+  const total = roll + totalBonus - dicePenalty;
+  const success = total >= game.adventure.target;
+  const enemies = living(players, states).filter((player) => player.hero.team !== actor.hero.team);
+  const allies = living(players, states, actor.hero.team);
+  const selectedEnemy = enemies.find((player) => player.id === targetId) ?? enemies[0];
+  const selectableAllies = card.supportType === "advance-ally" ? allies.filter((player) => player.id !== actor.id) : allies;
+  const selectedAlly = selectableAllies.find((player) => player.id === targetId) ?? selectableAllies[0] ?? actor;
+  const targets = card.target === "all-enemies" ? enemies : card.target === "all-allies" ? allies : card.target === "self" ? [actor] : card.target === "ally" ? [selectedAlly] : selectedEnemy ? [selectedEnemy] : [];
+  states[actor.id].diceBuff = 0;
+  states[actor.id].dicePenalty = 0;
+  let amount = 0;
+  let defeated = false;
+  let detail = `${actor.displayName} dùng ${card.name} nhưng không đạt mục tiêu ${game.adventure.target}.`;
+
+  if (success) {
+    if (card.effect === "damage" || card.effect === "aoe") {
+      let passive = 0;
+      if (actor.hero.classId === "ranger" && card.effect === "damage") passive += 1;
+      if (actor.hero.classId === "mage" && card.effect === "aoe") passive += 1;
+      if (actor.hero.classId === "duelist" && actorState.shield === 0) passive += 1;
+      if (actor.hero.classId === "berserker" && actorState.hp <= actorState.maxHp / 2) passive += 1;
+      const power = card.value + actorState.attackBuff + passive;
+      const ignoresShield = Boolean(card.ignoresShield || actor.hero.classId === "assassin");
+      const reports: string[] = [];
+      for (const target of targets) {
+        const state = states[target.id];
+        const blocked = ignoresShield ? 0 : Math.min(state.shield, power);
+        state.shield -= blocked;
+        const damage = power - blocked;
+        state.hp = Math.max(0, state.hp - damage);
+        amount += damage;
+        if (state.hp === 0) defeated = true;
+        reports.push(`${target.displayName} mất ${damage} HP${blocked ? ` (${blocked} bị khiên chặn)` : ""}${state.hp === 0 ? " và đã gục" : ""}`);
+      }
+      states[actor.id].attackBuff = 0;
+      detail = reports.join("; ") + ".";
+    } else if (card.effect === "heal") {
+      const target = targets[0] ?? actor;
+      const power = card.value + (actor.hero.classId === "healer" ? 2 : 0);
+      const before = states[target.id].hp;
+      states[target.id].hp = Math.min(states[target.id].maxHp, states[target.id].hp + power);
+      amount = states[target.id].hp - before;
+      detail = `${actor.displayName} hồi ${amount} HP cho ${target.displayName}.`;
     } else if (card.effect === "guard") {
-      targetState.shield += card.value;
-      detail = `${target.displayName} gains ${card.value} shield.`;
+      const target = targets[0] ?? actor;
+      amount = card.value + (actor.hero.classId === "tank" ? 2 : 0);
+      states[target.id].shield += amount;
+      detail = `${actor.displayName} tạo ${amount} khiên cho ${target.displayName}.`;
     } else if (card.effect === "support") {
-      detail = `World Doom falls by ${card.value}.`;
+      amount = card.value + (["support", "warden"].includes(actor.hero.classId) ? 1 : 0);
+      const reports: string[] = [];
+      const supportTargets = card.target === "all-allies" ? allies : targets;
+      for (const target of supportTargets) {
+        if (card.supportType === "attack") states[target.id].attackBuff += amount;
+        if (card.supportType === "shield") states[target.id].shield += amount;
+        if (card.supportType === "healing") {
+          const before = states[target.id].hp;
+          states[target.id].hp = Math.min(states[target.id].maxHp, states[target.id].hp + amount);
+          reports.push(`${target.displayName} +${states[target.id].hp - before} HP`);
+        }
+        if (card.supportType === "dice") states[target.id].diceBuff = (states[target.id].diceBuff ?? 0) + amount;
+        if (card.supportType === "enemy-dice") states[target.id].dicePenalty = (states[target.id].dicePenalty ?? 0) + amount;
+        if (card.supportType === "dispel-enemy") {
+          const removedShield = Math.min(states[target.id].shield, amount);
+          states[target.id].shield -= removedShield;
+          states[target.id].attackBuff = 0;
+          states[target.id].diceBuff = 0;
+          reports.push(`${target.displayName} mất ${removedShield} khiên và toàn bộ buff`);
+        }
+      }
+      if (card.supportType === "advance-ally") turnOrder = moveTurnTarget(turnOrder, selectedAlly.id, "advance");
+      if (card.supportType === "healing") detail = `${actor.displayName} hồi máu cho toàn đội: ${reports.join(", ")}.`;
+      else if (card.supportType === "enemy-dice") detail = `${actor.displayName} khiến ${selectedEnemy?.displayName} bị -${amount} kết quả d20 trong lượt kế tiếp.`;
+      else if (card.supportType === "delay-enemy") detail = `${actor.displayName} đẩy lượt của ${selectedEnemy?.displayName} xuống cuối hàng đợi.`;
+      else if (card.supportType === "advance-ally") detail = `${actor.displayName} đưa lượt của ${selectedAlly.displayName} lên đầu hàng đợi kế tiếp.`;
+      else if (card.supportType === "dispel-enemy") detail = `${actor.displayName} phá hiệu ứng của ${selectedEnemy?.displayName}: ${reports.join(", ")}.`;
+      else detail = `${actor.displayName} ${card.supportType === "attack" ? "tăng sát thương đòn kế tiếp" : card.supportType === "shield" ? "tạo khiên" : "tăng bonus d20 ở lượt kế tiếp"} +${amount} cho toàn bộ đồng minh còn sống.`;
     }
   }
 
-  let adventure = resolved.adventure;
-  if (resolved.success && card.effect === "support") {
-    adventure = { ...adventure, worldDoom: Math.max(0, adventure.worldDoom - card.value) };
+  let failureDetail = "";
+  if (!success && card.failureEffect && (card.failureValue ?? 0) > 0) {
+    const penalty = card.failureValue ?? 0;
+    if (card.failureEffect === "self-damage") {
+      states[actor.id].hp = Math.max(0, states[actor.id].hp - penalty);
+      failureDetail = `${actor.displayName} chịu ${penalty} sát thương phản tác dụng.`;
+    } else if (card.failureEffect === "team-damage") {
+      for (const ally of allies) states[ally.id].hp = Math.max(0, states[ally.id].hp - penalty);
+      failureDetail = `Toàn bộ đội ${teamName(actor.hero.team)} chịu ${penalty} sát thương phản tác dụng.`;
+    } else if (card.failureEffect === "lose-shield") {
+      const lost = Math.min(states[actor.id].shield, penalty);
+      states[actor.id].shield -= lost;
+      failureDetail = `${actor.displayName} mất ${lost} khiên do thế thủ vỡ.`;
+    } else if (card.failureEffect === "enemy-shield") {
+      for (const enemy of enemies) states[enemy.id].shield += penalty;
+      failureDetail = `Mỗi đối thủ nhận ${penalty} khiên vì hành động thất bại.`;
+    }
+    detail = `${detail} ${failureDetail}`;
   }
-  if (resolved.success && card.id.includes("common-ward")) {
-    adventure = { ...adventure, worldDoom: Math.max(0, adventure.worldDoom - 1) };
-  }
-  const nextInfluence = activePlayer.hero.team === "veil"
-    ? adventure.veilInfluence
-    : adventure.emberInfluence;
 
-  nextStates[activePlayer.id] = drawReplacement(nextStates[activePlayer.id], card.id);
-  const ended = nextCompletedTurns >= game.maxTurns || adventure.worldDoom >= 100;
-  const nextIndex = ended ? game.activePlayerIndex : (game.activePlayerIndex + 1) % players.length;
+  states[actor.id] = drawReplacement(states[actor.id], card.id);
+  const turn = game.completedTurns + 1;
+  let adventure = { ...game.adventure, chapter: Math.min(30, turn + 1), target: Math.min(20, Math.max(1, roll)) };
+  if (success && (card.effect === "damage" || card.effect === "aoe")) adventure = { ...adventure, veilInfluence: adventure.veilInfluence + (actor.hero.team === "veil" ? amount : 0), emberInfluence: adventure.emberInfluence + (actor.hero.team === "ember" ? amount : 0) };
+  const rollSummary = `d20 ${roll} + bonus ${totalBonus}${dicePenalty ? ` - phạt ${dicePenalty}` : ""} = ${total}; mục tiêu ${game.adventure.target}`;
+  const actionHistory: GameHistoryEntry = { id: `turn-${turn}-${Date.now()}`, turn, kind: card.effect, actorName: actor.displayName, actorTeam: actor.hero.team, targetName: targets.map((target) => target.displayName).join(", "), cardName: card.name, message: `${actor.displayName} dùng ${card.name} (${rollSummary}) — ${detail}`, success, amount, diceRoll: roll, diceTarget: game.adventure.target, diceBonus: totalBonus, dicePenalty, diceTotal: total, createdAt: Date.now() };
+  let history = [...(game.history ?? []), actionHistory];
+  let worldEvent: WorldEventOutcome | null = null;
+  if (turn % 5 === 0) { const result = applyWorldEvent(turn, players, states); worldEvent = result.event; history.push(result.history); }
+  history = history.slice(-80);
+
+  const finalTurn = turn >= 30;
+  const winnerTeam = decideWinner(players, states, adventure, actor.hero.team, finalTurn);
+  const ended = winnerTeam !== null;
+  let nextTurnOrder = rotateTurnOrder(turnOrder, actor.id, states);
+  if (success && card.supportType === "delay-enemy" && selectedEnemy) nextTurnOrder = moveTurnTarget(nextTurnOrder, selectedEnemy.id, "delay");
+  const queuedNextIndex = players.findIndex((player) => player.id === nextTurnOrder[0]);
+  const nextIndex = ended ? actorIndex : queuedNextIndex >= 0 ? queuedNextIndex : findNextLivingPlayerIndex(players, states, actorIndex);
   const now = Date.now();
-
-  return {
-    ...game,
-    adventure,
-    activePlayerIndex: nextIndex,
-    completedTurns: nextCompletedTurns,
-    roll,
-    outcome: {
-      kind: "card",
-      success: resolved.success,
-      total: resolved.total,
-      target: game.adventure.target,
-      label: resolved.success ? `${activePlayer.displayName} plays ${card.name}` : "The realm takes its due",
-      detail,
-      actorName: activePlayer.displayName,
-      cardName: card.name,
-      cardType: card.type,
-      effect: card.effect,
-      targetName: target.displayName,
-      roll,
-      bonus: card.bonus,
-      risk: card.risk,
-      doomChange: adventure.worldDoom - previousDoom,
-      influenceChange: nextInfluence - previousInfluence
-    },
-    playerStates: nextStates,
-    turnStartedAt: now,
-    turnDeadline: ended ? 0 : now + game.turnSeconds * 1000,
-    ended,
-    endReason: ended ? (adventure.worldDoom >= 100 ? "World Doom consumed the realm." : "The final turn has been played.") : null
-  };
+  const veilTotal = totals(players, states, "veil").hp;
+  const emberTotal = totals(players, states, "ember").hp;
+  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, roll, outcome: { kind: "card", success, total, target: game.adventure.target, label: `${actor.displayName} dùng ${card.name}`, detail, actorName: actor.displayName, cardName: card.name, cardType: card.type, effect: card.effect, targetName: targets.map((target) => target.displayName).join(", "), roll, bonus: totalBonus, diceBuff, dicePenalty, amount, defeated, nextTarget: adventure.target, failureDetail }, playerStates: states, history, worldEvent, turnStartedAt: now, turnDeadline: ended ? 0 : now + game.turnSeconds * 1000, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} chiến thắng. Tổng HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder };
 }
 
-export function resolveAction(
-  adventure: Adventure,
-  cardId: string,
-  roll: number,
-  advanceChapter = true,
-  availableCards: ActionCard[] = ACTION_CARDS,
-  team: TeamId = "veil"
-) {
-  const card = availableCards.find((item) => item.id === cardId) ?? availableCards[0] ?? ACTION_CARDS[0];
+export function resolveAction(adventure: Adventure, cardId: string, roll: number, _advanceChapter = true, availableCards: ActionCard[] = ACTION_CARDS) {
+  const card = availableCards.find((item) => item.id === cardId) ?? availableCards[0];
   const total = roll + card.bonus;
-  const success = total >= adventure.target;
-  const teamGain = success ? Math.max(2, Math.floor(total / 4)) : 1;
-  const doomDelta = success ? -1 : Math.max(2, Math.ceil(card.risk / 2) + 1);
-  const nextChapter = advanceChapter
-    ? Math.min(adventure.maxChapters, adventure.chapter + 1)
-    : adventure.chapter;
-  const storyIndex = (nextChapter + roll + card.bonus) % STORY_BEATS.length;
-
-  return {
-    success,
-    total,
-    card,
-    adventure: {
-      ...adventure,
-      chapter: nextChapter,
-      story: advanceChapter ? STORY_BEATS[storyIndex] : adventure.story,
-      event: advanceChapter ? EVENTS[(storyIndex + 1) % EVENTS.length] : adventure.event,
-      target: 12 + ((roll + nextChapter) % 6),
-      worldDoom: Math.min(100, Math.max(0, adventure.worldDoom + doomDelta)),
-      veilInfluence: adventure.veilInfluence + (team === "veil" ? teamGain : 0),
-      emberInfluence: adventure.emberInfluence + (team === "ember" ? teamGain : 0)
-    }
-  };
+  return { success: total >= adventure.target, total, card, adventure: { ...adventure, target: Math.min(20, Math.max(1, roll)) } };
 }

@@ -7,10 +7,11 @@
     "test:realtime": "node scripts/test-realtime.mjs",
     "test:polling": "node scripts/test-polling.mjs",
     "test:worker": "node scripts/verify-worker.mjs",
+    "test:game": "node scripts/test-game-rules.mjs",
     "build": "next build && node scripts/prepare-sites.mjs",
     "start": "node backend/server.mjs",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run typecheck && npm run build && node scripts/verify-all.mjs && npm run test:worker",
+    "verify": "npm run typecheck && npm run test:game && npm run build && node scripts/verify-all.mjs && npm run test:worker",
     "redeploy": "npm run verify && wrangler deploy",
     "redeploy:temporary": "npm run verify && wrangler deploy --temporary"
   },

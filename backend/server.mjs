@@ -99,6 +99,88 @@ function ownSession(socket, requestedId) {
   return Boolean(sessionId && sessionId === requestedId);
 }
 
+const teamLabel = (team) => team === 'veil' ? 'Veilbound' : 'Embercourt';
+
+function teamTotals(game, team) {
+  const members = room.players.filter((player) => player.hero.team === team);
+  return {
+    hp: members.reduce((sum, player) => sum + (game.playerStates[player.id]?.hp || 0), 0),
+    alive: members.filter((player) => (game.playerStates[player.id]?.hp || 0) > 0).length,
+    shield: members.reduce((sum, player) => sum + (game.playerStates[player.id]?.shield || 0), 0)
+  };
+}
+
+function decideWinner(game, lastTeam, finalTurn = false) {
+  const veil = teamTotals(game, 'veil');
+  const ember = teamTotals(game, 'ember');
+  if (!veil.alive && ember.alive) return 'ember';
+  if (!ember.alive && veil.alive) return 'veil';
+  if (!veil.alive && !ember.alive) return game.adventure.veilInfluence !== game.adventure.emberInfluence ? (game.adventure.veilInfluence > game.adventure.emberInfluence ? 'veil' : 'ember') : lastTeam;
+  if (!finalTurn) return null;
+  if (veil.hp !== ember.hp) return veil.hp > ember.hp ? 'veil' : 'ember';
+  if (veil.alive !== ember.alive) return veil.alive > ember.alive ? 'veil' : 'ember';
+  if (veil.shield !== ember.shield) return veil.shield > ember.shield ? 'veil' : 'ember';
+  if (game.adventure.veilInfluence !== game.adventure.emberInfluence) return game.adventure.veilInfluence > game.adventure.emberInfluence ? 'veil' : 'ember';
+  return lastTeam;
+}
+
+function nextLivingIndex(game, currentIndex) {
+  for (let offset = 1; offset <= room.players.length; offset += 1) {
+    const index = (currentIndex + offset) % room.players.length;
+    if ((game.playerStates[room.players[index]?.id]?.hp || 0) > 0) return index;
+  }
+  return currentIndex;
+}
+
+function normalizeServerTurnOrder(game) {
+  if (!game || !room.players.length) return [];
+  const validIds = new Set(room.players.map((player) => player.id));
+  const currentId = room.players[game.activePlayerIndex]?.id;
+  const fallback = currentId
+    ? [...room.players.slice(game.activePlayerIndex), ...room.players.slice(0, game.activePlayerIndex)].map((player) => player.id)
+    : room.players.map((player) => player.id);
+  const source = Array.isArray(game.turnOrder) && game.turnOrder.length ? game.turnOrder : fallback;
+  const order = [...new Set([...source.filter((id) => validIds.has(id)), ...fallback])]
+    .filter((id) => (game.playerStates[id]?.hp || 0) > 0);
+  game.turnOrder = order;
+  if (order.length) {
+    const index = room.players.findIndex((player) => player.id === order[0]);
+    if (index >= 0) game.activePlayerIndex = index;
+  }
+  return order;
+}
+
+function rotateServerTurn(game, actorId) {
+  const order = normalizeServerTurnOrder(game).filter((id) => id !== actorId);
+  if ((game.playerStates[actorId]?.hp || 0) > 0 && room.players.some((player) => player.id === actorId)) order.push(actorId);
+  game.turnOrder = order;
+  normalizeServerTurnOrder(game);
+}
+
+function applyWorldEvent(game, turn, now) {
+  const level = Math.ceil(turn / 5);
+  const team = Math.random() < 0.5 ? 'veil' : 'ember';
+  const living = (filterTeam) => room.players.filter((player) => (!filterTeam || player.hero.team === filterTeam) && (game.playerStates[player.id]?.hp || 0) > 0);
+  const kind = Math.floor(Math.random() * 5);
+  let title = 'Địa chấn chiến trường';
+  let description = '';
+  if (kind === 0) {
+    for (const player of living()) { const reduction = living(player.hero.team).some((ally) => ally.hero.classId === 'oracle') ? 1 : 0; game.playerStates[player.id].hp = Math.max(0, game.playerStates[player.id].hp - Math.max(0, level - reduction)); }
+    description = `Mọi người còn sống nhận ${level} sát thương; đội có Tiên tri giảm 1.`;
+  } else if (kind === 1) {
+    title = 'Tiếp tế khẩn cấp'; for (const player of living(team)) game.playerStates[player.id].hp = Math.min(game.playerStates[player.id].maxHp, game.playerStates[player.id].hp + level); description = `${teamLabel(team)} hồi ${level} HP cho mọi thành viên còn sống.`;
+  } else if (kind === 2) {
+    title = 'Sóng phá giáp'; for (const state of Object.values(game.playerStates)) state.shield = Math.max(0, (state.shield || 0) - level * 2); description = `Mọi người mất tối đa ${level * 2} khiên.`;
+  } else if (kind === 3) {
+    title = 'Khí thế cuồng nộ'; for (const player of living(team)) game.playerStates[player.id].attackBuff = (game.playerStates[player.id].attackBuff || 0) + level; description = `${teamLabel(team)} nhận +${level} sát thương cho đòn đánh kế tiếp.`;
+  } else {
+    title = 'Mưa tên vô chủ'; const reduction = living(team).some((ally) => ally.hero.classId === 'oracle') ? 1 : 0; for (const player of living(team)) game.playerStates[player.id].hp = Math.max(0, game.playerStates[player.id].hp - Math.max(0, level + 1 - reduction)); description = `${teamLabel(team)} nhận ${level + 1} sát thương bất ngờ; Tiên tri giảm 1.`;
+  }
+  const event = { id: `world-${turn}-${now}`, turn, level, title, description, affectedTeam: kind === 0 || kind === 2 ? undefined : team };
+  game.worldEvent = event;
+  game.history.push({ id: `${event.id}-history`, turn, kind: 'world', actorName: 'Sự kiện thế giới', message: `${title}: ${description}`, success: true, createdAt: now });
+}
+
 function removePlayerFromRoom(targetId, removedBy) {
   const removingIndex = room.players.findIndex((player) => player.id === targetId);
   if (removingIndex < 0) return null;
@@ -108,6 +190,7 @@ function removePlayerFromRoom(targetId, removedBy) {
 
   if (room.phase === 'game' && room.game) {
     delete room.game.playerStates[targetId];
+    room.game.turnOrder = (room.game.turnOrder || []).filter((id) => id !== targetId);
     if (!room.players.length) {
       room.phase = 'lobby';
       room.game = null;
@@ -127,13 +210,19 @@ function removePlayerFromRoom(targetId, removedBy) {
           detail: `${removedBy} removed this player. The next turn begins now.`,
           actorName: removedBy
         };
+        room.game.history = [...(room.game.history || []), { id: `remove-${Date.now()}`, turn: room.game.completedTurns, kind: 'system', actorName: removedBy, message: `${removedBy} đã xóa ${removedPlayer.displayName} khỏi trận.`, success: true, createdAt: Date.now() }].slice(-80);
       }
-      if (room.players.length < 2) {
+      const fallbackTeam = room.players[0]?.hero.team || removedPlayer.hero.team;
+      const winner = decideWinner(room.game, fallbackTeam, false);
+      if (room.players.length < 2 || winner) {
         room.game.ended = true;
-        room.game.endReason = 'The adventure ended because fewer than two players remain.';
+        room.game.winnerTeam = winner || fallbackTeam;
+        room.game.endReason = `${teamLabel(room.game.winnerTeam)} chiến thắng vì đội đối phương không còn chiến binh.`;
         room.game.turnDeadline = 0;
       } else if (room.game.ended) {
         room.game.turnDeadline = 0;
+      } else {
+        normalizeServerTurnOrder(room.game);
       }
     }
   }
@@ -144,23 +233,29 @@ function removePlayerFromRoom(targetId, removedBy) {
 function advanceTimedOutTurn(now = Date.now()) {
   const game = room.game;
   if (room.phase !== 'game' || !game || game.ended || !game.turnDeadline || now < game.turnDeadline || !room.players.length) return false;
-  const expiredPlayer = room.players[game.activePlayerIndex];
+  const order = normalizeServerTurnOrder(game);
+  const expiredPlayer = room.players.find((player) => player.id === order[0]) || room.players[game.activePlayerIndex];
   const completedTurns = game.completedTurns + 1;
-  const completesChapter = completedTurns % room.players.length === 0;
-  const ended = completedTurns >= game.maxTurns || game.adventure.worldDoom + 3 >= 100;
+  if (expiredPlayer && game.playerStates[expiredPlayer.id]) {
+    game.playerStates[expiredPlayer.id].diceBuff = 0;
+    game.playerStates[expiredPlayer.id].dicePenalty = 0;
+  }
   game.completedTurns = completedTurns;
-  game.adventure = {
-    ...game.adventure,
-    chapter: completesChapter ? Math.min(game.adventure.maxChapters, game.adventure.chapter + 1) : game.adventure.chapter,
-    worldDoom: Math.min(100, game.adventure.worldDoom + 3)
-  };
-  game.outcome = { kind: 'timeout', success: false, total: 0, target: game.adventure.target, label: `${expiredPlayer?.displayName || 'A player'} ran out of time`, detail: 'The turn was passed and World Doom rose by 3.', actorName: expiredPlayer?.displayName || 'A player', doomChange: 3 };
+  game.adventure = { ...game.adventure, chapter: Math.min(30, completedTurns + 1) };
+  game.outcome = { kind: 'timeout', success: false, total: 0, target: game.adventure.target, label: `${expiredPlayer?.displayName || 'Người chơi'} hết giờ`, detail: 'Lượt đã tự động bị bỏ qua.', actorName: expiredPlayer?.displayName || 'Người chơi' };
+  game.history = [...(game.history || []), { id: `timeout-${completedTurns}-${now}`, turn: completedTurns, kind: 'timeout', actorName: expiredPlayer?.displayName || 'Người chơi', actorTeam: expiredPlayer?.hero.team, message: `${expiredPlayer?.displayName || 'Người chơi'} hết 30 giây và bị bỏ lượt.`, success: false, createdAt: now }];
+  game.worldEvent = null;
+  if (completedTurns % 5 === 0) applyWorldEvent(game, completedTurns, now);
+  game.history = game.history.slice(-80);
   game.roll = null;
-  game.ended = ended;
-  game.endReason = ended ? (game.adventure.worldDoom >= 100 ? 'World Doom consumed the realm.' : 'The final turn has passed.') : null;
-  if (!ended) game.activePlayerIndex = (game.activePlayerIndex + 1) % room.players.length;
+  const winner = decideWinner(game, expiredPlayer?.hero.team || 'veil', completedTurns >= 30);
+  game.ended = Boolean(winner);
+  game.winnerTeam = winner;
+  const veil = teamTotals(game, 'veil'); const ember = teamTotals(game, 'ember');
+  game.endReason = winner ? `${teamLabel(winner)} chiến thắng. Tổng HP: Veilbound ${veil.hp} — Embercourt ${ember.hp}.` : null;
+  if (!winner && expiredPlayer) rotateServerTurn(game, expiredPlayer.id);
   game.turnStartedAt = now;
-  game.turnDeadline = ended ? 0 : now + (game.turnSeconds || 30) * 1000;
+  game.turnDeadline = winner ? 0 : now + (game.turnSeconds || 30) * 1000;
   broadcast();
   return true;
 }
@@ -243,6 +338,7 @@ function handleMessage(socket, rawMessage) {
     if (!message.game?.adventure) return reject(socket, 'The adventure state is missing.');
     room.phase = 'game';
     room.game = message.game;
+    normalizeServerTurnOrder(room.game);
     broadcast();
     return;
   }
@@ -250,12 +346,15 @@ function handleMessage(socket, rawMessage) {
   if (message.type === 'game:update') {
     advanceTimedOutTurn();
     if (room.phase !== 'game' || !room.game) return reject(socket, 'There is no active adventure.');
-    const activePlayer = room.players[room.game.activePlayerIndex];
+    const order = normalizeServerTurnOrder(room.game);
+    const activePlayer = room.players.find((player) => player.id === order[0]) || room.players[room.game.activePlayerIndex];
     if (!activePlayer || !ownSession(socket, activePlayer.id)) {
       return reject(socket, 'Only the current player can resolve this turn.');
     }
     if (!message.game?.adventure) return reject(socket, 'The turn update is incomplete.');
+    if ((room.game.playerStates[activePlayer.id]?.hp || 0) <= 0) return reject(socket, 'Người chơi đã gục không thể đánh bài.');
     room.game = message.game;
+    normalizeServerTurnOrder(room.game);
     broadcast();
     return;
   }
@@ -265,7 +364,8 @@ function handleMessage(socket, rawMessage) {
     if (!ownSession(socket, message.sessionId) || !room.players.some((player) => player.id === message.sessionId)) return reject(socket, 'Only a joined player can end the game.');
     const player = room.players.find((current) => current.id === message.sessionId);
     room.game.ended = true;
-    room.game.endReason = `The adventure was ended by ${player?.displayName || 'a player'}.`;
+    room.game.winnerTeam = null;
+    room.game.endReason = `Trận đấu đã được ${player?.displayName || 'một người chơi'} kết thúc.`;
     room.game.turnDeadline = 0;
     broadcast();
     return;
@@ -279,6 +379,7 @@ function handleMessage(socket, rawMessage) {
     const wasActive = leavingIndex === room.game.activePlayerIndex;
     room.players.splice(leavingIndex, 1);
     delete room.game.playerStates[message.sessionId];
+    room.game.turnOrder = (room.game.turnOrder || []).filter((id) => id !== message.sessionId);
     if (!room.players.length) {
       room.phase = 'lobby';
       room.game = null;
@@ -290,8 +391,13 @@ function handleMessage(socket, rawMessage) {
       room.game.turnDeadline = room.game.ended ? 0 : now + (room.game.turnSeconds || 30) * 1000;
       if (room.players.length < 2) {
         room.game.ended = true;
-        room.game.endReason = 'The adventure ended because fewer than two players remain.';
+        room.game.winnerTeam = room.players[0]?.hero.team || null;
+        room.game.endReason = room.game.winnerTeam ? `${teamLabel(room.game.winnerTeam)} chiến thắng vì đội đối phương không còn chiến binh.` : 'Trận đấu đã kết thúc.';
         room.game.turnDeadline = 0;
+      } else if (!room.game.ended) {
+        const winner = decideWinner(room.game, room.players[0].hero.team, false);
+        if (winner) { room.game.ended = true; room.game.winnerTeam = winner; room.game.endReason = `${teamLabel(winner)} chiến thắng vì đội đối phương không còn chiến binh.`; room.game.turnDeadline = 0; }
+        else normalizeServerTurnOrder(room.game);
       }
     }
     broadcast();

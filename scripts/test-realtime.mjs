@@ -15,15 +15,23 @@ function player(id, displayName, team) {
       name: `${displayName} Hero`,
       title: "Test Oath",
       role: "Scout",
+      classId: "ranger",
+      className: "Xạ thủ",
+      passiveName: "Ngắm chuẩn",
+      passiveText: "Đòn đánh đơn gây thêm 1 sát thương.",
       skill: "Test Skill",
       skillText: "Used only by the realtime integration test.",
+      summary: "Test hero",
+      strength: "Attack",
+      weakness: "Defense",
+      impact: "Realtime test",
       hp: 8,
       maxHp: 8,
       team,
       color: "#a78bfa",
       initials: displayName.slice(0, 2).toUpperCase()
     },
-    skillDeck: [{ id: `card-${id}`, name: "Test Skill", type: "Wit", description: "Test", bonus: 4, risk: 1, effect: "check", target: "none", value: 0, unique: true }]
+    skillDeck: [{ id: `card-${id}`, name: "Test Skill", type: "Wit", description: "Test", bonus: 4, effect: "damage", target: "enemy", value: 2, unique: true }]
   };
 }
 
@@ -113,22 +121,26 @@ try {
   ]);
 
   const game = {
-    adventure: { seed: "TEST", realm: {}, chapter: 1, maxChapters: 18, story: "Test", event: "Test", target: 12, worldDoom: 0, veilInfluence: 0, emberInfluence: 0 },
+    adventure: { seed: "TEST", realm: {}, chapter: 1, maxChapters: 30, story: "Test", event: "Test", target: 12, worldDoom: 0, veilInfluence: 0, emberInfluence: 0 },
     activePlayerIndex: 0,
     completedTurns: 0,
     roll: null,
     outcome: null,
     playerStates: {
-      [firstId]: { sessionId: firstId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${firstId}`], drawPile: [], discardPile: [] },
-      [secondId]: { sessionId: secondId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${secondId}`], drawPile: [], discardPile: [] },
-      [thirdId]: { sessionId: thirdId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${thirdId}`], drawPile: [], discardPile: [] }
+      [firstId]: { sessionId: firstId, hp: 8, maxHp: 8, shield: 0, attackBuff: 0, diceBuff: 2, dicePenalty: 2, hand: [`card-${firstId}`], drawPile: [], discardPile: [] },
+      [secondId]: { sessionId: secondId, hp: 8, maxHp: 8, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, hand: [`card-${secondId}`], drawPile: [], discardPile: [] },
+      [thirdId]: { sessionId: thirdId, hp: 8, maxHp: 8, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, hand: [`card-${thirdId}`], drawPile: [], discardPile: [] }
     },
+    turnOrder: [firstId, secondId, thirdId],
     turnStartedAt: Date.now(),
     turnDeadline: Date.now() + 400,
     turnSeconds: 1,
-    maxTurns: 36,
+    maxTurns: 30,
     ended: false,
-    endReason: null
+    endReason: null,
+    winnerTeam: null,
+    history: [],
+    worldEvent: null
   };
   second.send({ type: "start", game });
   await Promise.all([
@@ -138,14 +150,18 @@ try {
 
   const timedOut = await first.waitFor((state) => state.game?.completedTurns === 1);
   assert.equal(timedOut.game.activePlayerIndex, 1);
-  assert.match(timedOut.game.outcome.label, /ran out of time/);
+  assert.match(timedOut.game.outcome.label, /hết giờ/);
   assert.equal(timedOut.game.outcome.kind, 'timeout');
-  assert.equal(timedOut.game.outcome.doomChange, 3);
+  assert.equal(timedOut.game.history.at(-1).kind, 'timeout');
+  assert.equal(timedOut.game.playerStates[firstId].diceBuff, 0);
+  assert.equal(timedOut.game.playerStates[firstId].dicePenalty, 0);
+  assert.equal(timedOut.game.turnOrder[0], secondId);
 
   first.send({ type: "remove-player", sessionId: firstId, targetSessionId: thirdId });
   const removedDuringGame = await first.waitFor((state) => !state.players.some((item) => item.id === thirdId));
   assert.equal(removedDuringGame.game.ended, false);
   assert.equal(removedDuringGame.game.playerStates[thirdId], undefined);
+  assert(!removedDuringGame.game.turnOrder.includes(thirdId));
 
   second.send({ type: "end-game", sessionId: secondId });
   await first.waitFor((state) => state.game?.ended === true);

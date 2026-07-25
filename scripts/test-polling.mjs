@@ -12,8 +12,8 @@ function player(id, displayName, team) {
     displayName,
     ready: false,
     joinedAt: Date.now(),
-    hero: { id: `hero-${id}`, name: `${displayName} Hero`, title: "Test Oath", role: "Scout", skill: "Test Skill", skillText: "Test", hp: 8, maxHp: 8, team, color: "#a78bfa", initials: displayName.slice(0, 2).toUpperCase() },
-    skillDeck: [{ id: `card-${id}`, name: "Test Skill", type: "Wit", description: "Test", bonus: 4, risk: 1, effect: "check", target: "none", value: 0, unique: true }]
+    hero: { id: `hero-${id}`, name: `${displayName} Hero`, title: "Test Oath", role: "Scout", classId: "ranger", className: "Xạ thủ", passiveName: "Ngắm chuẩn", passiveText: "Đòn đánh đơn gây thêm 1 sát thương.", skill: "Test Skill", skillText: "Test", summary: "Test hero", strength: "Attack", weakness: "Defense", impact: "Polling test", hp: 8, maxHp: 8, team, color: "#a78bfa", initials: displayName.slice(0, 2).toUpperCase() },
+    skillDeck: [{ id: `card-${id}`, name: "Test Skill", type: "Wit", description: "Test", bonus: 4, effect: "damage", target: "enemy", value: 2, unique: true }]
   };
 }
 
@@ -63,22 +63,26 @@ try {
   assert(ready.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).every((item) => item.ready));
 
   const game = {
-    adventure: { seed: "POLL", realm: {}, chapter: 1, maxChapters: 18, story: "Test", event: "Test", target: 12, worldDoom: 0, veilInfluence: 0, emberInfluence: 0 },
+    adventure: { seed: "POLL", realm: {}, chapter: 1, maxChapters: 30, story: "Test", event: "Test", target: 12, worldDoom: 0, veilInfluence: 0, emberInfluence: 0 },
     activePlayerIndex: 0,
     completedTurns: 0,
     roll: null,
     outcome: null,
     playerStates: {
-      [firstId]: { sessionId: firstId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${firstId}`], drawPile: [], discardPile: [] },
-      [secondId]: { sessionId: secondId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${secondId}`], drawPile: [], discardPile: [] },
-      [thirdId]: { sessionId: thirdId, hp: 8, maxHp: 8, shield: 0, hand: [`card-${thirdId}`], drawPile: [], discardPile: [] }
+      [firstId]: { sessionId: firstId, hp: 8, maxHp: 8, shield: 0, attackBuff: 0, diceBuff: 2, dicePenalty: 2, hand: [`card-${firstId}`], drawPile: [], discardPile: [] },
+      [secondId]: { sessionId: secondId, hp: 8, maxHp: 8, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, hand: [`card-${secondId}`], drawPile: [], discardPile: [] },
+      [thirdId]: { sessionId: thirdId, hp: 8, maxHp: 8, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, hand: [`card-${thirdId}`], drawPile: [], discardPile: [] }
     },
+    turnOrder: [firstId, secondId, thirdId],
     turnStartedAt: Date.now(),
     turnDeadline: Date.now() + 300,
     turnSeconds: 1,
-    maxTurns: 36,
+    maxTurns: 30,
     ended: false,
-    endReason: null
+    endReason: null,
+    winnerTeam: null,
+    history: [],
+    worldEvent: null
   };
   const started = await command(secondId, { type: "start", game });
   assert.equal(started.phase, "game");
@@ -86,12 +90,16 @@ try {
   assert.equal(timedOut.game.completedTurns, 1);
   assert.equal(timedOut.game.activePlayerIndex, 1);
   assert.equal(timedOut.game.outcome.kind, 'timeout');
-  assert.equal(timedOut.game.outcome.doomChange, 3);
+  assert.equal(timedOut.game.history.at(-1).kind, 'timeout');
+  assert.equal(timedOut.game.playerStates[firstId].diceBuff, 0);
+  assert.equal(timedOut.game.playerStates[firstId].dicePenalty, 0);
+  assert.equal(timedOut.game.turnOrder[0], secondId);
 
   const removedDuringGame = await command(firstId, { type: "remove-player", targetSessionId: thirdId });
   assert(!removedDuringGame.players.some((item) => item.id === thirdId));
   assert.equal(removedDuringGame.game.ended, false);
   assert.equal(removedDuringGame.game.playerStates[thirdId], undefined);
+  assert(!removedDuringGame.game.turnOrder.includes(thirdId));
 
   const ended = await command(secondId, { type: "end-game" });
   assert.equal(ended.game.ended, true);
