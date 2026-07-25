@@ -1644,6 +1644,25 @@ button:focus-visible {
   margin: 8px 0 0;
 }
 
+.interaction-selector {
+  position: absolute;
+  z-index: 7;
+  top: 48%;
+  left: 50%;
+  width: min(760px, calc(100% - 48px));
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 16px 30px rgba(0, 0, 0, 0.48));
+}
+
+.interaction-selector .target-picker {
+  width: 100%;
+  margin: 0;
+  padding: 11px 13px;
+  background: rgba(13, 21, 22, 0.96);
+  border-color: rgba(212, 181, 110, 0.58);
+  backdrop-filter: blur(12px);
+}
+
 .action-hand.five-cards {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
@@ -3264,7 +3283,11 @@ button:focus-visible {
 .turn-queue-item.future .turn-branch-node { background: #10283a; }
 
 .privacy-note { display: none; }
-.inspected-deck-overlay { position: fixed; z-index: 115; top: 8vh; right: 2vw; width: min(410px, 42vw); max-height: 84vh; overflow: auto; padding: 14px; border: 1px solid rgba(212, 181, 110, .45); background: rgba(7, 12, 14, .98); box-shadow: 0 18px 55px rgba(0, 0, 0, .6); }
+.character-deck-panel { display: grid; gap: 14px; min-width: 0; }
+.deck-back-button { width: fit-content; min-height: 36px; padding: 0 12px; display: inline-flex; align-items: center; gap: 7px; color: var(--paper); border: 1px solid var(--line); background: rgba(255, 255, 255, .035); }
+.deck-back-button:hover { color: var(--gold); border-color: rgba(212, 181, 110, .55); background: rgba(212, 181, 110, .08); }
+.preview-character-deck-button { margin-top: 3px; }
+.character-deck-panel .public-character-deck > div:last-child { max-height: 64vh; padding-right: 5px; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow-y: auto; }
 .public-deck-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .public-deck-heading > div { display: grid; gap: 3px; }
 .public-deck-heading > span { padding: 6px 9px; color: var(--gold); border: 1px solid rgba(212, 181, 110, .35); }
@@ -3293,7 +3316,6 @@ button:focus-visible {
 
 @media (max-width: 900px) {
   .world-event-library-button { left: auto; right: 118px; }
-  .inspected-deck-overlay { top: auto; right: 3vw; bottom: 3vh; left: 3vw; width: auto; max-height: 45vh; }
 }
 @media (max-width: 640px) {
   .dice-panel { flex-wrap: wrap; }
@@ -3301,6 +3323,7 @@ button:focus-visible {
   .turn-action-buttons button { flex: 1; }
   .world-event-library-button span { display: none; }
   .world-event-library > div, .guide-update-grid, .public-character-deck > div:last-child { grid-template-columns: 1fr; }
+  .interaction-selector { position: static; width: 100%; transform: none; filter: none; }
 }
 
 .active-effects-strip span {
@@ -3379,12 +3402,10 @@ button:focus-visible {
   --motion-color: #d4b56e;
   position: absolute;
   z-index: 1;
-  top: auto;
-  bottom: clamp(32px, 9vh, 120px);
-  left: 50%;
-  width: min(300px, calc(100vw - 36px));
-  min-height: 220px;
-  padding: 18px;
+  right: auto;
+  bottom: auto;
+  min-height: 0;
+  padding: 10px;
   display: grid;
   grid-template-columns: 48px 1fr;
   align-content: center;
@@ -3394,8 +3415,8 @@ button:focus-visible {
   border: 1px solid var(--motion-color);
   background: linear-gradient(145deg, rgba(17, 27, 29, 0.98), rgba(6, 11, 12, 0.98));
   box-shadow: 0 0 25px color-mix(in srgb, var(--motion-color) 45%, transparent), 0 18px 45px rgba(0, 0, 0, 0.55);
-  transform: translateX(-50%);
-  transform-origin: center bottom;
+  overflow: hidden;
+  transform-origin: center;
 }
 
 .card-motion.effect-damage,
@@ -3420,23 +3441,23 @@ button:focus-visible {
 .card-motion.hand-to-discard { animation: card-discard-flight .72s cubic-bezier(.55, .05, .72, .35) both; }
 
 @keyframes card-draw-flight {
-  0%, 36% { opacity: 0; transform: translateX(-50%) scale(.28); }
-  52% { opacity: .75; transform: translateX(-50%) scale(.68); }
-  78% { opacity: 1; transform: translateX(-50%) scale(1.08); }
-  91% { opacity: 1; transform: translateX(-50%) scale(1); }
-  100% { opacity: 0; transform: translateX(-50%) scale(1); }
+  0%, 36% { opacity: 0; transform: scale(.28); }
+  52% { opacity: .75; transform: scale(.68); }
+  78% { opacity: 1; transform: scale(1.08); }
+  91% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1); }
 }
 
 @keyframes card-discard-flight {
-  0% { opacity: 1; transform: translateX(-50%) scale(1); }
-  58% { opacity: .48; transform: translateX(-50%) scale(.58); }
-  100% { opacity: 0; transform: translateX(-50%) scale(.12); }
+  0% { opacity: 1; transform: scale(1); }
+  58% { opacity: .48; transform: scale(.58); }
+  100% { opacity: 0; transform: scale(.12); }
 }
 
 @media (max-width: 940px) {
   .run-status { gap: 8px; }
   .run-status > .world-event-library-button { right: auto; }
-  .card-motion { min-height: 190px; }
+  .card-motion { padding: 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3447,6 +3468,7 @@ button:focus-visible {
 /* Flexible player rows and visible names across compact and expanded panels. */
 .player-name-highlight {
   color: #78d8ff !important;
+  font-size: inherit !important;
   font-weight: 900 !important;
   text-shadow: 0 0 12px rgba(86, 188, 232, .42);
 }
@@ -3467,11 +3489,20 @@ button:focus-visible {
 .history-player-name { width: fit-content; max-width: 100%; padding: 2px 6px; background: rgba(75, 164, 201, .11); border-left: 2px solid currentColor; overflow-wrap: anywhere; }
 .history-player-name.veil { color: #86c8e8 !important; }
 .history-player-name.ember { color: #f0a17f !important; }
+.history-entry .inline-player-name { font-size: inherit !important; line-height: inherit; letter-spacing: normal; text-transform: none; }
 .modal-card h2 .inline-player-name,
 .combat-banner strong .player-name-highlight { font-size: inherit !important; line-height: inherit; }
+.eyebrow .player-name-highlight { font-size: inherit !important; }
 
+.turn-queue-item,
 .expanded-turn-list .turn-queue-item {
   grid-template-columns: 34px minmax(0, 1fr);
+}
+
+.turn-queue-card .turn-queue-list {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
 }
 
 .turn-player-copy {
@@ -3571,6 +3602,17 @@ button:focus-visible {
 .modal-card,
 .wide-modal { max-width: calc(100vw - 16px); }
 .expanded-panel-content h2 { max-width: 100%; }
+.zone-vfx-slot-hidden { visibility: hidden !important; }
+
+/* Center every expanded turn node directly over the branch line. */
+.turn-branch-node { left: -18px; }
+.turn-queue-item.current .turn-branch-node { left: -20px; }
+
+/* Keep the lobby compact while preserving its responsive grid. */
+.lobby-stage { padding: 20px clamp(14px, 2.5vw, 40px) 28px; }
+.lobby-intro { margin-bottom: 16px; }
+.join-panel { padding: 16px; }
+.character-panel { padding: 17px; }
 
 @media (max-width: 1180px) {
   .volume-control { width: 102px; }

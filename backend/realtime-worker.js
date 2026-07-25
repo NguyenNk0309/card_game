@@ -479,6 +479,7 @@ async function applyCommand(ownerId, message) {
     if (!state.hand.includes(message.cardId)) return 'Choose a card from your hand to discard.';
     const card = activePlayer.skillDeck.find((item) => item.id === message.cardId);
     const borrowed = (state.borrowedCards || []).find((entry) => entry.cardId === message.cardId);
+    const discardedIndex = state.hand.indexOf(message.cardId);
     state.hand = state.hand.filter((id) => id !== message.cardId);
     if (borrowed) {
       state.borrowedCards = state.borrowedCards.filter((entry) => entry.cardId !== message.cardId);
@@ -488,7 +489,7 @@ async function applyCommand(ownerId, message) {
     if (!state.drawPile.length) { state.drawPile = [...state.discardPile]; state.discardPile = []; }
     const replacementIndex = state.drawPile.length ? Math.floor(Math.random() * state.drawPile.length) : -1;
     const replacement = replacementIndex >= 0 ? state.drawPile.splice(replacementIndex, 1)[0] : undefined;
-    if (replacement) state.hand.push(replacement);
+    if (replacement) state.hand.splice(discardedIndex >= 0 ? Math.min(discardedIndex, state.hand.length) : state.hand.length, 0, replacement);
     await passCurrentTurn('discard', Date.now(), card?.name || 'a card');
     return null;
   }

@@ -98,11 +98,13 @@ export function getPassiveDiceBonus(player: PlayerSession, card: ActionCard, sta
 function drawReplacement(state: PlayerRunState, playedCardId: string): PlayerRunState {
   let drawPile = [...state.drawPile];
   let discardPile = [...state.discardPile, playedCardId];
+  const playedIndex = state.hand.indexOf(playedCardId);
   const hand = state.hand.filter((cardId) => cardId !== playedCardId);
   if (!drawPile.length) { drawPile = shuffle(discardPile); discardPile = []; }
   const replacementIndex = drawPile.length ? Math.floor(Math.random() * drawPile.length) : -1;
   const replacement = replacementIndex >= 0 ? drawPile.splice(replacementIndex, 1)[0] : undefined;
-  return { ...state, drawPile, discardPile, hand: replacement ? [...hand, replacement] : hand };
+  if (replacement) hand.splice(playedIndex >= 0 ? Math.min(playedIndex, hand.length) : hand.length, 0, replacement);
+  return { ...state, drawPile, discardPile, hand };
 }
 
 function removeCardFromZones(state: PlayerRunState, cardId: string) {
@@ -111,7 +113,7 @@ function removeCardFromZones(state: PlayerRunState, cardId: string) {
   state.discardPile = state.discardPile.filter((id) => id !== cardId);
 }
 
-function drawWithoutDiscard(state: PlayerRunState) {
+function drawWithoutDiscard(state: PlayerRunState, handIndex = state.hand.length) {
   let drawPile = [...state.drawPile];
   let discardPile = [...state.discardPile];
   if (!drawPile.length && discardPile.length) {
@@ -120,7 +122,9 @@ function drawWithoutDiscard(state: PlayerRunState) {
   }
   const replacementIndex = drawPile.length ? Math.floor(Math.random() * drawPile.length) : -1;
   const replacement = replacementIndex >= 0 ? drawPile.splice(replacementIndex, 1)[0] : undefined;
-  return { ...state, drawPile, discardPile, hand: replacement ? [...state.hand, replacement] : state.hand };
+  const hand = [...state.hand];
+  if (replacement) hand.splice(Math.min(Math.max(0, handIndex), hand.length), 0, replacement);
+  return { ...state, drawPile, discardPile, hand };
 }
 
 function finishPlayedCard(states: Record<string, PlayerRunState>, actorId: string, cardId: string) {
@@ -130,11 +134,12 @@ function finishPlayedCard(states: Record<string, PlayerRunState>, actorId: strin
     states[actorId] = drawReplacement(actorState, cardId);
     return;
   }
+  const playedIndex = actorState.hand.indexOf(cardId);
   removeCardFromZones(actorState, cardId);
   actorState.borrowedCards = actorState.borrowedCards.filter((entry) => entry.cardId !== cardId);
   const owner = states[borrowed.ownerId];
   if (owner && !owner.discardPile.includes(cardId)) owner.discardPile.push(cardId);
-  states[actorId] = drawWithoutDiscard(actorState);
+  states[actorId] = drawWithoutDiscard(actorState, playedIndex);
 }
 
 function returnExpiredBorrowedCards(states: Record<string, PlayerRunState>, actorId: string, completedTurn: number) {

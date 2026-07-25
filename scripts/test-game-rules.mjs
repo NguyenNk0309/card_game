@@ -264,12 +264,13 @@ const cycleGame = engine.createInitialGame([first, second], engine.createAdventu
 cycleGame.turnOrder = [first.id, second.id];
 const guard = first.skillDeck.find((card) => card.effect === "guard");
 const heal = first.skillDeck.find((card) => card.effect === "heal");
-cycleGame.playerStates[first.id].hand = [attack.id, guard.id, heal.id];
+cycleGame.playerStates[first.id].hand = [guard.id, heal.id, attack.id];
 cycleGame.playerStates[first.id].drawPile = [emptyCard.id];
 cycleGame.playerStates[first.id].discardPile = [];
 const cycled = engine.resolveCardTurn(cycleGame, [first, second], attack.id, second.id, 20);
 assert(cycled.playerStates[first.id].hand.includes(guard.id) && cycled.playerStates[first.id].hand.includes(heal.id), "unplayed hand cards stay in hand");
 assert(cycled.playerStates[first.id].hand.includes(emptyCard.id), "a replacement is drawn only after a card is played");
+assert.equal(cycled.playerStates[first.id].hand[2], emptyCard.id, "a replacement occupies the exact slot of the played card");
 assert.deepEqual(cycled.playerStates[first.id].discardPile, [attack.id], "only the played card enters discard");
 
 cycled.playerStates[first.id].hand = [guard.id, heal.id];
