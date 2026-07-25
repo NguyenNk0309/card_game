@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, readdirSync } from 'node:fs';
+import { cpSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 
 mkdirSync('dist/server', { recursive: true });
 mkdirSync('dist/.openai', { recursive: true });
@@ -9,7 +9,17 @@ for (const entry of readdirSync('dist')) {
   cpSync(`dist/${entry}`, `dist/assets/${entry}`, { recursive: true });
 }
 
-cpSync('backend/realtime-worker.js', 'dist/server/index.js');
+const cloudflareWorker = readFileSync('backend/realtime-worker.js', 'utf8');
+const durableClassStart = cloudflareWorker.indexOf('export class GameRoom');
+const defaultExportStart = cloudflareWorker.indexOf('export default', durableClassStart);
+if (durableClassStart < 0 || defaultExportStart < 0) throw new Error('Could not locate the Durable Object export in the realtime worker.');
+
+const sitesWorker = `${cloudflareWorker.slice(0, durableClassStart)}${cloudflareWorker.slice(defaultExportStart)}`.replace(
+  /      if \(env\.GAME_ROOM\) \{[\s\S]*?      if \(env\.REALTIME_ORIGIN\) return proxyRoomRequest\(request, env\.REALTIME_ORIGIN\);\n      return handleRoomRequest\(request\);/,
+  '      return handleRoomRequest(request);'
+);
+if (sitesWorker.includes('export class GameRoom') || sitesWorker.includes('env.GAME_ROOM')) throw new Error('Sites worker still contains a Durable Object binding.');
+writeFileSync('dist/server/index.js', sitesWorker);
 
 cpSync('.openai/hosting.json', 'dist/.openai/hosting.json');
 console.log('Prepared Sites artifact: Worker entrypoint and static assets');
