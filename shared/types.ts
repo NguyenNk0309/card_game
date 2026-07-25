@@ -33,6 +33,7 @@ export type Hero = {
   impact: string;
   hp: number;
   maxHp: number;
+  speed: number;
   team: TeamId;
   color: string;
   initials: string;
@@ -157,6 +158,9 @@ export type SyncedGameState = {
   history: GameHistoryEntry[];
   worldEvent: WorldEventOutcome | null;
   turnOrder?: string[];
+  roundNumber?: number;
+  roundOrder?: string[];
+  actedThisRound?: string[];
 };
 
 export type SharedRoomState = {

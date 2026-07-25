@@ -162,6 +162,27 @@ function normalizeServerTurnOrder(game) {
   return order;
 }
 
+function speedOrder(game) {
+  return [...room.players]
+    .filter((player) => (game.playerStates[player.id]?.hp || 0) > 0)
+    .sort((left, right) => (right.hero.speed || 0) - (left.hero.speed || 0) || left.joinedAt - right.joinedAt)
+    .map((player) => player.id);
+}
+
+function completeRoundTurn(game, actorId) {
+  const livingIds = speedOrder(game);
+  let acted = [...new Set([...(game.actedThisRound || []), actorId])].filter((id) => livingIds.includes(id));
+  game.roundNumber ||= 1;
+  game.roundOrder = (game.roundOrder?.length ? game.roundOrder : livingIds).filter((id) => livingIds.includes(id));
+  if (livingIds.length && livingIds.every((id) => acted.includes(id))) {
+    game.roundNumber += 1;
+    acted = [];
+    game.roundOrder = livingIds;
+    game.turnOrder = livingIds;
+  }
+  game.actedThisRound = acted;
+}
+
 function rotateServerTurn(game, actorId) {
   const order = normalizeServerTurnOrder(game).filter((id) => id !== actorId);
   if ((game.playerStates[actorId]?.hp || 0) > 0 && room.players.some((player) => player.id === actorId)) order.push(actorId);
@@ -315,6 +336,8 @@ function removePlayerFromRoom(targetId, removedBy) {
   if (room.phase === 'game' && room.game) {
     delete room.game.playerStates[targetId];
     room.game.turnOrder = (room.game.turnOrder || []).filter((id) => id !== targetId);
+    room.game.roundOrder = (room.game.roundOrder || []).filter((id) => id !== targetId);
+    room.game.actedThisRound = (room.game.actedThisRound || []).filter((id) => id !== targetId);
     if (!room.players.length) {
       room.phase = 'lobby';
       room.game = null;
@@ -380,7 +403,10 @@ function passCurrentTurn(kind, now = Date.now(), discardedCardName = '') {
   game.winnerTeam = winner;
   const veil = teamTotals(game, 'veil'); const ember = teamTotals(game, 'ember');
   game.endReason = winner ? `${teamLabel(winner)} wins. Total HP: Veilbound ${veil.hp} — Embercourt ${ember.hp}.` : null;
-  if (!winner && passingPlayer) rotateServerTurn(game, passingPlayer.id);
+  if (!winner && passingPlayer) {
+    rotateServerTurn(game, passingPlayer.id);
+    completeRoundTurn(game, passingPlayer.id);
+  }
   game.turnStartedAt = now;
   game.turnSeconds = TURN_SECONDS;
   game.turnDeadline = winner ? 0 : now + TURN_SECONDS * 1000;
@@ -555,8 +581,9 @@ function handleMessage(socket, rawMessage) {
       const owner = room.game.playerStates[borrowed.ownerId];
       if (owner && !owner.discardPile.includes(message.cardId)) owner.discardPile.push(message.cardId);
     } else state.discardPile.push(message.cardId);
-    if (!state.drawPile.length) { state.drawPile = state.discardPile.sort(() => Math.random() - 0.5); state.discardPile = []; }
-    const replacement = state.drawPile.shift();
+    if (!state.drawPile.length) { state.drawPile = [...state.discardPile]; state.discardPile = []; }
+    const replacementIndex = state.drawPile.length ? Math.floor(Math.random() * state.drawPile.length) : -1;
+    const replacement = replacementIndex >= 0 ? state.drawPile.splice(replacementIndex, 1)[0] : undefined;
     if (replacement) state.hand.push(replacement);
     passCurrentTurn('discard', Date.now(), card?.name || 'a card');
     return;
@@ -589,6 +616,8 @@ function handleMessage(socket, rawMessage) {
     room.players.splice(leavingIndex, 1);
     delete room.game.playerStates[message.sessionId];
     room.game.turnOrder = (room.game.turnOrder || []).filter((id) => id !== message.sessionId);
+    room.game.roundOrder = (room.game.roundOrder || []).filter((id) => id !== message.sessionId);
+    room.game.actedThisRound = (room.game.actedThisRound || []).filter((id) => id !== message.sessionId);
     if (!room.players.length) {
       room.phase = 'lobby';
       room.game = null;

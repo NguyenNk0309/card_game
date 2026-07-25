@@ -43,7 +43,7 @@ export function createSkillDeck(hero: Omit<Hero, "id" | "team" | "isYou">): Acti
     return { ...card, bonus: 0, failureEffect, failureValue, unique: true } as ActionCard;
   });
   const deck = [...specialCards, ...commonCards];
-  if (deck.length !== 13) throw new Error(`${hero.name} must have a 13-card deck.`);
+  if (deck.length !== 10) throw new Error(`${hero.name} must have a 10-card deck.`);
   return deck;
 }
 
@@ -63,9 +63,18 @@ function createRunState(player: PlayerSession): PlayerRunState {
   return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, reviveIn: 0, passiveReviveUsed: false, skipTurns: 0, borrowedCards: [], hand: drawPile.splice(0, 4), drawPile, discardPile: [] };
 }
 
+function speedOrder(players: PlayerSession[], states?: Record<string, PlayerRunState>) {
+  return [...players]
+    .filter((player) => !states || (states[player.id]?.hp ?? 0) > 0)
+    .sort((left, right) => right.hero.speed - left.hero.speed || left.joinedAt - right.joinedAt)
+    .map((player) => player.id);
+}
+
 export function createInitialGame(players: PlayerSession[], adventure = createAdventure(), _turnSeconds = BATTLE_TURN_SECONDS): SyncedGameState {
   const now = Date.now();
-  return { adventure: { ...adventure, maxChapters: 30, target: randomDiceTarget() }, activePlayerIndex: 0, completedTurns: 0, roll: null, outcome: null, playerStates: Object.fromEntries(players.map((player) => [player.id, createRunState(player)])), turnStartedAt: now, turnDeadline: now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, maxTurns: 30, ended: false, endReason: null, winnerTeam: null, history: [], worldEvent: null, turnOrder: players.map((player) => player.id) };
+  const playerStates = Object.fromEntries(players.map((player) => [player.id, createRunState(player)]));
+  const turnOrder = speedOrder(players, playerStates);
+  return { adventure: { ...adventure, maxChapters: 30, target: randomDiceTarget() }, activePlayerIndex: Math.max(0, players.findIndex((player) => player.id === turnOrder[0])), completedTurns: 0, roll: null, outcome: null, playerStates, turnStartedAt: now, turnDeadline: now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, maxTurns: 30, ended: false, endReason: null, winnerTeam: null, history: [], worldEvent: null, turnOrder, roundNumber: 1, roundOrder: turnOrder, actedThisRound: [] };
 }
 
 export function nextStory(adventure: Adventure): Adventure {
@@ -91,7 +100,8 @@ function drawReplacement(state: PlayerRunState, playedCardId: string): PlayerRun
   let discardPile = [...state.discardPile, playedCardId];
   const hand = state.hand.filter((cardId) => cardId !== playedCardId);
   if (!drawPile.length) { drawPile = shuffle(discardPile); discardPile = []; }
-  const replacement = drawPile.shift();
+  const replacementIndex = drawPile.length ? Math.floor(Math.random() * drawPile.length) : -1;
+  const replacement = replacementIndex >= 0 ? drawPile.splice(replacementIndex, 1)[0] : undefined;
   return { ...state, drawPile, discardPile, hand: replacement ? [...hand, replacement] : hand };
 }
 
@@ -108,7 +118,8 @@ function drawWithoutDiscard(state: PlayerRunState) {
     drawPile = shuffle(discardPile);
     discardPile = [];
   }
-  const replacement = drawPile.shift();
+  const replacementIndex = drawPile.length ? Math.floor(Math.random() * drawPile.length) : -1;
+  const replacement = replacementIndex >= 0 ? drawPile.splice(replacementIndex, 1)[0] : undefined;
   return { ...state, drawPile, discardPile, hand: replacement ? [...state.hand, replacement] : state.hand };
 }
 
@@ -473,12 +484,22 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const ended = winnerTeam !== null;
   let nextTurnOrder = rotateTurnOrder(turnOrder, actor.id, states);
   if (success && card.supportType === "delay-enemy" && selectedEnemy) nextTurnOrder = moveTurnTarget(nextTurnOrder, selectedEnemy.id, "delay");
+  let actedThisRound = [...new Set([...(game.actedThisRound ?? []), actor.id])].filter((id) => (states[id]?.hp ?? 0) > 0);
+  let roundNumber = game.roundNumber ?? 1;
+  let roundOrder = (game.roundOrder?.length ? game.roundOrder : speedOrder(players, states)).filter((id) => (states[id]?.hp ?? 0) > 0);
+  const livingIds = speedOrder(players, states);
+  if (livingIds.length && livingIds.every((id) => actedThisRound.includes(id))) {
+    roundNumber += 1;
+    actedThisRound = [];
+    roundOrder = livingIds;
+    nextTurnOrder = livingIds;
+  }
   const queuedNextIndex = players.findIndex((player) => player.id === nextTurnOrder[0]);
   const nextIndex = ended ? actorIndex : queuedNextIndex >= 0 ? queuedNextIndex : findNextLivingPlayerIndex(players, states, actorIndex);
   const now = Date.now();
   const veilTotal = totals(players, states, "veil").hp;
   const emberTotal = totals(players, states, "ember").hp;
-  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, roll, outcome: { kind: "card", success, total, target: game.adventure.target, label: `${actor.displayName} used ${card.name}`, detail, actorName: actor.displayName, cardName: card.name, cardType: card.type, effect: card.effect, supportType: card.supportType, targetIds: targets.map((target) => target.id), targetName: targets.map((target) => target.displayName).join(", "), roll, bonus: totalBonus, diceBuff, dicePenalty, amount, defeated, nextTarget: adventure.target, failureDetail }, playerStates: states, history, worldEvent, turnStartedAt: now, turnDeadline: ended ? 0 : now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} wins. Total HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder };
+  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, roll, outcome: { kind: "card", success, total, target: game.adventure.target, label: `${actor.displayName} used ${card.name}`, detail, actorName: actor.displayName, cardName: card.name, cardType: card.type, effect: card.effect, supportType: card.supportType, targetIds: targets.map((target) => target.id), targetName: targets.map((target) => target.displayName).join(", "), roll, bonus: totalBonus, diceBuff, dicePenalty, amount, defeated, nextTarget: adventure.target, failureDetail }, playerStates: states, history, worldEvent, turnStartedAt: now, turnDeadline: ended ? 0 : now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} wins. Total HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder, roundNumber, roundOrder, actedThisRound };
 }
 
 export function resolveAction(adventure: Adventure, cardId: string, roll: number, _advanceChapter = true, availableCards: ActionCard[] = ACTION_CARDS) {

@@ -16,18 +16,18 @@ const engine = await import(`data:text/javascript;base64,${Buffer.from(compiledE
 const options = engine.getCharacterOptions();
 assert.equal(options.length, 10);
 for (const option of options) {
-  assert.equal(option.skillDeck.length, 13, `${option.hero.name} must have 13 cards`);
+  assert.equal(option.skillDeck.length, 10, `${option.hero.name} must have 10 cards`);
   assert.equal(option.skillDeck.filter((card) => card.unique).length, 3);
-  assert.equal(option.skillDeck.filter((card) => !card.unique).length, 10);
+  assert.equal(option.skillDeck.filter((card) => !card.unique).length, 7);
   assert(option.skillDeck.every((card) => card.bonus === 0), "cards cannot carry a built-in d20 bonus");
   assert(option.skillDeck.every((card) => !("risk" in card) && card.effect !== "check"));
   assert(option.skillDeck.filter((card) => card.unique).every((card) => ["self-damage", "team-damage", "lose-shield"].includes(card.failureEffect) && card.failureValue > 0), "every special card needs a balanced owner/team failure penalty");
   const common = option.skillDeck.filter((card) => !card.unique);
   assert(common.every((card) => !card.failureEffect && !card.failureValue), "common cards cannot have failure penalties");
   assert.equal(common.filter((card) => card.effect === "damage").length, 2, "common deck needs two attacks");
-  assert.equal(common.filter((card) => card.effect === "guard" && card.target === "self").length, 2, "common deck needs two self guards");
+  assert.equal(common.filter((card) => card.effect === "guard" && card.target === "self").length, 1, "common deck needs one self guard");
   assert.equal(common.filter((card) => card.effect === "heal" && card.target === "self").length, 1, "common deck needs one self heal");
-  assert.equal(common.filter((card) => card.effect === "none" && card.value === 0).length, 5, "common deck needs five no-effect cards");
+  assert.equal(common.filter((card) => card.effect === "none" && card.value === 0).length, 3, "common deck needs three no-effect cards");
 }
 const supportTypes = new Set(options.flatMap((option) => option.skillDeck.filter((card) => card.effect === "support").map((card) => card.supportType)));
 assert.deepEqual([...supportTypes].sort(), ["advance-ally", "attack", "dice", "dispel-enemy", "enemy-dice", "healing", "purge-card", "revive", "shield", "skip-enemy", "steal-card"]);
@@ -41,6 +41,7 @@ for (const classId of ["ranger", "mage", "assassin", "duelist", "berserker"]) {
 }
 assert.equal(options.find((option) => option.hero.classId === "tank").hero.maxHp, 14);
 assert.equal(options.find((option) => option.hero.classId === "mage").hero.maxHp, 7);
+assert.deepEqual([...options].sort((a, b) => b.hero.speed - a.hero.speed).map((option) => option.hero.name), ["Nyx Calder", "Thorne Vale", "Kael Rook", "Sable Fen", "Ione Mire", "Mira Ash", "Brother Orren", "Elara Voss", "Dagan Flint", "Bram Coalhand"]);
 
 const first = engine.createPlayerSession("An", 0, options[0].hero.name, "first");
 const second = engine.createPlayerSession("Binh", 1, options[1].hero.name, "second");
@@ -48,6 +49,8 @@ const elaraSupport = first.skillDeck.find((card) => card.effect === "support");
 const elaraGame = engine.createInitialGame([first, second], engine.createAdventure("ELARA-DICE"), 30);
 assert.equal(engine.getPassiveDiceBonus(first, elaraSupport, elaraGame.playerStates[first.id]), 0, "Elara's passive cannot modify d20 results");
 const game = engine.createInitialGame([first, second], engine.createAdventure("RULES"), 30);
+assert.equal(game.turnOrder[0], second.id, "the faster character acts first");
+game.turnOrder = [first.id, second.id];
 assert.equal(game.maxTurns, 30);
 assert.equal(engine.createInitialGame([first, second], engine.createAdventure("TIMER"), 5).turnSeconds, 30, "battle turns always last exactly 30 seconds");
 assert(game.adventure.target >= 8 && game.adventure.target <= 16, "the initial target is randomly selected from the balanced target range");
@@ -68,6 +71,7 @@ const supportAlly = engine.createPlayerSession("Support ally", 2, "Elara Voss", 
 const supportEnemy = engine.createPlayerSession("Support enemy", 1, "Thorne Vale", "support-enemy");
 const supportParty = [healer, supportEnemy, supportAlly];
 const healGame = engine.createInitialGame(supportParty, engine.createAdventure("HEAL"), 30);
+healGame.turnOrder = [healer.id, supportEnemy.id, supportAlly.id];
 const healCard = healer.skillDeck.find((card) => card.effect === "heal");
 healGame.playerStates[healer.id].hand = [healCard.id];
 healGame.playerStates[supportAlly.id].hp = 1;
@@ -80,12 +84,14 @@ const tankAlly = engine.createPlayerSession("Tank ally", 2, "Mira Ash", "tank-al
 const tankEnemy = engine.createPlayerSession("Tank enemy", 1, "Nyx Calder", "tank-enemy");
 const tankParty = [tank, tankEnemy, tankAlly];
 const guardGame = engine.createInitialGame(tankParty, engine.createAdventure("GUARD"), 30);
+guardGame.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
 const guardCard = tank.skillDeck.find((card) => card.effect === "guard");
 guardGame.playerStates[tank.id].hand = [guardCard.id];
 const allyGuarded = engine.resolveCardTurn(guardGame, tankParty, guardCard.id, tankAlly.id, 20);
 assert.equal(allyGuarded.playerStates[tankAlly.id].shield, 7, "tank passive strengthens shield placed on an ally");
 
 const teamHealGame = engine.createInitialGame(supportParty, engine.createAdventure("TEAM-HEAL"), 30);
+teamHealGame.turnOrder = [healer.id, supportEnemy.id, supportAlly.id];
 const teamHealCard = healer.skillDeck.find((card) => card.supportType === "healing");
 teamHealGame.playerStates[healer.id].hand = [teamHealCard.id];
 teamHealGame.playerStates[healer.id].hp = 5;
@@ -96,6 +102,7 @@ assert.equal(teamHealed.playerStates[supportAlly.id].hp, 4);
 assert.equal(teamHealed.playerStates[supportEnemy.id].hp, supportEnemy.hero.maxHp);
 
 const teamShieldGame = engine.createInitialGame(tankParty, engine.createAdventure("TEAM-SHIELD"), 30);
+teamShieldGame.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
 const teamShieldCard = tank.skillDeck.find((card) => card.supportType === "shield");
 teamShieldGame.playerStates[tank.id].hand = [teamShieldCard.id];
 const teamShielded = engine.resolveCardTurn(teamShieldGame, tankParty, teamShieldCard.id, tank.id, 20);
@@ -108,6 +115,7 @@ const diceAlly = engine.createPlayerSession("Dice ally", 2, "Dagan Flint", "dice
 const diceEnemy = engine.createPlayerSession("Dice enemy", 1, "Kael Rook", "dice-enemy");
 const diceParty = [commander, diceEnemy, diceAlly];
 const diceGame = engine.createInitialGame(diceParty, engine.createAdventure("DICE"), 30);
+diceGame.turnOrder = [commander.id, diceEnemy.id, diceAlly.id];
 const diceCard = commander.skillDeck.find((card) => card.supportType === "dice");
 diceGame.playerStates[commander.id].hand = [diceCard.id];
 const diceBuffed = engine.resolveCardTurn(diceGame, diceParty, diceCard.id, commander.id, 20);
@@ -129,6 +137,7 @@ const cursedEnemy = engine.createPlayerSession("Cursed enemy", 1, "Thorne Vale",
 const oracleAlly = engine.createPlayerSession("Oracle ally", 2, "Dagan Flint", "oracle-ally");
 const curseParty = [oracle, cursedEnemy, oracleAlly];
 const curseGame = engine.createInitialGame(curseParty, engine.createAdventure("CURSE"), 30);
+curseGame.turnOrder = [oracle.id, cursedEnemy.id, oracleAlly.id];
 const curseCard = oracle.skillDeck.find((card) => card.supportType === "enemy-dice");
 curseGame.playerStates[oracle.id].hand = [curseCard.id];
 const cursed = engine.resolveCardTurn(curseGame, curseParty, curseCard.id, cursedEnemy.id, 20);
@@ -157,6 +166,7 @@ const sableDefeatedAgain = engine.resolveCardTurn(sableRevived, curseParty, curs
 assert.equal(sableDefeatedAgain.playerStates[oracle.id].hp, 0, "Sable cannot trigger Second Sight twice");
 
 const commanderGame = engine.createInitialGame([first, second, supportAlly], engine.createAdventure("ADVANCE"), 30);
+commanderGame.turnOrder = [first.id, second.id, supportAlly.id];
 const advanceCard = first.skillDeck.find((card) => card.supportType === "advance-ally");
 commanderGame.playerStates[first.id].hand = [advanceCard.id];
 const advanced = engine.resolveCardTurn(commanderGame, [first, second, supportAlly], advanceCard.id, supportAlly.id, 20);
@@ -183,6 +193,7 @@ assert(!returned.playerStates[trickster.id].hand.includes(stolenCommon.id), "an 
 assert(returned.playerStates[delayedEnemy.id].discardPile.includes(stolenCommon.id), "returned stolen cards enter their owner's discard pile");
 
 const revivalGame = engine.createInitialGame(supportParty, engine.createAdventure("REVIVE"), 30);
+revivalGame.turnOrder = [healer.id, supportEnemy.id, supportAlly.id];
 const reviveCard = healer.skillDeck.find((card) => card.supportType === "revive");
 revivalGame.playerStates[supportAlly.id].hp = 0;
 revivalGame.playerStates[healer.id].hand = [reviveCard.id];
@@ -203,6 +214,7 @@ assert.equal(revived.playerStates[supportAlly.id].reviveIn, 0);
 assert.equal(revived.playerStates[supportAlly.id].hp, Math.ceil(supportAlly.hero.maxHp / 3), "revived allies return with one-third max HP");
 
 const noTargetGame = engine.createInitialGame([healer, supportEnemy], engine.createAdventure("NO-TARGET"), 30);
+noTargetGame.turnOrder = [healer.id, supportEnemy.id];
 noTargetGame.playerStates[healer.id].hand = [reviveCard.id];
 const noTarget = engine.resolveCardTurn(noTargetGame, [healer, supportEnemy], reviveCard.id, undefined, 20);
 assert.match(noTarget.outcome.detail, /no valid target/i, "a targeted card succeeds with no effect when no valid target exists");
@@ -210,12 +222,14 @@ assert.match(noTarget.outcome.detail, /no valid target/i, "a targeted card succe
 const oracleControl = engine.createPlayerSession("Sable", 0, "Sable Fen", "oracle-control");
 const controlEnemy = engine.createPlayerSession("Control enemy", 1, "Kael Rook", "control-enemy");
 const controlGame = engine.createInitialGame([oracleControl, controlEnemy], engine.createAdventure("SKIP"), 30);
+controlGame.turnOrder = [oracleControl.id, controlEnemy.id];
 const skipEnemyCard = oracleControl.skillDeck.find((card) => card.supportType === "skip-enemy");
 controlGame.playerStates[oracleControl.id].hand = [skipEnemyCard.id];
 const controlled = engine.resolveCardTurn(controlGame, [oracleControl, controlEnemy], skipEnemyCard.id, controlEnemy.id, 20);
 assert.equal(controlled.playerStates[controlEnemy.id].skipTurns, 1, "oracle can cancel exactly one upcoming enemy turn");
 
 const commanderPurge = engine.createInitialGame([commander, diceEnemy], engine.createAdventure("PURGE"), 30);
+commanderPurge.turnOrder = [commander.id, diceEnemy.id];
 const purgeCard = commander.skillDeck.find((card) => card.supportType === "purge-card");
 const removableBlank = commander.skillDeck.find((card) => !card.unique && card.effect === "none");
 commanderPurge.playerStates[commander.id].hand = [purgeCard.id];
@@ -226,6 +240,7 @@ assert(![...purged.playerStates[commander.id].hand, ...purged.playerStates[comma
 const duelist = engine.createPlayerSession("Kael", 0, "Kael Rook", "duelist");
 const failureEnemy = engine.createPlayerSession("Failure target", 1, "Thorne Vale", "failure-enemy");
 const failureGame = engine.createInitialGame([duelist, failureEnemy], engine.createAdventure("FAILURE"), 30);
+failureGame.turnOrder = [duelist.id, failureEnemy.id];
 const riskyCard = duelist.skillDeck.find((card) => card.failureEffect === "self-damage" && card.failureValue >= 2);
 failureGame.adventure.target = 20;
 failureGame.playerStates[duelist.id].hand = [riskyCard.id];
@@ -234,6 +249,7 @@ assert.equal(failedStrongCard.playerStates[duelist.id].hp, duelist.hero.maxHp - 
 assert(failedStrongCard.outcome.failureDetail, "strong failed card explains its negative effect");
 
 const emptyGame = engine.createInitialGame([first, second], engine.createAdventure("EMPTY"), 30);
+emptyGame.turnOrder = [first.id, second.id];
 const emptyCard = first.skillDeck.find((card) => card.effect === "none");
 emptyGame.playerStates[first.id].hand = [emptyCard.id];
 emptyGame.playerStates[first.id].drawPile = [attack.id];
@@ -245,6 +261,7 @@ assert(emptyResult.playerStates[first.id].discardPile.includes(emptyCard.id), "p
 assert.match(emptyResult.history.at(-1).message, /had no effect/);
 
 const cycleGame = engine.createInitialGame([first, second], engine.createAdventure("CYCLE"), 30);
+cycleGame.turnOrder = [first.id, second.id];
 const guard = first.skillDeck.find((card) => card.effect === "guard");
 const heal = first.skillDeck.find((card) => card.effect === "heal");
 cycleGame.playerStates[first.id].hand = [attack.id, guard.id, heal.id];
@@ -267,6 +284,7 @@ assert.equal(reshuffled.playerStates[first.id].drawPile.length, 2, "remaining re
 assert.equal(reshuffled.playerStates[first.id].discardPile.length, 0, "discard clears only when it is reshuffled into the draw pile");
 
 const eventGame = engine.createInitialGame([first, second], engine.createAdventure("EVENT"), 30);
+eventGame.turnOrder = [first.id, second.id];
 eventGame.completedTurns = 4;
 eventGame.playerStates[first.id].hand = [attack.id];
 const eventTurn = engine.resolveCardTurn(eventGame, [first, second], attack.id, second.id, 20);
@@ -278,6 +296,7 @@ assert.match(eventTurn.worldEvent.description, /An/);
 assert.match(eventTurn.worldEvent.description, /Binh/);
 
 const finalGame = engine.createInitialGame([first, second], engine.createAdventure("FINAL"), 30);
+finalGame.turnOrder = [first.id, second.id];
 finalGame.completedTurns = 29;
 finalGame.playerStates[first.id].hp = 20;
 finalGame.playerStates[first.id].maxHp = 20;
@@ -290,8 +309,21 @@ assert.equal(finalTurn.winnerTeam, "veil");
 assert(finalTurn.playerStates[second.id].hp > 0, "turn-30 winner is decided by team HP while both teams still live");
 
 const deadGame = engine.createInitialGame([first, second], engine.createAdventure("DEAD"), 30);
+deadGame.turnOrder = [first.id, second.id];
 deadGame.playerStates[first.id].hp = 0;
 deadGame.playerStates[first.id].hand = [attack.id];
 assert.equal(engine.resolveCardTurn(deadGame, [first, second], attack.id, second.id, 20), deadGame, "defeated players cannot act");
+
+const speedRound = engine.createInitialGame([first, second], engine.createAdventure("SPEED-ROUND"), 30);
+const secondBlank = second.skillDeck.find((card) => card.effect === "none");
+const firstBlank = first.skillDeck.find((card) => card.effect === "none");
+speedRound.playerStates[second.id].hand = [secondBlank.id];
+const afterFastTurn = engine.resolveCardTurn(speedRound, [first, second], secondBlank.id, second.id, 20);
+assert.equal(afterFastTurn.turnOrder[0], first.id, "the slower living player follows in the same round");
+afterFastTurn.playerStates[first.id].hand = [firstBlank.id];
+const nextSpeedRound = engine.resolveCardTurn(afterFastTurn, [first, second], firstBlank.id, first.id, 20);
+assert.equal(nextSpeedRound.roundNumber, 2);
+assert.equal(nextSpeedRound.turnOrder[0], second.id, "a completed round resets to the fastest living player");
+assert.deepEqual(nextSpeedRound.actedThisRound, []);
 
 console.log("Game-rule test passed: random targets, penalty-free common cards, special-card penalties, support effects, turn order, event history, victory, and defeated-player lockout.");
