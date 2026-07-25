@@ -16,9 +16,9 @@ function player(id, displayName, team) {
       title: "Test Oath",
       role: "Scout",
       classId: "ranger",
-      className: "Xạ thủ",
-      passiveName: "Ngắm chuẩn",
-      passiveText: "Đòn đánh đơn gây thêm 1 sát thương.",
+      className: "Ranger",
+      passiveName: "Deadeye",
+      passiveText: "Single-target attacks deal 1 additional damage.",
       skill: "Test Skill",
       skillText: "Used only by the realtime integration test.",
       summary: "Test hero",
@@ -150,7 +150,7 @@ try {
 
   const timedOut = await first.waitFor((state) => state.game?.completedTurns === 1);
   assert.equal(timedOut.game.activePlayerIndex, 1);
-  assert.match(timedOut.game.outcome.label, /hết giờ/);
+  assert.match(timedOut.game.outcome.label, /ran out of time/);
   assert.equal(timedOut.game.outcome.kind, 'timeout');
   assert.equal(timedOut.game.history.at(-1).kind, 'timeout');
   assert.equal(timedOut.game.playerStates[firstId].diceBuff, 0);

@@ -29,7 +29,7 @@ const supportTypes = new Set(options.flatMap((option) => option.skillDeck.filter
 assert.deepEqual([...supportTypes].sort(), ["advance-ally", "attack", "delay-enemy", "dice", "dispel-enemy", "enemy-dice", "healing", "shield"]);
 
 const first = engine.createPlayerSession("An", 0, options[0].hero.name, "first");
-const second = engine.createPlayerSession("Bình", 1, options[1].hero.name, "second");
+const second = engine.createPlayerSession("Binh", 1, options[1].hero.name, "second");
 const game = engine.createInitialGame([first, second], engine.createAdventure("RULES"), 30);
 assert.equal(game.maxTurns, 30);
 
@@ -41,11 +41,11 @@ assert.equal(attacked.history.length, 1);
 assert.equal(attacked.history[0].diceRoll, 20);
 assert.equal(attacked.history[0].diceTarget, 12);
 assert.equal(attacked.history[0].diceTotal, 20 + attack.bonus);
-assert.match(attacked.history[0].message, /An.*Bình|Bình.*HP/);
+assert.match(attacked.history[0].message, /An.*Binh|Binh.*HP/);
 
 const healer = engine.createPlayerSession("Orren", 0, "Brother Orren", "healer");
-const supportAlly = engine.createPlayerSession("Đồng minh", 2, "Elara Voss", "support-ally");
-const supportEnemy = engine.createPlayerSession("Đối thủ", 1, "Thorne Vale", "support-enemy");
+const supportAlly = engine.createPlayerSession("Support ally", 2, "Elara Voss", "support-ally");
+const supportEnemy = engine.createPlayerSession("Support enemy", 1, "Thorne Vale", "support-enemy");
 const supportParty = [healer, supportEnemy, supportAlly];
 const healGame = engine.createInitialGame(supportParty, engine.createAdventure("HEAL"), 30);
 const healCard = healer.skillDeck.find((card) => card.effect === "heal");
@@ -56,8 +56,8 @@ assert.equal(allyHealed.playerStates[supportAlly.id].hp, 8, "healer restores the
 assert.equal(allyHealed.playerStates[healer.id].hp, healer.hero.maxHp, "ally heal does not redirect to the caster");
 
 const tank = engine.createPlayerSession("Bram", 0, "Bram Coalhand", "tank");
-const tankAlly = engine.createPlayerSession("Đồng minh khiên", 2, "Mira Ash", "tank-ally");
-const tankEnemy = engine.createPlayerSession("Đối thủ khiên", 1, "Nyx Calder", "tank-enemy");
+const tankAlly = engine.createPlayerSession("Tank ally", 2, "Mira Ash", "tank-ally");
+const tankEnemy = engine.createPlayerSession("Tank enemy", 1, "Nyx Calder", "tank-enemy");
 const tankParty = [tank, tankEnemy, tankAlly];
 const guardGame = engine.createInitialGame(tankParty, engine.createAdventure("GUARD"), 30);
 const guardCard = tank.skillDeck.find((card) => card.effect === "guard");
@@ -84,8 +84,8 @@ assert.equal(teamShielded.playerStates[tankAlly.id].shield, 2);
 assert.equal(teamShielded.playerStates[tankEnemy.id].shield, 0);
 
 const commander = engine.createPlayerSession("Ione", 0, "Ione Mire", "commander");
-const diceAlly = engine.createPlayerSession("Đồng minh d20", 2, "Dagan Flint", "dice-ally");
-const diceEnemy = engine.createPlayerSession("Đối thủ d20", 1, "Kael Rook", "dice-enemy");
+const diceAlly = engine.createPlayerSession("Dice ally", 2, "Dagan Flint", "dice-ally");
+const diceEnemy = engine.createPlayerSession("Dice enemy", 1, "Kael Rook", "dice-enemy");
 const diceParty = [commander, diceEnemy, diceAlly];
 const diceGame = engine.createInitialGame(diceParty, engine.createAdventure("DICE"), 30);
 const diceCard = commander.skillDeck.find((card) => card.supportType === "dice");

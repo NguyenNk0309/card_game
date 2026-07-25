@@ -1,97 +1,97 @@
 import type { ActionCard, Hero, Realm } from "@/shared/types";
 
 export const HERO_TEMPLATES: Omit<Hero, "id" | "team" | "isYou">[] = [
-  { name: "Elara Voss", title: "Ngọn Đèn Bất Diệt", role: "Hộ vệ", classId: "warden", className: "Hộ vệ chiến thuật", passiveName: "Liên Kết", passiveText: "Mọi lá Hỗ trợ của Elara tăng thêm 1 điểm hiệu lực.", skill: "Cùng Nhau Đứng Vững", skillText: "Tăng sát thương cho toàn bộ đồng minh.", summary: "Hộ vệ linh hoạt giúp cả đội tấn công ổn định.", strength: "Buff đội và tạo khiên cho đồng minh tốt.", weakness: "Sát thương trực tiếp thấp.", impact: "Biến các lượt tấn công của đồng minh thành đòn kết liễu.", hp: 10, maxHp: 10, color: "#d5b56b", initials: "EV" },
-  { name: "Thorne Vale", title: "Mũi Tên Cuối", role: "Xạ thủ", classId: "ranger", className: "Xạ thủ", passiveName: "Ngắm Chuẩn", passiveText: "Đòn đánh đơn mục tiêu gây thêm 1 sát thương.", skill: "Mũi Tên Đánh Dấu", skillText: "Đòn bắn chính xác gây sát thương lớn.", summary: "Xạ thủ chuyên hạ từng đối thủ.", strength: "Sát thương đơn mục tiêu ổn định.", weakness: "Ít khả năng tự bảo vệ.", impact: "Nhanh chóng loại một kẻ địch nguy hiểm khỏi trận.", hp: 9, maxHp: 9, color: "#82a88a", initials: "TV" },
-  { name: "Mira Ash", title: "Lưỡi Lửa Tro Tàn", role: "Pháp sư", classId: "mage", className: "Pháp sư AOE", passiveName: "Lửa Lan", passiveText: "Mọi đòn AOE gây thêm 1 sát thương lên mỗi mục tiêu.", skill: "Biển Lửa", skillText: "Thiêu đốt toàn bộ đội địch.", summary: "Pháp sư mỏng manh nhưng gây sát thương diện rộng mạnh nhất.", strength: "AOE mạnh, ép máu cả đội địch.", weakness: "HP thấp và ít phòng thủ.", impact: "Rút ngắn trận đấu bằng cách làm suy yếu mọi đối thủ cùng lúc.", hp: 7, maxHp: 7, color: "#bd705c", initials: "MA" },
-  { name: "Brother Orren", title: "Người Gánh Thương", role: "Hồi phục", classId: "healer", className: "Tu sĩ hồi phục", passiveName: "Sinh Lực Bền Bỉ", passiveText: "Mỗi lá Hồi máu của Orren hồi thêm 2 HP cho đồng minh được chọn.", skill: "Lời Nguyện Sinh Mệnh", skillText: "Hồi máu mạnh cho một đồng minh đang nguy cấp.", summary: "Tu sĩ duy trì tổng HP của đội bằng hồi máu trực tiếp và hồi phục toàn đội.", strength: "Cứu đồng minh yếu và hồi phục cả đội.", weakness: "Chỉ có một lá tấn công đặc biệt.", impact: "Giữ đồng đội sống sót và giúp đội thắng phép so tổng HP ở lượt 30.", hp: 11, maxHp: 11, color: "#789bad", initials: "BO" },
-  { name: "Nyx Calder", title: "Lưỡi Dao Trong Bóng", role: "Sát thủ", classId: "assassin", className: "Sát thủ", passiveName: "Xuyên Giáp", passiveText: "Mọi đòn đánh của Nyx bỏ qua toàn bộ khiên.", skill: "Dao Im Lặng", skillText: "Đâm xuyên khiên của một kẻ địch.", summary: "Sát thủ chuyên kết liễu mục tiêu được bảo vệ.", strength: "Bỏ qua khiên và dồn sát thương nhanh.", weakness: "HP thấp, không có hồi phục đặc biệt.", impact: "Phá thế thủ và ngăn đối thủ câu giờ bằng khiên.", hp: 8, maxHp: 8, color: "#9a83b7", initials: "NC" },
-  { name: "Bram Coalhand", title: "Tường Thành Than Đỏ", role: "Đỡ đòn", classId: "tank", className: "Đỡ đòn", passiveName: "Thép Tôi", passiveText: "Mỗi lá Phòng thủ của Bram tạo thêm 2 khiên cho đồng minh được chọn.", skill: "Pháo Đài Sống", skillText: "Tạo lượng khiên lớn cho một đồng minh.", summary: "Người bảo hộ bền bỉ, có thể che chắn cho bất kỳ đồng minh nào.", strength: "HP cao và tạo khiên mạnh cho đồng đội.", weakness: "Sát thương thấp.", impact: "Giữ một thành viên sống để ngăn đội bị quét sạch.", hp: 13, maxHp: 13, color: "#c98b58", initials: "BC" },
-  { name: "Sable Fen", title: "Mắt Nhìn Bão Tố", role: "Tiên tri", classId: "oracle", className: "Tiên tri", passiveName: "Báo Trước Tai Họa", passiveText: "Đội của Sable nhận ít hơn 1 sát thương từ sự kiện thế giới.", skill: "Điềm Báo Máu", skillText: "Buff tấn công cho toàn bộ đồng minh.", summary: "Tiên tri kiểm soát nhịp trận và giảm thiệt hại sự kiện.", strength: "Bảo vệ đội trước biến cố, buff tốt.", weakness: "HP thấp.", impact: "Làm các lượt sự kiện 5/10/15... ít nguy hiểm hơn cho đội.", hp: 7, maxHp: 7, color: "#6aa8a5", initials: "SF" },
-  { name: "Kael Rook", title: "Kẻ Thách Đấu", role: "Đấu sĩ", classId: "duelist", className: "Đấu sĩ", passiveName: "Không Phòng Thủ", passiveText: "Khi không có khiên, đòn đánh gây thêm 1 sát thương.", skill: "Phản Kích", skillText: "Đòn đánh đơn mục tiêu cực mạnh.", summary: "Đấu sĩ thuần tấn công, mạnh nhất khi không phòng thủ.", strength: "Dồn sát thương liên tục.", weakness: "Không có hồi máu hoặc buff.", impact: "Buộc đội địch phải xử lý Kael trước.", hp: 9, maxHp: 9, color: "#a96161", initials: "KR" },
-  { name: "Ione Mire", title: "Người Giữ Lời Thề", role: "Hỗ trợ", classId: "support", className: "Hỗ trợ", passiveName: "Hiệu Lệnh", passiveText: "Mọi buff Hỗ trợ của Ione tăng thêm 1 điểm.", skill: "Mệnh Lệnh Tiến Công", skillText: "Tăng sát thương cho toàn đội.", summary: "Chuyên gia buff giúp đồng minh mạnh hơn qua nhiều lượt.", strength: "Buff tấn công, khiên và hồi phục.", weakness: "Sát thương cá nhân thấp.", impact: "Khuếch đại sức mạnh của cả đội thay vì tự mình kết liễu.", hp: 8, maxHp: 8, color: "#bd9f76", initials: "IM" },
-  { name: "Dagan Flint", title: "Máu Của Tiền Tuyến", role: "Cuồng chiến", classId: "berserker", className: "Cuồng chiến", passiveName: "Càng Đau Càng Mạnh", passiveText: "Khi còn không quá nửa HP, đòn đánh gây thêm 1 sát thương.", skill: "Không Ai Sống Sót", skillText: "Đòn AOE mạnh khi Dagan bị thương.", summary: "Chiến binh càng bị thương càng nguy hiểm.", strength: "HP cao và sát thương cuối trận lớn.", weakness: "Dễ bị tập trung kết liễu khi xuống thấp.", impact: "Tạo áp lực ngược khi đội địch cố hạ Dagan.", hp: 12, maxHp: 12, color: "#768493", initials: "DF" }
+  { name: "Elara Voss", title: "The Undying Lantern", role: "Warden", classId: "warden", className: "Tactical Warden", passiveName: "United Front", passiveText: "Every Support card Elara plays gains 1 additional point of effect.", skill: "Stand Together", skillText: "Increase the next attack damage of every living ally.", summary: "A flexible warden who makes the entire team more consistent.", strength: "Strong team buffs, ally shields, and turn-order control.", weakness: "Low direct damage.", impact: "Turns allied attacks into finishing blows and moves the right ally forward.", hp: 10, maxHp: 10, color: "#d5b56b", initials: "EV" },
+  { name: "Thorne Vale", title: "The Final Arrow", role: "Ranger", classId: "ranger", className: "Ranger", passiveName: "Deadeye", passiveText: "Single-target attacks deal 1 additional damage.", skill: "Marked Arrow", skillText: "A precise shot that deals heavy damage.", summary: "A ranger built to eliminate one enemy at a time.", strength: "Reliable single-target damage.", weakness: "Few defensive tools.", impact: "Quickly removes the most dangerous enemy from battle.", hp: 9, maxHp: 9, color: "#82a88a", initials: "TV" },
+  { name: "Mira Ash", title: "The Cinder Blade", role: "Mage", classId: "mage", className: "AOE Mage", passiveName: "Spreading Flame", passiveText: "Every AOE attack deals 1 additional damage to each target.", skill: "Inferno", skillText: "Burn the entire enemy team.", summary: "A fragile mage with the strongest area damage.", strength: "Powerful AOE pressure against the whole enemy team.", weakness: "Low HP and little defense.", impact: "Shortens battles by weakening every opponent at once.", hp: 7, maxHp: 7, color: "#bd705c", initials: "MA" },
+  { name: "Brother Orren", title: "The Burden Bearer", role: "Healer", classId: "healer", className: "Restoration Cleric", passiveName: "Enduring Grace", passiveText: "Orren's Heal cards restore 2 additional HP to the chosen ally.", skill: "Prayer of Life", skillText: "Restore a large amount of HP to an ally in danger.", summary: "A cleric who preserves team HP through direct and team-wide healing.", strength: "Saves wounded allies and restores the whole team.", weakness: "Only one special attack card.", impact: "Keeps allies alive and helps win the total-HP tiebreaker on turn 30.", hp: 11, maxHp: 11, color: "#789bad", initials: "BO" },
+  { name: "Nyx Calder", title: "The Blade in Shadow", role: "Assassin", classId: "assassin", className: "Assassin", passiveName: "Armor Pierce", passiveText: "Every Nyx attack ignores all shield.", skill: "Quiet Knife", skillText: "Strike directly through an enemy's shield.", summary: "An assassin who finishes protected targets.", strength: "Ignores shield and delivers fast burst damage.", weakness: "Low HP and no special healing.", impact: "Breaks defensive plans and prevents enemies from stalling with shield.", hp: 8, maxHp: 8, color: "#9a83b7", initials: "NC" },
+  { name: "Bram Coalhand", title: "The Red-Coal Bulwark", role: "Tank", classId: "tank", className: "Tank", passiveName: "Tempered Steel", passiveText: "Bram's Guard cards create 2 additional shield for the chosen ally.", skill: "Living Fortress", skillText: "Create a large shield for one ally.", summary: "A durable protector who can cover any ally.", strength: "High HP and powerful ally shielding.", weakness: "Low damage.", impact: "Keeps a key teammate alive and prevents a team wipe.", hp: 13, maxHp: 13, color: "#c98b58", initials: "BC" },
+  { name: "Sable Fen", title: "The Eye of the Storm", role: "Oracle", classId: "oracle", className: "Oracle", passiveName: "Forewarned", passiveText: "Sable's team takes 1 less damage from world events.", skill: "Blood Omen", skillText: "Increase the next attack damage of every living ally.", summary: "An oracle who controls tempo and reduces event damage.", strength: "Protects the team from events and applies strong buffs or debuffs.", weakness: "Low HP.", impact: "Makes turns 5, 10, 15, and later world events less dangerous.", hp: 7, maxHp: 7, color: "#6aa8a5", initials: "SF" },
+  { name: "Kael Rook", title: "The Challenger", role: "Duelist", classId: "duelist", className: "Duelist", passiveName: "No Guard", passiveText: "While Kael has no shield, attacks deal 1 additional damage.", skill: "Riposte", skillText: "A devastating single-target attack.", summary: "A pure attacker who is strongest without protection.", strength: "Sustained burst damage.", weakness: "No special healing or buffs.", impact: "Forces the enemy team to deal with Kael quickly.", hp: 9, maxHp: 9, color: "#a96161", initials: "KR" },
+  { name: "Ione Mire", title: "The Oathkeeper", role: "Support", classId: "support", className: "Commander", passiveName: "Commanding Voice", passiveText: "Every Support buff Ione applies gains 1 additional point.", skill: "Attack Order", skillText: "Increase the next attack damage of the whole team.", summary: "A buff specialist who makes allies stronger over several turns.", strength: "Attack and d20 buffs plus enemy dispelling.", weakness: "Low personal damage.", impact: "Amplifies the entire team instead of securing kills alone.", hp: 8, maxHp: 8, color: "#bd9f76", initials: "IM" },
+  { name: "Dagan Flint", title: "Blood of the Front Line", role: "Berserker", classId: "berserker", className: "Berserker", passiveName: "Pain Makes Power", passiveText: "At half HP or lower, attacks deal 1 additional damage.", skill: "None Left Standing", skillText: "A powerful AOE attack when Dagan is wounded.", summary: "A warrior who becomes more dangerous as HP falls.", strength: "High HP and strong late-fight damage.", weakness: "Vulnerable to focused finishing attacks at low HP.", impact: "Punishes enemies for trying to wear Dagan down.", hp: 12, maxHp: 12, color: "#768493", initials: "DF" }
 ];
 
 type CharacterSkillCard = Omit<ActionCard, "unique">;
 
 export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
   "Elara Voss": [
-    { id: "ev-stand", name: "Cùng Nhau Đứng Vững", type: "Spirit", description: "Toàn bộ đồng minh nhận +2 sát thương cho đòn đánh kế tiếp; nội tại tăng thành +3.", bonus: 4, effect: "support", target: "all-allies", value: 2, supportType: "attack" },
-    { id: "ev-ward", name: "Khiên Đèn", type: "Spirit", description: "Chọn một đồng minh còn sống để nhận 4 khiên; có thể chọn Elara.", bonus: 4, effect: "guard", target: "ally", value: 4 },
-    { id: "ev-command", name: "Lệnh Tiến Tuyến", type: "Spirit", description: "Chọn một đồng minh khác và đưa lượt của họ lên ngay sau Elara.", bonus: 4, effect: "support", target: "ally", value: 1, supportType: "advance-ally" }
+    { id: "ev-stand", name: "Stand Together", type: "Spirit", description: "All living allies gain +2 damage on their next attack; Elara's passive raises this to +3.", bonus: 4, effect: "support", target: "all-allies", value: 2, supportType: "attack" },
+    { id: "ev-ward", name: "Lantern Ward", type: "Spirit", description: "Choose a living ally to gain 4 shield; Elara may target herself.", bonus: 4, effect: "guard", target: "ally", value: 4 },
+    { id: "ev-command", name: "Forward Command", type: "Spirit", description: "Choose another living ally and move their turn directly after Elara's.", bonus: 4, effect: "support", target: "ally", value: 1, supportType: "advance-ally" }
   ],
   "Thorne Vale": [
-    { id: "tv-mark", name: "Mũi Tên Đánh Dấu", type: "Wit", description: "Gây 4 sát thương; nội tại Xạ thủ tăng thành 5.", bonus: 5, effect: "damage", target: "enemy", value: 4 },
-    { id: "tv-pierce", name: "Tên Xuyên Giáp", type: "Wit", description: "Gây 3 sát thương và bỏ qua toàn bộ khiên.", bonus: 4, effect: "damage", target: "enemy", value: 3, ignoresShield: true },
-    { id: "tv-volley", name: "Mưa Tên", type: "Might", description: "Gây 2 sát thương lên tất cả kẻ địch còn sống.", bonus: 4, effect: "aoe", target: "all-enemies", value: 2 }
+    { id: "tv-mark", name: "Marked Arrow", type: "Wit", description: "Deal 4 damage; the Ranger passive increases this to 5.", bonus: 5, effect: "damage", target: "enemy", value: 4 },
+    { id: "tv-pierce", name: "Piercing Arrow", type: "Wit", description: "Deal 3 damage and ignore all shield.", bonus: 4, effect: "damage", target: "enemy", value: 3, ignoresShield: true },
+    { id: "tv-volley", name: "Arrow Volley", type: "Might", description: "Deal 2 damage to every living enemy.", bonus: 4, effect: "aoe", target: "all-enemies", value: 2 }
   ],
   "Mira Ash": [
-    { id: "ma-inferno", name: "Biển Lửa", type: "Might", description: "Gây 3 sát thương AOE; nội tại tăng thành 4. Nếu thất bại, cả đội nhận 1 sát thương.", bonus: 4, effect: "aoe", target: "all-enemies", value: 3, failureEffect: "team-damage", failureValue: 1 },
-    { id: "ma-comet", name: "Sao Chổi Tro", type: "Wit", description: "Gây 2 sát thương AOE, bỏ qua khiên.", bonus: 5, effect: "aoe", target: "all-enemies", value: 2, ignoresShield: true },
-    { id: "ma-rekindle", name: "Tái Sinh Từ Tro", type: "Spirit", description: "Chọn một đồng minh còn sống để hồi 4 HP; không thể hồi sinh.", bonus: 4, effect: "heal", target: "ally", value: 4 }
+    { id: "ma-inferno", name: "Inferno", type: "Might", description: "Deal 3 AOE damage; Mira's passive raises this to 4. On failure, her entire team takes 1 damage.", bonus: 4, effect: "aoe", target: "all-enemies", value: 3, failureEffect: "team-damage", failureValue: 1 },
+    { id: "ma-comet", name: "Ash Comet", type: "Wit", description: "Deal 2 AOE damage that ignores shield.", bonus: 5, effect: "aoe", target: "all-enemies", value: 2, ignoresShield: true },
+    { id: "ma-rekindle", name: "Rekindle", type: "Spirit", description: "Choose a living ally and restore 4 HP; this cannot revive a defeated player.", bonus: 4, effect: "heal", target: "ally", value: 4 }
   ],
   "Brother Orren": [
-    { id: "bo-prayer", name: "Lời Nguyện Sinh Mệnh", type: "Spirit", description: "Chọn một đồng minh để hồi 5 HP; nội tại tăng thành 7 HP.", bonus: 4, effect: "heal", target: "ally", value: 5 },
-    { id: "bo-blessing", name: "Phúc Lành", type: "Spirit", description: "Hồi ngay 2 HP cho toàn bộ đồng minh còn sống.", bonus: 4, effect: "support", target: "all-allies", value: 2, supportType: "healing" },
-    { id: "bo-smite", name: "Trừng Phạt", type: "Might", description: "Gây 3 sát thương lên một kẻ địch.", bonus: 5, effect: "damage", target: "enemy", value: 3 }
+    { id: "bo-prayer", name: "Prayer of Life", type: "Spirit", description: "Choose a living ally and restore 5 HP; Orren's passive raises this to 7 HP.", bonus: 4, effect: "heal", target: "ally", value: 5 },
+    { id: "bo-blessing", name: "Blessing", type: "Spirit", description: "Immediately restore 2 HP to every living ally.", bonus: 4, effect: "support", target: "all-allies", value: 2, supportType: "healing" },
+    { id: "bo-smite", name: "Smite", type: "Might", description: "Deal 3 damage to one enemy.", bonus: 5, effect: "damage", target: "enemy", value: 3 }
   ],
   "Nyx Calder": [
-    { id: "nc-knife", name: "Dao Im Lặng", type: "Wit", description: "Gây 4 sát thương; nội tại Sát thủ luôn bỏ qua khiên.", bonus: 5, effect: "damage", target: "enemy", value: 4 },
-    { id: "nc-execute", name: "Kết Liễu", type: "Might", description: "Gây 5 sát thương xuyên khiên. Nếu thất bại, Nyx nhận 3 sát thương.", bonus: 3, effect: "damage", target: "enemy", value: 5, ignoresShield: true, failureEffect: "self-damage", failureValue: 3 },
-    { id: "nc-delay", name: "Đánh Lạc Hướng", type: "Wit", description: "Chọn một kẻ địch và đẩy lượt sắp tới của họ xuống cuối hàng đợi.", bonus: 4, effect: "support", target: "enemy", value: 1, supportType: "delay-enemy" }
+    { id: "nc-knife", name: "Quiet Knife", type: "Wit", description: "Deal 4 damage; the Assassin passive always ignores shield.", bonus: 5, effect: "damage", target: "enemy", value: 4 },
+    { id: "nc-execute", name: "Execute", type: "Might", description: "Deal 5 damage through shield. On failure, Nyx takes 3 damage.", bonus: 3, effect: "damage", target: "enemy", value: 5, ignoresShield: true, failureEffect: "self-damage", failureValue: 3 },
+    { id: "nc-delay", name: "Misdirection", type: "Wit", description: "Choose an enemy and move their upcoming turn to the end of the queue.", bonus: 4, effect: "support", target: "enemy", value: 1, supportType: "delay-enemy" }
   ],
   "Bram Coalhand": [
-    { id: "bc-fortress", name: "Pháo Đài Sống", type: "Might", description: "Chọn một đồng minh nhận 5 khiên; nội tại tăng thành 7 khiên.", bonus: 4, effect: "guard", target: "ally", value: 5 },
-    { id: "bc-temper", name: "Tôi Giáp", type: "Spirit", description: "Tạo ngay 2 khiên cho toàn bộ đồng minh còn sống.", bonus: 4, effect: "support", target: "all-allies", value: 2, supportType: "shield" },
-    { id: "bc-hammer", name: "Búa Nện", type: "Might", description: "Gây 3 sát thương lên một kẻ địch.", bonus: 4, effect: "damage", target: "enemy", value: 3 }
+    { id: "bc-fortress", name: "Living Fortress", type: "Might", description: "Choose a living ally to gain 5 shield; Bram's passive raises this to 7.", bonus: 4, effect: "guard", target: "ally", value: 5 },
+    { id: "bc-temper", name: "Temper Armor", type: "Spirit", description: "Immediately grant 2 shield to every living ally.", bonus: 4, effect: "support", target: "all-allies", value: 2, supportType: "shield" },
+    { id: "bc-hammer", name: "Hammer Blow", type: "Might", description: "Deal 3 damage to one enemy.", bonus: 4, effect: "damage", target: "enemy", value: 3 }
   ],
   "Sable Fen": [
-    { id: "sf-omen", name: "Điềm Báo Máu", type: "Wit", description: "Toàn bộ đồng minh nhận +2 sát thương cho đòn kế tiếp.", bonus: 4, effect: "support", target: "all-allies", value: 2, supportType: "attack" },
-    { id: "sf-mist", name: "Sương Hồi Sinh", type: "Spirit", description: "Chọn một đồng minh còn sống để hồi 3 HP; không thể hồi sinh.", bonus: 5, effect: "heal", target: "ally", value: 3 },
-    { id: "sf-hex", name: "Điềm Xấu", type: "Wit", description: "Chọn một kẻ địch: họ bị -3 kết quả d20 trong lượt kế tiếp.", bonus: 4, effect: "support", target: "enemy", value: 3, supportType: "enemy-dice" }
+    { id: "sf-omen", name: "Blood Omen", type: "Wit", description: "All living allies gain +2 damage on their next attack.", bonus: 4, effect: "support", target: "all-allies", value: 2, supportType: "attack" },
+    { id: "sf-mist", name: "Restoring Mist", type: "Spirit", description: "Choose a living ally and restore 3 HP; this cannot revive a defeated player.", bonus: 5, effect: "heal", target: "ally", value: 3 },
+    { id: "sf-hex", name: "Dark Omen", type: "Wit", description: "Choose an enemy; they suffer -3 to their d20 result on their next turn.", bonus: 4, effect: "support", target: "enemy", value: 3, supportType: "enemy-dice" }
   ],
   "Kael Rook": [
-    { id: "kr-riposte", name: "Phản Kích", type: "Might", description: "Gây 5 sát thương; khi không có khiên tăng thành 6. Nếu thất bại, Kael nhận 2 sát thương.", bonus: 4, effect: "damage", target: "enemy", value: 5, failureEffect: "self-damage", failureValue: 2 },
-    { id: "kr-duel", name: "Thách Đấu", type: "Might", description: "Gây 4 sát thương lên một kẻ địch.", bonus: 5, effect: "damage", target: "enemy", value: 4 },
-    { id: "kr-sweep", name: "Quét Kiếm", type: "Might", description: "Gây 2 sát thương lên toàn bộ kẻ địch.", bonus: 4, effect: "aoe", target: "all-enemies", value: 2 }
+    { id: "kr-riposte", name: "Riposte", type: "Might", description: "Deal 5 damage; while Kael has no shield this becomes 6. On failure, Kael takes 2 damage.", bonus: 4, effect: "damage", target: "enemy", value: 5, failureEffect: "self-damage", failureValue: 2 },
+    { id: "kr-duel", name: "Challenge", type: "Might", description: "Deal 4 damage to one enemy.", bonus: 5, effect: "damage", target: "enemy", value: 4 },
+    { id: "kr-sweep", name: "Sweeping Blade", type: "Might", description: "Deal 2 damage to every living enemy.", bonus: 4, effect: "aoe", target: "all-enemies", value: 2 }
   ],
   "Ione Mire": [
-    { id: "im-command", name: "Mệnh Lệnh Tiến Công", type: "Spirit", description: "Buff +2 sát thương cho toàn đội; nội tại tăng thành +3.", bonus: 4, effect: "support", target: "all-allies", value: 2, supportType: "attack" },
-    { id: "im-aegis", name: "Mệnh Lệnh Tập Trung", type: "Spirit", description: "Mọi đồng minh nhận +2 bonus d20 cho lượt kế tiếp; nội tại tăng thành +3.", bonus: 4, effect: "support", target: "all-allies", value: 2, supportType: "dice" },
-    { id: "im-break", name: "Bẻ Gãy Mệnh Lệnh", type: "Wit", description: "Chọn một kẻ địch: xóa buff tấn công, buff d20 và phá tối đa 3 khiên.", bonus: 4, effect: "support", target: "enemy", value: 3, supportType: "dispel-enemy" }
+    { id: "im-command", name: "Attack Order", type: "Spirit", description: "All living allies gain +2 damage on their next attack; Ione's passive raises this to +3.", bonus: 4, effect: "support", target: "all-allies", value: 2, supportType: "attack" },
+    { id: "im-aegis", name: "Focus Order", type: "Spirit", description: "All living allies gain +2 to their next d20 result; Ione's passive raises this to +3.", bonus: 4, effect: "support", target: "all-allies", value: 2, supportType: "dice" },
+    { id: "im-break", name: "Break Command", type: "Wit", description: "Choose an enemy; remove their attack and d20 buffs and destroy up to 3 shield.", bonus: 4, effect: "support", target: "enemy", value: 3, supportType: "dispel-enemy" }
   ],
   "Dagan Flint": [
-    { id: "df-none", name: "Không Ai Sống Sót", type: "Might", description: "Gây 3 sát thương AOE; khi Dagan còn nửa HP tăng thành 4. Thất bại: Dagan nhận 2 sát thương.", bonus: 4, effect: "aoe", target: "all-enemies", value: 3, failureEffect: "self-damage", failureValue: 2 },
-    { id: "df-cleave", name: "Bổ Đôi", type: "Might", description: "Gây 5 sát thương. Nếu thất bại, Dagan nhận 2 sát thương.", bonus: 4, effect: "damage", target: "enemy", value: 5, failureEffect: "self-damage", failureValue: 2 },
-    { id: "df-blood", name: "Chia Máu", type: "Spirit", description: "Chọn một đồng minh còn sống để hồi 3 HP, có thể chọn Dagan.", bonus: 4, effect: "heal", target: "ally", value: 3 }
+    { id: "df-none", name: "None Left Standing", type: "Might", description: "Deal 3 AOE damage; at half HP or lower this becomes 4. On failure, Dagan takes 2 damage.", bonus: 4, effect: "aoe", target: "all-enemies", value: 3, failureEffect: "self-damage", failureValue: 2 },
+    { id: "df-cleave", name: "Cleave", type: "Might", description: "Deal 5 damage. On failure, Dagan takes 2 damage.", bonus: 4, effect: "damage", target: "enemy", value: 5, failureEffect: "self-damage", failureValue: 2 },
+    { id: "df-blood", name: "Blood Bond", type: "Spirit", description: "Choose a living ally and restore 3 HP; Dagan may target himself.", bonus: 4, effect: "heal", target: "ally", value: 3 }
   ]
 };
 
 export const ACTION_CARDS: ActionCard[] = [
-  { id: "slash", name: "Chém Ngang", type: "Might", description: "Gây 3 sát thương lên một kẻ địch; khiên hấp thụ trước HP.", bonus: 4, effect: "damage", target: "enemy", value: 3, unique: false },
-  { id: "heavy", name: "Đòn Nặng", type: "Might", description: "Gây 4 sát thương. Nếu thất bại, người dùng nhận 1 sát thương.", bonus: 3, effect: "damage", target: "enemy", value: 4, failureEffect: "self-damage", failureValue: 1, unique: false },
-  { id: "brace", name: "Thủ Thế", type: "Spirit", description: "Tự tạo 3 khiên cho bản thân.", bonus: 5, effect: "guard", target: "self", value: 3, unique: false },
-  { id: "iron-wall", name: "Tường Sắt", type: "Might", description: "Tự tạo 5 khiên. Nếu thất bại, mất tối đa 2 khiên đang có.", bonus: 3, effect: "guard", target: "self", value: 5, failureEffect: "lose-shield", failureValue: 2, unique: false },
-  { id: "second-wind", name: "Hồi Sức", type: "Spirit", description: "Tự hồi 4 HP; không thể hồi sinh khi đã gục.", bonus: 4, effect: "heal", target: "self", value: 4, unique: false }
+  { id: "slash", name: "Slash", type: "Might", description: "Deal 3 damage to one enemy; shield absorbs damage before HP.", bonus: 4, effect: "damage", target: "enemy", value: 3, unique: false },
+  { id: "heavy", name: "Heavy Blow", type: "Might", description: "Deal 4 damage. On failure, the user takes 1 damage.", bonus: 3, effect: "damage", target: "enemy", value: 4, failureEffect: "self-damage", failureValue: 1, unique: false },
+  { id: "brace", name: "Brace", type: "Spirit", description: "Grant yourself 3 shield.", bonus: 5, effect: "guard", target: "self", value: 3, unique: false },
+  { id: "iron-wall", name: "Iron Wall", type: "Might", description: "Grant yourself 5 shield. On failure, lose up to 2 existing shield.", bonus: 3, effect: "guard", target: "self", value: 5, failureEffect: "lose-shield", failureValue: 2, unique: false },
+  { id: "second-wind", name: "Second Wind", type: "Spirit", description: "Restore 4 HP to yourself; this cannot revive you after defeat.", bonus: 4, effect: "heal", target: "self", value: 4, unique: false }
 ];
 
 export const REALMS: Realm[] = [
-  { id: "arena", name: "Đấu Trường Lời Thề", region: "Chiến tuyến cuối", weather: "Không có đường lui", objective: "Đánh bại toàn bộ đội đối phương trước hoặc tại lượt 30.", threat: "Đội đối phương", accent: "#d4b56e", sceneClass: "scene-arena" }
+  { id: "arena", name: "Oathbound Arena", region: "The final battle line", weather: "No retreat", objective: "Defeat the entire opposing team before or on turn 30.", threat: "The opposing team", accent: "#d4b56e", sceneClass: "scene-arena" }
 ];
 
 export const STORY_BEATS = [
-  "Hai đội đối mặt nhau. Chỉ một đội có thể rời khỏi đấu trường.",
-  "Tiếng kim loại vang lên khi một chiến binh chọn mục tiêu tiếp theo.",
-  "Máu và khiên quyết định ai còn đứng vững sau lượt này.",
-  "Không còn nhiệm vụ phụ: hạ đối thủ hoặc bị hạ.",
-  "Mỗi lá bài đã dùng tiến gần hơn tới phán quyết ở lượt 30."
+  "Two teams face each other. Only one can leave the arena.",
+  "Steel rings as a warrior chooses the next target.",
+  "HP and shield decide who remains standing after this turn.",
+  "There are no side quests: defeat the enemy or be defeated.",
+  "Every card played moves the battle closer to the judgment on turn 30."
 ];
 
 export const EVENTS = [
-  "Biến cố chiến trường",
-  "Hỗn loạn bất ngờ",
-  "Lời nguyền leo thang",
-  "Tiếp tế bí ẩn",
-  "Mặt đất rung chuyển"
+  "Battlefield event",
+  "Sudden chaos",
+  "Escalating curse",
+  "Mysterious supplies",
+  "Shaking ground"
 ];

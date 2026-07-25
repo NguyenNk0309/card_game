@@ -27,11 +27,11 @@ const shuffle = <T,>(items: T[]) => {
 
 export function createSkillDeck(hero: Omit<Hero, "id" | "team" | "isYou">): ActionCard[] {
   const uniqueCards = CHARACTER_SKILL_CARDS[hero.name];
-  if (!uniqueCards || uniqueCards.length !== 3) throw new Error(`${hero.name} phải có đúng 3 lá đặc biệt.`);
+  if (!uniqueCards || uniqueCards.length !== 3) throw new Error(`${hero.name} must have exactly 3 special cards.`);
   const prefix = hero.initials.toLowerCase();
   const commonCards = ACTION_CARDS.map((card) => ({ ...card, id: `${prefix}-common-${card.id}` }));
   const deck = [...uniqueCards.map((card) => ({ ...card, unique: true })), ...commonCards];
-  if (deck.length !== 8) throw new Error(`${hero.name} phải có bộ bài 8 lá.`);
+  if (deck.length !== 8) throw new Error(`${hero.name} must have an 8-card deck.`);
   return deck;
 }
 
@@ -133,36 +133,36 @@ function applyWorldEvent(turn: number, players: PlayerSession[], states: Record<
   const level = Math.ceil(turn / 5);
   const team = (Math.random() < 0.5 ? "veil" : "ember") as TeamId;
   const kind = Math.floor(Math.random() * 5);
-  let title = "Địa chấn chiến trường";
+  let title = "Battlefield Quake";
   let description = "";
   if (kind === 0) {
     for (const player of living(players, states)) {
       const reduction = player.hero.classId === "oracle" || living(players, states, player.hero.team).some((ally) => ally.hero.classId === "oracle") ? 1 : 0;
       states[player.id].hp = Math.max(0, states[player.id].hp - Math.max(0, level - reduction));
     }
-    description = `Mọi người còn sống nhận ${level} sát thương (đội có Tiên tri giảm 1).`;
+    description = `Every living player takes ${level} damage; a team with an Oracle reduces this by 1.`;
   } else if (kind === 1) {
-    title = "Tiếp tế khẩn cấp";
+    title = "Emergency Supplies";
     for (const player of living(players, states, team)) states[player.id].hp = Math.min(states[player.id].maxHp, states[player.id].hp + level);
-    description = `${teamName(team)} hồi ${level} HP cho mọi thành viên còn sống.`;
+    description = `${teamName(team)} restores ${level} HP to every living member.`;
   } else if (kind === 2) {
-    title = "Sóng phá giáp";
+    title = "Armor-Shattering Wave";
     for (const state of Object.values(states)) state.shield = Math.max(0, state.shield - level * 2);
-    description = `Mọi người mất tối đa ${level * 2} khiên.`;
+    description = `Every player loses up to ${level * 2} shield.`;
   } else if (kind === 3) {
-    title = "Khí thế cuồng nộ";
+    title = "Furious Momentum";
     for (const player of living(players, states, team)) states[player.id].attackBuff += level;
-    description = `${teamName(team)} nhận +${level} sát thương cho đòn đánh kế tiếp.`;
+    description = `${teamName(team)} gains +${level} damage on each member's next attack.`;
   } else {
-    title = "Mưa tên vô chủ";
+    title = "Unclaimed Arrow Storm";
     for (const player of living(players, states, team)) {
       const reduction = living(players, states, team).some((ally) => ally.hero.classId === "oracle") ? 1 : 0;
       states[player.id].hp = Math.max(0, states[player.id].hp - Math.max(0, level + 1 - reduction));
     }
-    description = `${teamName(team)} nhận ${level + 1} sát thương bất ngờ (Tiên tri giảm 1).`;
+    description = `${teamName(team)} takes ${level + 1} surprise damage; an Oracle reduces this by 1.`;
   }
   const event = { id: `world-${turn}-${Date.now()}`, turn, level, title, description, affectedTeam: kind === 0 || kind === 2 ? undefined : team };
-  return { event, history: { id: `${event.id}-history`, turn, kind: "world", actorName: "Sự kiện thế giới", message: `${title}: ${description}`, success: true, createdAt: Date.now() } };
+  return { event, history: { id: `${event.id}-history`, turn, kind: "world", actorName: "World Event", message: `${title}: ${description}`, success: true, createdAt: Date.now() } };
 }
 
 export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[], cardId: string, targetId: string | undefined, roll: number): SyncedGameState {
@@ -189,7 +189,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   states[actor.id].dicePenalty = 0;
   let amount = 0;
   let defeated = false;
-  let detail = `${actor.displayName} dùng ${card.name} nhưng không đạt mục tiêu ${game.adventure.target}.`;
+  let detail = `${actor.displayName} used ${card.name} but did not meet target ${game.adventure.target}.`;
 
   if (success) {
     if (card.effect === "damage" || card.effect === "aoe") {
@@ -209,7 +209,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         state.hp = Math.max(0, state.hp - damage);
         amount += damage;
         if (state.hp === 0) defeated = true;
-        reports.push(`${target.displayName} mất ${damage} HP${blocked ? ` (${blocked} bị khiên chặn)` : ""}${state.hp === 0 ? " và đã gục" : ""}`);
+        reports.push(`${target.displayName} lost ${damage} HP${blocked ? ` (${blocked} blocked by shield)` : ""}${state.hp === 0 ? " and was defeated" : ""}`);
       }
       states[actor.id].attackBuff = 0;
       detail = reports.join("; ") + ".";
@@ -219,12 +219,12 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       const before = states[target.id].hp;
       states[target.id].hp = Math.min(states[target.id].maxHp, states[target.id].hp + power);
       amount = states[target.id].hp - before;
-      detail = `${actor.displayName} hồi ${amount} HP cho ${target.displayName}.`;
+      detail = `${actor.displayName} restored ${amount} HP to ${target.displayName}.`;
     } else if (card.effect === "guard") {
       const target = targets[0] ?? actor;
       amount = card.value + (actor.hero.classId === "tank" ? 2 : 0);
       states[target.id].shield += amount;
-      detail = `${actor.displayName} tạo ${amount} khiên cho ${target.displayName}.`;
+      detail = `${actor.displayName} granted ${amount} shield to ${target.displayName}.`;
     } else if (card.effect === "support") {
       amount = card.value + (["support", "warden"].includes(actor.hero.classId) ? 1 : 0);
       const reports: string[] = [];
@@ -244,16 +244,16 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
           states[target.id].shield -= removedShield;
           states[target.id].attackBuff = 0;
           states[target.id].diceBuff = 0;
-          reports.push(`${target.displayName} mất ${removedShield} khiên và toàn bộ buff`);
+          reports.push(`${target.displayName} lost ${removedShield} shield and all attack and d20 buffs`);
         }
       }
       if (card.supportType === "advance-ally") turnOrder = moveTurnTarget(turnOrder, selectedAlly.id, "advance");
-      if (card.supportType === "healing") detail = `${actor.displayName} hồi máu cho toàn đội: ${reports.join(", ")}.`;
-      else if (card.supportType === "enemy-dice") detail = `${actor.displayName} khiến ${selectedEnemy?.displayName} bị -${amount} kết quả d20 trong lượt kế tiếp.`;
-      else if (card.supportType === "delay-enemy") detail = `${actor.displayName} đẩy lượt của ${selectedEnemy?.displayName} xuống cuối hàng đợi.`;
-      else if (card.supportType === "advance-ally") detail = `${actor.displayName} đưa lượt của ${selectedAlly.displayName} lên đầu hàng đợi kế tiếp.`;
-      else if (card.supportType === "dispel-enemy") detail = `${actor.displayName} phá hiệu ứng của ${selectedEnemy?.displayName}: ${reports.join(", ")}.`;
-      else detail = `${actor.displayName} ${card.supportType === "attack" ? "tăng sát thương đòn kế tiếp" : card.supportType === "shield" ? "tạo khiên" : "tăng bonus d20 ở lượt kế tiếp"} +${amount} cho toàn bộ đồng minh còn sống.`;
+      if (card.supportType === "healing") detail = `${actor.displayName} healed the team: ${reports.join(", ")}.`;
+      else if (card.supportType === "enemy-dice") detail = `${actor.displayName} gave ${selectedEnemy?.displayName} -${amount} to their next d20 result.`;
+      else if (card.supportType === "delay-enemy") detail = `${actor.displayName} moved ${selectedEnemy?.displayName}'s turn to the end of the queue.`;
+      else if (card.supportType === "advance-ally") detail = `${actor.displayName} moved ${selectedAlly.displayName} to the next position in the turn queue.`;
+      else if (card.supportType === "dispel-enemy") detail = `${actor.displayName} dispelled ${selectedEnemy?.displayName}: ${reports.join(", ")}.`;
+      else detail = `${actor.displayName} granted +${amount} ${card.supportType === "attack" ? "next-attack damage" : card.supportType === "shield" ? "shield" : "to the next d20 result"} to every living ally.`;
     }
   }
 
@@ -262,17 +262,17 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     const penalty = card.failureValue ?? 0;
     if (card.failureEffect === "self-damage") {
       states[actor.id].hp = Math.max(0, states[actor.id].hp - penalty);
-      failureDetail = `${actor.displayName} chịu ${penalty} sát thương phản tác dụng.`;
+      failureDetail = `${actor.displayName} took ${penalty} backlash damage.`;
     } else if (card.failureEffect === "team-damage") {
       for (const ally of allies) states[ally.id].hp = Math.max(0, states[ally.id].hp - penalty);
-      failureDetail = `Toàn bộ đội ${teamName(actor.hero.team)} chịu ${penalty} sát thương phản tác dụng.`;
+      failureDetail = `The entire ${teamName(actor.hero.team)} team took ${penalty} backlash damage.`;
     } else if (card.failureEffect === "lose-shield") {
       const lost = Math.min(states[actor.id].shield, penalty);
       states[actor.id].shield -= lost;
-      failureDetail = `${actor.displayName} mất ${lost} khiên do thế thủ vỡ.`;
+      failureDetail = `${actor.displayName} lost ${lost} shield when their guard broke.`;
     } else if (card.failureEffect === "enemy-shield") {
       for (const enemy of enemies) states[enemy.id].shield += penalty;
-      failureDetail = `Mỗi đối thủ nhận ${penalty} khiên vì hành động thất bại.`;
+      failureDetail = `Every enemy gained ${penalty} shield because the action failed.`;
     }
     detail = `${detail} ${failureDetail}`;
   }
@@ -281,8 +281,8 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const turn = game.completedTurns + 1;
   let adventure = { ...game.adventure, chapter: Math.min(30, turn + 1), target: Math.min(20, Math.max(1, roll)) };
   if (success && (card.effect === "damage" || card.effect === "aoe")) adventure = { ...adventure, veilInfluence: adventure.veilInfluence + (actor.hero.team === "veil" ? amount : 0), emberInfluence: adventure.emberInfluence + (actor.hero.team === "ember" ? amount : 0) };
-  const rollSummary = `d20 ${roll} + bonus ${totalBonus}${dicePenalty ? ` - phạt ${dicePenalty}` : ""} = ${total}; mục tiêu ${game.adventure.target}`;
-  const actionHistory: GameHistoryEntry = { id: `turn-${turn}-${Date.now()}`, turn, kind: card.effect, actorName: actor.displayName, actorTeam: actor.hero.team, targetName: targets.map((target) => target.displayName).join(", "), cardName: card.name, message: `${actor.displayName} dùng ${card.name} (${rollSummary}) — ${detail}`, success, amount, diceRoll: roll, diceTarget: game.adventure.target, diceBonus: totalBonus, dicePenalty, diceTotal: total, createdAt: Date.now() };
+  const rollSummary = `d20 ${roll} + bonus ${totalBonus}${dicePenalty ? ` - penalty ${dicePenalty}` : ""} = ${total}; target ${game.adventure.target}`;
+  const actionHistory: GameHistoryEntry = { id: `turn-${turn}-${Date.now()}`, turn, kind: card.effect, actorName: actor.displayName, actorTeam: actor.hero.team, targetName: targets.map((target) => target.displayName).join(", "), cardName: card.name, message: `${actor.displayName} used ${card.name} (${rollSummary}) — ${detail}`, success, amount, diceRoll: roll, diceTarget: game.adventure.target, diceBonus: totalBonus, dicePenalty, diceTotal: total, createdAt: Date.now() };
   let history = [...(game.history ?? []), actionHistory];
   let worldEvent: WorldEventOutcome | null = null;
   if (turn % 5 === 0) { const result = applyWorldEvent(turn, players, states); worldEvent = result.event; history.push(result.history); }
@@ -298,7 +298,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const now = Date.now();
   const veilTotal = totals(players, states, "veil").hp;
   const emberTotal = totals(players, states, "ember").hp;
-  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, roll, outcome: { kind: "card", success, total, target: game.adventure.target, label: `${actor.displayName} dùng ${card.name}`, detail, actorName: actor.displayName, cardName: card.name, cardType: card.type, effect: card.effect, targetName: targets.map((target) => target.displayName).join(", "), roll, bonus: totalBonus, diceBuff, dicePenalty, amount, defeated, nextTarget: adventure.target, failureDetail }, playerStates: states, history, worldEvent, turnStartedAt: now, turnDeadline: ended ? 0 : now + game.turnSeconds * 1000, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} chiến thắng. Tổng HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder };
+  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, roll, outcome: { kind: "card", success, total, target: game.adventure.target, label: `${actor.displayName} used ${card.name}`, detail, actorName: actor.displayName, cardName: card.name, cardType: card.type, effect: card.effect, targetName: targets.map((target) => target.displayName).join(", "), roll, bonus: totalBonus, diceBuff, dicePenalty, amount, defeated, nextTarget: adventure.target, failureDetail }, playerStates: states, history, worldEvent, turnStartedAt: now, turnDeadline: ended ? 0 : now + game.turnSeconds * 1000, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} wins. Total HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder };
 }
 
 export function resolveAction(adventure: Adventure, cardId: string, roll: number, _advanceChapter = true, availableCards: ActionCard[] = ACTION_CARDS) {

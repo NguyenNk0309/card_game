@@ -16,7 +16,7 @@ export function PartyRail({ players, activePlayerId, game, localSessionId, onRem
   onRemovePlayer?: (id: string) => void;
 }) {
   return <aside className="party-rail">
-    <div className="rail-heading"><div><span className="eyebrow">CHIẾN BINH</span><strong>{players.length}/10 người</strong></div><span className="all-ready-mark"><Check size={13}/> Đang chiến đấu</span></div>
+    <div className="rail-heading"><div><span className="eyebrow">WARRIORS</span><strong>{players.length}/10 players</strong></div><span className="all-ready-mark"><Check size={13}/> Battle active</span></div>
     {(["veil", "ember"] as TeamId[]).map((team) => {
       const Icon = teamMeta[team].icon;
       const members = players.filter((player) => player.hero.team === team);
@@ -33,10 +33,10 @@ export function PartyRail({ players, activePlayerId, game, localSessionId, onRem
           return <article className={`hero-row ${active ? "is-active" : ""} ${dead ? "is-dead" : ""} ${player.id === localSessionId ? "is-you" : ""}`} key={player.id}>
             <div className="portrait" style={{ "--hero-color": hero.color } as React.CSSProperties}>{hero.initials}{index === 0 && <Crown size={11} className="leader-mark"/>}</div>
             <div className="hero-copy">
-              <div className="hero-name"><strong>{player.displayName}</strong><span className="hero-name-actions">{dead ? <em>ĐÃ GỤC</em> : active ? <em>LƯỢT</em> : null}{localSessionId && player.id !== localSessionId && onRemovePlayer && <button className="rail-remove-player" onClick={() => onRemovePlayer(player.id)} aria-label={`Xóa ${player.displayName}`}><UserMinus size={12}/></button>}</span></div>
+              <div className="hero-name"><strong>{player.displayName}</strong><span className="hero-name-actions">{dead ? <em>DEFEATED</em> : active ? <em>TURN</em> : null}{localSessionId && player.id !== localSessionId && onRemovePlayer && <button className="rail-remove-player" onClick={() => onRemovePlayer(player.id)} aria-label={`Remove ${player.displayName}`}><UserMinus size={12}/></button>}</span></div>
               <span>{hero.name} · {hero.className}</span>
-              <div className="hp-line"><Heart size={10} fill="currentColor"/><i><b style={{ width: `${Math.max(0, hp / maxHp) * 100}%` }}/></i><small>{hp} HP{state?.shield ? ` + ${state.shield} khiên` : ""}</small></div>
-              {hasBuff && state && <div className="buff-line">{state.attackBuff ? `⚔ +${state.attackBuff} sát thương` : ""} {state.diceBuff ? `🎲 +${state.diceBuff} d20` : ""} {state.dicePenalty ? <em className="negative-buff">🎲 -{state.dicePenalty} d20</em> : ""}</div>}
+              <div className="hp-line"><Heart size={10} fill="currentColor"/><i><b style={{ width: `${Math.max(0, hp / maxHp) * 100}%` }}/></i><small>{hp} HP{state?.shield ? ` + ${state.shield} shield` : ""}</small></div>
+              {hasBuff && state && <div className="buff-line">{state.attackBuff ? `Attack +${state.attackBuff}` : ""} {state.diceBuff ? `d20 +${state.diceBuff}` : ""} {state.dicePenalty ? <em className="negative-buff">d20 -{state.dicePenalty}</em> : ""}</div>}
             </div>
           </article>;
         })}

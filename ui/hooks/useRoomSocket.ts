@@ -18,30 +18,30 @@ const MAX_POLL_DELAY_MS = 30000;
 
 function localizeRoomError(message: string) {
   const rules: Array<[string, string]> = [
-    ["already started", "Trận đấu đã bắt đầu."],
-    ["session is incomplete", "Thông tin phiên người chơi chưa đầy đủ."],
-    ["cannot create another", "Trình duyệt này không thể tạo thêm phiên người chơi."],
-    ["already has 10 players", "Phòng đã đủ 10 người chơi."],
-    ["player name is already", "Tên người chơi này đã được dùng."],
-    ["character has already", "Nhân vật này đã được chọn."],
-    ["Readiness can only", "Chỉ có thể đổi trạng thái sẵn sàng trong sảnh."],
-    ["ready your own", "Bạn chỉ có thể sẵn sàng cho chính mình."],
-    ["Join the lobby", "Hãy tham gia sảnh trước."],
-    ["cannot leave during", "Không thể rời sảnh bằng nút này khi trận đang diễn ra."],
-    ["remove your own", "Bạn chỉ có thể rời bằng phiên của chính mình."],
-    ["joined player can remove", "Chỉ người đã tham gia mới có thể xóa người chơi khác."],
-    ["before removing", "Hãy tham gia phòng trước khi xóa người chơi."],
-    ["Use Leave", "Hãy dùng nút Rời để xóa chính bạn."],
-    ["no longer in the room", "Người chơi đó không còn trong phòng."],
-    ["At least two players", "Cần ít nhất hai người chơi."],
-    ["Every joined player", "Tất cả người chơi phải sẵn sàng."],
-    ["state is missing", "Dữ liệu trận đấu bị thiếu."],
-    ["no active adventure", "Hiện không có trận đấu đang diễn ra."],
-    ["current player", "Chỉ người đang có lượt mới được thực hiện hành động."],
-    ["update is incomplete", "Dữ liệu cập nhật lượt chưa đầy đủ."],
-    ["joined player can end", "Chỉ người trong trận mới có thể kết thúc trận."],
-    ["not in the adventure", "Người chơi đó không còn trong trận."],
-    ["does not recognize", "Phòng không nhận ra hành động này."]
+    ["already started", "The battle has already started."],
+    ["session is incomplete", "The player session is incomplete."],
+    ["cannot create another", "This browser cannot create another player session."],
+    ["already has 10 players", "The room already has 10 players."],
+    ["player name is already", "That player name is already in use."],
+    ["character has already", "That character has already been chosen."],
+    ["Readiness can only", "Ready status can only change in the lobby."],
+    ["ready your own", "You can only change your own ready status."],
+    ["Join the lobby", "Join the lobby first."],
+    ["cannot leave during", "You cannot use the lobby leave action during a battle."],
+    ["remove your own", "You can only leave your own player session."],
+    ["joined player can remove", "Only a joined player can remove another player."],
+    ["before removing", "Join the room before removing a player."],
+    ["Use Leave", "Use Leave to remove your own player."],
+    ["no longer in the room", "That player is no longer in the room."],
+    ["At least two players", "At least two players are required."],
+    ["Every joined player", "Every joined player must be ready."],
+    ["state is missing", "The battle state is missing."],
+    ["no active adventure", "There is no active battle."],
+    ["current player", "Only the current player can perform this action."],
+    ["update is incomplete", "The turn update is incomplete."],
+    ["joined player can end", "Only a joined player can end the battle."],
+    ["not in the adventure", "That player is no longer in the battle."],
+    ["does not recognize", "The room does not recognize this action."]
   ];
   return rules.find(([key]) => message.includes(key))?.[1] ?? message;
 }
@@ -91,10 +91,10 @@ export function useRoomSocket() {
         pollDelayRef.current = Math.min(MAX_POLL_DELAY_MS, Math.max(8000, pollDelayRef.current * 2));
         nextDelay = retryDelay(response, pollDelayRef.current);
         setStatus("reconnecting");
-        setError(`Phòng đang bận. Tự thử lại sau ${Math.ceil(nextDelay / 1000)} giây…`);
+        setError(`The room is busy. Retrying in ${Math.ceil(nextDelay / 1000)} seconds...`);
         return;
       }
-      if (!response.ok) throw new Error(`Yêu cầu phòng thất bại với mã ${response.status}.`);
+      if (!response.ok) throw new Error(`Room request failed with status ${response.status}.`);
       const payload = await response.json() as { state?: SharedRoomState; error?: string | null };
       acceptResponse(payload);
       pollDelayRef.current = BASE_POLL_DELAY_MS;
@@ -108,7 +108,7 @@ export function useRoomSocket() {
         pollDelayRef.current = Math.min(MAX_POLL_DELAY_MS, Math.max(BASE_POLL_DELAY_MS, pollDelayRef.current * 2));
         nextDelay = pollDelayRef.current;
         setStatus("reconnecting");
-        setError(`Phòng tạm thời không khả dụng. Tự thử lại sau ${Math.ceil(nextDelay / 1000)} giây…`);
+        setError(`The room is temporarily unavailable. Retrying in ${Math.ceil(nextDelay / 1000)} seconds...`);
       }
     } finally {
       pollInFlightRef.current = false;
@@ -167,9 +167,9 @@ export function useRoomSocket() {
       try {
         const message = JSON.parse(String(event.data));
         if (message.type === "state" && message.state) acceptResponse({ state: message.state });
-        else if (message.type === "error") setError(localizeRoomError(String(message.message || "Phòng đã từ chối hành động này.")));
+        else if (message.type === "error") setError(localizeRoomError(String(message.message || "The room rejected this action.")));
       } catch {
-        setError("Phòng trả về dữ liệu không thể đọc.");
+        setError("The room returned unreadable data.");
       }
     });
 
@@ -209,20 +209,20 @@ export function useRoomSocket() {
           const delay = retryDelay(response, Math.min(MAX_POLL_DELAY_MS, Math.max(8000, pollDelayRef.current * 2)));
           pollDelayRef.current = delay;
           setStatus("reconnecting");
-          setError(`Phòng đang bận. Hành động chưa được gửi; thử lại sau ${Math.ceil(delay / 1000)} giây.`);
+          setError(`The room is busy. The action was not sent; retry in ${Math.ceil(delay / 1000)} seconds.`);
           schedulePoll(delay);
           return;
         }
         const result = await response.json();
         acceptResponse(result);
-        if (!response.ok && !result.error) setError("Phòng đã từ chối hành động này.");
+        if (!response.ok && !result.error) setError("The room rejected this action.");
       }).catch(() => {
         setStatus("offline");
-        setError("Phòng tạm thời không khả dụng. Vui lòng thử lại sau giây lát.");
+        setError("The room is temporarily unavailable. Please try again shortly.");
       });
       return true;
     }
-    setError("Phòng đang kết nối. Vui lòng thử lại sau giây lát.");
+    setError("The room is connecting. Please try again shortly.");
     return false;
   }, [acceptResponse, schedulePoll]);
 
