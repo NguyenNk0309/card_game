@@ -287,7 +287,7 @@ function removePlayerFromRoom(targetId, removedBy) {
   return removedPlayer;
 }
 
-async function passCurrentTurn(kind, now = Date.now()) {
+async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '') {
   const game = room.game;
   if (room.phase !== 'game' || !game || game.ended || !room.players.length) return false;
   const order = normalizeServerTurnOrder(game);
@@ -298,10 +298,11 @@ async function passCurrentTurn(kind, now = Date.now()) {
   const playerName = passingPlayer?.displayName || 'Player';
   const timedOut = kind === 'timeout';
   const forced = kind === 'forced-skip';
+  const discarded = kind === 'discard';
   game.completedTurns = completedTurns;
   game.adventure = { ...game.adventure, chapter: Math.min(30, completedTurns + 1), target: randomDiceTarget() };
-  game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: forced ? 'A support effect cancelled this turn. Cards and active buffs were preserved.' : timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled.' : 'The turn was skipped. No cards were discarded or shuffled.', actorName: playerName };
-  game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, message: forced ? `${playerName}'s turn was cancelled by an enemy support effect. Their hand and active buffs were preserved.` : timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved.` : `${playerName} manually skipped the turn. Their hand was preserved.`, success: false, createdAt: now }];
+  game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered the discard pile and a replacement card was drawn.` : forced ? 'A support effect cancelled this turn. Cards and active buffs were preserved.' : timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled.' : 'The turn was skipped. No cards were discarded or shuffled.', actorName: playerName, cardName: discardedCardName || undefined };
+  game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} manually discarded ${discardedCardName} and drew a replacement.` : forced ? `${playerName}'s turn was cancelled by an enemy support effect. Their hand and active buffs were preserved.` : timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved.` : `${playerName} manually skipped the turn. Their hand was preserved.`, success: false, createdAt: now }];
   game.worldEvent = null;
   if (revived.length) game.history.push({ id: `revive-${completedTurns}-${now}`, turn: completedTurns, kind: 'system', actorName: 'Returning Light', message: `${revived.join(', ')} revived with one-third HP.`, success: true, createdAt: now });
   if (completedTurns % 5 === 0) applyWorldEvent(game, completedTurns, now);
@@ -440,6 +441,30 @@ async function applyCommand(ownerId, message) {
     if (!activePlayer || ownerId !== activePlayer.id || ownerId !== message.sessionId) return 'Only the current player can skip this turn.';
     if ((room.game.playerStates[activePlayer.id]?.hp || 0) <= 0) return 'A defeated player cannot skip a turn.';
     await passCurrentTurn('skip');
+    return null;
+  }
+
+  if (message.type === 'discard-card') {
+    await advanceTimedOutTurn();
+    if (room.phase !== 'game' || !room.game) return 'There is no active adventure.';
+    const order = normalizeServerTurnOrder(room.game);
+    const activePlayer = room.players.find((player) => player.id === order[0]) || room.players[room.game.activePlayerIndex];
+    if (!activePlayer || ownerId !== activePlayer.id || ownerId !== message.sessionId) return 'Only the current player can discard a card.';
+    const state = room.game.playerStates[activePlayer.id];
+    if (!state || state.hp <= 0) return 'A defeated player cannot discard a card.';
+    if (!state.hand.includes(message.cardId)) return 'Choose a card from your hand to discard.';
+    const card = activePlayer.skillDeck.find((item) => item.id === message.cardId);
+    const borrowed = (state.borrowedCards || []).find((entry) => entry.cardId === message.cardId);
+    state.hand = state.hand.filter((id) => id !== message.cardId);
+    if (borrowed) {
+      state.borrowedCards = state.borrowedCards.filter((entry) => entry.cardId !== message.cardId);
+      const owner = room.game.playerStates[borrowed.ownerId];
+      if (owner && !owner.discardPile.includes(message.cardId)) owner.discardPile.push(message.cardId);
+    } else state.discardPile.push(message.cardId);
+    if (!state.drawPile.length) { state.drawPile = state.discardPile.sort(() => Math.random() - 0.5); state.discardPile = []; }
+    const replacement = state.drawPile.shift();
+    if (replacement) state.hand.push(replacement);
+    await passCurrentTurn('discard', Date.now(), card?.name || 'a card');
     return null;
   }
 

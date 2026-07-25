@@ -75,7 +75,7 @@ export type GameOutcome = {
   target: number;
   label: string;
   detail?: string;
-  kind?: "card" | "skip" | "timeout" | "forced-skip" | "system";
+  kind?: "card" | "discard" | "skip" | "timeout" | "forced-skip" | "system";
   actorName?: string;
   cardName?: string;
   cardType?: ActionCard["type"];
@@ -98,7 +98,7 @@ export type GameOutcome = {
 export type GameHistoryEntry = {
   id: string;
   turn: number;
-  kind: CardEffect | "skip" | "timeout" | "forced-skip" | "world" | "system";
+  kind: CardEffect | "discard" | "skip" | "timeout" | "forced-skip" | "world" | "system";
   actorName: string;
   actorTeam?: TeamId;
   targetName?: string;

@@ -41,6 +41,7 @@ export default function GameApp() {
   const [showGuide, setShowGuide] = useState(false);
   const [dismissedOutcomeKey, setDismissedOutcomeKey] = useState("");
   const [dismissedSummaryKey, setDismissedSummaryKey] = useState("");
+  const [dismissedVfxKey, setDismissedVfxKey] = useState("");
   const [dismissedWorldEventId, setDismissedWorldEventId] = useState("");
   const [deckReview, setDeckReview] = useState<"draw" | "discard" | null>(null);
   const [expandedPanel, setExpandedPanel] = useState<"history" | "turns" | null>(null);
@@ -68,6 +69,8 @@ export default function GameApp() {
   const outcomeKey = outcome ? `${game?.turnStartedAt ?? 0}-${outcome.label}` : "";
   const showOutcome = Boolean(outcome?.kind === "card" && outcome.actorName === localPlayer?.displayName && outcomeKey !== dismissedOutcomeKey && !runComplete);
   const showTurnSummary = Boolean(outcome?.actorName && outcome.actorName !== localPlayer?.displayName && outcomeKey !== dismissedSummaryKey && !runComplete);
+  const vfxCard = outcome?.kind === "card" ? cardCatalog.find((card) => card.name === outcome.cardName) : undefined;
+  const showBattleVfx = Boolean(vfxCard && outcomeKey !== dismissedVfxKey && !runComplete);
   const showWorldEvent = Boolean(game?.worldEvent && game.worldEvent.id !== dismissedWorldEventId && !runComplete);
   const inspectedPlayer = players.find((player) => player.id === inspectedPlayerId);
   const reviewedCardIds = deckReview === "draw" ? localState?.drawPile ?? [] : deckReview === "discard" ? localState?.discardPile ?? [] : [];
@@ -128,6 +131,11 @@ export default function GameApp() {
     const timer = window.setTimeout(() => setDismissedSummaryKey(outcomeKey), 3000);
     return () => window.clearTimeout(timer);
   }, [showTurnSummary, outcomeKey]);
+  useEffect(() => {
+    if (!showBattleVfx || !outcomeKey) return;
+    const timer = window.setTimeout(() => setDismissedVfxKey(outcomeKey), 1400);
+    return () => window.clearTimeout(timer);
+  }, [showBattleVfx, outcomeKey]);
 
   const joinPlayer = () => {
     const name = playerName.trim();
@@ -155,6 +163,10 @@ export default function GameApp() {
     if (!game || !activePlayer || activePlayer.id !== sessionId || runComplete || status !== "connected" || (activeState?.hp ?? 0) <= 0) return;
     send({ type: "skip-turn", sessionId });
   };
+  const discardCard = () => {
+    if (!game || !activePlayer || activePlayer.id !== sessionId || !activeCard || runComplete || status !== "connected" || rolling || (activeState?.hp ?? 0) <= 0) return;
+    send({ type: "discard-card", sessionId, cardId: activeCard.id });
+  };
   const removePlayer = (targetSessionId: string) => {
     const target = players.find((player) => player.id === targetSessionId);
     if (!localPlayer || !target || targetSessionId === sessionId || !window.confirm(`Remove ${target.displayName} from the battle?`)) return;
@@ -175,7 +187,7 @@ export default function GameApp() {
     if (showWorldEvent && game?.worldEvent) setDismissedWorldEventId(game.worldEvent.id);
   };
 
-  return <main className="game-shell arena-focus"><div className="grain"/>
+  return <main className="game-shell arena-focus"><div className="grain"/>{showBattleVfx && vfxCard && <div className={`battle-card-vfx effect-${vfxCard.effect} ${outcome?.success ? "success" : "failure"}`} aria-hidden="true"><i/><i/><i/><div><CardEffectIcon card={vfxCard}/><strong>{vfxCard.name}</strong></div></div>}{phase === "game" && localPlayer && <button className="discard-card-button" onClick={discardCard} disabled={activePlayer?.id !== sessionId || status !== "connected" || runComplete || rolling || !activeCard || (activeState?.hp ?? 0) <= 0}><Trash2 size={19}/><span>Discard selected card</span><small>Draw replacement · End turn</small></button>}
     <header className="topbar"><div className="brand"><div className="brand-mark"><Crown size={20}/></div><div><strong>SHATTERED OATH</strong><span>Two teams. One victor.</span></div></div>
       {phase === "game" ? <nav className="run-status" aria-label="Battle status"><div><span className="eyebrow">TURN</span><strong>{game?.completedTurns ?? 0} <i>/ 30</i></strong></div><div className="chapter-pips" aria-label="Thirty-turn timeline">{Array.from({ length: 30 }).map((_, index) => { const turn = index + 1; const phaseClass = index < (game?.completedTurns ?? 0) ? "complete" : index === (game?.completedTurns ?? 0) ? "current" : ""; return <i key={turn} data-turn={turn} title={turn % 5 === 0 ? `Turn ${turn}: World Event` : `Turn ${turn}`} aria-label={turn % 5 === 0 ? `Turn ${turn}, World Event` : `Turn ${turn}`} className={`${phaseClass} ${turn % 5 === 0 ? "world-event-turn" : ""} ${game?.worldEvent?.turn === turn ? "event-triggered" : ""}`}/>; })}</div><div className={`turn-clock ${secondsLeft <= 10 ? "urgent" : ""}`}><Clock3 size={14}/> {secondsLeft} seconds</div></nav> : <div className="lobby-top-status"><Users size={16}/> {players.length}/10 players · {players.filter((player) => player.ready).length} ready</div>}
       <div className="top-actions"><button className="icon-button" onClick={() => setSoundOn(!soundOn)} aria-label="Toggle sound">{soundOn ? <Volume2 size={18}/> : <AudioLines size={18}/>}</button><button className="text-button" onClick={() => setShowGuide(true)}><CircleHelp size={16}/> How to play</button>{phase === "game" && localPlayer && <button className="text-button leave-game-control" onClick={() => send({ type: "leave-game", sessionId })}><LogOut size={16}/> Leave battle</button>}{phase === "game" && localPlayer && !runComplete && <button className="text-button end-game-control" onClick={() => send({ type: "end-game", sessionId })}><Octagon size={16}/> End battle</button>}{phase === "game" && <button className="icon-button mobile-party-button" onClick={() => setMobileParty(true)} aria-label="Open player list"><Users size={18}/></button>}</div>
