@@ -55,7 +55,9 @@ async function serveStatic(request, response) {
 
   response.writeHead(200, {
     'Content-Type': contentTypes[extname(target).toLowerCase()] || 'application/octet-stream',
-    'Cache-Control': target.endsWith('.html') ? 'no-cache' : 'public, max-age=31536000, immutable'
+    'Content-Language': 'en',
+    'Cache-Control': target.endsWith('.html') ? 'no-store, no-cache, must-revalidate' : 'public, max-age=31536000, immutable',
+    ...(target.endsWith('.html') ? { Pragma: 'no-cache', Expires: '0' } : {})
   });
   createReadStream(target).pipe(response);
 }
@@ -101,6 +103,7 @@ function ownSession(socket, requestedId) {
 }
 
 const teamLabel = (team) => team === 'veil' ? 'Veilbound' : 'Embercourt';
+const randomDiceTarget = () => 8 + Math.floor(Math.random() * 9);
 
 function teamTotals(game, team) {
   const members = room.players.filter((player) => player.hero.team === team);
@@ -179,7 +182,7 @@ function applyWorldEvent(game, turn, now) {
   }
   const event = { id: `world-${turn}-${now}`, turn, level, title, description, affectedTeam: kind === 0 || kind === 2 ? undefined : team };
   game.worldEvent = event;
-  game.history.push({ id: `${event.id}-history`, turn, kind: 'world', actorName: 'World Event', message: `${title}: ${description}`, success: true, createdAt: now });
+  game.history.push({ id: `${event.id}-history`, turn, kind: 'world', actorName: 'World Event', message: `World Event · Level ${level} — ${title}: ${description}`, success: true, createdAt: now });
 }
 
 function removePlayerFromRoom(targetId, removedBy) {
@@ -244,7 +247,7 @@ function passCurrentTurn(kind, now = Date.now()) {
   const playerName = passingPlayer?.displayName || 'Player';
   const timedOut = kind === 'timeout';
   game.completedTurns = completedTurns;
-  game.adventure = { ...game.adventure, chapter: Math.min(30, completedTurns + 1) };
+  game.adventure = { ...game.adventure, chapter: Math.min(30, completedTurns + 1), target: randomDiceTarget() };
   game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled.' : 'The turn was skipped. No cards were discarded or shuffled.', actorName: playerName };
   game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, message: timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved.` : `${playerName} manually skipped the turn. Their hand was preserved.`, success: false, createdAt: now }];
   game.worldEvent = null;
@@ -347,6 +350,7 @@ function handleMessage(socket, rawMessage) {
     if (!message.game?.adventure) return reject(socket, 'The adventure state is missing.');
     room.phase = 'game';
     room.game = message.game;
+    room.game.adventure.target = randomDiceTarget();
     normalizeServerTurnOrder(room.game);
     broadcast();
     return;
@@ -362,6 +366,8 @@ function handleMessage(socket, rawMessage) {
     }
     if (!message.game?.adventure) return reject(socket, 'The turn update is incomplete.');
     if ((room.game.playerStates[activePlayer.id]?.hp || 0) <= 0) return reject(socket, 'A defeated player cannot play a card.');
+    message.game.adventure.target = randomDiceTarget();
+    if (message.game.outcome?.kind === 'card') message.game.outcome.nextTarget = message.game.adventure.target;
     room.game = message.game;
     normalizeServerTurnOrder(room.game);
     broadcast();

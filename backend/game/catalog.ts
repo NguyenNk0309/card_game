@@ -70,9 +70,9 @@ export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
 
 export const ACTION_CARDS: ActionCard[] = [
   { id: "slash", name: "Slash", type: "Might", description: "Deal 3 damage to one enemy; shield absorbs damage before HP.", bonus: 4, effect: "damage", target: "enemy", value: 3, unique: false },
-  { id: "heavy", name: "Heavy Blow", type: "Might", description: "Deal 4 damage. On failure, the user takes 1 damage.", bonus: 3, effect: "damage", target: "enemy", value: 4, failureEffect: "self-damage", failureValue: 1, unique: false },
+  { id: "heavy", name: "Heavy Blow", type: "Might", description: "Deal 4 damage to one enemy; a failed roll causes no additional penalty.", bonus: 3, effect: "damage", target: "enemy", value: 4, unique: false },
   { id: "brace", name: "Brace", type: "Spirit", description: "Grant yourself 3 shield.", bonus: 5, effect: "guard", target: "self", value: 3, unique: false },
-  { id: "iron-wall", name: "Iron Wall", type: "Might", description: "Grant yourself 5 shield. On failure, lose up to 2 existing shield.", bonus: 3, effect: "guard", target: "self", value: 5, failureEffect: "lose-shield", failureValue: 2, unique: false },
+  { id: "iron-wall", name: "Iron Wall", type: "Might", description: "Grant yourself 5 shield; a failed roll causes no additional penalty.", bonus: 3, effect: "guard", target: "self", value: 5, unique: false },
   { id: "second-wind", name: "Second Wind", type: "Spirit", description: "Restore 4 HP to yourself; this cannot revive you after defeat.", bonus: 4, effect: "heal", target: "self", value: 4, unique: false },
   { id: "empty-gesture", name: "Empty Gesture", type: "Spirit", description: "This card has no gameplay effect. Playing it only cycles it out of your hand.", bonus: 0, effect: "none", target: "self", value: 0, unique: false },
   { id: "broken-plan", name: "Broken Plan", type: "Wit", description: "This card has no gameplay effect. Playing it only cycles it out of your hand.", bonus: 0, effect: "none", target: "self", value: 0, unique: false },

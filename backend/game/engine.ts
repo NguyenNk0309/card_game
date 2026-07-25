@@ -4,12 +4,16 @@ import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, Hero, Pl
 const pick = <T,>(items: T[], index = Math.floor(Math.random() * items.length)) => items[Math.abs(index) % items.length];
 const teamName = (team: TeamId) => team === "veil" ? "Veilbound" : "Embercourt";
 
+export function randomDiceTarget() {
+  return 8 + Math.floor(Math.random() * 9);
+}
+
 export function createSeed() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
 export function createAdventure(seed = createSeed()): Adventure {
-  return { seed, realm: REALMS[0], chapter: 1, maxChapters: 30, story: STORY_BEATS[0], event: EVENTS[0], target: 12, worldDoom: 0, veilInfluence: 0, emberInfluence: 0 };
+  return { seed, realm: REALMS[0], chapter: 1, maxChapters: 30, story: STORY_BEATS[0], event: EVENTS[0], target: randomDiceTarget(), worldDoom: 0, veilInfluence: 0, emberInfluence: 0 };
 }
 
 export function createParty(size = 6): Hero[] {
@@ -29,7 +33,7 @@ export function createSkillDeck(hero: Omit<Hero, "id" | "team" | "isYou">): Acti
   const uniqueCards = CHARACTER_SKILL_CARDS[hero.name];
   if (!uniqueCards || uniqueCards.length !== 3) throw new Error(`${hero.name} must have exactly 3 special cards.`);
   const prefix = hero.initials.toLowerCase();
-  const commonCards = ACTION_CARDS.map((card) => ({ ...card, bonus: 0, id: `${prefix}-common-${card.id}` }));
+  const commonCards = ACTION_CARDS.map(({ failureEffect: _failureEffect, failureValue: _failureValue, ...card }) => ({ ...card, bonus: 0, id: `${prefix}-common-${card.id}` }));
   const specialCards = uniqueCards.map((card) => {
     const failureEffect = card.failureEffect ?? (card.target === "all-allies" || card.target === "all-enemies" ? "team-damage" : "self-damage");
     const failureValue = card.failureValue ?? (card.value >= 5 ? 2 : 1);
@@ -58,7 +62,7 @@ function createRunState(player: PlayerSession): PlayerRunState {
 
 export function createInitialGame(players: PlayerSession[], adventure = createAdventure(), turnSeconds = 30): SyncedGameState {
   const now = Date.now();
-  return { adventure: { ...adventure, maxChapters: 30, target: 12 }, activePlayerIndex: 0, completedTurns: 0, roll: null, outcome: null, playerStates: Object.fromEntries(players.map((player) => [player.id, createRunState(player)])), turnStartedAt: now, turnDeadline: now + turnSeconds * 1000, turnSeconds, maxTurns: 30, ended: false, endReason: null, winnerTeam: null, history: [], worldEvent: null, turnOrder: players.map((player) => player.id) };
+  return { adventure: { ...adventure, maxChapters: 30, target: randomDiceTarget() }, activePlayerIndex: 0, completedTurns: 0, roll: null, outcome: null, playerStates: Object.fromEntries(players.map((player) => [player.id, createRunState(player)])), turnStartedAt: now, turnDeadline: now + turnSeconds * 1000, turnSeconds, maxTurns: 30, ended: false, endReason: null, winnerTeam: null, history: [], worldEvent: null, turnOrder: players.map((player) => player.id) };
 }
 
 export function nextStory(adventure: Adventure): Adventure {
@@ -182,7 +186,7 @@ function applyWorldEvent(turn: number, players: PlayerSession[], states: Record<
     description = `${teamName(team)} takes ${level + 1} surprise damage; an Oracle reduces this by 1.`;
   }
   const event = { id: `world-${turn}-${Date.now()}`, turn, level, title, description, affectedTeam: kind === 0 || kind === 2 ? undefined : team };
-  return { event, history: { id: `${event.id}-history`, turn, kind: "world", actorName: "World Event", message: `${title}: ${description}`, success: true, createdAt: Date.now() } };
+  return { event, history: { id: `${event.id}-history`, turn, kind: "world", actorName: "World Event", message: `World Event · Level ${level} — ${title}: ${description}`, success: true, createdAt: Date.now() } };
 }
 
 export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[], cardId: string, targetId: string | undefined, roll: number): SyncedGameState {
@@ -302,7 +306,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
 
   states[actor.id] = drawReplacement(states[actor.id], card.id);
   const turn = game.completedTurns + 1;
-  let adventure = { ...game.adventure, chapter: Math.min(30, turn + 1), target: Math.min(20, Math.max(1, roll)) };
+  let adventure = { ...game.adventure, chapter: Math.min(30, turn + 1), target: randomDiceTarget() };
   if (success && (card.effect === "damage" || card.effect === "aoe")) adventure = { ...adventure, veilInfluence: adventure.veilInfluence + (actor.hero.team === "veil" ? amount : 0), emberInfluence: adventure.emberInfluence + (actor.hero.team === "ember" ? amount : 0) };
   const rollSummary = `d20 ${roll} + bonus ${totalBonus}${dicePenalty ? ` - penalty ${dicePenalty}` : ""} = ${total}; target ${game.adventure.target}`;
   const actionHistory: GameHistoryEntry = { id: `turn-${turn}-${Date.now()}`, turn, kind: card.effect, actorName: actor.displayName, actorTeam: actor.hero.team, targetName: targets.map((target) => target.displayName).join(", "), cardName: card.name, message: `${actor.displayName} used ${card.name} (${rollSummary}) — ${detail}`, success, amount, diceRoll: roll, diceTarget: game.adventure.target, diceBonus: totalBonus, dicePenalty, diceTotal: total, createdAt: Date.now() };
@@ -327,5 +331,5 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
 export function resolveAction(adventure: Adventure, cardId: string, roll: number, _advanceChapter = true, availableCards: ActionCard[] = ACTION_CARDS) {
   const card = availableCards.find((item) => item.id === cardId) ?? availableCards[0];
   const total = roll;
-  return { success: total >= adventure.target, total, card, adventure: { ...adventure, target: Math.min(20, Math.max(1, roll)) } };
+  return { success: total >= adventure.target, total, card, adventure: { ...adventure, target: randomDiceTarget() } };
 }

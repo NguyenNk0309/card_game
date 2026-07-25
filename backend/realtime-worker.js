@@ -68,6 +68,7 @@ async function commitRoom() {
 }
 
 const teamLabel = (team) => team === 'veil' ? 'Veilbound' : 'Embercourt';
+const randomDiceTarget = () => 8 + Math.floor(Math.random() * 9);
 function teamTotals(game, team) { const members = room.players.filter((player) => player.hero.team === team); return { hp: members.reduce((sum, player) => sum + (game.playerStates[player.id]?.hp || 0), 0), alive: members.filter((player) => (game.playerStates[player.id]?.hp || 0) > 0).length, shield: members.reduce((sum, player) => sum + (game.playerStates[player.id]?.shield || 0), 0) }; }
 function decideWinner(game, lastTeam, finalTurn = false) {
   const veil = teamTotals(game, 'veil'); const ember = teamTotals(game, 'ember');
@@ -101,7 +102,7 @@ function applyWorldEvent(game, turn, now) {
   else if (kind === 2) { title = 'Armor-Shattering Wave'; for (const state of Object.values(game.playerStates)) state.shield = Math.max(0, (state.shield || 0) - level * 2); description = `Every player loses up to ${level * 2} shield.`; }
   else if (kind === 3) { title = 'Furious Momentum'; for (const player of living(team)) game.playerStates[player.id].attackBuff = (game.playerStates[player.id].attackBuff || 0) + level; description = `${teamLabel(team)} gains +${level} damage on each member's next attack.`; }
   else { title = 'Unclaimed Arrow Storm'; const reduction = living(team).some((ally) => ally.hero.classId === 'oracle') ? 1 : 0; for (const player of living(team)) game.playerStates[player.id].hp = Math.max(0, game.playerStates[player.id].hp - Math.max(0, level + 1 - reduction)); description = `${teamLabel(team)} takes ${level + 1} surprise damage; an Oracle reduces this by 1.`; }
-  const event = { id: `world-${turn}-${now}`, turn, level, title, description, affectedTeam: kind === 0 || kind === 2 ? undefined : team }; game.worldEvent = event; game.history.push({ id: `${event.id}-history`, turn, kind: 'world', actorName: 'World Event', message: `${title}: ${description}`, success: true, createdAt: now });
+  const event = { id: `world-${turn}-${now}`, turn, level, title, description, affectedTeam: kind === 0 || kind === 2 ? undefined : team }; game.worldEvent = event; game.history.push({ id: `${event.id}-history`, turn, kind: 'world', actorName: 'World Event', message: `World Event · Level ${level} — ${title}: ${description}`, success: true, createdAt: now });
 }
 
 function removePlayerFromRoom(targetId, removedBy) {
@@ -163,7 +164,7 @@ async function passCurrentTurn(kind, now = Date.now()) {
   const playerName = passingPlayer?.displayName || 'Player';
   const timedOut = kind === 'timeout';
   game.completedTurns = completedTurns;
-  game.adventure = { ...game.adventure, chapter: Math.min(30, completedTurns + 1) };
+  game.adventure = { ...game.adventure, chapter: Math.min(30, completedTurns + 1), target: randomDiceTarget() };
   game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled.' : 'The turn was skipped. No cards were discarded or shuffled.', actorName: playerName };
   game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, message: timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved.` : `${playerName} manually skipped the turn. Their hand was preserved.`, success: false, createdAt: now }];
   game.worldEvent = null;
@@ -239,6 +240,7 @@ async function applyCommand(ownerId, message) {
     if (!message.game?.adventure) return 'The adventure state is missing.';
     room.phase = 'game';
     room.game = message.game;
+    room.game.adventure.target = randomDiceTarget();
     normalizeServerTurnOrder(room.game);
     await commitRoom();
     return null;
@@ -252,6 +254,8 @@ async function applyCommand(ownerId, message) {
     if (!activePlayer || ownerId !== activePlayer.id) return 'Only the current player can resolve this turn.';
     if (!message.game?.adventure) return 'The turn update is incomplete.';
     if ((room.game.playerStates[activePlayer.id]?.hp || 0) <= 0) return 'A defeated player cannot play a card.';
+    message.game.adventure.target = randomDiceTarget();
+    if (message.game.outcome?.kind === 'card') message.game.outcome.nextTarget = message.game.adventure.target;
     room.game = message.game;
     normalizeServerTurnOrder(room.game);
     await commitRoom();
@@ -366,7 +370,21 @@ async function connectWebSocket() {
 }
 
 function json(payload, status = 200) {
-  return Response.json(payload, { status, headers: { 'Cache-Control': 'no-store' } });
+  return Response.json(payload, { status, headers: { 'Cache-Control': 'no-store', 'Content-Language': 'en' } });
+}
+
+function withAssetHeaders(response, pathname) {
+  const headers = new Headers(response.headers);
+  headers.set('Content-Language', 'en');
+  const contentType = headers.get('Content-Type') || '';
+  if (contentType.includes('text/html')) {
+    headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    headers.set('Pragma', 'no-cache');
+    headers.set('Expires', '0');
+  } else if (/_next\/static\//.test(pathname)) {
+    headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+  }
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
 async function handleRoomApi(request) {
@@ -441,11 +459,11 @@ export default {
     }
 
     const response = await env.ASSETS.fetch(request);
-    if (response.status !== 404) return response;
+    if (response.status !== 404) return withAssetHeaders(response, url.pathname);
     if (!url.pathname.includes('.')) {
       url.pathname = '/index.html';
-      return env.ASSETS.fetch(new Request(url, request));
+      return withAssetHeaders(await env.ASSETS.fetch(new Request(url, request)), url.pathname);
     }
-    return response;
+    return withAssetHeaders(response, url.pathname);
   }
 };

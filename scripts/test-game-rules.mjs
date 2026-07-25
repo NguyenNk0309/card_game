@@ -23,6 +23,7 @@ for (const option of options) {
   assert(option.skillDeck.every((card) => !("risk" in card) && card.effect !== "check"));
   assert(option.skillDeck.filter((card) => card.unique).every((card) => ["self-damage", "team-damage"].includes(card.failureEffect) && card.failureValue > 0), "every special card needs an owner/team failure penalty");
   const common = option.skillDeck.filter((card) => !card.unique);
+  assert(common.every((card) => !card.failureEffect && !card.failureValue), "common cards cannot have failure penalties");
   assert.equal(common.filter((card) => card.effect === "damage").length, 2, "common deck needs two attacks");
   assert.equal(common.filter((card) => card.effect === "guard" && card.target === "self").length, 2, "common deck needs two self guards");
   assert.equal(common.filter((card) => card.effect === "heal" && card.target === "self").length, 1, "common deck needs one self heal");
@@ -35,14 +36,16 @@ const first = engine.createPlayerSession("An", 0, options[0].hero.name, "first")
 const second = engine.createPlayerSession("Binh", 1, options[1].hero.name, "second");
 const game = engine.createInitialGame([first, second], engine.createAdventure("RULES"), 30);
 assert.equal(game.maxTurns, 30);
+assert(game.adventure.target >= 8 && game.adventure.target <= 16, "the initial target is randomly selected from the balanced target range");
 
 const attack = first.skillDeck.find((card) => card.effect === "damage");
 game.playerStates[first.id].hand = [attack.id];
+const firstTarget = game.adventure.target;
 const attacked = engine.resolveCardTurn(game, [first, second], attack.id, second.id, 20);
-assert.equal(attacked.adventure.target, 20, "raw d20 becomes the next target");
+assert(attacked.adventure.target >= 8 && attacked.adventure.target <= 16, "each next target is generated independently of the raw d20");
 assert.equal(attacked.history.length, 1);
 assert.equal(attacked.history[0].diceRoll, 20);
-assert.equal(attacked.history[0].diceTarget, 12);
+assert.equal(attacked.history[0].diceTarget, firstTarget);
 assert.equal(attacked.history[0].diceTotal, 20 + engine.getPassiveDiceBonus(first, attack, game.playerStates[first.id]));
 assert.match(attacked.history[0].message, /An.*Binh|Binh.*HP/);
 
@@ -166,6 +169,7 @@ eventGame.playerStates[first.id].hand = [attack.id];
 const eventTurn = engine.resolveCardTurn(eventGame, [first, second], attack.id, second.id, 20);
 assert.equal(eventTurn.worldEvent?.turn, 5);
 assert(eventTurn.history.some((entry) => entry.kind === "world"));
+assert.match(eventTurn.history.find((entry) => entry.kind === "world").message, /World Event · Level 1/);
 
 const finalGame = engine.createInitialGame([first, second], engine.createAdventure("FINAL"), 30);
 finalGame.completedTurns = 29;
@@ -184,4 +188,4 @@ deadGame.playerStates[first.id].hp = 0;
 deadGame.playerStates[first.id].hand = [attack.id];
 assert.equal(engine.resolveCardTurn(deadGame, [first, second], attack.id, second.id, 20), deadGame, "defeated players cannot act");
 
-console.log("Game-rule test passed: 13-card decks, five no-effect cards, zero built-in dice bonuses, special-card penalties, support effects, turn order, events, victory, and defeated-player lockout.");
+console.log("Game-rule test passed: random targets, penalty-free common cards, special-card penalties, support effects, turn order, event history, victory, and defeated-player lockout.");
