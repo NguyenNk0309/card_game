@@ -646,6 +646,8 @@ button:focus-visible {
 }
 
 .objective-card > div:last-child {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -1634,6 +1636,11 @@ button:focus-visible {
   color: var(--paper);
   background: #172023;
   border: 1px solid var(--line);
+}
+
+.objective-card .target-picker {
+  width: 100%;
+  margin: 8px 0 0;
 }
 
 .action-hand.five-cards {
@@ -2861,8 +2868,7 @@ button:focus-visible {
 }
 
 .pile-review-actions button:hover,
-.panel-expand-button:hover,
-.portrait-button:hover {
+.panel-expand-button:hover {
   color: #ffe19a;
   border-color: rgba(236, 201, 112, 0.62);
 }
@@ -2903,7 +2909,17 @@ button:focus-visible {
   background: transparent;
 }
 
-.portrait-button { border-radius: 50%; }
+.portrait-button {
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.portrait-button:hover {
+  color: inherit;
+  border-color: transparent;
+  background: transparent;
+  transform: none;
+}
 
 .panel-expand-button {
   min-width: 34px;
@@ -3064,31 +3080,28 @@ button:focus-visible {
 }
 
 .chapter-pips i.world-event-turn {
-  width: clamp(16px, 2.3vw, 34px);
-  height: 14px;
-  margin: -5px 2px 0;
-  border: 2px solid #ff8f7d;
-  background: rgba(198, 52, 38, 0.5);
+  height: 3px;
+  margin: 0;
+  border: 0;
+  background: #b5352a;
   box-shadow: 0 0 12px rgba(226, 65, 47, 0.62);
-  transform: skewX(-10deg);
+  transform: none;
 }
 
 .chapter-pips i.world-event-turn.complete,
 .chapter-pips i.world-event-turn.event-triggered {
-  border-color: #ffc0b5;
   background: linear-gradient(90deg, #a92119, #ef5e49);
   box-shadow: 0 0 16px rgba(239, 69, 48, 0.9);
 }
 
 .chapter-pips i.world-event-turn.current {
   background: #ef4f3d;
-  border-color: #ffe0d9;
   animation: red-world-event-pulse 0.8s ease-in-out infinite alternate;
 }
 
 @keyframes red-world-event-pulse {
-  from { box-shadow: 0 0 7px rgba(239, 67, 48, 0.68); transform: skewX(-10deg) scale(1); }
-  to { box-shadow: 0 0 24px rgba(255, 82, 61, 1); transform: skewX(-10deg) scale(1.14); }
+  from { box-shadow: 0 0 7px rgba(239, 67, 48, 0.68); }
+  to { box-shadow: 0 0 18px rgba(255, 82, 61, 1); }
 }
 
 @media (max-width: 720px) {
