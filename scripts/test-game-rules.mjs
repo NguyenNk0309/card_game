@@ -108,8 +108,8 @@ const diceGame = engine.createInitialGame(diceParty, engine.createAdventure("DIC
 const diceCard = commander.skillDeck.find((card) => card.supportType === "dice");
 diceGame.playerStates[commander.id].hand = [diceCard.id];
 const diceBuffed = engine.resolveCardTurn(diceGame, diceParty, diceCard.id, commander.id, 20);
-assert.equal(diceBuffed.playerStates[commander.id].diceBuff, 3);
-assert.equal(diceBuffed.playerStates[diceAlly.id].diceBuff, 3);
+assert.equal(diceBuffed.playerStates[commander.id].diceBuff, 2);
+assert.equal(diceBuffed.playerStates[diceAlly.id].diceBuff, 2);
 assert.equal(diceBuffed.playerStates[diceEnemy.id].diceBuff, 0);
 const allyAttack = diceAlly.skillDeck.find((card) => card.effect === "damage");
 diceBuffed.activePlayerIndex = 2;
@@ -117,8 +117,9 @@ diceBuffed.turnOrder = [diceAlly.id, commander.id, diceEnemy.id];
 diceBuffed.adventure.target = 12;
 diceBuffed.playerStates[diceAlly.id].hand = [allyAttack.id];
 const boostedRoll = engine.resolveCardTurn(diceBuffed, diceParty, allyAttack.id, diceEnemy.id, 10);
-assert.equal(boostedRoll.outcome.total, 10 + engine.getPassiveDiceBonus(diceAlly, allyAttack, diceBuffed.playerStates[diceAlly.id]) + 3);
+assert.equal(boostedRoll.outcome.total, 10 + engine.getPassiveDiceBonus(diceAlly, allyAttack, diceBuffed.playerStates[diceAlly.id]) + 2);
 assert.equal(boostedRoll.playerStates[diceAlly.id].diceBuff, 0, "next-turn d20 bonus is consumed after one roll");
+assert.equal(engine.getPassiveDiceBonus(commander, commander.skillDeck.find((card) => card.effect === "none"), diceBuffed.playerStates[commander.id]), 1, "Ione adds +1 to every d20 result");
 
 const oracle = engine.createPlayerSession("Sable", 0, "Sable Fen", "oracle");
 const cursedEnemy = engine.createPlayerSession("Cursed enemy", 1, "Thorne Vale", "cursed-enemy");
@@ -136,6 +137,21 @@ const penalizedRoll = engine.resolveCardTurn(cursed, curseParty, cursedAttack.id
 assert.equal(penalizedRoll.outcome.total, 10 + engine.getPassiveDiceBonus(cursedEnemy, cursedAttack, cursed.playerStates[cursedEnemy.id]) - 3);
 assert.equal(penalizedRoll.history.at(-1).dicePenalty, 3);
 assert.equal(penalizedRoll.playerStates[cursedEnemy.id].dicePenalty, 0, "enemy d20 penalty is consumed after one turn");
+
+const sableReviveGame = engine.createInitialGame(curseParty, engine.createAdventure("SECOND-SIGHT"), 30);
+sableReviveGame.playerStates[oracle.id].hp = 1;
+sableReviveGame.turnOrder = [cursedEnemy.id, oracle.id, oracleAlly.id];
+sableReviveGame.activePlayerIndex = 1;
+sableReviveGame.playerStates[cursedEnemy.id].hand = [cursedAttack.id];
+const sableRevived = engine.resolveCardTurn(sableReviveGame, curseParty, cursedAttack.id, oracle.id, 20);
+assert.equal(sableRevived.playerStates[oracle.id].hp, Math.ceil(oracle.hero.maxHp / 2), "Sable revives with half max HP");
+assert.equal(sableRevived.playerStates[oracle.id].passiveReviveUsed, true, "Sable's passive revive is consumed once");
+sableRevived.playerStates[oracle.id].hp = 1;
+sableRevived.turnOrder = [cursedEnemy.id, oracle.id, oracleAlly.id];
+sableRevived.activePlayerIndex = 1;
+sableRevived.playerStates[cursedEnemy.id].hand = [cursedAttack.id];
+const sableDefeatedAgain = engine.resolveCardTurn(sableRevived, curseParty, cursedAttack.id, oracle.id, 20);
+assert.equal(sableDefeatedAgain.playerStates[oracle.id].hp, 0, "Sable cannot trigger Second Sight twice");
 
 const commanderGame = engine.createInitialGame([first, second, supportAlly], engine.createAdventure("ADVANCE"), 30);
 const advanceCard = first.skillDeck.find((card) => card.supportType === "advance-ally");

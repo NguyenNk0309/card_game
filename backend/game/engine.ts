@@ -60,7 +60,7 @@ export function createPlayerSession(displayName: string, seatIndex: number, hero
 
 function createRunState(player: PlayerSession): PlayerRunState {
   const drawPile = shuffle(player.skillDeck.map((card) => card.id));
-  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, reviveIn: 0, skipTurns: 0, borrowedCards: [], hand: drawPile.splice(0, 4), drawPile, discardPile: [] };
+  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, reviveIn: 0, passiveReviveUsed: false, skipTurns: 0, borrowedCards: [], hand: drawPile.splice(0, 4), drawPile, discardPile: [] };
 }
 
 export function createInitialGame(players: PlayerSession[], adventure = createAdventure(), _turnSeconds = BATTLE_TURN_SECONDS): SyncedGameState {
@@ -81,9 +81,8 @@ export function getPassiveDiceBonus(player: PlayerSession, card: ActionCard, sta
   if (classId === "healer" && card.effect === "heal") return 1;
   if (classId === "assassin" && card.effect === "damage") return 1;
   if (classId === "tank" && card.effect === "guard") return 1;
-  if (classId === "oracle" && card.effect === "support") return 1;
+  if (classId === "support") return 1;
   if (classId === "duelist" && card.effect === "damage" && state.shield === 0) return 1;
-  if (classId === "support" && card.effect === "support") return 1;
   if (classId === "berserker" && (card.effect === "damage" || card.effect === "aoe") && state.hp <= state.maxHp / 2) return 1;
   return 0;
 }
@@ -190,6 +189,17 @@ function living(players: PlayerSession[], states: Record<string, PlayerRunState>
   return players.filter((player) => (!team || player.hero.team === team) && (states[player.id]?.hp ?? 0) > 0);
 }
 
+function triggerSableRevives(players: PlayerSession[], states: Record<string, PlayerRunState>) {
+  return players.filter((player) => {
+    const state = states[player.id];
+    if (player.hero.name !== "Sable Fen" || !state || state.hp > 0 || state.passiveReviveUsed) return false;
+    state.hp = Math.max(1, Math.ceil(state.maxHp / 2));
+    state.passiveReviveUsed = true;
+    state.reviveIn = 0;
+    return true;
+  });
+}
+
 function totals(players: PlayerSession[], states: Record<string, PlayerRunState>, team: TeamId) {
   const members = players.filter((player) => player.hero.team === team);
   return { hp: members.reduce((sum, player) => sum + (states[player.id]?.hp ?? 0), 0), alive: members.filter((player) => (states[player.id]?.hp ?? 0) > 0).length, shield: members.reduce((sum, player) => sum + (states[player.id]?.shield ?? 0), 0) };
@@ -219,8 +229,7 @@ function applyWorldEvent(turn: number, players: PlayerSession[], states: Record<
   for (const player of living(players, states)) {
     const kind = Math.floor(Math.random() * 5);
     if (kind === 0) {
-      const reduction = player.hero.classId === "oracle" || living(players, states, player.hero.team).some((ally) => ally.hero.classId === "oracle") ? 1 : 0;
-      const damage = Math.max(0, randomAmount(1, level + 1) - reduction);
+      const damage = randomAmount(1, level + 1);
       states[player.id].hp = Math.max(0, states[player.id].hp - damage);
       reports.push(`${player.displayName} -${damage} HP`);
     } else if (kind === 1) {
@@ -239,8 +248,7 @@ function applyWorldEvent(turn: number, players: PlayerSession[], states: Record<
     } else {
       const amount = randomAmount(1, level + 1);
       if (Math.random() < 0.5) {
-        const reduction = living(players, states, player.hero.team).some((ally) => ally.hero.classId === "oracle") ? 1 : 0;
-        const damage = Math.max(0, amount - reduction);
+        const damage = amount;
         states[player.id].hp = Math.max(0, states[player.id].hp - damage);
         reports.push(`${player.displayName} -${damage} HP`);
       } else {
@@ -266,6 +274,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const states = Object.fromEntries(Object.entries(game.playerStates).map(([id, state]) => [id, {
     ...state,
     reviveIn: state.reviveIn ?? 0,
+    passiveReviveUsed: state.passiveReviveUsed ?? false,
     skipTurns: state.skipTurns ?? 0,
     borrowedCards: [...(state.borrowedCards ?? [])],
     hand: [...state.hand],
@@ -344,7 +353,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       }
     } else if (card.effect === "support") {
       const scalable = ["attack", "shield", "healing", "dice", "enemy-dice"].includes(card.supportType ?? "");
-      amount = card.value + (scalable && ["support", "warden"].includes(actor.hero.classId) ? 1 : 0);
+      amount = card.value + (scalable && actor.hero.classId === "warden" ? 1 : 0);
       const reports: string[] = [];
       const supportTargets = card.target === "all-allies" ? allies : targets;
       for (const target of supportTargets) {
@@ -450,6 +459,14 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   let history = [...(game.history ?? []), actionHistory];
   let worldEvent: WorldEventOutcome | null = null;
   if (turn % 5 === 0) { const result = applyWorldEvent(turn, players, states); worldEvent = result.event; history.push(result.history); }
+  const passiveRevives = triggerSableRevives(players, states);
+  if (passiveRevives.length) {
+    const names = passiveRevives.map((player) => player.displayName);
+    const reviveMessage = `${names.join(", ")} invoked Second Sight and revived with half HP.`;
+    detail = `${detail} ${reviveMessage}`;
+    actionHistory.message = `${actor.displayName} used ${card.name} (${rollSummary}) — ${detail}`;
+    history.push({ id: `sable-revive-${turn}-${Date.now()}`, turn, kind: "system", actorName: "Second Sight", message: reviveMessage, success: true, createdAt: Date.now() });
+  }
   history = history.slice(-80);
 
   const finalTurn = turn >= 30;

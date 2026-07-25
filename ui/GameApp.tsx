@@ -40,6 +40,7 @@ export default function GameApp() {
   const [rolling, setRolling] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [dismissedOutcomeKey, setDismissedOutcomeKey] = useState("");
+  const [dismissedSummaryKey, setDismissedSummaryKey] = useState("");
   const [dismissedWorldEventId, setDismissedWorldEventId] = useState("");
   const [deckReview, setDeckReview] = useState<"draw" | "discard" | null>(null);
   const [expandedPanel, setExpandedPanel] = useState<"history" | "turns" | null>(null);
@@ -66,6 +67,7 @@ export default function GameApp() {
   const outcome = game?.outcome ?? null;
   const outcomeKey = outcome ? `${game?.turnStartedAt ?? 0}-${outcome.label}` : "";
   const showOutcome = Boolean(outcome?.kind === "card" && outcome.actorName === localPlayer?.displayName && outcomeKey !== dismissedOutcomeKey && !runComplete);
+  const showTurnSummary = Boolean(outcome?.actorName && outcome.actorName !== localPlayer?.displayName && outcomeKey !== dismissedSummaryKey && !runComplete);
   const showWorldEvent = Boolean(game?.worldEvent && game.worldEvent.id !== dismissedWorldEventId && !runComplete);
   const inspectedPlayer = players.find((player) => player.id === inspectedPlayerId);
   const reviewedCardIds = deckReview === "draw" ? localState?.drawPile ?? [] : deckReview === "discard" ? localState?.discardPile ?? [] : [];
@@ -121,6 +123,11 @@ export default function GameApp() {
     if (!players.length || !localPlayer) return setSelectedPlayerId(null);
     if (!players.some((player) => player.id === selectedPlayerId)) setSelectedPlayerId(localPlayer.id);
   }, [players, selectedPlayerId, localPlayer]);
+  useEffect(() => {
+    if (!showTurnSummary || !outcomeKey) return;
+    const timer = window.setTimeout(() => setDismissedSummaryKey(outcomeKey), 4000);
+    return () => window.clearTimeout(timer);
+  }, [showTurnSummary, outcomeKey]);
 
   const joinPlayer = () => {
     const name = playerName.trim();
@@ -129,7 +136,6 @@ export default function GameApp() {
     if (players.length >= 10) return setLobbyError("The room already has 10 players.");
     if (!name) return setLobbyError("Enter a name before pressing Join.");
     if (players.some((player) => player.displayName.toLowerCase() === name.toLowerCase())) return setLobbyError("That name is already in use. Choose another name.");
-    if (players.some((player) => player.hero.name === selectedHeroName)) return setLobbyError("That character has already been chosen.");
     const veilCount = players.filter((player) => player.hero.team === "veil").length;
     const session = createPlayerSession(name, veilCount <= players.length - veilCount ? 0 : 1, selectedHeroName, sessionId);
     if (send({ type: "join", player: session })) { setSelectedPlayerId(session.id); setPlayerName(""); setLobbyError(""); }
@@ -168,7 +174,7 @@ export default function GameApp() {
     if (showWorldEvent && game?.worldEvent) setDismissedWorldEventId(game.worldEvent.id);
   };
 
-  return <main className="game-shell arena-focus"><div className="grain"/>
+  return <main className="game-shell arena-focus"><div className="grain"/>{showTurnSummary && outcome && <aside className={`turn-summary-warning ${outcome.success ? "success" : "failure"}`} role="status" aria-live="polite"><span>TURN SUMMARY</span><strong>{outcome.label}</strong><p>{outcome.detail}</p></aside>}
     <header className="topbar"><div className="brand"><div className="brand-mark"><Crown size={20}/></div><div><strong>SHATTERED OATH</strong><span>Two teams. One victor.</span></div></div>
       {phase === "game" ? <nav className="run-status" aria-label="Battle status"><div><span className="eyebrow">TURN</span><strong>{game?.completedTurns ?? 0} <i>/ 30</i></strong></div><div className="chapter-pips" aria-label="Thirty-turn timeline">{Array.from({ length: 30 }).map((_, index) => { const turn = index + 1; const phaseClass = index < (game?.completedTurns ?? 0) ? "complete" : index === (game?.completedTurns ?? 0) ? "current" : ""; return <i key={turn} data-turn={turn} title={turn % 5 === 0 ? `Turn ${turn}: World Event` : `Turn ${turn}`} aria-label={turn % 5 === 0 ? `Turn ${turn}, World Event` : `Turn ${turn}`} className={`${phaseClass} ${turn % 5 === 0 ? "world-event-turn" : ""} ${game?.worldEvent?.turn === turn ? "event-triggered" : ""}`}/>; })}</div><div className={`turn-clock ${secondsLeft <= 10 ? "urgent" : ""}`}><Clock3 size={14}/> {secondsLeft} seconds</div></nav> : <div className="lobby-top-status"><Users size={16}/> {players.length}/10 players · {players.filter((player) => player.ready).length} ready</div>}
       <div className="top-actions"><button className="icon-button" onClick={() => setSoundOn(!soundOn)} aria-label="Toggle sound">{soundOn ? <Volume2 size={18}/> : <AudioLines size={18}/>}</button><button className="text-button" onClick={() => setShowGuide(true)}><CircleHelp size={16}/> How to play</button>{phase === "game" && localPlayer && <button className="text-button leave-game-control" onClick={() => send({ type: "leave-game", sessionId })}><LogOut size={16}/> Leave battle</button>}{phase === "game" && localPlayer && !runComplete && <button className="text-button end-game-control" onClick={() => send({ type: "end-game", sessionId })}><Octagon size={16}/> End battle</button>}{phase === "game" && <button className="icon-button mobile-party-button" onClick={() => setMobileParty(true)} aria-label="Open player list"><Users size={18}/></button>}</div>

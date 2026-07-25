@@ -202,6 +202,17 @@ function tickPendingRevives(game) {
   return revived;
 }
 
+function triggerSableRevives(game) {
+  return room.players.filter((player) => {
+    const state = game.playerStates[player.id];
+    if (player.hero.name !== 'Sable Fen' || !state || state.hp > 0 || state.passiveReviveUsed) return false;
+    state.hp = Math.max(1, Math.ceil(state.maxHp / 2));
+    state.passiveReviveUsed = true;
+    state.reviveIn = 0;
+    return true;
+  });
+}
+
 function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
   if (!previousGame || !incomingGame || !actor) return;
   returnBorrowedCards(incomingGame, actor.id, incomingGame.completedTurns);
@@ -257,9 +268,8 @@ function applyWorldEvent(game, turn, now) {
   for (const player of living()) {
     const kind = Math.floor(Math.random() * 5);
     const state = game.playerStates[player.id];
-    const oracleReduction = living(player.hero.team).some((ally) => ally.hero.classId === 'oracle') ? 1 : 0;
     if (kind === 0) {
-      const damage = Math.max(0, randomAmount(1, level + 1) - oracleReduction);
+      const damage = randomAmount(1, level + 1);
       state.hp = Math.max(0, state.hp - damage);
       reports.push(`${player.displayName} -${damage} HP`);
     } else if (kind === 1) {
@@ -277,7 +287,7 @@ function applyWorldEvent(game, turn, now) {
     } else {
       const amount = randomAmount(1, level + 1);
       if (Math.random() < 0.5) {
-        const damage = Math.max(0, amount - oracleReduction);
+        const damage = amount;
         state.hp = Math.max(0, state.hp - damage);
         reports.push(`${player.displayName} -${damage} HP`);
       } else {
@@ -287,6 +297,8 @@ function applyWorldEvent(game, turn, now) {
       }
     }
   }
+  const passiveRevives = triggerSableRevives(game);
+  for (const player of passiveRevives) reports.push(`${player.displayName} invoked Second Sight and revived with half HP`);
   const description = `Both teams are affected with a separate random result for every living player: ${reports.join('; ')}.`;
   const event = { id: `world-${turn}-${now}`, turn, level, title, description };
   game.worldEvent = event;
@@ -427,9 +439,6 @@ function handleMessage(socket, rawMessage) {
     if (room.players.length >= 10) return reject(socket, 'This lobby already has 10 players.');
     if (room.players.some((current) => current.displayName.toLowerCase() === player.displayName.toLowerCase())) {
       return reject(socket, 'That player name is already joined.');
-    }
-    if (room.players.some((current) => current.hero.name === player.hero.name)) {
-      return reject(socket, 'That character has already been chosen.');
     }
 
     const veilCount = room.players.filter((current) => current.hero.team === 'veil').length;

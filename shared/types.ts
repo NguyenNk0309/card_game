@@ -132,6 +132,7 @@ export type PlayerRunState = {
   diceBuff: number;
   dicePenalty: number;
   reviveIn: number;
+  passiveReviveUsed: boolean;
   skipTurns: number;
   borrowedCards: { cardId: string; ownerId: string; borrowedAtTurn: number }[];
   drawPile: string[];
