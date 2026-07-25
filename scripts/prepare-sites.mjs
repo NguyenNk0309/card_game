@@ -16,9 +16,13 @@ if (durableClassStart < 0 || defaultExportStart < 0) throw new Error('Could not 
 
 const sitesWorker = `${cloudflareWorker.slice(0, durableClassStart)}${cloudflareWorker.slice(defaultExportStart)}`.replace(
   /      if \(env\.GAME_ROOM\) \{[\s\S]*?      if \(env\.REALTIME_ORIGIN\) return proxyRoomRequest\(request, env\.REALTIME_ORIGIN\);\n      return handleRoomRequest\(request\);/,
-  '      return handleRoomRequest(request);'
+  `      if (env.REALTIME_ORIGIN) return proxyRoomRequest(request, env.REALTIME_ORIGIN);
+      return json({ error: 'The shared room backend is not configured.' }, 503);`
 );
 if (sitesWorker.includes('export class GameRoom') || sitesWorker.includes('env.GAME_ROOM')) throw new Error('Sites worker still contains a Durable Object binding.');
+if (!sitesWorker.includes('env.REALTIME_ORIGIN') || sitesWorker.includes('return handleRoomRequest(request);')) {
+  throw new Error('Sites worker must proxy every room request to the authoritative realtime backend.');
+}
 writeFileSync('dist/server/index.js', sitesWorker);
 
 cpSync('.openai/hosting.json', 'dist/.openai/hosting.json');
