@@ -3337,7 +3337,7 @@ button:focus-visible {
 .game-shell option,
 .game-shell b,
 .game-shell span:not(.eyebrow) {
-  font-size: 15px !important;
+  font-size: 14px !important;
   line-height: 1.45;
 }
 
@@ -3348,7 +3348,7 @@ button:focus-visible {
 .game-shell .turn-queue-item strong,
 .game-shell .joined-name > strong,
 .game-shell .hero-name > strong {
-  font-size: 15px !important;
+  font-size: 14px !important;
 }
 
 /* Keep the event library physically anchored between the timeline and timer. */
@@ -3366,44 +3366,7 @@ button:focus-visible {
   box-shadow: 0 0 4px rgba(226, 65, 47, 0.14);
 }
 
-/* Put conditional ally/enemy selection on its own full-width row. */
-.objective-card {
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.objective-card > .objective-summary {
-  width: 100%;
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
-}
-
-.objective-summary > .objective-copy {
-  min-width: 0;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.objective-card > .target-selection-panel {
-  width: 100%;
-  display: block;
-  flex: 0 0 auto;
-  margin-top: 8px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(212, 181, 110, 0.2);
-}
-
-.target-selection-panel .target-picker {
-  width: 100%;
-  margin: 0;
-}
-
-/* Private pile movement VFX, driven by actual hand/pile state changes. */
+/* Private replacement VFX, shown only after modal panels close. */
 .card-zone-vfx {
   position: fixed;
   z-index: 155;
@@ -3415,21 +3378,24 @@ button:focus-visible {
 .card-motion {
   --motion-color: #d4b56e;
   position: absolute;
-  top: 50%;
+  z-index: 1;
+  top: auto;
+  bottom: clamp(32px, 9vh, 120px);
   left: 50%;
-  width: 180px;
-  min-height: 128px;
-  padding: 13px;
+  width: min(300px, calc(100vw - 36px));
+  min-height: 220px;
+  padding: 18px;
   display: grid;
-  grid-template-columns: 42px 1fr;
+  grid-template-columns: 48px 1fr;
   align-content: center;
   align-items: center;
-  gap: 4px 10px;
+  gap: 7px 12px;
   color: var(--paper);
   border: 1px solid var(--motion-color);
   background: linear-gradient(145deg, rgba(17, 27, 29, 0.98), rgba(6, 11, 12, 0.98));
   box-shadow: 0 0 25px color-mix(in srgb, var(--motion-color) 45%, transparent), 0 18px 45px rgba(0, 0, 0, 0.55);
-  transform-origin: center;
+  transform: translateX(-50%);
+  transform-origin: center bottom;
 }
 
 .card-motion.effect-damage,
@@ -3448,32 +3414,186 @@ button:focus-visible {
   text-transform: uppercase;
 }
 
-.card-motion > strong { font: 600 16px Georgia, "Times New Roman", serif; }
+.card-motion > strong { font: 600 20px Georgia, "Times New Roman", serif; }
 .card-motion > .card-sigil { color: var(--motion-color); border-color: var(--motion-color); }
-.card-motion.draw-to-hand { animation: card-draw-flight 1.25s cubic-bezier(.18, .8, .24, 1) both; }
-.card-motion.hand-to-discard { animation: card-discard-flight 1.25s cubic-bezier(.55, .05, .72, .35) both; }
+.card-motion.draw-to-hand { z-index: 2; animation: card-draw-flight 1.75s cubic-bezier(.18, .8, .24, 1) both; }
+.card-motion.hand-to-discard { animation: card-discard-flight .72s cubic-bezier(.55, .05, .72, .35) both; }
 
 @keyframes card-draw-flight {
-  0% { opacity: 0; transform: translate(37vw, -33vh) scale(.4) rotate(14deg); }
-  16% { opacity: 1; }
-  76% { opacity: 1; transform: translate(-12vw, 31vh) scale(1.05) rotate(-2deg); }
-  100% { opacity: 0; transform: translate(-12vw, 31vh) scale(.9) rotate(0); }
+  0%, 36% { opacity: 0; transform: translateX(-50%) scale(.28); }
+  52% { opacity: .75; transform: translateX(-50%) scale(.68); }
+  78% { opacity: 1; transform: translateX(-50%) scale(1.08); }
+  91% { opacity: 1; transform: translateX(-50%) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) scale(1); }
 }
 
 @keyframes card-discard-flight {
-  0% { opacity: 0; transform: translate(-12vw, 31vh) scale(.88) rotate(-2deg); }
-  14% { opacity: 1; }
-  72% { opacity: 1; transform: translate(37vw, -33vh) scale(.72) rotate(12deg); }
-  100% { opacity: 0; transform: translate(37vw, -33vh) scale(.35) rotate(18deg); }
+  0% { opacity: 1; transform: translateX(-50%) scale(1); }
+  58% { opacity: .48; transform: translateX(-50%) scale(.58); }
+  100% { opacity: 0; transform: translateX(-50%) scale(.12); }
 }
 
 @media (max-width: 940px) {
   .run-status { gap: 8px; }
   .run-status > .world-event-library-button { right: auto; }
-  .card-motion { width: 155px; }
+  .card-motion { min-height: 190px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .card-motion.draw-to-hand,
   .card-motion.hand-to-discard { animation-duration: .2s; }
+}
+
+/* Flexible player rows and visible names across compact and expanded panels. */
+.player-name-highlight {
+  color: #78d8ff !important;
+  font-weight: 900 !important;
+  text-shadow: 0 0 12px rgba(86, 188, 232, .42);
+}
+
+.inline-player-name {
+  display: inline;
+  padding: 1px 4px;
+  color: #78d8ff;
+  background: rgba(77, 177, 220, .13);
+  border-bottom: 1px solid rgba(93, 198, 241, .48);
+  font-weight: 900;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.inline-player-name.ember { color: #ffae87; background: rgba(205, 101, 61, .13); border-bottom-color: rgba(235, 126, 82, .52); }
+.inline-player-name.veil { color: #88ddff; }
+.history-player-name { width: fit-content; max-width: 100%; padding: 2px 6px; background: rgba(75, 164, 201, .11); border-left: 2px solid currentColor; overflow-wrap: anywhere; }
+.history-player-name.veil { color: #86c8e8 !important; }
+.history-player-name.ember { color: #f0a17f !important; }
+.modal-card h2 .inline-player-name,
+.combat-banner strong .player-name-highlight { font-size: inherit !important; line-height: inherit; }
+
+.expanded-turn-list .turn-queue-item {
+  grid-template-columns: 34px minmax(0, 1fr);
+}
+
+.turn-player-copy {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+}
+
+.turn-player-copy > strong { flex: 0 0 auto; max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
+.turn-player-copy > .turn-player-meta { flex: 1 1 170px; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.expanded-turn-list .turn-player-copy > .turn-player-meta { overflow: visible; text-overflow: clip; }
+
+/* The three private-zone controls stay equal, readable, and responsive. */
+.hand-heading {
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.hand-heading > div:first-child { flex: 1 1 310px; min-width: min(310px, 100%); }
+.pile-review-actions {
+  width: min(570px, 100%);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  flex: 1 1 420px;
+}
+
+.pile-review-actions > span,
+.pile-review-actions button {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Procedural medieval soundtrack and shared music/effect volume. */
+.audio-controls,
+.volume-control {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.audio-controls {
+  min-height: 38px;
+  padding-right: 8px;
+  gap: 7px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, .025);
+}
+
+.music-toggle { border: 0; border-right: 1px solid var(--line); }
+.music-toggle.playing { color: #ffe18e; background: rgba(212, 181, 110, .13); box-shadow: inset 0 -2px 0 var(--gold); }
+.volume-control { width: 132px; gap: 7px; }
+.volume-control input {
+  --audio-volume: 56%;
+  width: 86px;
+  height: 5px;
+  padding: 0;
+  appearance: none;
+  border: 0;
+  border-radius: 99px;
+  outline: 0;
+  background: linear-gradient(90deg, var(--gold) 0 var(--audio-volume), rgba(255, 255, 255, .16) var(--audio-volume) 100%);
+  cursor: pointer;
+}
+
+.volume-control input::-webkit-slider-thumb { width: 14px; height: 14px; appearance: none; border: 2px solid #0b1113; border-radius: 50%; background: #ffe298; box-shadow: 0 0 0 1px var(--gold); }
+.volume-control input::-moz-range-thumb { width: 12px; height: 12px; border: 2px solid #0b1113; border-radius: 50%; background: #ffe298; box-shadow: 0 0 0 1px var(--gold); }
+.volume-control output { width: 34px; color: var(--muted); font-size: 11px; font-weight: 800; text-align: right; }
+
+/* Prevent long names, card text, and modal headings from forcing fixed panels wider. */
+.topbar > *,
+.top-actions,
+.run-status,
+.hand-heading > *,
+.expanded-panel-content,
+.turn-queue-item,
+.turn-player-copy,
+.history-entry,
+.action-card,
+.pile-review-card { min-width: 0; }
+
+.action-card,
+.pile-review-card,
+.history-entry,
+.modal-card h2,
+.modal-lead { overflow-wrap: anywhere; }
+.modal-backdrop { padding: clamp(8px, 2vw, 24px); }
+.modal-card,
+.wide-modal { max-width: calc(100vw - 16px); }
+.expanded-panel-content h2 { max-width: 100%; }
+
+@media (max-width: 1180px) {
+  .volume-control { width: 102px; }
+  .volume-control input { width: 64px; }
+  .volume-control output { display: none; }
+  .audio-controls { padding-right: 6px; }
+}
+
+@media (max-width: 720px) {
+  .pile-review-actions { width: 100%; flex-basis: 100%; }
+  .pile-review-actions > span,
+  .pile-review-actions button { padding-inline: 7px; }
+  .expanded-turn-list { padding-left: 20px; }
+  .expanded-turn-list .turn-queue-item { min-height: 58px; }
+  .volume-control { width: 82px; }
+  .volume-control input { width: 74px; }
+}
+
+@media (max-width: 480px) {
+  .pile-review-actions { grid-template-columns: 1fr; }
+  .pile-review-actions > span,
+  .pile-review-actions button { min-height: 40px; }
+  .turn-player-copy > .turn-player-meta { flex-basis: 100%; }
+  .modal-card { padding: 28px 18px; }
+  .expanded-panel-content h2 { font-size: clamp(25px, 9vw, 34px); }
 }
