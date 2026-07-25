@@ -8,6 +8,8 @@ export function randomDiceTarget() {
   return 8 + Math.floor(Math.random() * 9);
 }
 
+const randomAmount = (minimum: number, maximum: number) => minimum + Math.floor(Math.random() * (maximum - minimum + 1));
+
 export function createSeed() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
@@ -155,37 +157,44 @@ function decideWinner(players: PlayerSession[], states: Record<string, PlayerRun
 
 function applyWorldEvent(turn: number, players: PlayerSession[], states: Record<string, PlayerRunState>): { event: WorldEventOutcome; history: GameHistoryEntry } {
   const level = Math.ceil(turn / 5);
-  const team = (Math.random() < 0.5 ? "veil" : "ember") as TeamId;
-  const kind = Math.floor(Math.random() * 5);
-  let title = "Battlefield Quake";
-  let description = "";
-  if (kind === 0) {
-    for (const player of living(players, states)) {
+  const title = pick(["Chaos Convergence", "Fractured Fate", "Crimson World Pulse", "Unstable Arena Surge"]);
+  const reports: string[] = [];
+  for (const player of living(players, states)) {
+    const kind = Math.floor(Math.random() * 5);
+    if (kind === 0) {
       const reduction = player.hero.classId === "oracle" || living(players, states, player.hero.team).some((ally) => ally.hero.classId === "oracle") ? 1 : 0;
-      states[player.id].hp = Math.max(0, states[player.id].hp - Math.max(0, level - reduction));
+      const damage = Math.max(0, randomAmount(1, level + 1) - reduction);
+      states[player.id].hp = Math.max(0, states[player.id].hp - damage);
+      reports.push(`${player.displayName} -${damage} HP`);
+    } else if (kind === 1) {
+      const healing = randomAmount(1, level + 1);
+      const before = states[player.id].hp;
+      states[player.id].hp = Math.min(states[player.id].maxHp, states[player.id].hp + healing);
+      reports.push(`${player.displayName} +${states[player.id].hp - before} HP`);
+    } else if (kind === 2) {
+      const lost = Math.min(states[player.id].shield, randomAmount(1, level * 2));
+      states[player.id].shield -= lost;
+      reports.push(`${player.displayName} -${lost} shield`);
+    } else if (kind === 3) {
+      const bonus = randomAmount(1, level);
+      states[player.id].attackBuff += bonus;
+      reports.push(`${player.displayName} +${bonus} next-attack damage`);
+    } else {
+      const amount = randomAmount(1, level + 1);
+      if (Math.random() < 0.5) {
+        const reduction = living(players, states, player.hero.team).some((ally) => ally.hero.classId === "oracle") ? 1 : 0;
+        const damage = Math.max(0, amount - reduction);
+        states[player.id].hp = Math.max(0, states[player.id].hp - damage);
+        reports.push(`${player.displayName} -${damage} HP`);
+      } else {
+        const before = states[player.id].hp;
+        states[player.id].hp = Math.min(states[player.id].maxHp, states[player.id].hp + amount);
+        reports.push(`${player.displayName} +${states[player.id].hp - before} HP`);
+      }
     }
-    description = `Every living player takes ${level} damage; a team with an Oracle reduces this by 1.`;
-  } else if (kind === 1) {
-    title = "Emergency Supplies";
-    for (const player of living(players, states, team)) states[player.id].hp = Math.min(states[player.id].maxHp, states[player.id].hp + level);
-    description = `${teamName(team)} restores ${level} HP to every living member.`;
-  } else if (kind === 2) {
-    title = "Armor-Shattering Wave";
-    for (const state of Object.values(states)) state.shield = Math.max(0, state.shield - level * 2);
-    description = `Every player loses up to ${level * 2} shield.`;
-  } else if (kind === 3) {
-    title = "Furious Momentum";
-    for (const player of living(players, states, team)) states[player.id].attackBuff += level;
-    description = `${teamName(team)} gains +${level} damage on each member's next attack.`;
-  } else {
-    title = "Unclaimed Arrow Storm";
-    for (const player of living(players, states, team)) {
-      const reduction = living(players, states, team).some((ally) => ally.hero.classId === "oracle") ? 1 : 0;
-      states[player.id].hp = Math.max(0, states[player.id].hp - Math.max(0, level + 1 - reduction));
-    }
-    description = `${teamName(team)} takes ${level + 1} surprise damage; an Oracle reduces this by 1.`;
   }
-  const event = { id: `world-${turn}-${Date.now()}`, turn, level, title, description, affectedTeam: kind === 0 || kind === 2 ? undefined : team };
+  const description = `Both teams are affected with a separate random result for every living player: ${reports.join("; ")}.`;
+  const event = { id: `world-${turn}-${Date.now()}`, turn, level, title, description };
   return { event, history: { id: `${event.id}-history`, turn, kind: "world", actorName: "World Event", message: `World Event · Level ${level} — ${title}: ${description}`, success: true, createdAt: Date.now() } };
 }
 

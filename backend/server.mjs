@@ -71,11 +71,18 @@ const room = {
 
 const peers = new Map();
 
-function publicState() {
+function publicState(viewerId = '') {
+  const game = room.game ? {
+    ...room.game,
+    playerStates: Object.fromEntries(Object.entries(room.game.playerStates || {}).map(([id, state]) => [
+      id,
+      id === viewerId ? state : { ...state, hand: [], drawPile: [], discardPile: [] }
+    ]))
+  } : null;
   return {
     players: room.players,
     phase: room.phase,
-    game: room.game,
+    game,
     revision: room.revision,
     serverNow: Date.now()
   };
@@ -87,9 +94,8 @@ function send(socket, payload) {
 
 function broadcast() {
   room.revision += 1;
-  const message = JSON.stringify({ type: 'state', state: publicState() });
-  for (const socket of peers.keys()) {
-    if (socket.readyState === socket.OPEN) socket.send(message);
+  for (const [socket, viewerId] of peers.entries()) {
+    if (socket.readyState === socket.OPEN) socket.send(JSON.stringify({ type: 'state', state: publicState(viewerId) }));
   }
 }
 
@@ -104,6 +110,7 @@ function ownSession(socket, requestedId) {
 
 const teamLabel = (team) => team === 'veil' ? 'Veilbound' : 'Embercourt';
 const randomDiceTarget = () => 8 + Math.floor(Math.random() * 9);
+const randomAmount = (minimum, maximum) => minimum + Math.floor(Math.random() * (maximum - minimum + 1));
 
 function teamTotals(game, team) {
   const members = room.players.filter((player) => player.hero.team === team);
@@ -163,24 +170,45 @@ function rotateServerTurn(game, actorId) {
 
 function applyWorldEvent(game, turn, now) {
   const level = Math.ceil(turn / 5);
-  const team = Math.random() < 0.5 ? 'veil' : 'ember';
   const living = (filterTeam) => room.players.filter((player) => (!filterTeam || player.hero.team === filterTeam) && (game.playerStates[player.id]?.hp || 0) > 0);
-  const kind = Math.floor(Math.random() * 5);
-  let title = 'Battlefield Quake';
-  let description = '';
-  if (kind === 0) {
-    for (const player of living()) { const reduction = living(player.hero.team).some((ally) => ally.hero.classId === 'oracle') ? 1 : 0; game.playerStates[player.id].hp = Math.max(0, game.playerStates[player.id].hp - Math.max(0, level - reduction)); }
-    description = `Every living player takes ${level} damage; a team with an Oracle reduces this by 1.`;
-  } else if (kind === 1) {
-    title = 'Emergency Supplies'; for (const player of living(team)) game.playerStates[player.id].hp = Math.min(game.playerStates[player.id].maxHp, game.playerStates[player.id].hp + level); description = `${teamLabel(team)} restores ${level} HP to every living member.`;
-  } else if (kind === 2) {
-    title = 'Armor-Shattering Wave'; for (const state of Object.values(game.playerStates)) state.shield = Math.max(0, (state.shield || 0) - level * 2); description = `Every player loses up to ${level * 2} shield.`;
-  } else if (kind === 3) {
-    title = 'Furious Momentum'; for (const player of living(team)) game.playerStates[player.id].attackBuff = (game.playerStates[player.id].attackBuff || 0) + level; description = `${teamLabel(team)} gains +${level} damage on each member's next attack.`;
-  } else {
-    title = 'Unclaimed Arrow Storm'; const reduction = living(team).some((ally) => ally.hero.classId === 'oracle') ? 1 : 0; for (const player of living(team)) game.playerStates[player.id].hp = Math.max(0, game.playerStates[player.id].hp - Math.max(0, level + 1 - reduction)); description = `${teamLabel(team)} takes ${level + 1} surprise damage; an Oracle reduces this by 1.`;
+  const titles = ['Chaos Convergence', 'Fractured Fate', 'Crimson World Pulse', 'Unstable Arena Surge'];
+  const title = titles[Math.floor(Math.random() * titles.length)];
+  const reports = [];
+  for (const player of living()) {
+    const kind = Math.floor(Math.random() * 5);
+    const state = game.playerStates[player.id];
+    const oracleReduction = living(player.hero.team).some((ally) => ally.hero.classId === 'oracle') ? 1 : 0;
+    if (kind === 0) {
+      const damage = Math.max(0, randomAmount(1, level + 1) - oracleReduction);
+      state.hp = Math.max(0, state.hp - damage);
+      reports.push(`${player.displayName} -${damage} HP`);
+    } else if (kind === 1) {
+      const before = state.hp;
+      state.hp = Math.min(state.maxHp, state.hp + randomAmount(1, level + 1));
+      reports.push(`${player.displayName} +${state.hp - before} HP`);
+    } else if (kind === 2) {
+      const lost = Math.min(state.shield || 0, randomAmount(1, level * 2));
+      state.shield -= lost;
+      reports.push(`${player.displayName} -${lost} shield`);
+    } else if (kind === 3) {
+      const bonus = randomAmount(1, level);
+      state.attackBuff = (state.attackBuff || 0) + bonus;
+      reports.push(`${player.displayName} +${bonus} next-attack damage`);
+    } else {
+      const amount = randomAmount(1, level + 1);
+      if (Math.random() < 0.5) {
+        const damage = Math.max(0, amount - oracleReduction);
+        state.hp = Math.max(0, state.hp - damage);
+        reports.push(`${player.displayName} -${damage} HP`);
+      } else {
+        const before = state.hp;
+        state.hp = Math.min(state.maxHp, state.hp + amount);
+        reports.push(`${player.displayName} +${state.hp - before} HP`);
+      }
+    }
   }
-  const event = { id: `world-${turn}-${now}`, turn, level, title, description, affectedTeam: kind === 0 || kind === 2 ? undefined : team };
+  const description = `Both teams are affected with a separate random result for every living player: ${reports.join('; ')}.`;
+  const event = { id: `world-${turn}-${now}`, turn, level, title, description };
   game.worldEvent = event;
   game.history.push({ id: `${event.id}-history`, turn, kind: 'world', actorName: 'World Event', message: `World Event · Level ${level} — ${title}: ${description}`, success: true, createdAt: now });
 }
@@ -366,6 +394,13 @@ function handleMessage(socket, rawMessage) {
     }
     if (!message.game?.adventure) return reject(socket, 'The turn update is incomplete.');
     if ((room.game.playerStates[activePlayer.id]?.hp || 0) <= 0) return reject(socket, 'A defeated player cannot play a card.');
+    for (const [id, state] of Object.entries(room.game.playerStates || {})) {
+      if (id !== activePlayer.id && message.game.playerStates?.[id]) {
+        message.game.playerStates[id].hand = [...(state.hand || [])];
+        message.game.playerStates[id].drawPile = [...(state.drawPile || [])];
+        message.game.playerStates[id].discardPile = [...(state.discardPile || [])];
+      }
+    }
     message.game.adventure.target = randomDiceTarget();
     if (message.game.outcome?.kind === 'card') message.game.outcome.nextTarget = message.game.adventure.target;
     room.game = message.game;
@@ -448,7 +483,8 @@ async function handleRoomApi(request, response) {
   response.setHeader('Content-Type', 'application/json; charset=utf-8');
   response.setHeader('Cache-Control', 'no-store');
   if (request.method === 'GET') {
-    response.end(JSON.stringify({ state: publicState() }));
+    const viewerId = new URL(request.url || '/', `http://${request.headers.host}`).searchParams.get('sessionId') || '';
+    response.end(JSON.stringify({ state: publicState(viewerId) }));
     return;
   }
   if (request.method !== 'POST') {
@@ -485,7 +521,7 @@ async function handleRoomApi(request, response) {
   handleMessage(requestPeer, Buffer.from(JSON.stringify(message)));
   peers.delete(requestPeer);
   const error = result?.type === 'error' ? result.message : null;
-  response.writeHead(error ? 400 : 200).end(JSON.stringify({ state: publicState(), error }));
+  response.writeHead(error ? 400 : 200).end(JSON.stringify({ state: publicState(String(message.sessionId || '')), error }));
 }
 
 if (app) await app.prepare();

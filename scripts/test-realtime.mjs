@@ -143,10 +143,14 @@ try {
     worldEvent: null
   };
   second.send({ type: "start", game });
-  await Promise.all([
+  const [firstStarted, secondStarted] = await Promise.all([
     first.waitFor((state) => state.phase === "game"),
     second.waitFor((state) => state.phase === "game")
   ]);
+  assert.deepEqual(firstStarted.game.playerStates[firstId].hand, [`card-${firstId}`], "a WebSocket client receives its own hand");
+  assert.deepEqual(firstStarted.game.playerStates[secondId].hand, [], "a WebSocket client cannot receive another player's hand");
+  assert.deepEqual(secondStarted.game.playerStates[secondId].hand, [`card-${secondId}`], "each WebSocket view is personalized");
+  assert.deepEqual(secondStarted.game.playerStates[firstId].hand, [], "other draw and hand data stays private");
 
   const timedOut = await first.waitFor((state) => state.game?.completedTurns === 1);
   assert(Number.isFinite(timedOut.serverNow), "room broadcasts include authoritative server time");
@@ -159,10 +163,11 @@ try {
   assert.deepEqual(timedOut.game.playerStates[firstId].hand, [`card-${firstId}`], "automatic skip preserves the hand");
   assert.deepEqual(timedOut.game.playerStates[firstId].drawPile, [], "automatic skip preserves the draw pile");
   assert.deepEqual(timedOut.game.playerStates[firstId].discardPile, [], "automatic skip preserves the discard pile");
+  assert.deepEqual(timedOut.game.playerStates[secondId].hand, [], "automatic broadcasts keep the next player's hand private");
   assert.equal(timedOut.game.turnOrder[0], secondId);
 
   second.send({ type: "skip-turn", sessionId: secondId });
-  const manuallySkipped = await first.waitFor((state) => state.game?.completedTurns === 2);
+  const manuallySkipped = await second.waitFor((state) => state.game?.completedTurns === 2);
   assert.equal(manuallySkipped.game.outcome.kind, "skip");
   assert.equal(manuallySkipped.game.history.at(-1).kind, "skip");
   assert.deepEqual(manuallySkipped.game.playerStates[secondId].hand, [`card-${secondId}`], "manual skip preserves the hand");
@@ -181,7 +186,7 @@ try {
   second.send({ type: "leave-game", sessionId: secondId });
   await first.waitFor((state) => !state.players.some((item) => item.id === secondId));
 
-  console.log("Realtime test passed: shared lobby, synchronized timeout, preserved cards, manual skip, player removal, end game, and leave game.");
+  console.log("Realtime test passed: private hands, synchronized timeout, preserved cards, manual skip, player removal, end game, and leave game.");
 } finally {
   first.send({ type: "return:lobby" });
   await first.waitFor((state) => state.phase === "lobby").catch(() => {});

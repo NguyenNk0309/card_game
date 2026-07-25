@@ -93,7 +93,7 @@ export function useRoomSocket() {
     pollInFlightRef.current = true;
     let nextDelay = document.visibilityState === "hidden" ? HIDDEN_POLL_DELAY_MS : BASE_POLL_DELAY_MS;
     try {
-      const response = await fetch("/api/room", { cache: "no-store" });
+      const response = await fetch(`/api/room?sessionId=${encodeURIComponent(sessionIdRef.current)}`, { cache: "no-store" });
       if (response.status === 429) {
         pollDelayRef.current = Math.min(MAX_POLL_DELAY_MS, Math.max(8000, pollDelayRef.current * 2));
         nextDelay = retryDelay(response, pollDelayRef.current);

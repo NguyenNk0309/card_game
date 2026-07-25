@@ -28,8 +28,10 @@ async function command(sessionId, message) {
   return result.state;
 }
 
-async function readRoom() {
-  const response = await fetch(roomUrl, { cache: "no-store" });
+async function readRoom(sessionId = firstId) {
+  const url = new URL(roomUrl);
+  url.searchParams.set("sessionId", sessionId);
+  const response = await fetch(url, { cache: "no-store" });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || `Room request failed with ${response.status}.`);
   return result.state;
@@ -86,6 +88,11 @@ try {
   };
   const started = await command(secondId, { type: "start", game });
   assert.equal(started.phase, "game");
+  assert.deepEqual(started.game.playerStates[secondId].hand, [`card-${secondId}`], "a polling client receives its own hand");
+  assert.deepEqual(started.game.playerStates[firstId].hand, [], "a polling client cannot receive another player's hand");
+  const firstStarted = await readRoom(firstId);
+  assert.deepEqual(firstStarted.game.playerStates[firstId].hand, [`card-${firstId}`], "polling responses are personalized by session");
+  assert.deepEqual(firstStarted.game.playerStates[secondId].hand, [], "other card zones remain private during polling");
   const timedOut = await waitForRoom((state) => state.game?.completedTurns === 1);
   assert(Number.isFinite(timedOut.serverNow), "room responses include authoritative server time");
   assert.equal(timedOut.game.completedTurns, 1);
@@ -118,7 +125,7 @@ try {
   assert.equal(ended.game.ended, true);
   const left = await command(secondId, { type: "leave-game" });
   assert(!left.players.some((item) => item.id === secondId));
-  console.log("Polling test passed: shared lobby, synchronized timeout, preserved cards, manual skip, player removal, end game, and leave game.");
+  console.log("Polling test passed: private hands, synchronized timeout, preserved cards, manual skip, player removal, end game, and leave game.");
 } finally {
   await command(firstId, { type: "return:lobby" }).catch(() => {});
   await command(firstId, { type: "leave" }).catch(() => {});

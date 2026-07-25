@@ -8,12 +8,13 @@ const teamMeta: Record<TeamId, { name: string; icon: typeof Shield }> = {
   ember: { name: "Embercourt", icon: Swords }
 };
 
-export function PartyRail({ players, activePlayerId, game, localSessionId, onRemovePlayer }: {
+export function PartyRail({ players, activePlayerId, game, localSessionId, onRemovePlayer, onInspectPlayer }: {
   players: PlayerSession[];
   activePlayerId: string;
   game?: SyncedGameState | null;
   localSessionId?: string;
   onRemovePlayer?: (id: string) => void;
+  onInspectPlayer?: (id: string) => void;
 }) {
   return <aside className="party-rail">
     <div className="rail-heading"><div><span className="eyebrow">WARRIORS</span><strong>{players.length}/10 players</strong></div><span className="all-ready-mark"><Check size={13}/> Battle active</span></div>
@@ -31,7 +32,7 @@ export function PartyRail({ players, activePlayerId, game, localSessionId, onRem
           const active = !dead && player.id === activePlayerId;
           const hasBuff = Boolean(state && (state.attackBuff || state.diceBuff || state.dicePenalty));
           return <article className={`hero-row ${active ? "is-active" : ""} ${dead ? "is-dead" : ""} ${player.id === localSessionId ? "is-you" : ""}`} key={player.id}>
-            <div className="portrait" style={{ "--hero-color": hero.color } as React.CSSProperties}>{hero.initials}{index === 0 && <Crown size={11} className="leader-mark"/>}</div>
+            <button className="portrait-button" onClick={() => onInspectPlayer?.(player.id)} aria-label={`View ${player.displayName}'s character`}><div className="portrait" style={{ "--hero-color": hero.color } as React.CSSProperties}>{hero.initials}{index === 0 && <Crown size={11} className="leader-mark"/>}</div></button>
             <div className="hero-copy">
               <div className="hero-name"><strong>{player.displayName}</strong><span className="hero-name-actions">{dead ? <em>DEFEATED</em> : active ? <em>TURN</em> : null}{localSessionId && player.id !== localSessionId && onRemovePlayer && <button className="rail-remove-player" onClick={() => onRemovePlayer(player.id)} aria-label={`Remove ${player.displayName}`}><UserMinus size={12}/></button>}</span></div>
               <span>{hero.name} · {hero.className}</span>

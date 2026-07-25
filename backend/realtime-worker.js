@@ -5,8 +5,15 @@ const roomCacheKey = new Request('https://shattered-oath-room.internal/shared-st
 let durableStorage = null;
 let roomQueue = Promise.resolve();
 
-function publicState() {
-  return { players: room.players, phase: room.phase, game: room.game, revision: room.revision, serverNow: Date.now() };
+function publicState(viewerId = '') {
+  const game = room.game ? {
+    ...room.game,
+    playerStates: Object.fromEntries(Object.entries(room.game.playerStates || {}).map(([id, state]) => [
+      id,
+      id === viewerId ? state : { ...state, hand: [], drawPile: [], discardPile: [] }
+    ]))
+  } : null;
+  return { players: room.players, phase: room.phase, game, revision: room.revision, serverNow: Date.now() };
 }
 
 async function hydrateRoom() {
@@ -28,7 +35,7 @@ async function hydrateRoom() {
 async function persistRoom() {
   try {
     if (durableStorage) {
-      await durableStorage.put('shared-room', publicState());
+      await durableStorage.put('shared-room', room);
       if (room.phase === 'game' && room.game?.turnDeadline && !room.game.ended) {
         await durableStorage.setAlarm(room.game.turnDeadline);
       } else {
@@ -36,7 +43,7 @@ async function persistRoom() {
       }
       return;
     }
-    await caches.default.put(roomCacheKey, new Response(JSON.stringify(publicState()), {
+    await caches.default.put(roomCacheKey, new Response(JSON.stringify(room), {
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400' }
     }));
   } catch {
@@ -55,9 +62,8 @@ function send(socket, payload) {
 }
 
 function broadcast() {
-  const message = JSON.stringify({ type: 'state', state: publicState() });
-  for (const socket of peers.keys()) {
-    if (socket.readyState === 1) socket.send(message);
+  for (const [socket, viewerId] of peers.entries()) {
+    if (socket.readyState === 1) socket.send(JSON.stringify({ type: 'state', state: publicState(viewerId) }));
   }
 }
 
@@ -69,6 +75,7 @@ async function commitRoom() {
 
 const teamLabel = (team) => team === 'veil' ? 'Veilbound' : 'Embercourt';
 const randomDiceTarget = () => 8 + Math.floor(Math.random() * 9);
+const randomAmount = (minimum, maximum) => minimum + Math.floor(Math.random() * (maximum - minimum + 1));
 function teamTotals(game, team) { const members = room.players.filter((player) => player.hero.team === team); return { hp: members.reduce((sum, player) => sum + (game.playerStates[player.id]?.hp || 0), 0), alive: members.filter((player) => (game.playerStates[player.id]?.hp || 0) > 0).length, shield: members.reduce((sum, player) => sum + (game.playerStates[player.id]?.shield || 0), 0) }; }
 function decideWinner(game, lastTeam, finalTurn = false) {
   const veil = teamTotals(game, 'veil'); const ember = teamTotals(game, 'ember');
@@ -96,13 +103,48 @@ function rotateServerTurn(game, actorId) {
   normalizeServerTurnOrder(game);
 }
 function applyWorldEvent(game, turn, now) {
-  const level = Math.ceil(turn / 5); const team = Math.random() < 0.5 ? 'veil' : 'ember'; const living = (filterTeam) => room.players.filter((player) => (!filterTeam || player.hero.team === filterTeam) && (game.playerStates[player.id]?.hp || 0) > 0); const kind = Math.floor(Math.random() * 5); let title = 'Battlefield Quake'; let description = '';
-  if (kind === 0) { for (const player of living()) { const reduction = living(player.hero.team).some((ally) => ally.hero.classId === 'oracle') ? 1 : 0; game.playerStates[player.id].hp = Math.max(0, game.playerStates[player.id].hp - Math.max(0, level - reduction)); } description = `Every living player takes ${level} damage; a team with an Oracle reduces this by 1.`; }
-  else if (kind === 1) { title = 'Emergency Supplies'; for (const player of living(team)) game.playerStates[player.id].hp = Math.min(game.playerStates[player.id].maxHp, game.playerStates[player.id].hp + level); description = `${teamLabel(team)} restores ${level} HP to every living member.`; }
-  else if (kind === 2) { title = 'Armor-Shattering Wave'; for (const state of Object.values(game.playerStates)) state.shield = Math.max(0, (state.shield || 0) - level * 2); description = `Every player loses up to ${level * 2} shield.`; }
-  else if (kind === 3) { title = 'Furious Momentum'; for (const player of living(team)) game.playerStates[player.id].attackBuff = (game.playerStates[player.id].attackBuff || 0) + level; description = `${teamLabel(team)} gains +${level} damage on each member's next attack.`; }
-  else { title = 'Unclaimed Arrow Storm'; const reduction = living(team).some((ally) => ally.hero.classId === 'oracle') ? 1 : 0; for (const player of living(team)) game.playerStates[player.id].hp = Math.max(0, game.playerStates[player.id].hp - Math.max(0, level + 1 - reduction)); description = `${teamLabel(team)} takes ${level + 1} surprise damage; an Oracle reduces this by 1.`; }
-  const event = { id: `world-${turn}-${now}`, turn, level, title, description, affectedTeam: kind === 0 || kind === 2 ? undefined : team }; game.worldEvent = event; game.history.push({ id: `${event.id}-history`, turn, kind: 'world', actorName: 'World Event', message: `World Event · Level ${level} — ${title}: ${description}`, success: true, createdAt: now });
+  const level = Math.ceil(turn / 5);
+  const living = (filterTeam) => room.players.filter((player) => (!filterTeam || player.hero.team === filterTeam) && (game.playerStates[player.id]?.hp || 0) > 0);
+  const titles = ['Chaos Convergence', 'Fractured Fate', 'Crimson World Pulse', 'Unstable Arena Surge'];
+  const title = titles[Math.floor(Math.random() * titles.length)];
+  const reports = [];
+  for (const player of living()) {
+    const kind = Math.floor(Math.random() * 5);
+    const state = game.playerStates[player.id];
+    const oracleReduction = living(player.hero.team).some((ally) => ally.hero.classId === 'oracle') ? 1 : 0;
+    if (kind === 0) {
+      const damage = Math.max(0, randomAmount(1, level + 1) - oracleReduction);
+      state.hp = Math.max(0, state.hp - damage);
+      reports.push(`${player.displayName} -${damage} HP`);
+    } else if (kind === 1) {
+      const before = state.hp;
+      state.hp = Math.min(state.maxHp, state.hp + randomAmount(1, level + 1));
+      reports.push(`${player.displayName} +${state.hp - before} HP`);
+    } else if (kind === 2) {
+      const lost = Math.min(state.shield || 0, randomAmount(1, level * 2));
+      state.shield -= lost;
+      reports.push(`${player.displayName} -${lost} shield`);
+    } else if (kind === 3) {
+      const bonus = randomAmount(1, level);
+      state.attackBuff = (state.attackBuff || 0) + bonus;
+      reports.push(`${player.displayName} +${bonus} next-attack damage`);
+    } else {
+      const amount = randomAmount(1, level + 1);
+      if (Math.random() < 0.5) {
+        const damage = Math.max(0, amount - oracleReduction);
+        state.hp = Math.max(0, state.hp - damage);
+        reports.push(`${player.displayName} -${damage} HP`);
+      } else {
+        const before = state.hp;
+        state.hp = Math.min(state.maxHp, state.hp + amount);
+        reports.push(`${player.displayName} +${state.hp - before} HP`);
+      }
+    }
+  }
+  const description = `Both teams are affected with a separate random result for every living player: ${reports.join('; ')}.`;
+  const event = { id: `world-${turn}-${now}`, turn, level, title, description };
+  game.worldEvent = event;
+  game.history.push({ id: `${event.id}-history`, turn, kind: 'world', actorName: 'World Event', message: `World Event · Level ${level} — ${title}: ${description}`, success: true, createdAt: now });
 }
 
 function removePlayerFromRoom(targetId, removedBy) {
@@ -254,6 +296,13 @@ async function applyCommand(ownerId, message) {
     if (!activePlayer || ownerId !== activePlayer.id) return 'Only the current player can resolve this turn.';
     if (!message.game?.adventure) return 'The turn update is incomplete.';
     if ((room.game.playerStates[activePlayer.id]?.hp || 0) <= 0) return 'A defeated player cannot play a card.';
+    for (const [id, state] of Object.entries(room.game.playerStates || {})) {
+      if (id !== activePlayer.id && message.game.playerStates?.[id]) {
+        message.game.playerStates[id].hand = [...(state.hand || [])];
+        message.game.playerStates[id].drawPile = [...(state.drawPile || [])];
+        message.game.playerStates[id].discardPile = [...(state.discardPile || [])];
+      }
+    }
     message.game.adventure.target = randomDiceTarget();
     if (message.game.outcome?.kind === 'card') message.game.outcome.nextTarget = message.game.adventure.target;
     room.game = message.game;
@@ -344,7 +393,7 @@ async function handleSocketMessage(socket, text) {
   }
   if (message.type === 'hello') {
     peers.set(socket, String(message.sessionId || ''));
-    send(socket, { type: 'state', state: publicState() });
+    send(socket, { type: 'state', state: publicState(String(message.sessionId || '')) });
     return;
   }
   await hydrateRoom();
@@ -390,17 +439,20 @@ function withAssetHeaders(response, pathname) {
 async function handleRoomApi(request) {
   await hydrateRoom();
   await advanceTimedOutTurn();
-  if (request.method === 'GET') return json({ state: publicState() });
+  const requestUrl = new URL(request.url);
+  const viewerId = requestUrl.searchParams.get('sessionId') || '';
+  if (request.method === 'GET') return json({ state: publicState(viewerId) });
   if (request.method !== 'POST') return json({ error: 'Method not allowed.' }, 405);
 
   let message;
   try {
     message = await request.json();
   } catch {
-    return json({ error: 'The room received an invalid message.', state: publicState() }, 400);
+    return json({ error: 'The room received an invalid message.', state: publicState(viewerId) }, 400);
   }
-  const error = await applyCommand(String(message.sessionId || ''), message);
-  return json({ state: publicState(), error: error || null }, error ? 400 : 200);
+  const requesterId = String(message.sessionId || '');
+  const error = await applyCommand(requesterId, message);
+  return json({ state: publicState(requesterId), error: error || null }, error ? 400 : 200);
 }
 
 async function handleRoomRequest(request) {

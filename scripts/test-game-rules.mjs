@@ -163,6 +163,28 @@ assert.equal(emptyResult.playerStates[first.id].shield, emptyGame.playerStates[f
 assert(emptyResult.playerStates[first.id].discardPile.includes(emptyCard.id), "played no-effect card still cycles normally");
 assert.match(emptyResult.history.at(-1).message, /had no effect/);
 
+const cycleGame = engine.createInitialGame([first, second], engine.createAdventure("CYCLE"), 30);
+const guard = first.skillDeck.find((card) => card.effect === "guard");
+const heal = first.skillDeck.find((card) => card.effect === "heal");
+cycleGame.playerStates[first.id].hand = [attack.id, guard.id, heal.id];
+cycleGame.playerStates[first.id].drawPile = [emptyCard.id];
+cycleGame.playerStates[first.id].discardPile = [];
+const cycled = engine.resolveCardTurn(cycleGame, [first, second], attack.id, second.id, 20);
+assert(cycled.playerStates[first.id].hand.includes(guard.id) && cycled.playerStates[first.id].hand.includes(heal.id), "unplayed hand cards stay in hand");
+assert(cycled.playerStates[first.id].hand.includes(emptyCard.id), "a replacement is drawn only after a card is played");
+assert.deepEqual(cycled.playerStates[first.id].discardPile, [attack.id], "only the played card enters discard");
+
+cycled.playerStates[first.id].hand = [guard.id, heal.id];
+cycled.playerStates[first.id].drawPile = [];
+cycled.playerStates[first.id].discardPile = [attack.id, emptyCard.id];
+cycled.activePlayerIndex = 0;
+cycled.turnOrder = [first.id, second.id];
+const reshuffled = engine.resolveCardTurn(cycled, [first, second], guard.id, first.id, 20);
+assert(reshuffled.playerStates[first.id].hand.includes(heal.id), "the unplayed card remains in hand during a reshuffle");
+assert.equal(reshuffled.playerStates[first.id].hand.length, 2, "one replacement is drawn from the reshuffled discard");
+assert.equal(reshuffled.playerStates[first.id].drawPile.length, 2, "remaining reshuffled cards stay in the draw pile");
+assert.equal(reshuffled.playerStates[first.id].discardPile.length, 0, "discard clears only when it is reshuffled into the draw pile");
+
 const eventGame = engine.createInitialGame([first, second], engine.createAdventure("EVENT"), 30);
 eventGame.completedTurns = 4;
 eventGame.playerStates[first.id].hand = [attack.id];
@@ -170,6 +192,9 @@ const eventTurn = engine.resolveCardTurn(eventGame, [first, second], attack.id, 
 assert.equal(eventTurn.worldEvent?.turn, 5);
 assert(eventTurn.history.some((entry) => entry.kind === "world"));
 assert.match(eventTurn.history.find((entry) => entry.kind === "world").message, /World Event · Level 1/);
+assert.match(eventTurn.worldEvent.description, /Both teams are affected/);
+assert.match(eventTurn.worldEvent.description, /An/);
+assert.match(eventTurn.worldEvent.description, /Binh/);
 
 const finalGame = engine.createInitialGame([first, second], engine.createAdventure("FINAL"), 30);
 finalGame.completedTurns = 29;
