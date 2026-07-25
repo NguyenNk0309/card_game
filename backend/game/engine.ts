@@ -3,6 +3,7 @@ import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, Hero, Pl
 
 const pick = <T,>(items: T[], index = Math.floor(Math.random() * items.length)) => items[Math.abs(index) % items.length];
 const teamName = (team: TeamId) => team === "veil" ? "Veilbound" : "Embercourt";
+export const BATTLE_TURN_SECONDS = 30;
 
 export function randomDiceTarget() {
   return 8 + Math.floor(Math.random() * 9);
@@ -59,12 +60,12 @@ export function createPlayerSession(displayName: string, seatIndex: number, hero
 
 function createRunState(player: PlayerSession): PlayerRunState {
   const drawPile = shuffle(player.skillDeck.map((card) => card.id));
-  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, hand: drawPile.splice(0, 4), drawPile, discardPile: [] };
+  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, reviveIn: 0, skipTurns: 0, borrowedCards: [], hand: drawPile.splice(0, 4), drawPile, discardPile: [] };
 }
 
-export function createInitialGame(players: PlayerSession[], adventure = createAdventure(), turnSeconds = 30): SyncedGameState {
+export function createInitialGame(players: PlayerSession[], adventure = createAdventure(), _turnSeconds = BATTLE_TURN_SECONDS): SyncedGameState {
   const now = Date.now();
-  return { adventure: { ...adventure, maxChapters: 30, target: randomDiceTarget() }, activePlayerIndex: 0, completedTurns: 0, roll: null, outcome: null, playerStates: Object.fromEntries(players.map((player) => [player.id, createRunState(player)])), turnStartedAt: now, turnDeadline: now + turnSeconds * 1000, turnSeconds, maxTurns: 30, ended: false, endReason: null, winnerTeam: null, history: [], worldEvent: null, turnOrder: players.map((player) => player.id) };
+  return { adventure: { ...adventure, maxChapters: 30, target: randomDiceTarget() }, activePlayerIndex: 0, completedTurns: 0, roll: null, outcome: null, playerStates: Object.fromEntries(players.map((player) => [player.id, createRunState(player)])), turnStartedAt: now, turnDeadline: now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, maxTurns: 30, ended: false, endReason: null, winnerTeam: null, history: [], worldEvent: null, turnOrder: players.map((player) => player.id) };
 }
 
 export function nextStory(adventure: Adventure): Adventure {
@@ -94,6 +95,62 @@ function drawReplacement(state: PlayerRunState, playedCardId: string): PlayerRun
   if (!drawPile.length) { drawPile = shuffle(discardPile); discardPile = []; }
   const replacement = drawPile.shift();
   return { ...state, drawPile, discardPile, hand: replacement ? [...hand, replacement] : hand };
+}
+
+function removeCardFromZones(state: PlayerRunState, cardId: string) {
+  state.hand = state.hand.filter((id) => id !== cardId);
+  state.drawPile = state.drawPile.filter((id) => id !== cardId);
+  state.discardPile = state.discardPile.filter((id) => id !== cardId);
+}
+
+function drawWithoutDiscard(state: PlayerRunState) {
+  let drawPile = [...state.drawPile];
+  let discardPile = [...state.discardPile];
+  if (!drawPile.length && discardPile.length) {
+    drawPile = shuffle(discardPile);
+    discardPile = [];
+  }
+  const replacement = drawPile.shift();
+  return { ...state, drawPile, discardPile, hand: replacement ? [...state.hand, replacement] : state.hand };
+}
+
+function finishPlayedCard(states: Record<string, PlayerRunState>, actorId: string, cardId: string) {
+  const actorState = states[actorId];
+  const borrowed = (actorState.borrowedCards ?? []).find((entry) => entry.cardId === cardId);
+  if (!borrowed) {
+    states[actorId] = drawReplacement(actorState, cardId);
+    return;
+  }
+  removeCardFromZones(actorState, cardId);
+  actorState.borrowedCards = actorState.borrowedCards.filter((entry) => entry.cardId !== cardId);
+  const owner = states[borrowed.ownerId];
+  if (owner && !owner.discardPile.includes(cardId)) owner.discardPile.push(cardId);
+  states[actorId] = drawWithoutDiscard(actorState);
+}
+
+function returnExpiredBorrowedCards(states: Record<string, PlayerRunState>, actorId: string, completedTurn: number) {
+  const actorState = states[actorId];
+  const returning = (actorState.borrowedCards ?? []).filter((entry) => entry.borrowedAtTurn < completedTurn);
+  for (const entry of returning) {
+    removeCardFromZones(actorState, entry.cardId);
+    const owner = states[entry.ownerId];
+    if (owner && !owner.discardPile.includes(entry.cardId)) owner.discardPile.push(entry.cardId);
+  }
+  actorState.borrowedCards = (actorState.borrowedCards ?? []).filter((entry) => entry.borrowedAtTurn >= completedTurn);
+}
+
+function tickRevival(states: Record<string, PlayerRunState>, waitingAtTurnStart: string[]) {
+  const reports: string[] = [];
+  for (const id of waitingAtTurnStart) {
+    const state = states[id];
+    if (!state || state.hp > 0 || state.reviveIn <= 0) continue;
+    state.reviveIn -= 1;
+    if (state.reviveIn === 0) {
+      state.hp = Math.max(1, Math.ceil(state.maxHp / 3));
+      reports.push(id);
+    }
+  }
+  return reports;
 }
 
 export function findNextLivingPlayerIndex(players: PlayerSession[], states: Record<string, PlayerRunState>, currentIndex: number) {
@@ -203,10 +260,20 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const actor = players.find((player) => player.id === turnOrder[0]) ?? players[game.activePlayerIndex];
   const actorIndex = players.findIndex((player) => player.id === actor?.id);
   const actorState = actor && game.playerStates[actor.id];
-  const card = actor?.skillDeck.find((item) => item.id === cardId);
+  const card = players.flatMap((player) => player.skillDeck).find((item) => item.id === cardId);
   if (!actor || !actorState || actorState.hp <= 0 || !card || !actorState.hand.includes(card.id) || game.ended) return game;
 
-  const states = Object.fromEntries(Object.entries(game.playerStates).map(([id, state]) => [id, { ...state, hand: [...state.hand], drawPile: [...state.drawPile], discardPile: [...state.discardPile] }]));
+  const states = Object.fromEntries(Object.entries(game.playerStates).map(([id, state]) => [id, {
+    ...state,
+    reviveIn: state.reviveIn ?? 0,
+    skipTurns: state.skipTurns ?? 0,
+    borrowedCards: [...(state.borrowedCards ?? [])],
+    hand: [...state.hand],
+    drawPile: [...state.drawPile],
+    discardPile: [...state.discardPile]
+  }]));
+  const turn = game.completedTurns + 1;
+  const revivingAtTurnStart = Object.keys(states).filter((id) => states[id].hp <= 0 && states[id].reviveIn > 0);
   const diceBuff = actorState.diceBuff ?? 0;
   const dicePenalty = actorState.dicePenalty ?? 0;
   const passiveDiceBonus = getPassiveDiceBonus(actor, card, actorState);
@@ -215,10 +282,20 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const success = total >= game.adventure.target;
   const enemies = living(players, states).filter((player) => player.hero.team !== actor.hero.team);
   const allies = living(players, states, actor.hero.team);
-  const selectedEnemy = enemies.find((player) => player.id === targetId) ?? enemies[0];
+  const defeatedAllies = players.filter((player) => player.hero.team === actor.hero.team && (states[player.id]?.hp ?? 0) <= 0);
+  const selectedEnemy = enemies.find((player) => player.id === targetId);
   const selectableAllies = card.supportType === "advance-ally" ? allies.filter((player) => player.id !== actor.id) : allies;
-  const selectedAlly = selectableAllies.find((player) => player.id === targetId) ?? selectableAllies[0] ?? actor;
-  const targets = card.target === "all-enemies" ? enemies : card.target === "all-allies" ? allies : card.target === "self" ? [actor] : card.target === "ally" ? [selectedAlly] : selectedEnemy ? [selectedEnemy] : [];
+  const selectedAlly = selectableAllies.find((player) => player.id === targetId);
+  const selectedDefeatedAlly = defeatedAllies.find((player) => player.id === targetId);
+  const selectedPlayer = players.find((player) => player.id === targetId);
+  const targets = card.target === "all-enemies" ? enemies
+    : card.target === "all-allies" ? allies
+      : card.target === "self" ? [actor]
+        : card.target === "ally" ? (selectedAlly ? [selectedAlly] : [])
+          : card.target === "defeated-ally" ? (selectedDefeatedAlly ? [selectedDefeatedAlly] : [])
+            : card.target === "player" ? (selectedPlayer ? [selectedPlayer] : [])
+              : selectedEnemy ? [selectedEnemy] : [];
+  const needsTarget = ["ally", "defeated-ally", "enemy", "player"].includes(card.target);
   states[actor.id].diceBuff = 0;
   states[actor.id].dicePenalty = 0;
   let amount = 0;
@@ -226,7 +303,9 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   let detail = `${actor.displayName} used ${card.name} but did not meet target ${game.adventure.target}.`;
 
   if (success) {
-    if (card.effect === "damage" || card.effect === "aoe") {
+    if (needsTarget && !targets.length) {
+      detail = `${actor.displayName} succeeded with ${card.name}, but no valid target was available. The card had no effect.`;
+    } else if (card.effect === "damage" || card.effect === "aoe") {
       let passive = 0;
       if (actor.hero.classId === "ranger" && card.effect === "damage") passive += 1;
       if (actor.hero.classId === "mage" && card.effect === "aoe") passive += 1;
@@ -245,22 +324,27 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         if (state.hp === 0) defeated = true;
         reports.push(`${target.displayName} lost ${damage} HP${blocked ? ` (${blocked} blocked by shield)` : ""}${state.hp === 0 ? " and was defeated" : ""}`);
       }
-      states[actor.id].attackBuff = 0;
-      detail = reports.join("; ") + ".";
+      if (targets.length) states[actor.id].attackBuff = 0;
+      detail = reports.length ? `${reports.join("; ")}.` : `${actor.displayName}'s attack had no valid target and no effect.`;
     } else if (card.effect === "heal") {
-      const target = targets[0] ?? actor;
-      const power = card.value + (actor.hero.classId === "healer" ? 2 : 0);
-      const before = states[target.id].hp;
-      states[target.id].hp = Math.min(states[target.id].maxHp, states[target.id].hp + power);
-      amount = states[target.id].hp - before;
-      detail = `${actor.displayName} restored ${amount} HP to ${target.displayName}.`;
+      const target = targets[0];
+      if (target) {
+        const power = card.value + (actor.hero.classId === "healer" ? 2 : 0);
+        const before = states[target.id].hp;
+        states[target.id].hp = Math.min(states[target.id].maxHp, states[target.id].hp + power);
+        amount = states[target.id].hp - before;
+        detail = `${actor.displayName} restored ${amount} HP to ${target.displayName}.`;
+      }
     } else if (card.effect === "guard") {
-      const target = targets[0] ?? actor;
-      amount = card.value + (actor.hero.classId === "tank" ? 2 : 0);
-      states[target.id].shield += amount;
-      detail = `${actor.displayName} granted ${amount} shield to ${target.displayName}.`;
+      const target = targets[0];
+      if (target) {
+        amount = card.value + (actor.hero.classId === "tank" ? 2 : 0);
+        states[target.id].shield += amount;
+        detail = `${actor.displayName} granted ${amount} shield to ${target.displayName}.`;
+      }
     } else if (card.effect === "support") {
-      amount = card.value + (["support", "warden"].includes(actor.hero.classId) ? 1 : 0);
+      const scalable = ["attack", "shield", "healing", "dice", "enemy-dice"].includes(card.supportType ?? "");
+      amount = card.value + (scalable && ["support", "warden"].includes(actor.hero.classId) ? 1 : 0);
       const reports: string[] = [];
       const supportTargets = card.target === "all-allies" ? allies : targets;
       for (const target of supportTargets) {
@@ -281,13 +365,52 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
           reports.push(`${target.displayName} lost ${removedShield} shield and all attack and d20 buffs`);
         }
       }
-      if (card.supportType === "advance-ally") turnOrder = moveTurnTarget(turnOrder, selectedAlly.id, "advance");
+      if (card.supportType === "advance-ally" && selectedAlly) turnOrder = moveTurnTarget(turnOrder, selectedAlly.id, "advance");
+      if (card.supportType === "revive" && selectedDefeatedAlly) {
+        states[selectedDefeatedAlly.id].reviveIn = Math.max(1, card.value);
+        reports.push(`${selectedDefeatedAlly.displayName} will revive in ${card.value} completed turns`);
+      }
+      if (card.supportType === "skip-enemy" && selectedEnemy) {
+        states[selectedEnemy.id].skipTurns = (states[selectedEnemy.id].skipTurns ?? 0) + 1;
+        reports.push(`${selectedEnemy.displayName}'s next turn will be skipped`);
+      }
+      if (card.supportType === "purge-card" && selectedPlayer) {
+        const selectedState = states[selectedPlayer.id];
+        const zoneIds = [...selectedState.hand, ...selectedState.drawPile, ...selectedState.discardPile];
+        const removingBeneficially = selectedPlayer.hero.team === actor.hero.team;
+        const candidates = zoneIds.filter((id) => {
+          const candidate = selectedPlayer.skillDeck.find((item) => item.id === id);
+          return Boolean(candidate && !candidate.unique && (removingBeneficially ? candidate.effect === "none" : candidate.effect !== "none"));
+        });
+        const removedId = candidates.length ? pick(candidates) : "";
+        if (removedId) {
+          removeCardFromZones(selectedState, removedId);
+          const removedCard = selectedPlayer.skillDeck.find((item) => item.id === removedId);
+          reports.push(`${removedCard?.name ?? "one common card"} was removed from ${selectedPlayer.displayName}'s deck for this battle`);
+        }
+      }
+      if (card.supportType === "steal-card" && selectedEnemy) {
+        const enemyState = states[selectedEnemy.id];
+        const candidates = enemyState.hand.filter((id) => {
+          const candidate = selectedEnemy.skillDeck.find((item) => item.id === id);
+          return Boolean(candidate && !candidate.unique);
+        });
+        const stolenId = candidates.length ? pick(candidates) : "";
+        if (stolenId) {
+          enemyState.hand = enemyState.hand.filter((id) => id !== stolenId);
+          states[actor.id].hand.push(stolenId);
+          states[actor.id].borrowedCards.push({ cardId: stolenId, ownerId: selectedEnemy.id, borrowedAtTurn: turn });
+          reports.push(`${actor.displayName} borrowed one hidden common card from ${selectedEnemy.displayName}`);
+        }
+      }
       if (card.supportType === "healing") detail = `${actor.displayName} healed the team: ${reports.join(", ")}.`;
       else if (card.supportType === "enemy-dice") detail = `${actor.displayName} gave ${selectedEnemy?.displayName} -${amount} to their next d20 result.`;
       else if (card.supportType === "delay-enemy") detail = `${actor.displayName} moved ${selectedEnemy?.displayName}'s turn to the end of the queue.`;
-      else if (card.supportType === "advance-ally") detail = `${actor.displayName} moved ${selectedAlly.displayName} to the next position in the turn queue.`;
+      else if (card.supportType === "advance-ally") detail = `${actor.displayName} moved ${selectedAlly?.displayName} to the next position in the turn queue.`;
       else if (card.supportType === "dispel-enemy") detail = `${actor.displayName} dispelled ${selectedEnemy?.displayName}: ${reports.join(", ")}.`;
-      else detail = `${actor.displayName} granted +${amount} ${card.supportType === "attack" ? "next-attack damage" : card.supportType === "shield" ? "shield" : "to the next d20 result"} to every living ally.`;
+      else if (["revive", "skip-enemy", "purge-card", "steal-card"].includes(card.supportType ?? "")) detail = reports.length ? `${actor.displayName} used ${card.name}: ${reports.join(", ")}.` : `${actor.displayName} succeeded with ${card.name}, but no eligible card or character was available. The card had no effect.`;
+      else if (card.target === "all-allies") detail = `${actor.displayName} granted +${amount} ${card.supportType === "attack" ? "next-attack damage" : card.supportType === "shield" ? "shield" : "to the next d20 result"} to every living ally.`;
+      else detail = `${actor.displayName} granted ${targets[0]?.displayName ?? "the target"} +${amount} ${card.supportType === "attack" ? "next-attack damage" : card.supportType === "shield" ? "shield" : "to the next d20 result"}.`;
     } else if (card.effect === "none") {
       detail = `${actor.displayName} played ${card.name}. The card had no effect.`;
     }
@@ -313,8 +436,13 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     detail = `${detail} ${failureDetail}`;
   }
 
-  states[actor.id] = drawReplacement(states[actor.id], card.id);
-  const turn = game.completedTurns + 1;
+  finishPlayedCard(states, actor.id, card.id);
+  returnExpiredBorrowedCards(states, actor.id, turn);
+  const revivedIds = tickRevival(states, revivingAtTurnStart);
+  if (revivedIds.length) {
+    const revivedNames = revivedIds.map((id) => players.find((player) => player.id === id)?.displayName ?? "An ally");
+    detail = `${detail} ${revivedNames.join(", ")} revived with one-third HP.`;
+  }
   let adventure = { ...game.adventure, chapter: Math.min(30, turn + 1), target: randomDiceTarget() };
   if (success && (card.effect === "damage" || card.effect === "aoe")) adventure = { ...adventure, veilInfluence: adventure.veilInfluence + (actor.hero.team === "veil" ? amount : 0), emberInfluence: adventure.emberInfluence + (actor.hero.team === "ember" ? amount : 0) };
   const rollSummary = `d20 ${roll} + bonus ${totalBonus}${dicePenalty ? ` - penalty ${dicePenalty}` : ""} = ${total}; target ${game.adventure.target}`;
@@ -334,7 +462,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const now = Date.now();
   const veilTotal = totals(players, states, "veil").hp;
   const emberTotal = totals(players, states, "ember").hp;
-  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, roll, outcome: { kind: "card", success, total, target: game.adventure.target, label: `${actor.displayName} used ${card.name}`, detail, actorName: actor.displayName, cardName: card.name, cardType: card.type, effect: card.effect, targetName: targets.map((target) => target.displayName).join(", "), roll, bonus: totalBonus, diceBuff, dicePenalty, amount, defeated, nextTarget: adventure.target, failureDetail }, playerStates: states, history, worldEvent, turnStartedAt: now, turnDeadline: ended ? 0 : now + game.turnSeconds * 1000, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} wins. Total HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder };
+  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, roll, outcome: { kind: "card", success, total, target: game.adventure.target, label: `${actor.displayName} used ${card.name}`, detail, actorName: actor.displayName, cardName: card.name, cardType: card.type, effect: card.effect, supportType: card.supportType, targetIds: targets.map((target) => target.id), targetName: targets.map((target) => target.displayName).join(", "), roll, bonus: totalBonus, diceBuff, dicePenalty, amount, defeated, nextTarget: adventure.target, failureDetail }, playerStates: states, history, worldEvent, turnStartedAt: now, turnDeadline: ended ? 0 : now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} wins. Total HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder };
 }
 
 export function resolveAction(adventure: Adventure, cardId: string, roll: number, _advanceChapter = true, availableCards: ActionCard[] = ACTION_CARDS) {

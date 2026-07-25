@@ -21,7 +21,7 @@ for (const option of options) {
   assert.equal(option.skillDeck.filter((card) => !card.unique).length, 10);
   assert(option.skillDeck.every((card) => card.bonus === 0), "cards cannot carry a built-in d20 bonus");
   assert(option.skillDeck.every((card) => !("risk" in card) && card.effect !== "check"));
-  assert(option.skillDeck.filter((card) => card.unique).every((card) => ["self-damage", "team-damage"].includes(card.failureEffect) && card.failureValue > 0), "every special card needs an owner/team failure penalty");
+  assert(option.skillDeck.filter((card) => card.unique).every((card) => ["self-damage", "team-damage", "lose-shield"].includes(card.failureEffect) && card.failureValue > 0), "every special card needs a balanced owner/team failure penalty");
   const common = option.skillDeck.filter((card) => !card.unique);
   assert(common.every((card) => !card.failureEffect && !card.failureValue), "common cards cannot have failure penalties");
   assert.equal(common.filter((card) => card.effect === "damage").length, 2, "common deck needs two attacks");
@@ -30,12 +30,23 @@ for (const option of options) {
   assert.equal(common.filter((card) => card.effect === "none" && card.value === 0).length, 5, "common deck needs five no-effect cards");
 }
 const supportTypes = new Set(options.flatMap((option) => option.skillDeck.filter((card) => card.effect === "support").map((card) => card.supportType)));
-assert.deepEqual([...supportTypes].sort(), ["advance-ally", "attack", "delay-enemy", "dice", "dispel-enemy", "enemy-dice", "healing", "shield"]);
+assert.deepEqual([...supportTypes].sort(), ["advance-ally", "attack", "dice", "dispel-enemy", "enemy-dice", "healing", "purge-card", "revive", "shield", "skip-enemy", "steal-card"]);
+for (const classId of ["warden", "healer", "tank", "oracle", "support"]) {
+  const option = options.find((candidate) => candidate.hero.classId === classId);
+  assert.equal(option.skillDeck.filter((card) => card.unique && ["damage", "aoe"].includes(card.effect)).length, 0, `${classId} must focus on its non-damage team role`);
+}
+for (const classId of ["ranger", "mage", "assassin", "duelist", "berserker"]) {
+  const option = options.find((candidate) => candidate.hero.classId === classId);
+  assert.equal(option.skillDeck.filter((card) => card.unique && ["damage", "aoe"].includes(card.effect)).length, 2, `${classId} must have exactly two damage specials and one role utility special`);
+}
+assert.equal(options.find((option) => option.hero.classId === "tank").hero.maxHp, 14);
+assert.equal(options.find((option) => option.hero.classId === "mage").hero.maxHp, 7);
 
 const first = engine.createPlayerSession("An", 0, options[0].hero.name, "first");
 const second = engine.createPlayerSession("Binh", 1, options[1].hero.name, "second");
 const game = engine.createInitialGame([first, second], engine.createAdventure("RULES"), 30);
 assert.equal(game.maxTurns, 30);
+assert.equal(engine.createInitialGame([first, second], engine.createAdventure("TIMER"), 5).turnSeconds, 30, "battle turns always last exactly 30 seconds");
 assert(game.adventure.target >= 8 && game.adventure.target <= 16, "the initial target is randomly selected from the balanced target range");
 
 const attack = first.skillDeck.find((card) => card.effect === "damage");
@@ -58,7 +69,7 @@ const healCard = healer.skillDeck.find((card) => card.effect === "heal");
 healGame.playerStates[healer.id].hand = [healCard.id];
 healGame.playerStates[supportAlly.id].hp = 1;
 const allyHealed = engine.resolveCardTurn(healGame, supportParty, healCard.id, supportAlly.id, 20);
-assert.equal(allyHealed.playerStates[supportAlly.id].hp, 8, "healer restores the chosen ally with its passive bonus");
+assert.equal(allyHealed.playerStates[supportAlly.id].hp, 7, "healer restores the chosen ally with its passive bonus up to max HP");
 assert.equal(allyHealed.playerStates[healer.id].hp, healer.hero.maxHp, "ally heal does not redirect to the caster");
 
 const tank = engine.createPlayerSession("Bram", 0, "Bram Coalhand", "tank");
@@ -133,14 +144,65 @@ const advanced = engine.resolveCardTurn(commanderGame, [first, second, supportAl
 assert.equal(advanced.turnOrder[0], supportAlly.id, "chosen ally moves to the next turn");
 
 const trickster = engine.createPlayerSession("Nyx", 0, "Nyx Calder", "trickster");
-const delayedEnemy = engine.createPlayerSession("Delayed enemy", 1, "Thorne Vale", "delayed-enemy");
+const delayedEnemy = engine.createPlayerSession("Stolen enemy", 1, "Thorne Vale", "delayed-enemy");
 const tricksterAlly = engine.createPlayerSession("Nyx ally", 2, "Mira Ash", "trickster-ally");
 const delayParty = [trickster, delayedEnemy, tricksterAlly];
 const delayGame = engine.createInitialGame(delayParty, engine.createAdventure("DELAY"), 30);
-const delayCard = trickster.skillDeck.find((card) => card.supportType === "delay-enemy");
-delayGame.playerStates[trickster.id].hand = [delayCard.id];
-const delayed = engine.resolveCardTurn(delayGame, delayParty, delayCard.id, delayedEnemy.id, 20);
-assert.equal(delayed.turnOrder.at(-1), delayedEnemy.id, "chosen enemy moves to the end of the future queue");
+const stealCard = trickster.skillDeck.find((card) => card.supportType === "steal-card");
+const stolenCommon = delayedEnemy.skillDeck.find((card) => !card.unique);
+delayGame.playerStates[trickster.id].hand = [stealCard.id];
+delayGame.playerStates[delayedEnemy.id].hand = [stolenCommon.id];
+const stolen = engine.resolveCardTurn(delayGame, delayParty, stealCard.id, delayedEnemy.id, 20);
+assert(stolen.playerStates[trickster.id].hand.includes(stolenCommon.id), "assassin temporarily receives one enemy common card");
+assert(!stolen.playerStates[delayedEnemy.id].hand.includes(stolenCommon.id), "the stolen card leaves the enemy hand");
+assert.equal(stolen.playerStates[trickster.id].borrowedCards[0].ownerId, delayedEnemy.id);
+stolen.turnOrder = [trickster.id, delayedEnemy.id, tricksterAlly.id];
+stolen.activePlayerIndex = 0;
+const ownedAfterSteal = trickster.skillDeck.find((card) => stolen.playerStates[trickster.id].hand.includes(card.id));
+const returned = engine.resolveCardTurn(stolen, delayParty, ownedAfterSteal.id, delayedEnemy.id, 20);
+assert(!returned.playerStates[trickster.id].hand.includes(stolenCommon.id), "an unplayed stolen card returns after the borrower's next turn");
+assert(returned.playerStates[delayedEnemy.id].discardPile.includes(stolenCommon.id), "returned stolen cards enter their owner's discard pile");
+
+const revivalGame = engine.createInitialGame(supportParty, engine.createAdventure("REVIVE"), 30);
+const reviveCard = healer.skillDeck.find((card) => card.supportType === "revive");
+revivalGame.playerStates[supportAlly.id].hp = 0;
+revivalGame.playerStates[healer.id].hand = [reviveCard.id];
+const revivalPrepared = engine.resolveCardTurn(revivalGame, supportParty, reviveCard.id, supportAlly.id, 20);
+assert.equal(revivalPrepared.playerStates[supportAlly.id].reviveIn, 2, "revival begins with a two-turn countdown");
+const enemyAction = supportEnemy.skillDeck.find((card) => card.effect === "damage");
+revivalPrepared.turnOrder = [supportEnemy.id, healer.id];
+revivalPrepared.activePlayerIndex = 1;
+revivalPrepared.playerStates[supportEnemy.id].hand = [enemyAction.id];
+const revivalTicked = engine.resolveCardTurn(revivalPrepared, supportParty, enemyAction.id, healer.id, 20);
+assert.equal(revivalTicked.playerStates[supportAlly.id].reviveIn, 1);
+const healerCommon = healer.skillDeck.find((card) => !card.unique && card.effect === "none");
+revivalTicked.turnOrder = [healer.id, supportEnemy.id];
+revivalTicked.activePlayerIndex = 0;
+revivalTicked.playerStates[healer.id].hand = [healerCommon.id];
+const revived = engine.resolveCardTurn(revivalTicked, supportParty, healerCommon.id, healer.id, 20);
+assert.equal(revived.playerStates[supportAlly.id].reviveIn, 0);
+assert.equal(revived.playerStates[supportAlly.id].hp, Math.ceil(supportAlly.hero.maxHp / 3), "revived allies return with one-third max HP");
+
+const noTargetGame = engine.createInitialGame([healer, supportEnemy], engine.createAdventure("NO-TARGET"), 30);
+noTargetGame.playerStates[healer.id].hand = [reviveCard.id];
+const noTarget = engine.resolveCardTurn(noTargetGame, [healer, supportEnemy], reviveCard.id, undefined, 20);
+assert.match(noTarget.outcome.detail, /no valid target/i, "a targeted card succeeds with no effect when no valid target exists");
+
+const oracleControl = engine.createPlayerSession("Sable", 0, "Sable Fen", "oracle-control");
+const controlEnemy = engine.createPlayerSession("Control enemy", 1, "Kael Rook", "control-enemy");
+const controlGame = engine.createInitialGame([oracleControl, controlEnemy], engine.createAdventure("SKIP"), 30);
+const skipEnemyCard = oracleControl.skillDeck.find((card) => card.supportType === "skip-enemy");
+controlGame.playerStates[oracleControl.id].hand = [skipEnemyCard.id];
+const controlled = engine.resolveCardTurn(controlGame, [oracleControl, controlEnemy], skipEnemyCard.id, controlEnemy.id, 20);
+assert.equal(controlled.playerStates[controlEnemy.id].skipTurns, 1, "oracle can cancel exactly one upcoming enemy turn");
+
+const commanderPurge = engine.createInitialGame([commander, diceEnemy], engine.createAdventure("PURGE"), 30);
+const purgeCard = commander.skillDeck.find((card) => card.supportType === "purge-card");
+const removableBlank = commander.skillDeck.find((card) => !card.unique && card.effect === "none");
+commanderPurge.playerStates[commander.id].hand = [purgeCard.id];
+commanderPurge.playerStates[commander.id].drawPile = [removableBlank.id];
+const purged = engine.resolveCardTurn(commanderPurge, [commander, diceEnemy], purgeCard.id, commander.id, 20);
+assert(![...purged.playerStates[commander.id].hand, ...purged.playerStates[commander.id].drawPile, ...purged.playerStates[commander.id].discardPile].includes(removableBlank.id), "commander can permanently remove one no-effect common from an ally");
 
 const duelist = engine.createPlayerSession("Kael", 0, "Kael Rook", "duelist");
 const failureEnemy = engine.createPlayerSession("Failure target", 1, "Thorne Vale", "failure-enemy");

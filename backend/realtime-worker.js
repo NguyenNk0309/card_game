@@ -10,7 +10,7 @@ function publicState(viewerId = '') {
     ...room.game,
     playerStates: Object.fromEntries(Object.entries(room.game.playerStates || {}).map(([id, state]) => [
       id,
-      id === viewerId ? state : { ...state, hand: [], drawPile: [], discardPile: [] }
+      id === viewerId ? state : { ...state, hand: [], drawPile: [], discardPile: [], borrowedCards: [] }
     ]))
   } : null;
   return { players: room.players, phase: room.phase, game, revision: room.revision, serverNow: Date.now() };
@@ -76,6 +76,7 @@ async function commitRoom() {
 const teamLabel = (team) => team === 'veil' ? 'Veilbound' : 'Embercourt';
 const randomDiceTarget = () => 8 + Math.floor(Math.random() * 9);
 const randomAmount = (minimum, maximum) => minimum + Math.floor(Math.random() * (maximum - minimum + 1));
+const TURN_SECONDS = 30;
 function teamTotals(game, team) { const members = room.players.filter((player) => player.hero.team === team); return { hp: members.reduce((sum, player) => sum + (game.playerStates[player.id]?.hp || 0), 0), alive: members.filter((player) => (game.playerStates[player.id]?.hp || 0) > 0).length, shield: members.reduce((sum, player) => sum + (game.playerStates[player.id]?.shield || 0), 0) }; }
 function decideWinner(game, lastTeam, finalTurn = false) {
   const veil = teamTotals(game, 'veil'); const ember = teamTotals(game, 'ember');
@@ -101,6 +102,85 @@ function rotateServerTurn(game, actorId) {
   if ((game.playerStates[actorId]?.hp || 0) > 0 && room.players.some((player) => player.id === actorId)) order.push(actorId);
   game.turnOrder = order;
   normalizeServerTurnOrder(game);
+}
+
+function removeCardFromZones(state, cardId) {
+  state.hand = (state.hand || []).filter((id) => id !== cardId);
+  state.drawPile = (state.drawPile || []).filter((id) => id !== cardId);
+  state.discardPile = (state.discardPile || []).filter((id) => id !== cardId);
+}
+
+function returnBorrowedCards(game, actorId, completedTurn) {
+  const actorState = game.playerStates[actorId];
+  if (!actorState) return [];
+  const returning = (actorState.borrowedCards || []).filter((entry) => entry.borrowedAtTurn < completedTurn);
+  for (const entry of returning) {
+    removeCardFromZones(actorState, entry.cardId);
+    const owner = game.playerStates[entry.ownerId];
+    if (owner && !(owner.discardPile || []).includes(entry.cardId)) owner.discardPile.push(entry.cardId);
+  }
+  actorState.borrowedCards = (actorState.borrowedCards || []).filter((entry) => entry.borrowedAtTurn >= completedTurn);
+  return returning;
+}
+
+function tickPendingRevives(game) {
+  const revived = [];
+  for (const player of room.players) {
+    const state = game.playerStates[player.id];
+    if (!state || state.hp > 0 || !(state.reviveIn > 0)) continue;
+    state.reviveIn -= 1;
+    if (state.reviveIn === 0) {
+      state.hp = Math.max(1, Math.ceil(state.maxHp / 3));
+      revived.push(player.displayName);
+    }
+  }
+  return revived;
+}
+
+function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
+  if (!previousGame || !incomingGame || !actor) return;
+  returnBorrowedCards(incomingGame, actor.id, incomingGame.completedTurns);
+  const outcome = incomingGame.outcome;
+  const card = actor.skillDeck.find((item) => item.name === outcome?.cardName);
+  if (!outcome?.success || card?.effect !== 'support') return;
+  const targetName = String(outcome.targetName || '').split(', ')[0];
+  const target = room.players.find((player) => player.id === outcome.targetIds?.[0]) || room.players.find((player) => player.displayName === targetName);
+  const targetState = target && incomingGame.playerStates[target.id];
+  if (!target || !targetState) return;
+  let serverDetail = '';
+  if (card.supportType === 'purge-card' && target.id !== actor.id) {
+    const beneficial = target.hero.team === actor.hero.team;
+    const zoneIds = [...(targetState.hand || []), ...(targetState.drawPile || []), ...(targetState.discardPile || [])];
+    const candidates = zoneIds.filter((id) => {
+      const candidate = target.skillDeck.find((item) => item.id === id);
+      return candidate && !candidate.unique && (beneficial ? candidate.effect === 'none' : candidate.effect !== 'none');
+    });
+    const removedId = candidates[Math.floor(Math.random() * candidates.length)];
+    if (removedId) {
+      removeCardFromZones(targetState, removedId);
+      const removed = target.skillDeck.find((item) => item.id === removedId);
+      serverDetail = ` ${removed?.name || 'One common card'} was removed from ${target.displayName}'s deck.`;
+    }
+  }
+  if (card.supportType === 'steal-card') {
+    const candidates = (targetState.hand || []).filter((id) => {
+      const candidate = target.skillDeck.find((item) => item.id === id);
+      return candidate && !candidate.unique;
+    });
+    const stolenId = candidates[Math.floor(Math.random() * candidates.length)];
+    if (stolenId) {
+      targetState.hand = targetState.hand.filter((id) => id !== stolenId);
+      const actorState = incomingGame.playerStates[actor.id];
+      actorState.hand.push(stolenId);
+      actorState.borrowedCards = [...(actorState.borrowedCards || []), { cardId: stolenId, ownerId: target.id, borrowedAtTurn: incomingGame.completedTurns }];
+      serverDetail = ` ${actor.displayName} temporarily stole one hidden common card from ${target.displayName}.`;
+    }
+  }
+  if (serverDetail) {
+    incomingGame.outcome.detail = `${incomingGame.outcome.detail || ''}${serverDetail}`.trim();
+    const entry = incomingGame.history?.at(-1);
+    if (entry?.kind !== 'world') entry.message = `${entry.message}${serverDetail}`;
+  }
 }
 function applyWorldEvent(game, turn, now) {
   const level = Math.ceil(turn / 5);
@@ -166,7 +246,7 @@ function removePlayerFromRoom(targetId, removedBy) {
       if (wasActive && !room.game.ended) {
         const now = Date.now();
         room.game.turnStartedAt = now;
-        room.game.turnDeadline = now + (room.game.turnSeconds || 30) * 1000;
+        room.game.turnDeadline = now + TURN_SECONDS * 1000;
         room.game.outcome = {
           kind: 'system',
           success: false,
@@ -202,14 +282,17 @@ async function passCurrentTurn(kind, now = Date.now()) {
   const order = normalizeServerTurnOrder(game);
   const passingPlayer = room.players.find((player) => player.id === order[0]) || room.players[game.activePlayerIndex];
   const completedTurns = game.completedTurns + 1;
-  if (passingPlayer && game.playerStates[passingPlayer.id]) { game.playerStates[passingPlayer.id].diceBuff = 0; game.playerStates[passingPlayer.id].dicePenalty = 0; }
+  if (passingPlayer) returnBorrowedCards(game, passingPlayer.id, completedTurns);
+  const revived = tickPendingRevives(game);
   const playerName = passingPlayer?.displayName || 'Player';
   const timedOut = kind === 'timeout';
+  const forced = kind === 'forced-skip';
   game.completedTurns = completedTurns;
   game.adventure = { ...game.adventure, chapter: Math.min(30, completedTurns + 1), target: randomDiceTarget() };
-  game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled.' : 'The turn was skipped. No cards were discarded or shuffled.', actorName: playerName };
-  game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, message: timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved.` : `${playerName} manually skipped the turn. Their hand was preserved.`, success: false, createdAt: now }];
+  game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: forced ? 'A support effect cancelled this turn. Cards and active buffs were preserved.' : timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled.' : 'The turn was skipped. No cards were discarded or shuffled.', actorName: playerName };
+  game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, message: forced ? `${playerName}'s turn was cancelled by an enemy support effect. Their hand and active buffs were preserved.` : timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved.` : `${playerName} manually skipped the turn. Their hand was preserved.`, success: false, createdAt: now }];
   game.worldEvent = null;
+  if (revived.length) game.history.push({ id: `revive-${completedTurns}-${now}`, turn: completedTurns, kind: 'system', actorName: 'Returning Light', message: `${revived.join(', ')} revived with one-third HP.`, success: true, createdAt: now });
   if (completedTurns % 5 === 0) applyWorldEvent(game, completedTurns, now);
   game.history = game.history.slice(-80);
   game.roll = null;
@@ -219,8 +302,10 @@ async function passCurrentTurn(kind, now = Date.now()) {
   game.endReason = winner ? `${teamLabel(winner)} wins. Total HP: Veilbound ${veil.hp} — Embercourt ${ember.hp}.` : null;
   if (!winner && passingPlayer) rotateServerTurn(game, passingPlayer.id);
   game.turnStartedAt = now;
-  game.turnDeadline = winner ? 0 : now + (game.turnSeconds || 30) * 1000;
+  game.turnSeconds = TURN_SECONDS;
+  game.turnDeadline = winner ? 0 : now + TURN_SECONDS * 1000;
   await commitRoom();
+  if (kind !== 'forced-skip') await advanceForcedSkippedTurns(now + 1);
   return true;
 }
 
@@ -228,6 +313,22 @@ async function advanceTimedOutTurn(now = Date.now()) {
   const game = room.game;
   if (room.phase !== 'game' || !game || game.ended || !game.turnDeadline || now < game.turnDeadline || !room.players.length) return false;
   return passCurrentTurn('timeout', now);
+}
+
+async function advanceForcedSkippedTurns(now = Date.now()) {
+  let advanced = false;
+  for (let count = 0; count < room.players.length; count += 1) {
+    const game = room.game;
+    if (room.phase !== 'game' || !game || game.ended) break;
+    const order = normalizeServerTurnOrder(game);
+    const player = room.players.find((candidate) => candidate.id === order[0]);
+    const state = player && game.playerStates[player.id];
+    if (!state || !(state.skipTurns > 0)) break;
+    state.skipTurns -= 1;
+    await passCurrentTurn('forced-skip', now + count);
+    advanced = true;
+  }
+  return advanced;
 }
 
 async function applyCommand(ownerId, message) {
@@ -283,6 +384,9 @@ async function applyCommand(ownerId, message) {
     room.phase = 'game';
     room.game = message.game;
     room.game.adventure.target = randomDiceTarget();
+    room.game.turnSeconds = TURN_SECONDS;
+    room.game.turnStartedAt = Date.now();
+    room.game.turnDeadline = room.game.turnStartedAt + TURN_SECONDS * 1000;
     normalizeServerTurnOrder(room.game);
     await commitRoom();
     return null;
@@ -296,18 +400,25 @@ async function applyCommand(ownerId, message) {
     if (!activePlayer || ownerId !== activePlayer.id) return 'Only the current player can resolve this turn.';
     if (!message.game?.adventure) return 'The turn update is incomplete.';
     if ((room.game.playerStates[activePlayer.id]?.hp || 0) <= 0) return 'A defeated player cannot play a card.';
+    const previousGame = room.game;
     for (const [id, state] of Object.entries(room.game.playerStates || {})) {
       if (id !== activePlayer.id && message.game.playerStates?.[id]) {
         message.game.playerStates[id].hand = [...(state.hand || [])];
         message.game.playerStates[id].drawPile = [...(state.drawPile || [])];
         message.game.playerStates[id].discardPile = [...(state.discardPile || [])];
+        message.game.playerStates[id].borrowedCards = [...(state.borrowedCards || [])];
       }
     }
+    reconcileHiddenCardEffects(previousGame, message.game, activePlayer);
     message.game.adventure.target = randomDiceTarget();
     if (message.game.outcome?.kind === 'card') message.game.outcome.nextTarget = message.game.adventure.target;
     room.game = message.game;
+    room.game.turnSeconds = TURN_SECONDS;
+    room.game.turnStartedAt = Date.now();
+    room.game.turnDeadline = room.game.ended ? 0 : room.game.turnStartedAt + TURN_SECONDS * 1000;
     normalizeServerTurnOrder(room.game);
     await commitRoom();
+    await advanceForcedSkippedTurns();
     return null;
   }
 
@@ -356,7 +467,7 @@ async function applyCommand(ownerId, message) {
       else if (wasActive) room.game.activePlayerIndex = Math.min(leavingIndex, room.players.length - 1);
       const now = Date.now();
       room.game.turnStartedAt = now;
-      room.game.turnDeadline = room.game.ended ? 0 : now + (room.game.turnSeconds || 30) * 1000;
+      room.game.turnDeadline = room.game.ended ? 0 : now + TURN_SECONDS * 1000;
       if (room.players.length < 2) {
         room.game.ended = true;
         room.game.winnerTeam = room.players[0]?.hero.team || null;
@@ -400,7 +511,7 @@ async function handleSocketMessage(socket, text) {
   await advanceTimedOutTurn();
   const error = await applyCommand(peers.get(socket), message);
   if (error) send(socket, { type: 'error', message: error });
-  else send(socket, { type: 'state', state: publicState() });
+  else send(socket, { type: 'state', state: publicState(peers.get(socket) || '') });
 }
 
 async function connectWebSocket() {

@@ -151,29 +151,34 @@ try {
   assert.deepEqual(firstStarted.game.playerStates[secondId].hand, [], "a WebSocket client cannot receive another player's hand");
   assert.deepEqual(secondStarted.game.playerStates[secondId].hand, [`card-${secondId}`], "each WebSocket view is personalized");
   assert.deepEqual(secondStarted.game.playerStates[firstId].hand, [], "other draw and hand data stays private");
+  assert.equal(firstStarted.game.turnSeconds, 30, "the room overrides every client timer with a constant 30 seconds");
+  assert(firstStarted.game.turnDeadline - firstStarted.game.turnStartedAt === 30_000, "every battle turn receives exactly 30 seconds");
 
-  const timedOut = await first.waitFor((state) => state.game?.completedTurns === 1);
-  assert(Number.isFinite(timedOut.serverNow), "room broadcasts include authoritative server time");
-  assert.equal(timedOut.game.activePlayerIndex, 1);
-  assert.match(timedOut.game.outcome.label, /ran out of time/);
-  assert.equal(timedOut.game.outcome.kind, 'timeout');
-  assert.equal(timedOut.game.history.at(-1).kind, 'timeout');
-  assert.equal(timedOut.game.playerStates[firstId].diceBuff, 0);
-  assert.equal(timedOut.game.playerStates[firstId].dicePenalty, 0);
-  assert.deepEqual(timedOut.game.playerStates[firstId].hand, [`card-${firstId}`], "automatic skip preserves the hand");
-  assert.deepEqual(timedOut.game.playerStates[firstId].drawPile, [], "automatic skip preserves the draw pile");
-  assert.deepEqual(timedOut.game.playerStates[firstId].discardPile, [], "automatic skip preserves the discard pile");
-  assert.deepEqual(timedOut.game.playerStates[secondId].hand, [], "automatic broadcasts keep the next player's hand private");
-  assert.equal(timedOut.game.turnOrder[0], secondId);
+  const controlledGame = structuredClone(firstStarted.game);
+  controlledGame.completedTurns = 1;
+  controlledGame.activePlayerIndex = 1;
+  controlledGame.turnOrder = [secondId, thirdId, firstId];
+  controlledGame.playerStates[firstId].hand = [];
+  controlledGame.playerStates[firstId].discardPile = [`card-${firstId}`];
+  controlledGame.playerStates[secondId].skipTurns = 1;
+  controlledGame.outcome = { kind: "card", success: true, total: 20, target: 12, label: "Test control", detail: "The next enemy turn will be cancelled.", actorName: firstStarted.players.find((item) => item.id === firstId).displayName, cardName: "Test Skill", targetName: firstStarted.players.find((item) => item.id === secondId).displayName };
+  controlledGame.history = [{ id: `control-${runId}`, turn: 1, kind: "support", actorName: "First", message: "Applied a turn-cancel effect.", success: true, createdAt: Date.now() }];
+  first.send({ type: "game:update", game: controlledGame });
+  const forcedSkipped = await first.waitFor((state) => state.game?.completedTurns === 2 && state.game?.outcome?.kind === "forced-skip");
+  const forcedSkippedOwnerView = await second.waitFor((state) => state.game?.completedTurns === 2 && state.game?.outcome?.kind === "forced-skip");
+  assert.equal(forcedSkipped.game.turnOrder[0], thirdId, "a cancelled enemy turn passes immediately to the next player");
+  assert.equal(forcedSkipped.game.history.at(-1).kind, "forced-skip");
+  assert.deepEqual(forcedSkippedOwnerView.game.playerStates[secondId].hand, [`card-${secondId}`], "forced skip preserves the affected player's private hand");
+  assert.equal(forcedSkippedOwnerView.game.playerStates[secondId].skipTurns, 0);
 
-  second.send({ type: "skip-turn", sessionId: secondId });
-  const manuallySkipped = await second.waitFor((state) => state.game?.completedTurns === 2);
+  third.send({ type: "skip-turn", sessionId: thirdId });
+  const manuallySkipped = await third.waitFor((state) => state.game?.completedTurns === 3);
   assert.equal(manuallySkipped.game.outcome.kind, "skip");
   assert.equal(manuallySkipped.game.history.at(-1).kind, "skip");
-  assert.deepEqual(manuallySkipped.game.playerStates[secondId].hand, [`card-${secondId}`], "manual skip preserves the hand");
-  assert.deepEqual(manuallySkipped.game.playerStates[secondId].drawPile, [], "manual skip preserves the draw pile");
-  assert.deepEqual(manuallySkipped.game.playerStates[secondId].discardPile, [], "manual skip preserves the discard pile");
-  assert.equal(manuallySkipped.game.turnOrder[0], thirdId);
+  assert.deepEqual(manuallySkipped.game.playerStates[thirdId].hand, [`card-${thirdId}`], "manual skip preserves the hand");
+  assert.deepEqual(manuallySkipped.game.playerStates[thirdId].drawPile, [], "manual skip preserves the draw pile");
+  assert.deepEqual(manuallySkipped.game.playerStates[thirdId].discardPile, [], "manual skip preserves the discard pile");
+  assert.equal(manuallySkipped.game.turnOrder[0], firstId);
 
   first.send({ type: "remove-player", sessionId: firstId, targetSessionId: thirdId });
   const removedDuringGame = await first.waitFor((state) => !state.players.some((item) => item.id === thirdId));
@@ -186,7 +191,7 @@ try {
   second.send({ type: "leave-game", sessionId: secondId });
   await first.waitFor((state) => !state.players.some((item) => item.id === secondId));
 
-  console.log("Realtime test passed: private hands, synchronized timeout, preserved cards, manual skip, player removal, end game, and leave game.");
+  console.log("Realtime test passed: private hands, 30-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");
 } finally {
   first.send({ type: "return:lobby" });
   await first.waitFor((state) => state.phase === "lobby").catch(() => {});

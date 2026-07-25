@@ -1,7 +1,19 @@
 export type TeamId = "veil" | "ember";
 export type CardEffect = "heal" | "damage" | "aoe" | "guard" | "support" | "none";
-export type CardTarget = "self" | "ally" | "all-allies" | "enemy" | "all-enemies";
-export type SupportType = "attack" | "shield" | "healing" | "dice" | "enemy-dice" | "delay-enemy" | "advance-ally" | "dispel-enemy";
+export type CardTarget = "self" | "ally" | "defeated-ally" | "all-allies" | "enemy" | "all-enemies" | "player";
+export type SupportType =
+  | "attack"
+  | "shield"
+  | "healing"
+  | "dice"
+  | "enemy-dice"
+  | "delay-enemy"
+  | "advance-ally"
+  | "dispel-enemy"
+  | "revive"
+  | "skip-enemy"
+  | "purge-card"
+  | "steal-card";
 export type FailureEffect = "self-damage" | "team-damage" | "lose-shield" | "enemy-shield";
 
 export type Hero = {
@@ -63,7 +75,7 @@ export type GameOutcome = {
   target: number;
   label: string;
   detail?: string;
-  kind?: "card" | "skip" | "timeout" | "system";
+  kind?: "card" | "skip" | "timeout" | "forced-skip" | "system";
   actorName?: string;
   cardName?: string;
   cardType?: ActionCard["type"];
@@ -79,12 +91,14 @@ export type GameOutcome = {
   diceBuff?: number;
   dicePenalty?: number;
   failureDetail?: string;
+  supportType?: SupportType;
+  targetIds?: string[];
 };
 
 export type GameHistoryEntry = {
   id: string;
   turn: number;
-  kind: CardEffect | "skip" | "timeout" | "world" | "system";
+  kind: CardEffect | "skip" | "timeout" | "forced-skip" | "world" | "system";
   actorName: string;
   actorTeam?: TeamId;
   targetName?: string;
@@ -117,6 +131,9 @@ export type PlayerRunState = {
   attackBuff: number;
   diceBuff: number;
   dicePenalty: number;
+  reviveIn: number;
+  skipTurns: number;
+  borrowedCards: { cardId: string; ownerId: string; borrowedAtTurn: number }[];
   drawPile: string[];
   hand: string[];
   discardPile: string[];
