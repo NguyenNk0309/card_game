@@ -2075,6 +2075,50 @@ button:focus-visible {
   color: #8ec49e;
 }
 
+.joined-team-choice {
+  padding: 7px 9px;
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) repeat(2, minmax(105px, auto));
+  align-items: center;
+  gap: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.joined-team-choice > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.joined-team-choice button {
+  min-height: 30px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.joined-team-choice button.selected.veil {
+  color: #bce9f8;
+  background: rgba(77, 154, 184, 0.18);
+  border-color: rgba(115, 197, 226, 0.62);
+}
+
+.joined-team-choice button.selected.ember {
+  color: #ffd1ba;
+  background: rgba(184, 91, 51, 0.2);
+  border-color: rgba(224, 125, 83, 0.65);
+}
+
 .joined-actions {
   padding: 7px 9px;
   display: grid;
@@ -3315,6 +3359,8 @@ button:focus-visible {
 .public-deck-heading > span { padding: 6px 9px; color: var(--gold); border: 1px solid rgba(212, 181, 110, .35); }
 .public-character-deck > div:last-child { display: grid; grid-template-columns: 1fr; gap: 6px; }
 .public-deck-card { min-width: 0; max-width: 100%; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; padding: 8px; overflow: hidden; border: 1px solid var(--line); background: rgba(255, 255, 255, .025); }
+.public-deck-card.public-special-card { position: relative; padding-top: 45px; border: 2px solid color-mix(in srgb, var(--hero-color) 72%, #f3dfaa); background: linear-gradient(145deg, color-mix(in srgb, var(--hero-color) 20%, transparent), rgba(28, 36, 35, .98) 60%); box-shadow: inset 0 0 28px color-mix(in srgb, var(--hero-color) 12%, transparent); }
+.public-deck-card > .unique-card-banner { min-width: 0; color: #101719; background: var(--hero-color); font-size: 9px; font-weight: 900; white-space: normal; }
 .public-deck-card .card-sigil { width: 32px; height: 32px; }
 .public-deck-card > div:last-child { display: grid; min-width: 0; gap: 2px; }
 .public-deck-card span, .public-deck-card small { min-width: 0; overflow-wrap: anywhere; color: var(--muted); font-size: 8px; white-space: normal; }
@@ -3448,7 +3494,7 @@ button:focus-visible {
 
 @keyframes hand-card-fade-in {
   0%, 18% { opacity: 0; }
-  100% { opacity: 1; }
+  100% { opacity: var(--settled-card-opacity, 1); }
 }
 
 @media (max-width: 940px) {

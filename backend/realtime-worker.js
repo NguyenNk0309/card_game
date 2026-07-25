@@ -13,7 +13,7 @@ function publicState(viewerId = '') {
       id === viewerId ? state : { ...state, hand: [], drawPile: [], discardPile: [], borrowedCards: [] }
     ]))
   } : null;
-  return { players: room.players, phase: room.phase, game, revision: room.revision, serverNow: Date.now() };
+  return { players: room.players, phase: room.phase, game, revision: room.revision, serverNow: Date.now(), viewerSessionId: viewerId };
 }
 
 async function hydrateRoom() {
@@ -393,6 +393,17 @@ async function applyCommand(ownerId, message) {
     return null;
   }
 
+  if (message.type === 'team') {
+    if (room.phase !== 'lobby') return 'Teams can only change in the lobby.';
+    if (!ownerId || ownerId !== message.sessionId) return 'You can only choose your own team.';
+    if (!['veil', 'ember'].includes(message.team)) return 'Choose either Veilbound or Embercourt.';
+    const player = room.players.find((current) => current.id === message.sessionId);
+    if (!player) return 'Join the lobby before choosing a team.';
+    player.hero.team = message.team;
+    await commitRoom();
+    return null;
+  }
+
   if (message.type === 'leave') {
     if (room.phase !== 'lobby') return 'Players cannot leave during an active adventure.';
     if (!ownerId || ownerId !== message.sessionId) return 'You can only remove your own player.';
@@ -414,6 +425,7 @@ async function applyCommand(ownerId, message) {
   if (message.type === 'start') {
     if (room.phase !== 'lobby') return null;
     if (room.players.length < 2) return 'At least two players must join.';
+    if (!room.players.some((player) => player.hero.team === 'veil') || !room.players.some((player) => player.hero.team === 'ember')) return 'At least one player must join each team.';
     if (!room.players.every((player) => player.ready)) return 'Every joined player must be ready.';
     if (!message.game?.adventure) return 'The adventure state is missing.';
     room.phase = 'game';
@@ -583,7 +595,6 @@ async function connectWebSocket() {
   const [client, server] = Object.values(pair);
   server.accept();
   peers.set(server, '');
-  send(server, { type: 'state', state: publicState() });
   server.addEventListener('message', (event) => {
     void serialized(() => handleSocketMessage(server, event.data));
   });

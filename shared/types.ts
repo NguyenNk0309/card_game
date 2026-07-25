@@ -169,6 +169,7 @@ export type SharedRoomState = {
   game: SyncedGameState | null;
   revision: number;
   serverNow: number;
+  viewerSessionId?: string;
 };
 
 export type Realm = {

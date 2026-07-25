@@ -2,7 +2,7 @@
 
 import { Check, Crown, DoorOpen, Eye, Flame, Shield, Sparkles, Swords, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { describeCardFailure, describeCardSuccess, getCardEffectLabel, getCardTargetLabel } from "@/shared/cardRules";
-import type { CharacterOption, PlayerSession } from "@/shared/types";
+import type { CharacterOption, PlayerSession, TeamId } from "@/shared/types";
 import { CardEffectIcon } from "./CardEffectIcon";
 
 type Props = {
@@ -10,12 +10,12 @@ type Props = {
   localSessionId: string; connectionStatus: string; characterOptions: CharacterOption[]; selectedHeroName: string;
   onNameChange: (name: string) => void; onJoin: () => void; onSelectPlayer: (id: string) => void;
   onToggleReady: (id: string) => void; onLeave: (id: string) => void; onRemovePlayer: (id: string) => void;
-  onEnterGame: () => void; onHeroSelect: (heroName: string) => void;
+  onEnterGame: () => void; onHeroSelect: (heroName: string) => void; onTeamSelect: (team: TeamId) => void;
 };
 
 const statusText: Record<string, string> = { connecting: "CONNECTING", connected: "CONNECTED", reconnecting: "RECONNECTING", offline: "OFFLINE" };
 
-export function Lobby({ players, playerName, error, selectedPlayerId, localSessionId, connectionStatus, characterOptions, selectedHeroName, onNameChange, onJoin, onSelectPlayer, onToggleReady, onLeave, onRemovePlayer, onEnterGame, onHeroSelect }: Props) {
+export function Lobby({ players, playerName, error, selectedPlayerId, localSessionId, connectionStatus, characterOptions, selectedHeroName, onNameChange, onJoin, onSelectPlayer, onToggleReady, onLeave, onRemovePlayer, onEnterGame, onHeroSelect, onTeamSelect }: Props) {
   const localPlayer = players.find((player) => player.id === localSessionId);
   const selected = localPlayer ? players.find((player) => player.id === selectedPlayerId) ?? localPlayer : undefined;
   const selectedOption = characterOptions.find((option) => option.hero.name === selectedHeroName) ?? characterOptions[0];
@@ -23,6 +23,8 @@ export function Lobby({ players, playerName, error, selectedPlayerId, localSessi
   const shownDeck = selected?.skillDeck ?? selectedOption?.skillDeck ?? [];
   const readyCount = players.filter((player) => player.ready).length;
   const allReady = players.length >= 2 && readyCount === players.length;
+  const hasBothTeams = players.some((player) => player.hero.team === "veil") && players.some((player) => player.hero.team === "ember");
+  const canStart = allReady && hasBothTeams;
 
   return <section className="lobby-stage">
     <div className="lobby-intro"><span className="eyebrow">THE ARENA AWAITS</span><h1>Join the battle.</h1><p>Choose any character, review a 10-card deck with 3 special cards, 2 attacks, 1 shield, 1 heal, and 3 no-effect cards, then ready up.</p></div>
@@ -36,10 +38,11 @@ export function Lobby({ players, playerName, error, selectedPlayerId, localSessi
           {!players.length && <div className="empty-lobby"><DoorOpen size={24}/><strong>No players have joined</strong><span>Enter a name and press Join to create the first session.</span></div>}
           {players.map((player, index) => <article className={`joined-player ${selected?.id === player.id ? "selected" : ""}`} key={player.id}>
             <button className="joined-main" onClick={() => onSelectPlayer(player.id)}><div className="portrait" style={{ "--hero-color": player.hero.color } as React.CSSProperties}>{player.hero.initials}</div><div><div className="joined-name"><strong className="player-name-highlight">{player.displayName}</strong><span>{player.id === localSessionId ? "Your session" : `Session ${index + 1}`}</span></div><p>{player.hero.name} · {player.hero.className}</p></div><span className={`ready-badge ${player.ready ? "is-ready" : ""}`}>{player.ready && <Check size={13}/>} {player.ready ? "Ready" : "Not ready"}</span></button>
+            {player.id === localSessionId && <div className="joined-team-choice" role="group" aria-label="Choose your team"><span>Choose your team</span><button className={player.hero.team === "veil" ? "selected veil" : "veil"} onClick={() => onTeamSelect("veil")} aria-pressed={player.hero.team === "veil"}><Eye size={14}/> Veilbound</button><button className={player.hero.team === "ember" ? "selected ember" : "ember"} onClick={() => onTeamSelect("ember")} aria-pressed={player.hero.team === "ember"}><Flame size={14}/> Embercourt</button></div>}
             <div className="joined-actions"><button onClick={() => onSelectPlayer(player.id)}><Eye size={14}/> Review deck</button>{player.id === localSessionId ? <><button className={player.ready ? "unready-button" : "ready-button"} onClick={() => onToggleReady(player.id)}>{player.ready ? "Cancel ready" : "Ready"}</button><button className="leave-button" onClick={() => onLeave(player.id)} aria-label={`Leave room as ${player.displayName}`} title="Leave room"><UserMinus size={15}/></button></> : <><span className="remote-player-label">Controlled in another browser</span>{localPlayer && <button className="remove-player-button" onClick={() => onRemovePlayer(player.id)}><UserMinus size={14}/> Remove</button>}</>}</div>
           </article>)}
         </div>
-        <div className={`ready-gate ${allReady ? "all-ready" : ""}`}>{allReady ? <Check size={19}/> : <Shield size={19}/>}<div><strong>{allReady ? "Everyone is ready" : players.length < 2 ? "Waiting for another player" : "Waiting for all players"}</strong><span>{allReady ? "Any joined player may start the battle." : "Every joined player must press Ready before the battle can start."}</span></div><button className="enter-game-button" onClick={onEnterGame} disabled={!allReady || connectionStatus !== "connected"}><Swords size={17}/> Enter the battle</button></div>
+        <div className={`ready-gate ${canStart ? "all-ready" : ""}`}>{canStart ? <Check size={19}/> : <Shield size={19}/>}<div><strong>{canStart ? "Everyone is ready" : players.length < 2 ? "Waiting for another player" : !hasBothTeams ? "Both teams need a player" : "Waiting for all players"}</strong><span>{canStart ? "Any joined player may start the battle." : !hasBothTeams && players.length >= 2 ? "At least one player must choose Veilbound and one must choose Embercourt." : "Every joined player must press Ready before the battle can start."}</span></div><button className="enter-game-button" onClick={onEnterGame} disabled={!canStart || connectionStatus !== "connected"}><Swords size={17}/> Enter the battle</button></div>
       </section>
       <aside className="character-panel">{shownHero ? <>
         {!localPlayer && <div className="hero-picker"><div className="deck-heading"><div><span className="eyebrow">CHOOSE YOUR CHARACTER</span><strong>Characters may be chosen by multiple players</strong></div><Users size={18}/></div><div className="hero-picker-grid">{characterOptions.map((option) => <button key={option.hero.name} className={selectedHeroName === option.hero.name ? "selected" : ""} onClick={() => onHeroSelect(option.hero.name)} title={option.hero.summary}><span style={{ "--hero-color": option.hero.color } as React.CSSProperties}>{option.hero.initials}</span><strong>{option.hero.name}</strong><small>{option.hero.className}</small></button>)}</div></div>}

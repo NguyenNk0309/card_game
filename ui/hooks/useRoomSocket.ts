@@ -35,6 +35,9 @@ function localizeRoomError(message: string) {
     ["Use Leave", "Use Leave to remove your own player."],
     ["no longer in the room", "That player is no longer in the room."],
     ["At least two players", "At least two players are required."],
+    ["one player must join each team", "At least one player must join each team."],
+    ["choose your own team", "You can only choose your own team."],
+    ["before choosing a team", "Join the lobby before choosing a team."],
     ["Every joined player", "Every joined player must be ready."],
     ["state is missing", "The battle state is missing."],
     ["no active adventure", "There is no active battle."],
@@ -75,6 +78,9 @@ export function useRoomSocket() {
 
   const acceptResponse = useCallback((payload: { state?: SharedRoomState; error?: string | null }) => {
     if (payload.state) {
+      const expectedViewer = sessionIdRef.current;
+      const ownsPlayer = Boolean(expectedViewer && payload.state.players.some((player) => player.id === expectedViewer));
+      if (ownsPlayer && payload.state.viewerSessionId !== expectedViewer) return;
       setRoom(payload.state);
       if (Number.isFinite(payload.state.serverNow)) setServerTimeOffsetMs(payload.state.serverNow - Date.now());
     }

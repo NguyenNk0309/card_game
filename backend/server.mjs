@@ -84,7 +84,8 @@ function publicState(viewerId = '') {
     phase: room.phase,
     game,
     revision: room.revision,
-    serverNow: Date.now()
+    serverNow: Date.now(),
+    viewerSessionId: viewerId
   };
 }
 
@@ -486,6 +487,17 @@ function handleMessage(socket, rawMessage) {
     return;
   }
 
+  if (message.type === 'team') {
+    if (room.phase !== 'lobby') return reject(socket, 'Teams can only change in the lobby.');
+    if (!ownSession(socket, message.sessionId)) return reject(socket, 'You can only choose your own team.');
+    if (!['veil', 'ember'].includes(message.team)) return reject(socket, 'Choose either Veilbound or Embercourt.');
+    const player = room.players.find((current) => current.id === message.sessionId);
+    if (!player) return reject(socket, 'Join the lobby before choosing a team.');
+    player.hero.team = message.team;
+    broadcast();
+    return;
+  }
+
   if (message.type === 'leave') {
     if (room.phase !== 'lobby') return reject(socket, 'Players cannot leave during an active adventure.');
     if (!ownSession(socket, message.sessionId)) return reject(socket, 'You can only remove your own player.');
@@ -508,6 +520,9 @@ function handleMessage(socket, rawMessage) {
   if (message.type === 'start') {
     if (room.phase !== 'lobby') return;
     if (room.players.length < 2) return reject(socket, 'At least two players must join.');
+    if (!room.players.some((player) => player.hero.team === 'veil') || !room.players.some((player) => player.hero.team === 'ember')) {
+      return reject(socket, 'At least one player must join each team.');
+    }
     if (!room.players.every((player) => player.ready)) return reject(socket, 'Every joined player must be ready.');
     if (!message.game?.adventure) return reject(socket, 'The adventure state is missing.');
     room.phase = 'game';
@@ -592,7 +607,7 @@ function handleMessage(socket, rawMessage) {
 
   if (message.type === 'expire-turn') {
     advanceTimedOutTurn();
-    send(socket, { type: 'state', state: publicState() });
+    send(socket, { type: 'state', state: publicState(peers.get(socket) || '') });
     return;
   }
 
@@ -715,7 +730,6 @@ const nextUpgrade = app?.getUpgradeHandler();
 
 wss.on('connection', (socket) => {
   peers.set(socket, '');
-  send(socket, { type: 'state', state: publicState() });
   socket.on('message', (message) => handleMessage(socket, message));
   socket.on('close', () => peers.delete(socket));
 });

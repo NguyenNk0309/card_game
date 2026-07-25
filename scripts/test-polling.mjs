@@ -58,6 +58,9 @@ try {
   await command(secondId, { type: "join", player: player(secondId, `Second ${runId}`, "ember") });
   await command(thirdId, { type: "join", player: player(thirdId, `Third ${runId}`, "veil") });
 
+  const singleTeam = await command(secondId, { type: "team", team: "veil" });
+  assert(singleTeam.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).every((item) => item.hero.team === "veil"), "a joined player can choose their own team");
+
   await command(firstId, { type: "ready", ready: true });
   await command(secondId, { type: "ready", ready: true });
   const ready = await command(thirdId, { type: "ready", ready: true });
@@ -86,6 +89,9 @@ try {
     history: [],
     worldEvent: null
   };
+  await assert.rejects(command(secondId, { type: "start", game }), /At least one player must join each team/, "the server rejects a battle with an empty team");
+  const splitTeams = await command(secondId, { type: "team", team: "ember" });
+  assert.equal(splitTeams.players.find((item) => item.id === secondId).hero.team, "ember");
   const started = await command(secondId, { type: "start", game });
   assert.equal(started.phase, "game");
   assert.deepEqual(started.game.playerStates[secondId].hand, [`card-${secondId}`], "a polling client receives its own hand");
@@ -93,6 +99,7 @@ try {
   const firstStarted = await readRoom(firstId);
   assert.deepEqual(firstStarted.game.playerStates[firstId].hand, [`card-${firstId}`], "polling responses are personalized by session");
   assert.deepEqual(firstStarted.game.playerStates[secondId].hand, [], "other card zones remain private during polling");
+  assert.equal(firstStarted.viewerSessionId, firstId, "polling snapshots identify the session whose private zones they contain");
   assert.equal(firstStarted.game.turnSeconds, 30, "the polling room enforces a constant 30-second timer");
   assert.equal(firstStarted.game.turnDeadline - firstStarted.game.turnStartedAt, 30_000, "every polling turn receives exactly 30 seconds");
   const controlledGame = structuredClone(firstStarted.game);

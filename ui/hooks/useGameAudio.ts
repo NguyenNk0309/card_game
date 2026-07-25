@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type GameSoundEffect = "roll" | "play" | "roll-success" | "roll-fail" | "discard" | "skip";
 
-const BACKGROUND_MUSIC_URL = process.env.NEXT_PUBLIC_BACKGROUND_MUSIC_URL?.trim() ?? "";
+const BACKGROUND_MUSIC_URL = process.env.NEXT_PUBLIC_BACKGROUND_MUSIC_URL?.trim() || "/audio/bg.mp3";
 const WIN_MUSIC_URL = process.env.NEXT_PUBLIC_WIN_MUSIC_URL?.trim() ?? "";
 const LOSE_MUSIC_URL = process.env.NEXT_PUBLIC_LOSE_MUSIC_URL?.trim() ?? "";
 

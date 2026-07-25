@@ -79,6 +79,17 @@ function connect(sessionId) {
           reject(new Error(`Timed out waiting for shared room state. Latest state: ${JSON.stringify(latest)}`));
         }, timeoutMs);
       });
+    },
+    waitForNext(predicate, timeoutMs = 5000) {
+      return new Promise((resolve, reject) => {
+        const waiter = { predicate, resolve };
+        waiters.push(waiter);
+        setTimeout(() => {
+          const index = waiters.indexOf(waiter);
+          if (index >= 0) waiters.splice(index, 1);
+          reject(new Error(`Timed out waiting for the next shared room state. Latest state: ${JSON.stringify(latest)}`));
+        }, timeoutMs);
+      });
     }
   };
 }
@@ -111,6 +122,12 @@ try {
   await first.waitFor((state) => state.players.some((item) => item.id === secondId));
   third.send({ type: "join", player: player(thirdId, `Third ${runId}`, "veil") });
   await first.waitFor((state) => state.players.some((item) => item.id === thirdId));
+
+  second.send({ type: "team", sessionId: secondId, team: "veil" });
+  const singleTeam = await first.waitFor((state) => state.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).every((item) => item.hero.team === "veil"));
+  assert.equal(singleTeam.players.find((item) => item.id === secondId).hero.team, "veil", "a joined player can choose their own team");
+  second.send({ type: "team", sessionId: secondId, team: "ember" });
+  await first.waitFor((state) => state.players.find((item) => item.id === secondId)?.hero.team === "ember");
 
   first.send({ type: "ready", sessionId: firstId, ready: true });
   second.send({ type: "ready", sessionId: secondId, ready: true });
@@ -151,8 +168,15 @@ try {
   assert.deepEqual(firstStarted.game.playerStates[secondId].hand, [], "a WebSocket client cannot receive another player's hand");
   assert.deepEqual(secondStarted.game.playerStates[secondId].hand, [`card-${secondId}`], "each WebSocket view is personalized");
   assert.deepEqual(secondStarted.game.playerStates[firstId].hand, [], "other draw and hand data stays private");
+  assert.equal(firstStarted.viewerSessionId, firstId, "WebSocket snapshots identify the session whose private zones they contain");
   assert.equal(firstStarted.game.turnSeconds, 30, "the room overrides every client timer with a constant 30 seconds");
   assert(firstStarted.game.turnDeadline - firstStarted.game.turnStartedAt === 30_000, "every battle turn receives exactly 30 seconds");
+
+  const expiryProbePromise = first.waitForNext((state) => state.phase === "game");
+  first.send({ type: "expire-turn", sessionId: firstId });
+  const expiryProbe = await expiryProbePromise;
+  assert.equal(expiryProbe.viewerSessionId, firstId, "an expiry check remains personalized for its requesting browser");
+  assert.deepEqual(expiryProbe.game.playerStates[firstId].hand, [`card-${firstId}`], "an early expiry check cannot replace the owner's hand with a privacy-filtered empty snapshot");
 
   const controlledGame = structuredClone(firstStarted.game);
   controlledGame.completedTurns = 1;
