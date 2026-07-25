@@ -44,6 +44,9 @@ assert.equal(options.find((option) => option.hero.classId === "mage").hero.maxHp
 
 const first = engine.createPlayerSession("An", 0, options[0].hero.name, "first");
 const second = engine.createPlayerSession("Binh", 1, options[1].hero.name, "second");
+const elaraSupport = first.skillDeck.find((card) => card.effect === "support");
+const elaraGame = engine.createInitialGame([first, second], engine.createAdventure("ELARA-DICE"), 30);
+assert.equal(engine.getPassiveDiceBonus(first, elaraSupport, elaraGame.playerStates[first.id]), 0, "Elara's passive cannot modify d20 results");
 const game = engine.createInitialGame([first, second], engine.createAdventure("RULES"), 30);
 assert.equal(game.maxTurns, 30);
 assert.equal(engine.createInitialGame([first, second], engine.createAdventure("TIMER"), 5).turnSeconds, 30, "battle turns always last exactly 30 seconds");

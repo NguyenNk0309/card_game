@@ -75,7 +75,6 @@ export function nextStory(adventure: Adventure): Adventure {
 
 export function getPassiveDiceBonus(player: PlayerSession, card: ActionCard, state: PlayerRunState) {
   const classId = player.hero.classId;
-  if (classId === "warden" && card.effect === "support") return 1;
   if (classId === "ranger" && card.effect === "damage") return 1;
   if (classId === "mage" && card.effect === "aoe") return 1;
   if (classId === "healer" && card.effect === "heal") return 1;
