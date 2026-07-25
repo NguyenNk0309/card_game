@@ -16,14 +16,17 @@ const engine = await import(`data:text/javascript;base64,${Buffer.from(compiledE
 const options = engine.getCharacterOptions();
 assert.equal(options.length, 10);
 for (const option of options) {
-  assert.equal(option.skillDeck.length, 8, `${option.hero.name} must have 8 cards`);
+  assert.equal(option.skillDeck.length, 13, `${option.hero.name} must have 13 cards`);
   assert.equal(option.skillDeck.filter((card) => card.unique).length, 3);
-  assert.equal(option.skillDeck.filter((card) => !card.unique).length, 5);
+  assert.equal(option.skillDeck.filter((card) => !card.unique).length, 10);
+  assert(option.skillDeck.every((card) => card.bonus === 0), "cards cannot carry a built-in d20 bonus");
   assert(option.skillDeck.every((card) => !("risk" in card) && card.effect !== "check"));
+  assert(option.skillDeck.filter((card) => card.unique).every((card) => ["self-damage", "team-damage"].includes(card.failureEffect) && card.failureValue > 0), "every special card needs an owner/team failure penalty");
   const common = option.skillDeck.filter((card) => !card.unique);
   assert.equal(common.filter((card) => card.effect === "damage").length, 2, "common deck needs two attacks");
   assert.equal(common.filter((card) => card.effect === "guard" && card.target === "self").length, 2, "common deck needs two self guards");
   assert.equal(common.filter((card) => card.effect === "heal" && card.target === "self").length, 1, "common deck needs one self heal");
+  assert.equal(common.filter((card) => card.effect === "none" && card.value === 0).length, 5, "common deck needs five no-effect cards");
 }
 const supportTypes = new Set(options.flatMap((option) => option.skillDeck.filter((card) => card.effect === "support").map((card) => card.supportType)));
 assert.deepEqual([...supportTypes].sort(), ["advance-ally", "attack", "delay-enemy", "dice", "dispel-enemy", "enemy-dice", "healing", "shield"]);
@@ -40,7 +43,7 @@ assert.equal(attacked.adventure.target, 20, "raw d20 becomes the next target");
 assert.equal(attacked.history.length, 1);
 assert.equal(attacked.history[0].diceRoll, 20);
 assert.equal(attacked.history[0].diceTarget, 12);
-assert.equal(attacked.history[0].diceTotal, 20 + attack.bonus);
+assert.equal(attacked.history[0].diceTotal, 20 + engine.getPassiveDiceBonus(first, attack, game.playerStates[first.id]));
 assert.match(attacked.history[0].message, /An.*Binh|Binh.*HP/);
 
 const healer = engine.createPlayerSession("Orren", 0, "Brother Orren", "healer");
@@ -100,7 +103,7 @@ diceBuffed.turnOrder = [diceAlly.id, commander.id, diceEnemy.id];
 diceBuffed.adventure.target = 12;
 diceBuffed.playerStates[diceAlly.id].hand = [allyAttack.id];
 const boostedRoll = engine.resolveCardTurn(diceBuffed, diceParty, allyAttack.id, diceEnemy.id, 10);
-assert.equal(boostedRoll.outcome.total, 10 + allyAttack.bonus + 3);
+assert.equal(boostedRoll.outcome.total, 10 + engine.getPassiveDiceBonus(diceAlly, allyAttack, diceBuffed.playerStates[diceAlly.id]) + 3);
 assert.equal(boostedRoll.playerStates[diceAlly.id].diceBuff, 0, "next-turn d20 bonus is consumed after one roll");
 
 const oracle = engine.createPlayerSession("Sable", 0, "Sable Fen", "oracle");
@@ -116,7 +119,7 @@ const cursedAttack = cursedEnemy.skillDeck.find((card) => card.effect === "damag
 cursed.adventure.target = 10;
 cursed.playerStates[cursedEnemy.id].hand = [cursedAttack.id];
 const penalizedRoll = engine.resolveCardTurn(cursed, curseParty, cursedAttack.id, oracle.id, 10);
-assert.equal(penalizedRoll.outcome.total, 10 + cursedAttack.bonus - 3);
+assert.equal(penalizedRoll.outcome.total, 10 + engine.getPassiveDiceBonus(cursedEnemy, cursedAttack, cursed.playerStates[cursedEnemy.id]) - 3);
 assert.equal(penalizedRoll.history.at(-1).dicePenalty, 3);
 assert.equal(penalizedRoll.playerStates[cursedEnemy.id].dicePenalty, 0, "enemy d20 penalty is consumed after one turn");
 
@@ -146,6 +149,17 @@ const failedStrongCard = engine.resolveCardTurn(failureGame, [duelist, failureEn
 assert.equal(failedStrongCard.playerStates[duelist.id].hp, duelist.hero.maxHp - riskyCard.failureValue);
 assert(failedStrongCard.outcome.failureDetail, "strong failed card explains its negative effect");
 
+const emptyGame = engine.createInitialGame([first, second], engine.createAdventure("EMPTY"), 30);
+const emptyCard = first.skillDeck.find((card) => card.effect === "none");
+emptyGame.playerStates[first.id].hand = [emptyCard.id];
+emptyGame.playerStates[first.id].drawPile = [attack.id];
+const emptyResult = engine.resolveCardTurn(emptyGame, [first, second], emptyCard.id, first.id, 20);
+assert.equal(emptyResult.playerStates[first.id].hp, emptyGame.playerStates[first.id].hp);
+assert.equal(emptyResult.playerStates[second.id].hp, emptyGame.playerStates[second.id].hp);
+assert.equal(emptyResult.playerStates[first.id].shield, emptyGame.playerStates[first.id].shield);
+assert(emptyResult.playerStates[first.id].discardPile.includes(emptyCard.id), "played no-effect card still cycles normally");
+assert.match(emptyResult.history.at(-1).message, /had no effect/);
+
 const eventGame = engine.createInitialGame([first, second], engine.createAdventure("EVENT"), 30);
 eventGame.completedTurns = 4;
 eventGame.playerStates[first.id].hand = [attack.id];
@@ -170,4 +184,4 @@ deadGame.playerStates[first.id].hp = 0;
 deadGame.playerStates[first.id].hand = [attack.id];
 assert.equal(engine.resolveCardTurn(deadGame, [first, second], attack.id, second.id, 20), deadGame, "defeated players cannot act");
 
-console.log("Game-rule test passed: exact common decks, eight support effects, turn-order control, dice history, penalties, risky-card failures, events, victory, and defeated-player lockout.");
+console.log("Game-rule test passed: 13-card decks, five no-effect cards, zero built-in dice bonuses, special-card penalties, support effects, turn order, events, victory, and defeated-player lockout.");

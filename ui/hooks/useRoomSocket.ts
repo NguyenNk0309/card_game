@@ -9,12 +9,13 @@ const EMPTY_ROOM: SharedRoomState = {
   players: [],
   phase: "lobby",
   game: null,
-  revision: 0
+  revision: 0,
+  serverNow: Date.now()
 };
 
-const BASE_POLL_DELAY_MS = 3000;
-const HIDDEN_POLL_DELAY_MS = 15000;
-const MAX_POLL_DELAY_MS = 30000;
+const BASE_POLL_DELAY_MS = 1500;
+const HIDDEN_POLL_DELAY_MS = 5000;
+const MAX_POLL_DELAY_MS = 15000;
 
 function localizeRoomError(message: string) {
   const rules: Array<[string, string]> = [
@@ -38,6 +39,8 @@ function localizeRoomError(message: string) {
     ["state is missing", "The battle state is missing."],
     ["no active adventure", "There is no active battle."],
     ["current player", "Only the current player can perform this action."],
+    ["skip this turn", "Only the current player can skip this turn."],
+    ["cannot skip", "A defeated player cannot skip a turn."],
     ["update is incomplete", "The turn update is incomplete."],
     ["joined player can end", "Only a joined player can end the battle."],
     ["not in the adventure", "That player is no longer in the battle."],
@@ -60,6 +63,7 @@ export function useRoomSocket() {
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [error, setError] = useState("");
   const [sessionId, setSessionId] = useState("");
+  const [serverTimeOffsetMs, setServerTimeOffsetMs] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
   const pollingRef = useRef(false);
   const pollTimerRef = useRef<number | null>(null);
@@ -70,7 +74,10 @@ export function useRoomSocket() {
   const disposedRef = useRef(false);
 
   const acceptResponse = useCallback((payload: { state?: SharedRoomState; error?: string | null }) => {
-    if (payload.state) setRoom(payload.state);
+    if (payload.state) {
+      setRoom(payload.state);
+      if (Number.isFinite(payload.state.serverNow)) setServerTimeOffsetMs(payload.state.serverNow - Date.now());
+    }
     if (payload.error) setError(localizeRoomError(payload.error));
     else setError("");
   }, []);
@@ -137,57 +144,79 @@ export function useRoomSocket() {
     sessionIdRef.current = stableSessionId;
     setSessionId(stableSessionId);
 
-    if (window.location.hostname.endsWith(".chatgpt.site")) {
-      startPolling();
-      return () => {
-        disposedRef.current = true;
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    let socketUrl = `${protocol}//${window.location.host}/ws`;
+    let fallbackTimer: number | null = null;
+    let reconnectTimer: number | null = null;
+
+    const connectSocket = () => {
+      if (disposedRef.current) return;
+      const socket = new WebSocket(socketUrl);
+      socketRef.current = socket;
+      fallbackTimer = window.setTimeout(() => {
+        if (socket.readyState !== WebSocket.OPEN) {
+          socket.close();
+          startPolling();
+        }
+      }, 1200);
+
+      socket.addEventListener("open", () => {
+        if (fallbackTimer !== null) window.clearTimeout(fallbackTimer);
         pollingRef.current = false;
         if (pollTimerRef.current !== null) window.clearTimeout(pollTimerRef.current);
-      };
-    }
+        setStatus("connected");
+        setError("");
+        socket.send(JSON.stringify({ type: "hello", sessionId: stableSessionId }));
+      });
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
-    socketRef.current = socket;
-    const fallbackTimer = window.setTimeout(() => {
-      if (socket.readyState !== WebSocket.OPEN) {
-        socket.close();
+      socket.addEventListener("message", (event) => {
+        try {
+          const message = JSON.parse(String(event.data));
+          if (message.type === "state" && message.state) acceptResponse({ state: message.state });
+          else if (message.type === "error") setError(localizeRoomError(String(message.message || "The room rejected this action.")));
+        } catch {
+          setError("The room returned unreadable data.");
+        }
+      });
+
+      socket.addEventListener("close", () => {
+        if (socketRef.current === socket) socketRef.current = null;
+        if (disposedRef.current) return;
         startPolling();
+        if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+        reconnectTimer = window.setTimeout(connectSocket, 5000);
+      });
+
+      socket.addEventListener("error", () => socket.close());
+    };
+
+    const startRealtime = async () => {
+      if (window.location.hostname.endsWith(".chatgpt.site")) {
+        try {
+          const response = await fetch("/api/realtime-config", { cache: "no-store" });
+          const config = await response.json() as { origin?: string };
+          if (response.ok && config.origin) {
+            const origin = new URL(config.origin);
+            origin.protocol = origin.protocol === "https:" ? "wss:" : "ws:";
+            origin.pathname = "/ws";
+            origin.search = "";
+            origin.hash = "";
+            socketUrl = origin.toString();
+          }
+        } catch {
+          // The same-origin socket and polling fallback remain available.
+        }
       }
-    }, 1800);
-
-    socket.addEventListener("open", () => {
-      window.clearTimeout(fallbackTimer);
-      setStatus("connected");
-      setError("");
-      socket.send(JSON.stringify({ type: "hello", sessionId: stableSessionId }));
-    });
-
-    socket.addEventListener("message", (event) => {
-      try {
-        const message = JSON.parse(String(event.data));
-        if (message.type === "state" && message.state) acceptResponse({ state: message.state });
-        else if (message.type === "error") setError(localizeRoomError(String(message.message || "The room rejected this action.")));
-      } catch {
-        setError("The room returned unreadable data.");
-      }
-    });
-
-    socket.addEventListener("close", () => {
-      socketRef.current = null;
-      if (!disposedRef.current) startPolling();
-    });
-
-    socket.addEventListener("error", () => {
-      socket.close();
-      startPolling();
-    });
+      connectSocket();
+    };
+    void startRealtime();
 
     return () => {
       disposedRef.current = true;
       pollingRef.current = false;
-      window.clearTimeout(fallbackTimer);
-      socket.close();
+      if (fallbackTimer !== null) window.clearTimeout(fallbackTimer);
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+      socketRef.current?.close();
       if (pollTimerRef.current !== null) window.clearTimeout(pollTimerRef.current);
     };
   }, [acceptResponse, startPolling]);
@@ -231,6 +260,7 @@ export function useRoomSocket() {
     status,
     error,
     sessionId,
+    serverTimeOffsetMs,
     send,
     clearError: () => setError("")
   };

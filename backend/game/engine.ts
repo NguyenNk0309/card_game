@@ -29,9 +29,14 @@ export function createSkillDeck(hero: Omit<Hero, "id" | "team" | "isYou">): Acti
   const uniqueCards = CHARACTER_SKILL_CARDS[hero.name];
   if (!uniqueCards || uniqueCards.length !== 3) throw new Error(`${hero.name} must have exactly 3 special cards.`);
   const prefix = hero.initials.toLowerCase();
-  const commonCards = ACTION_CARDS.map((card) => ({ ...card, id: `${prefix}-common-${card.id}` }));
-  const deck = [...uniqueCards.map((card) => ({ ...card, unique: true })), ...commonCards];
-  if (deck.length !== 8) throw new Error(`${hero.name} must have an 8-card deck.`);
+  const commonCards = ACTION_CARDS.map((card) => ({ ...card, bonus: 0, id: `${prefix}-common-${card.id}` }));
+  const specialCards = uniqueCards.map((card) => {
+    const failureEffect = card.failureEffect ?? (card.target === "all-allies" || card.target === "all-enemies" ? "team-damage" : "self-damage");
+    const failureValue = card.failureValue ?? (card.value >= 5 ? 2 : 1);
+    return { ...card, bonus: 0, failureEffect, failureValue, unique: true } as ActionCard;
+  });
+  const deck = [...specialCards, ...commonCards];
+  if (deck.length !== 13) throw new Error(`${hero.name} must have a 13-card deck.`);
   return deck;
 }
 
@@ -59,6 +64,21 @@ export function createInitialGame(players: PlayerSession[], adventure = createAd
 export function nextStory(adventure: Adventure): Adventure {
   const key = Math.floor(Math.random() * STORY_BEATS.length);
   return { ...adventure, story: STORY_BEATS[key], event: EVENTS[key % EVENTS.length] };
+}
+
+export function getPassiveDiceBonus(player: PlayerSession, card: ActionCard, state: PlayerRunState) {
+  const classId = player.hero.classId;
+  if (classId === "warden" && card.effect === "support") return 1;
+  if (classId === "ranger" && card.effect === "damage") return 1;
+  if (classId === "mage" && card.effect === "aoe") return 1;
+  if (classId === "healer" && card.effect === "heal") return 1;
+  if (classId === "assassin" && card.effect === "damage") return 1;
+  if (classId === "tank" && card.effect === "guard") return 1;
+  if (classId === "oracle" && card.effect === "support") return 1;
+  if (classId === "duelist" && card.effect === "damage" && state.shield === 0) return 1;
+  if (classId === "support" && card.effect === "support") return 1;
+  if (classId === "berserker" && (card.effect === "damage" || card.effect === "aoe") && state.hp <= state.maxHp / 2) return 1;
+  return 0;
 }
 
 function drawReplacement(state: PlayerRunState, playedCardId: string): PlayerRunState {
@@ -176,7 +196,8 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const states = Object.fromEntries(Object.entries(game.playerStates).map(([id, state]) => [id, { ...state, hand: [...state.hand], drawPile: [...state.drawPile], discardPile: [...state.discardPile] }]));
   const diceBuff = actorState.diceBuff ?? 0;
   const dicePenalty = actorState.dicePenalty ?? 0;
-  const totalBonus = card.bonus + diceBuff;
+  const passiveDiceBonus = getPassiveDiceBonus(actor, card, actorState);
+  const totalBonus = diceBuff + passiveDiceBonus;
   const total = roll + totalBonus - dicePenalty;
   const success = total >= game.adventure.target;
   const enemies = living(players, states).filter((player) => player.hero.team !== actor.hero.team);
@@ -254,6 +275,8 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       else if (card.supportType === "advance-ally") detail = `${actor.displayName} moved ${selectedAlly.displayName} to the next position in the turn queue.`;
       else if (card.supportType === "dispel-enemy") detail = `${actor.displayName} dispelled ${selectedEnemy?.displayName}: ${reports.join(", ")}.`;
       else detail = `${actor.displayName} granted +${amount} ${card.supportType === "attack" ? "next-attack damage" : card.supportType === "shield" ? "shield" : "to the next d20 result"} to every living ally.`;
+    } else if (card.effect === "none") {
+      detail = `${actor.displayName} played ${card.name}. The card had no effect.`;
     }
   }
 
@@ -303,6 +326,6 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
 
 export function resolveAction(adventure: Adventure, cardId: string, roll: number, _advanceChapter = true, availableCards: ActionCard[] = ACTION_CARDS) {
   const card = availableCards.find((item) => item.id === cardId) ?? availableCards[0];
-  const total = roll + card.bonus;
+  const total = roll;
   return { success: total >= adventure.target, total, card, adventure: { ...adventure, target: Math.min(20, Math.max(1, roll)) } };
 }

@@ -6,7 +6,7 @@ let durableStorage = null;
 let roomQueue = Promise.resolve();
 
 function publicState() {
-  return { players: room.players, phase: room.phase, game: room.game, revision: room.revision };
+  return { players: room.players, phase: room.phase, game: room.game, revision: room.revision, serverNow: Date.now() };
 }
 
 async function hydrateRoom() {
@@ -153,30 +153,38 @@ function removePlayerFromRoom(targetId, removedBy) {
   return removedPlayer;
 }
 
-async function advanceTimedOutTurn(now = Date.now()) {
+async function passCurrentTurn(kind, now = Date.now()) {
   const game = room.game;
-  if (room.phase !== 'game' || !game || game.ended || !game.turnDeadline || now < game.turnDeadline || !room.players.length) return false;
+  if (room.phase !== 'game' || !game || game.ended || !room.players.length) return false;
   const order = normalizeServerTurnOrder(game);
-  const expiredPlayer = room.players.find((player) => player.id === order[0]) || room.players[game.activePlayerIndex];
+  const passingPlayer = room.players.find((player) => player.id === order[0]) || room.players[game.activePlayerIndex];
   const completedTurns = game.completedTurns + 1;
-  if (expiredPlayer && game.playerStates[expiredPlayer.id]) { game.playerStates[expiredPlayer.id].diceBuff = 0; game.playerStates[expiredPlayer.id].dicePenalty = 0; }
+  if (passingPlayer && game.playerStates[passingPlayer.id]) { game.playerStates[passingPlayer.id].diceBuff = 0; game.playerStates[passingPlayer.id].dicePenalty = 0; }
+  const playerName = passingPlayer?.displayName || 'Player';
+  const timedOut = kind === 'timeout';
   game.completedTurns = completedTurns;
   game.adventure = { ...game.adventure, chapter: Math.min(30, completedTurns + 1) };
-  game.outcome = { kind: 'timeout', success: false, total: 0, target: game.adventure.target, label: `${expiredPlayer?.displayName || 'Player'} ran out of time`, detail: 'The turn was automatically passed.', actorName: expiredPlayer?.displayName || 'Player' };
-  game.history = [...(game.history || []), { id: `timeout-${completedTurns}-${now}`, turn: completedTurns, kind: 'timeout', actorName: expiredPlayer?.displayName || 'Player', actorTeam: expiredPlayer?.hero.team, message: `${expiredPlayer?.displayName || 'Player'} ran out of time after 30 seconds and passed the turn.`, success: false, createdAt: now }];
+  game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled.' : 'The turn was skipped. No cards were discarded or shuffled.', actorName: playerName };
+  game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, message: timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved.` : `${playerName} manually skipped the turn. Their hand was preserved.`, success: false, createdAt: now }];
   game.worldEvent = null;
   if (completedTurns % 5 === 0) applyWorldEvent(game, completedTurns, now);
   game.history = game.history.slice(-80);
   game.roll = null;
-  const winner = decideWinner(game, expiredPlayer?.hero.team || 'veil', completedTurns >= 30);
+  const winner = decideWinner(game, passingPlayer?.hero.team || 'veil', completedTurns >= 30);
   game.ended = Boolean(winner); game.winnerTeam = winner;
   const veil = teamTotals(game, 'veil'); const ember = teamTotals(game, 'ember');
   game.endReason = winner ? `${teamLabel(winner)} wins. Total HP: Veilbound ${veil.hp} — Embercourt ${ember.hp}.` : null;
-  if (!winner && expiredPlayer) rotateServerTurn(game, expiredPlayer.id);
+  if (!winner && passingPlayer) rotateServerTurn(game, passingPlayer.id);
   game.turnStartedAt = now;
   game.turnDeadline = winner ? 0 : now + (game.turnSeconds || 30) * 1000;
   await commitRoom();
   return true;
+}
+
+async function advanceTimedOutTurn(now = Date.now()) {
+  const game = room.game;
+  if (room.phase !== 'game' || !game || game.ended || !game.turnDeadline || now < game.turnDeadline || !room.players.length) return false;
+  return passCurrentTurn('timeout', now);
 }
 
 async function applyCommand(ownerId, message) {
@@ -247,6 +255,22 @@ async function applyCommand(ownerId, message) {
     room.game = message.game;
     normalizeServerTurnOrder(room.game);
     await commitRoom();
+    return null;
+  }
+
+  if (message.type === 'skip-turn') {
+    await advanceTimedOutTurn();
+    if (room.phase !== 'game' || !room.game) return 'There is no active adventure.';
+    const order = normalizeServerTurnOrder(room.game);
+    const activePlayer = room.players.find((player) => player.id === order[0]) || room.players[room.game.activePlayerIndex];
+    if (!activePlayer || ownerId !== activePlayer.id || ownerId !== message.sessionId) return 'Only the current player can skip this turn.';
+    if ((room.game.playerStates[activePlayer.id]?.hp || 0) <= 0) return 'A defeated player cannot skip a turn.';
+    await passCurrentTurn('skip');
+    return null;
+  }
+
+  if (message.type === 'expire-turn') {
+    await advanceTimedOutTurn();
     return null;
   }
 
@@ -404,6 +428,9 @@ export class GameRoom {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === '/api/realtime-config') {
+      return json({ origin: env.REALTIME_ORIGIN || url.origin });
+    }
     if (url.pathname === '/api/room' || url.pathname === '/ws') {
       if (env.GAME_ROOM) {
         const id = env.GAME_ROOM.idFromName('shared-room');

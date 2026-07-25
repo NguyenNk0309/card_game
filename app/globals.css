@@ -51,7 +51,8 @@ button:focus-visible {
   z-index: -2;
   background:
     linear-gradient(90deg, rgba(6, 10, 12, 0.94) 0%, rgba(7, 11, 13, 0.48) 34%, rgba(7, 11, 13, 0.28) 61%, rgba(5, 9, 11, 0.91) 100%),
-    linear-gradient(0deg, rgba(4, 8, 10, 0.95) 0%, transparent 50%, rgba(5, 9, 11, 0.68) 100%);
+    linear-gradient(0deg, rgba(4, 8, 10, 0.95) 0%, transparent 50%, rgba(5, 9, 11, 0.68) 100%),
+    url("/art/moonfall-citadel.png") center / cover no-repeat;
 }
 
 .grain {
@@ -821,20 +822,56 @@ button:focus-visible {
 }
 
 .action-card.selected {
-  background: rgba(42, 44, 35, 0.96);
-  border-color: var(--gold);
-  box-shadow: inset 0 -2px 0 var(--gold), 0 8px 22px rgba(0, 0, 0, 0.22);
+  z-index: 2;
+  transform: translateY(-6px) scale(1.025);
+  background: linear-gradient(145deg, rgba(90, 75, 38, 0.98), rgba(29, 34, 31, 0.98));
+  border-color: #ffe399;
+  outline: 3px solid rgba(255, 227, 153, 0.42);
+  outline-offset: 2px;
+  box-shadow: inset 0 -4px 0 var(--gold), 0 0 0 1px #ffe399, 0 14px 32px rgba(212, 181, 110, 0.34);
 }
 
 .action-card.selected::after {
-  content: "ĐÃ CHỌN";
+  content: "SELECTED";
   position: absolute;
   top: 7px;
   right: 8px;
-  color: var(--gold);
-  font-size: 9px;
+  padding: 4px 7px;
+  color: #111719;
+  background: #ffe399;
+  border-radius: 2px;
+  font-size: 10px;
+  font-weight: 900;
   letter-spacing: 0.12em;
 }
+
+.action-card.hero-special-card.selected::after { top: 34px; }
+
+.action-card.no-effect-card,
+.skill-card.no-effect-card {
+  filter: saturate(0.45);
+  border-style: dashed;
+}
+
+.skip-turn-button {
+  min-width: 112px;
+  min-height: 76px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: #e7dfce;
+  background: rgba(20, 26, 27, 0.94);
+  border: 1px solid rgba(212, 181, 110, 0.42);
+}
+
+.skip-turn-button span { font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.skip-turn-button small { color: var(--muted); font-size: 9px; }
+.skip-turn-button:hover:not(:disabled) { color: #111719; background: var(--gold); }
+.skip-turn-button:hover:not(:disabled) small { color: #273032; }
+.skip-turn-button:disabled { opacity: .45; cursor: not-allowed; }
 
 .card-sigil {
   width: 29px;
@@ -1311,7 +1348,10 @@ button:focus-visible {
 }
 
 .game-shell.arena-focus::before {
-  background: linear-gradient(90deg, rgba(4, 9, 11, 0.72), transparent 45%, rgba(4, 8, 10, 0.75));
+  background:
+    linear-gradient(90deg, rgba(4, 9, 11, 0.88), rgba(4, 9, 11, 0.34) 45%, rgba(4, 8, 10, 0.86)),
+    linear-gradient(0deg, rgba(4, 8, 10, 0.88), transparent 60%),
+    url("/art/moonfall-citadel.png") center / cover no-repeat;
 }
 
 .combat-stage {

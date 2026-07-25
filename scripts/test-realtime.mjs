@@ -149,13 +149,26 @@ try {
   ]);
 
   const timedOut = await first.waitFor((state) => state.game?.completedTurns === 1);
+  assert(Number.isFinite(timedOut.serverNow), "room broadcasts include authoritative server time");
   assert.equal(timedOut.game.activePlayerIndex, 1);
   assert.match(timedOut.game.outcome.label, /ran out of time/);
   assert.equal(timedOut.game.outcome.kind, 'timeout');
   assert.equal(timedOut.game.history.at(-1).kind, 'timeout');
   assert.equal(timedOut.game.playerStates[firstId].diceBuff, 0);
   assert.equal(timedOut.game.playerStates[firstId].dicePenalty, 0);
+  assert.deepEqual(timedOut.game.playerStates[firstId].hand, [`card-${firstId}`], "automatic skip preserves the hand");
+  assert.deepEqual(timedOut.game.playerStates[firstId].drawPile, [], "automatic skip preserves the draw pile");
+  assert.deepEqual(timedOut.game.playerStates[firstId].discardPile, [], "automatic skip preserves the discard pile");
   assert.equal(timedOut.game.turnOrder[0], secondId);
+
+  second.send({ type: "skip-turn", sessionId: secondId });
+  const manuallySkipped = await first.waitFor((state) => state.game?.completedTurns === 2);
+  assert.equal(manuallySkipped.game.outcome.kind, "skip");
+  assert.equal(manuallySkipped.game.history.at(-1).kind, "skip");
+  assert.deepEqual(manuallySkipped.game.playerStates[secondId].hand, [`card-${secondId}`], "manual skip preserves the hand");
+  assert.deepEqual(manuallySkipped.game.playerStates[secondId].drawPile, [], "manual skip preserves the draw pile");
+  assert.deepEqual(manuallySkipped.game.playerStates[secondId].discardPile, [], "manual skip preserves the discard pile");
+  assert.equal(manuallySkipped.game.turnOrder[0], thirdId);
 
   first.send({ type: "remove-player", sessionId: firstId, targetSessionId: thirdId });
   const removedDuringGame = await first.waitFor((state) => !state.players.some((item) => item.id === thirdId));
@@ -168,7 +181,7 @@ try {
   second.send({ type: "leave-game", sessionId: secondId });
   await first.waitFor((state) => !state.players.some((item) => item.id === secondId));
 
-  console.log("Realtime test passed: shared lobby, player removal, timed auto-pass, end game, and leave game.");
+  console.log("Realtime test passed: shared lobby, synchronized timeout, preserved cards, manual skip, player removal, end game, and leave game.");
 } finally {
   first.send({ type: "return:lobby" });
   await first.waitFor((state) => state.phase === "lobby").catch(() => {});

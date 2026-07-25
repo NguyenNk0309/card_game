@@ -1,5 +1,5 @@
 export type TeamId = "veil" | "ember";
-export type CardEffect = "heal" | "damage" | "aoe" | "guard" | "support";
+export type CardEffect = "heal" | "damage" | "aoe" | "guard" | "support" | "none";
 export type CardTarget = "self" | "ally" | "all-allies" | "enemy" | "all-enemies";
 export type SupportType = "attack" | "shield" | "healing" | "dice" | "enemy-dice" | "delay-enemy" | "advance-ally" | "dispel-enemy";
 export type FailureEffect = "self-damage" | "team-damage" | "lose-shield" | "enemy-shield";
@@ -63,7 +63,7 @@ export type GameOutcome = {
   target: number;
   label: string;
   detail?: string;
-  kind?: "card" | "timeout" | "system";
+  kind?: "card" | "skip" | "timeout" | "system";
   actorName?: string;
   cardName?: string;
   cardType?: ActionCard["type"];
@@ -84,7 +84,7 @@ export type GameOutcome = {
 export type GameHistoryEntry = {
   id: string;
   turn: number;
-  kind: CardEffect | "timeout" | "world" | "system";
+  kind: CardEffect | "skip" | "timeout" | "world" | "system";
   actorName: string;
   actorTeam?: TeamId;
   targetName?: string;
@@ -146,6 +146,7 @@ export type SharedRoomState = {
   phase: "lobby" | "game";
   game: SyncedGameState | null;
   revision: number;
+  serverNow: number;
 };
 
 export type Realm = {
