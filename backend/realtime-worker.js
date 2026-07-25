@@ -458,7 +458,7 @@ async function handleRoomApi(request) {
 async function handleRoomRequest(request) {
   const url = new URL(request.url);
   if (url.pathname === '/api/room') return serialized(() => handleRoomApi(request));
-  if (url.pathname === '/ws' && request.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
+  if (url.pathname === '/ws') {
     return serialized(() => connectWebSocket());
   }
   return json({ error: 'Room route not found.' }, 404);
