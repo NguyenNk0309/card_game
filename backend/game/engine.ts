@@ -95,16 +95,40 @@ export function getPassiveDiceBonus(player: PlayerSession, card: ActionCard, sta
   return 0;
 }
 
-function drawReplacement(state: PlayerRunState, playedCardId: string): PlayerRunState {
+function startNewCycleIfEmpty(state: PlayerRunState): PlayerRunState {
   let drawPile = [...state.drawPile];
-  let discardPile = [...state.discardPile, playedCardId];
-  const playedIndex = state.hand.indexOf(playedCardId);
-  const hand = state.hand.filter((cardId) => cardId !== playedCardId);
-  if (!drawPile.length) { drawPile = shuffle(discardPile); discardPile = []; }
-  const replacementIndex = drawPile.length ? Math.floor(Math.random() * drawPile.length) : -1;
-  const replacement = replacementIndex >= 0 ? drawPile.splice(replacementIndex, 1)[0] : undefined;
-  if (replacement) hand.splice(playedIndex >= 0 ? Math.min(playedIndex, hand.length) : hand.length, 0, replacement);
+  let discardPile = [...state.discardPile];
+  const hand = [...state.hand];
+  if (!hand.length && !drawPile.length && discardPile.length) {
+    drawPile = shuffle(discardPile);
+    discardPile = [];
+    while (hand.length < 4 && drawPile.length) {
+      const replacementIndex = Math.floor(Math.random() * drawPile.length);
+      hand.push(drawPile.splice(replacementIndex, 1)[0]);
+    }
+  }
   return { ...state, drawPile, discardPile, hand };
+}
+
+function drawOneOrStartNewCycle(state: PlayerRunState, handIndex = state.hand.length): PlayerRunState {
+  const drawPile = [...state.drawPile];
+  const hand = [...state.hand];
+  if (drawPile.length) {
+    const replacementIndex = Math.floor(Math.random() * drawPile.length);
+    const replacement = drawPile.splice(replacementIndex, 1)[0];
+    hand.splice(Math.min(Math.max(0, handIndex), hand.length), 0, replacement);
+    return { ...state, drawPile, hand };
+  }
+  return startNewCycleIfEmpty({ ...state, drawPile, hand });
+}
+
+function drawReplacement(state: PlayerRunState, playedCardId: string): PlayerRunState {
+  const playedIndex = state.hand.indexOf(playedCardId);
+  return drawOneOrStartNewCycle({
+    ...state,
+    hand: state.hand.filter((cardId) => cardId !== playedCardId),
+    discardPile: [...state.discardPile, playedCardId]
+  }, playedIndex >= 0 ? playedIndex : state.hand.length);
 }
 
 function removeCardFromZones(state: PlayerRunState, cardId: string) {
@@ -114,22 +138,17 @@ function removeCardFromZones(state: PlayerRunState, cardId: string) {
 }
 
 function moveCardToGraveyard(state: PlayerRunState, cardId: string) {
+  const handIndex = state.hand.indexOf(cardId);
   removeCardFromZones(state, cardId);
   if (!state.graveyard.includes(cardId)) state.graveyard.push(cardId);
+  const cycled = handIndex >= 0 ? drawOneOrStartNewCycle(state, handIndex) : startNewCycleIfEmpty(state);
+  state.hand = cycled.hand;
+  state.drawPile = cycled.drawPile;
+  state.discardPile = cycled.discardPile;
 }
 
 function drawWithoutDiscard(state: PlayerRunState, handIndex = state.hand.length) {
-  let drawPile = [...state.drawPile];
-  let discardPile = [...state.discardPile];
-  if (!drawPile.length && discardPile.length) {
-    drawPile = shuffle(discardPile);
-    discardPile = [];
-  }
-  const replacementIndex = drawPile.length ? Math.floor(Math.random() * drawPile.length) : -1;
-  const replacement = replacementIndex >= 0 ? drawPile.splice(replacementIndex, 1)[0] : undefined;
-  const hand = [...state.hand];
-  if (replacement) hand.splice(Math.min(Math.max(0, handIndex), hand.length), 0, replacement);
-  return { ...state, drawPile, discardPile, hand };
+  return drawOneOrStartNewCycle(state, handIndex);
 }
 
 function finishPlayedCard(states: Record<string, PlayerRunState>, actorId: string, cardId: string) {
@@ -139,9 +158,8 @@ function finishPlayedCard(states: Record<string, PlayerRunState>, actorId: strin
     const useCount = (actorState.cardUses[cardId] ?? 0) + 1;
     actorState.cardUses[cardId] = useCount;
     if ((cardId === "bo-return" && useCount >= 1) || (cardId === "im-purge" && useCount >= 2)) {
-      const playedIndex = actorState.hand.indexOf(cardId);
       moveCardToGraveyard(actorState, cardId);
-      states[actorId] = drawWithoutDiscard(actorState, playedIndex);
+      states[actorId] = actorState;
       return;
     }
     states[actorId] = drawReplacement(actorState, cardId);
@@ -161,7 +179,10 @@ function returnExpiredBorrowedCards(states: Record<string, PlayerRunState>, acto
   for (const entry of returning) {
     removeCardFromZones(actorState, entry.cardId);
     const owner = states[entry.ownerId];
-    if (owner && !owner.discardPile.includes(entry.cardId)) owner.discardPile.push(entry.cardId);
+    if (owner && !owner.discardPile.includes(entry.cardId)) {
+      owner.discardPile.push(entry.cardId);
+      states[entry.ownerId] = startNewCycleIfEmpty(owner);
+    }
   }
   actorState.borrowedCards = (actorState.borrowedCards ?? []).filter((entry) => entry.borrowedAtTurn >= completedTurn);
 }

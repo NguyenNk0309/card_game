@@ -209,10 +209,38 @@ function removeCardFromZones(state, cardId) {
   state.discardPile = (state.discardPile || []).filter((id) => id !== cardId);
 }
 
+function startNewCycleIfEmpty(state) {
+  state.hand ||= [];
+  state.drawPile ||= [];
+  state.discardPile ||= [];
+  if (!state.hand.length && !state.drawPile.length && state.discardPile.length) {
+    state.drawPile = [...state.discardPile].sort(() => Math.random() - 0.5);
+    state.discardPile = [];
+    while (state.hand.length < 4 && state.drawPile.length) {
+      const replacementIndex = Math.floor(Math.random() * state.drawPile.length);
+      state.hand.push(state.drawPile.splice(replacementIndex, 1)[0]);
+    }
+  }
+}
+
+function drawOneOrStartNewCycle(state, handIndex = (state.hand || []).length) {
+  state.hand ||= [];
+  state.drawPile ||= [];
+  state.discardPile ||= [];
+  if (state.drawPile.length) {
+    const replacementIndex = Math.floor(Math.random() * state.drawPile.length);
+    const replacement = state.drawPile.splice(replacementIndex, 1)[0];
+    state.hand.splice(Math.min(Math.max(0, handIndex), state.hand.length), 0, replacement);
+  } else startNewCycleIfEmpty(state);
+}
+
 function moveCardToGraveyard(state, cardId) {
+  const handIndex = (state.hand || []).indexOf(cardId);
   removeCardFromZones(state, cardId);
   state.graveyard ||= [];
   if (!state.graveyard.includes(cardId)) state.graveyard.push(cardId);
+  if (handIndex >= 0) drawOneOrStartNewCycle(state, handIndex);
+  else startNewCycleIfEmpty(state);
 }
 
 function returnBorrowedCards(game, actorId, completedTurn) {
@@ -222,7 +250,10 @@ function returnBorrowedCards(game, actorId, completedTurn) {
   for (const entry of returning) {
     removeCardFromZones(actorState, entry.cardId);
     const owner = game.playerStates[entry.ownerId];
-    if (owner && !(owner.discardPile || []).includes(entry.cardId)) owner.discardPile.push(entry.cardId);
+    if (owner && !(owner.discardPile || []).includes(entry.cardId)) {
+      owner.discardPile.push(entry.cardId);
+      startNewCycleIfEmpty(owner);
+    }
   }
   actorState.borrowedCards = (actorState.borrowedCards || []).filter((entry) => entry.borrowedAtTurn >= completedTurn);
   return returning;
@@ -411,8 +442,8 @@ function passCurrentTurn(kind, now = Date.now(), discardedCardName = '') {
   const discarded = kind === 'discard';
   game.completedTurns = completedTurns;
   game.adventure = { ...game.adventure, target: randomDiceTarget() };
-  game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered the discard pile and a replacement card was drawn.` : forced ? 'A support effect cancelled this turn. Cards and active buffs were preserved.' : timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled.' : 'The turn was skipped. No cards were discarded or shuffled.', actorName: playerName, cardName: discardedCardName || undefined };
-  game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} manually discarded ${discardedCardName} and drew a replacement.` : forced ? `${playerName}'s turn was cancelled by an enemy support effect. Their hand and active buffs were preserved.` : timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved.` : `${playerName} manually skipped the turn. Their hand was preserved.`, success: false, createdAt: now }];
+  game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered the discard pile and advanced the full-deck cycle.` : forced ? 'A support effect cancelled this turn. Cards and active buffs were preserved.' : timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled.' : 'The turn was skipped. No cards were discarded or shuffled.', actorName: playerName, cardName: discardedCardName || undefined };
+  game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} manually discarded ${discardedCardName} and advanced their full-deck cycle.` : forced ? `${playerName}'s turn was cancelled by an enemy support effect. Their hand and active buffs were preserved.` : timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved.` : `${playerName} manually skipped the turn. Their hand was preserved.`, success: false, createdAt: now }];
   game.worldEvent = null;
   if (revived.length) game.history.push({ id: `revive-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind: 'system', actorName: 'Returning Light', message: `${revived.join(', ')} revived with one-third HP.`, success: true, createdAt: now });
   game.roll = null;
@@ -619,12 +650,12 @@ function handleMessage(socket, rawMessage) {
     if (borrowed) {
       state.borrowedCards = state.borrowedCards.filter((entry) => entry.cardId !== message.cardId);
       const owner = room.game.playerStates[borrowed.ownerId];
-      if (owner && !owner.discardPile.includes(message.cardId)) owner.discardPile.push(message.cardId);
+      if (owner && !owner.discardPile.includes(message.cardId)) {
+        owner.discardPile.push(message.cardId);
+        startNewCycleIfEmpty(owner);
+      }
     } else state.discardPile.push(message.cardId);
-    if (!state.drawPile.length) { state.drawPile = [...state.discardPile]; state.discardPile = []; }
-    const replacementIndex = state.drawPile.length ? Math.floor(Math.random() * state.drawPile.length) : -1;
-    const replacement = replacementIndex >= 0 ? state.drawPile.splice(replacementIndex, 1)[0] : undefined;
-    if (replacement) state.hand.splice(discardedIndex >= 0 ? Math.min(discardedIndex, state.hand.length) : state.hand.length, 0, replacement);
+    drawOneOrStartNewCycle(state, discardedIndex >= 0 ? discardedIndex : state.hand.length);
     passCurrentTurn('discard', Date.now(), card?.name || 'a card');
     return;
   }

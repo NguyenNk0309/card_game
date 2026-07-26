@@ -30,7 +30,7 @@ export function getCardTargetLabel(card: ActionCard) {
 }
 
 export function describeCardSuccess(card: ActionCard) {
-  if (card.effect === "none") return "No gameplay effect. The played card enters discard and one replacement is drawn.";
+  if (card.effect === "none") return "No gameplay effect. The played card enters discard. Draw one replacement only while the draw pile has cards; when every reusable card reaches discard, shuffle and deal up to four.";
   if (card.effect === "damage") return `Deal ${card.value} damage to ${targetLabels[card.target].toLowerCase()}; shield absorbs damage before HP${card.ignoresShield ? ", but this card ignores shield" : ""}.`;
   if (card.effect === "aoe") return `Every living enemy takes ${card.value} damage${card.ignoresShield ? " that ignores shield" : "; shield absorbs damage before HP"}.`;
   if (card.effect === "heal") return card.target === "self" ? `Restore up to ${card.value} HP to yourself; this cannot revive you.` : `Choose a living ally, including yourself, and restore up to ${card.value} HP; this cannot revive a defeated player.`;
