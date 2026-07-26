@@ -38,6 +38,7 @@ function localizeRoomError(message: string) {
     ["one player must join each team", "At least one player must join each team."],
     ["choose your own team", "You can only choose your own team."],
     ["before choosing a team", "Join the lobby before choosing a team."],
+    ["Cancel ready before changing teams", "Cancel ready before changing teams."],
     ["Every joined player", "Every joined player must be ready."],
     ["state is missing", "The battle state is missing."],
     ["no active adventure", "There is no active battle."],

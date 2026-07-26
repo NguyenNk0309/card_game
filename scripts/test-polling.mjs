@@ -66,6 +66,7 @@ try {
   const ready = await command(thirdId, { type: "ready", ready: true });
   assert.equal(ready.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).length, 3);
   assert(ready.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).every((item) => item.ready));
+  assert.equal(ready.players.find((item) => item.id === secondId).hero.team, "veil", "ready snapshots expose the selected team to every player");
 
   const game = {
     adventure: { seed: "POLL", realm: {}, chapter: 1, maxChapters: 30, story: "Test", event: "Test", target: 12, worldDoom: 0, veilInfluence: 0, emberInfluence: 0 },
@@ -90,8 +91,11 @@ try {
     worldEvent: null
   };
   await assert.rejects(command(secondId, { type: "start", game }), /At least one player must join each team/, "the server rejects a battle with an empty team");
+  await assert.rejects(command(secondId, { type: "team", team: "ember" }), /Cancel ready before changing teams/, "a ready player cannot change teams");
+  await command(secondId, { type: "ready", ready: false });
   const splitTeams = await command(secondId, { type: "team", team: "ember" });
   assert.equal(splitTeams.players.find((item) => item.id === secondId).hero.team, "ember");
+  await command(secondId, { type: "ready", ready: true });
   const started = await command(secondId, { type: "start", game });
   assert.equal(started.phase, "game");
   assert.deepEqual(started.game.playerStates[secondId].hand, [`card-${secondId}`], "a polling client receives its own hand");

@@ -330,8 +330,9 @@ button:focus-visible {
 }
 
 .hero-row.is-you {
-  background: rgba(212, 181, 110, 0.06);
-  border-color: rgba(212, 181, 110, 0.18);
+  background: rgba(91, 190, 124, 0.1);
+  border-color: rgba(116, 226, 151, 0.48);
+  box-shadow: inset 3px 0 0 rgba(116, 226, 151, 0.78), 0 0 15px rgba(75, 181, 109, 0.08);
 }
 
 .portrait {
@@ -348,14 +349,6 @@ button:focus-visible {
   font-weight: 800;
   background: var(--hero-color);
   box-shadow: inset 0 0 0 3px rgba(8, 12, 14, 0.36), 0 0 0 1px var(--hero-color);
-}
-
-.leader-mark {
-  position: absolute;
-  right: -3px;
-  top: -4px;
-  color: var(--gold);
-  filter: drop-shadow(0 1px 2px #000);
 }
 
 .hero-copy {
@@ -2075,6 +2068,27 @@ button:focus-visible {
   color: #8ec49e;
 }
 
+.lobby-player-status {
+  min-width: 105px;
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.ready-team-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #a7dced;
+  font-size: 9px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.ready-team-badge.ember {
+  color: #efa17d;
+}
+
 .joined-team-choice {
   padding: 7px 9px;
   display: grid;
@@ -2117,6 +2131,11 @@ button:focus-visible {
   color: #ffd1ba;
   background: rgba(184, 91, 51, 0.2);
   border-color: rgba(224, 125, 83, 0.65);
+}
+
+.joined-team-choice button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
 }
 
 .joined-actions {
@@ -2445,8 +2464,9 @@ button:focus-visible {
     grid-template-columns: 40px 1fr;
   }
 
-  .ready-badge {
+  .lobby-player-status {
     grid-column: 2;
+    justify-items: start;
   }
 
   .ready-gate {
@@ -3535,6 +3555,31 @@ button:focus-visible {
 .modal-card h2 .inline-player-name,
 .combat-banner strong .player-name-highlight { font-size: inherit !important; line-height: inherit; }
 .eyebrow .player-name-highlight { font-size: inherit !important; }
+
+/* Player names are colored from the local player's perspective everywhere. */
+.player-name-highlight.ally,
+.history-player-name.ally {
+  color: #79e39c !important;
+  text-shadow: 0 0 12px rgba(70, 205, 112, .34);
+}
+
+.player-name-highlight.enemy,
+.history-player-name.enemy {
+  color: #ff7b70 !important;
+  text-shadow: 0 0 12px rgba(232, 75, 65, .34);
+}
+
+.inline-player-name.ally {
+  color: #79e39c !important;
+  background: rgba(62, 181, 99, .13);
+  border-bottom-color: rgba(85, 220, 126, .52);
+}
+
+.inline-player-name.enemy {
+  color: #ff7b70 !important;
+  background: rgba(205, 70, 61, .14);
+  border-bottom-color: rgba(239, 91, 79, .56);
+}
 
 .turn-queue-item,
 .expanded-turn-list .turn-queue-item {

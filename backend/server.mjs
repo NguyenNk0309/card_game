@@ -493,6 +493,7 @@ function handleMessage(socket, rawMessage) {
     if (!['veil', 'ember'].includes(message.team)) return reject(socket, 'Choose either Veilbound or Embercourt.');
     const player = room.players.find((current) => current.id === message.sessionId);
     if (!player) return reject(socket, 'Join the lobby before choosing a team.');
+    if (player.ready) return reject(socket, 'Cancel ready before changing teams.');
     player.hero.team = message.team;
     broadcast();
     return;

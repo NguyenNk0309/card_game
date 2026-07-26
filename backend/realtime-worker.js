@@ -399,6 +399,7 @@ async function applyCommand(ownerId, message) {
     if (!['veil', 'ember'].includes(message.team)) return 'Choose either Veilbound or Embercourt.';
     const player = room.players.find((current) => current.id === message.sessionId);
     if (!player) return 'Join the lobby before choosing a team.';
+    if (player.ready) return 'Cancel ready before changing teams.';
     player.hero.team = message.team;
     await commitRoom();
     return null;
