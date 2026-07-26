@@ -476,6 +476,22 @@ button:focus-visible {
   cursor: help;
 }
 
+.roster-buff-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 20px;
+  margin-top: 5px;
+  padding-left: 16px;
+}
+
+.roster-buff-row .roster-buff-indicator.negative {
+  color: #ef9187;
+  background: rgba(194, 79, 67, .12);
+  border-color: rgba(216, 102, 89, .4);
+}
+
 .roster-buff-tooltip {
   position: absolute;
   z-index: 90;
@@ -3127,12 +3143,12 @@ button:focus-visible {
   text-shadow: 0 0 9px color-mix(in srgb, currentColor 42%, transparent);
 }
 
-.effect-number.damage,
-.effect-number.penalty { color: #ff8274; }
+.effect-number.damage { color: #ff8274; }
 .effect-number.heal { color: #7ee0a2; }
 .effect-number.shield { color: #7acbf1; }
-.effect-number.dice { color: #d7a8ff; }
-.effect-number.speed { color: #f0cd72; }
+.effect-number.dice,
+.effect-number.penalty { color: #d7a8ff; }
+.effect-number.speed { color: #f2a65a; }
 .effect-number.cards { color: #8bd7ef; }
 
 .skill-card strong.effect-number,

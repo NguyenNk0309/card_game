@@ -110,7 +110,14 @@ function ownSession(socket, requestedId) {
 }
 
 const teamLabel = (team) => team === 'veil' ? 'Veilbound' : 'Embercourt';
-const randomDiceTarget = () => 8 + Math.floor(Math.random() * 9);
+const secureRandomInt = (minimum, maximum) => {
+  const span = maximum - minimum + 1;
+  const values = new Uint32Array(1);
+  const limit = Math.floor(0x100000000 / span) * span;
+  do globalThis.crypto.getRandomValues(values); while (values[0] >= limit);
+  return minimum + (values[0] % span);
+};
+const randomDiceTarget = () => secureRandomInt(8, 16);
 const randomAmount = (minimum, maximum) => minimum + Math.floor(Math.random() * (maximum - minimum + 1));
 const TURN_SECONDS = 60;
 

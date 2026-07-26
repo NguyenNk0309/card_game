@@ -1,15 +1,30 @@
 import { ACTION_CARDS, CHARACTER_SKILL_CARDS, EVENTS, HERO_TEMPLATES, REALMS, STORY_BEATS } from "./catalog";
 import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, Hero, PlayerRunState, PlayerSession, SyncedGameState, TeamId, WorldEventOutcome } from "@/shared/types";
 
-const pick = <T,>(items: T[], index = Math.floor(Math.random() * items.length)) => items[Math.abs(index) % items.length];
+export function randomIntInclusive(minimum: number, maximum: number) {
+  const lower = Math.ceil(minimum);
+  const upper = Math.floor(maximum);
+  const span = upper - lower + 1;
+  if (span <= 0 || span > 0x100000000) throw new RangeError("Invalid random integer range.");
+  const randomValues = new Uint32Array(1);
+  const limit = Math.floor(0x100000000 / span) * span;
+  do globalThis.crypto.getRandomValues(randomValues); while (randomValues[0] >= limit);
+  return lower + (randomValues[0] % span);
+}
+
+const pick = <T,>(items: T[], index = randomIntInclusive(0, items.length - 1)) => items[Math.abs(index) % items.length];
 const teamName = (team: TeamId) => team === "veil" ? "Veilbound" : "Embercourt";
 export const BATTLE_TURN_SECONDS = 60;
 
 export function randomDiceTarget() {
-  return 8 + Math.floor(Math.random() * 9);
+  return randomIntInclusive(8, 16);
 }
 
 const randomAmount = (minimum: number, maximum: number) => minimum + Math.floor(Math.random() * (maximum - minimum + 1));
+
+export function randomD20Roll() {
+  return randomIntInclusive(1, 20);
+}
 
 export function createSeed() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();

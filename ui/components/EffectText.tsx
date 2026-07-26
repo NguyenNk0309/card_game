@@ -6,9 +6,15 @@ function numberTone(text: string, index: number, length: number, card?: ActionCa
   const context = `${before} ${after}`;
   if (/^\s*(damage|backlash)/.test(after)) return "damage";
   if (/^\s*shield/.test(after)) return "shield";
-  if (/^\s*hp/.test(after)) return /(restore|heal|revive|with|at)\s*$/.test(before) ? "heal" : "damage";
+  if (/^\s*hp/.test(after)) {
+    const restoresHealth = card?.effect === "heal"
+      || card?.supportType === "healing"
+      || card?.supportType === "revive"
+      || /(restore|heal|revive|regain)/.test(context);
+    return restoresHealth ? "heal" : "damage";
+  }
   if (/^\s*(completed )?turn/.test(after) || /^\s*(speed|phase)/.test(after)) return "speed";
-  if (/(d20|dice|roll|result)/.test(context)) return /^-/.test(text.slice(index, index + length)) || /(suffer|penalty)/.test(context) ? "penalty" : "dice";
+  if (/(d20|dice|roll|result)/.test(context)) return "dice";
   if (/(restore|heal|revive|healing)/.test(context)) return "heal";
   if (/shield/.test(context)) return "shield";
   if (/(damage|backlash|lose .*hp|lost .*hp|takes? .*hp)/.test(context)) return "damage";
@@ -21,7 +27,8 @@ function numberTone(text: string, index: number, length: number, card?: ActionCa
 }
 
 export function EffectText({ text, card }: { text: string; card?: ActionCard }) {
-  const matches = [...text.matchAll(/([+-]?\d+(?:\/\d+)?|one-third|half)/gi)];
+  const matches = [...text.matchAll(/([+-]?\d+(?:\/\d+)?|one-third|half)/gi)]
+    .filter((match) => !(match[0] === "20" && text[(match.index ?? 0) - 1]?.toLowerCase() === "d"));
   if (!matches.length) return <>{text}</>;
   const parts: React.ReactNode[] = [];
   let cursor = 0;

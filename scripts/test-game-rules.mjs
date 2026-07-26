@@ -13,6 +13,13 @@ const engineSource = await readFile(new URL("../backend/game/engine.ts", import.
 const compiledEngine = compile(engineSource, "engine.ts").replace('from "./catalog"', `from "${catalogUrl}"`);
 const engine = await import(`data:text/javascript;base64,${Buffer.from(compiledEngine).toString("base64")}`);
 
+const sampledTargets = Array.from({ length: 256 }, () => engine.randomDiceTarget());
+const sampledRolls = Array.from({ length: 256 }, () => engine.randomD20Roll());
+assert(sampledTargets.every((value) => Number.isInteger(value) && value >= 8 && value <= 16), "every target must be an independent integer from 8 through 16");
+assert(sampledRolls.every((value) => Number.isInteger(value) && value >= 1 && value <= 20), "every d20 result must be an independent integer from 1 through 20");
+assert(new Set(sampledTargets).size > 1, "target sampling must not return a fixed value");
+assert(new Set(sampledRolls).size > 1, "d20 sampling must not return a fixed value");
+
 const options = engine.getCharacterOptions();
 assert.equal(options.length, 10);
 for (const option of options) {

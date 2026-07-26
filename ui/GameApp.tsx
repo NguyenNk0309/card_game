@@ -2,7 +2,7 @@
 
 import { Archive, AudioLines, Check, ChevronLeft, ChevronRight, CircleHelp, Clock3, Crown, Dices, Eye, Flame, Hand, Heart, History, Layers, ListOrdered, LogOut, Octagon, RefreshCw, Shield, SkipForward, Skull, Sparkles, Swords, Target, Trash2, Users, Volume2, X, Zap } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createAdventure, createInitialGame, createPlayerSession, getCharacterOptions, getPassiveDiceBonus, resolveCardTurn } from "@/backend/game/engine";
+import { createAdventure, createInitialGame, createPlayerSession, getCharacterOptions, getPassiveDiceBonus, randomD20Roll, resolveCardTurn } from "@/backend/game/engine";
 import { describeCardFailure, describeCardSuccess, getCardEffectLabel, getCardTargetLabel } from "@/shared/cardRules";
 import type { ActionCard, GameHistoryEntry, PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
 import { DiceRoller } from "./components/DiceRoller";
@@ -128,7 +128,7 @@ function CardZoneVfx({ motion, player, playable }: { motion: CardZoneMotion; pla
   }, [motion.id, motion.mode, motion.slotIndex, motion.slotRect]);
   if (!slotStyle) return null;
   const cardStyle = { ...slotStyle, "--hero-color": player.hero.color, "--settled-card-opacity": playable ? 1 : 0.48 } as React.CSSProperties;
-  return <div className={`card-zone-vfx ${motion.mode}-motion ${motion.discarded && motion.drawn ? "replacement-motion" : "single-zone-motion"} ${playable ? "playable-motion" : "inactive-motion"}`} aria-hidden="true">{motion.discarded && <article className={`action-card card-motion hand-from-zone effect-${motion.discarded.effect} ${motion.discarded.unique ? "hero-special-card" : "common-action-card"} ${motion.discarded.effect === "none" ? "no-effect-card" : ""}`} style={cardStyle}><HandCardContents card={motion.discarded} player={player}/></article>}{motion.drawn && <article className={`action-card card-motion hand-to-zone effect-${motion.drawn.effect} ${motion.drawn.unique ? "hero-special-card" : "common-action-card"} ${motion.drawn.effect === "none" ? "no-effect-card" : ""}`} style={cardStyle}><HandCardContents card={motion.drawn} player={player}/></article>}</div>;
+  return <div className={`card-zone-vfx ${motion.mode}-motion ${motion.discarded && motion.drawn ? "replacement-motion" : "single-zone-motion"} ${playable ? "playable-motion" : "inactive-motion"}`} aria-hidden="true">{motion.discarded && <article className={`action-card selected card-motion hand-from-zone effect-${motion.discarded.effect} ${motion.discarded.unique ? "hero-special-card" : "common-action-card"} ${motion.discarded.effect === "none" ? "no-effect-card" : ""}`} style={cardStyle}><HandCardContents card={motion.discarded} player={player}/></article>}{motion.drawn && <article className={`action-card card-motion hand-to-zone effect-${motion.drawn.effect} ${motion.drawn.unique ? "hero-special-card" : "common-action-card"} ${motion.drawn.effect === "none" ? "no-effect-card" : ""}`} style={cardStyle}><HandCardContents card={motion.drawn} player={player}/></article>}</div>;
 }
 
 export default function GameApp() {
@@ -355,7 +355,7 @@ export default function GameApp() {
     if (rolling || !game || !activePlayer || activePlayer.id !== sessionId || !activeCard || runComplete || status !== "connected" || (activeState?.hp ?? 0) <= 0) return;
     playEffect("roll");
     setRolling(true); let ticks = 0;
-    const timer = window.setInterval(() => { setAnimatedRoll(Math.floor(Math.random() * 20) + 1); ticks += 1; if (ticks >= 9) { window.clearInterval(timer); const finalRoll = Math.floor(Math.random() * 20) + 1; const slotIndex = Math.max(0, localState?.hand.indexOf(activeCard.id) ?? 0); pendingCardMotionRef.current = { completedTurns: game.completedTurns, slotIndex, slotRect: captureCardSlot(slotIndex), discarded: activeCard }; if (send({ type: "game:update", game: resolveCardTurn(game, players, activeCard.id, targetPlayerId, finalRoll) })) playEffect("play"); else pendingCardMotionRef.current = null; setAnimatedRoll(finalRoll); setRolling(false); } }, 85);
+    const timer = window.setInterval(() => { setAnimatedRoll(randomD20Roll()); ticks += 1; if (ticks >= 9) { window.clearInterval(timer); const finalRoll = randomD20Roll(); const slotIndex = Math.max(0, localState?.hand.indexOf(activeCard.id) ?? 0); pendingCardMotionRef.current = { completedTurns: game.completedTurns, slotIndex, slotRect: captureCardSlot(slotIndex), discarded: activeCard }; if (send({ type: "game:update", game: resolveCardTurn(game, players, activeCard.id, targetPlayerId, finalRoll) })) playEffect("play"); else pendingCardMotionRef.current = null; setAnimatedRoll(finalRoll); setRolling(false); } }, 85);
   };
   const skipTurn = () => {
     if (!game || !activePlayer || activePlayer.id !== sessionId || runComplete || status !== "connected" || (activeState?.hp ?? 0) <= 0) return;
