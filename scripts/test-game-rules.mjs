@@ -127,7 +127,10 @@ freeRollGame.playerStates[first.id].hand = [freePityCard.id];
 const freeRollResult = engine.resolveCardTurn(freeRollGame, [first, second], freePityCard.id, first.id, 1);
 assert.equal(freeRollResult.outcome.success, true, "a normal roll with a zero-pity-cost card always succeeds regardless of the d20 result");
 assert.equal(freeRollResult.outcome.roll, 1, "the ignored d20 result is still shown in the roll outcome");
+assert.equal(freeRollResult.outcome.pityCost, 0, "the shared result identifies a zero-pity automatic success for every player's result panel");
 assert.equal(freeRollResult.playerStates[first.id].pityPoints, 0, "an automatic zero-cost success does not award pity");
+assert.equal(freeRollResult.history.at(-1).pityCost, 0, "history identifies the zero-pity automatic success");
+assert.match(freeRollResult.history.at(-1).message, /d20 1 ignored; zero-pity card always succeeds/, "history explains that the roll result was ignored");
 
 game.playerStates[first.id].hand = [attack.id];
 const firstTarget = game.adventure.target;

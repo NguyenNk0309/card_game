@@ -1596,6 +1596,12 @@ button:focus-visible {
 .history-dice { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 7px; }
 .history-dice span, .history-dice strong { padding: 3px 5px; border: 1px solid rgba(212,181,110,.2); background: rgba(0,0,0,.18); color: #cdd5d2; font-size: 9px; letter-spacing: .02em; text-transform: none; }
 .history-dice strong { color: var(--gold); }
+.history-dice.automatic span,
+.history-dice.automatic strong {
+  color: #ffca88;
+  border-color: rgba(238, 145, 55, .42);
+  background: rgba(112, 54, 12, .2);
+}
 
 .hero-row.is-dead { opacity: .45; filter: grayscale(1); }
 .hero-row.is-dead .hp-meter > i { width: 0 !important; }
@@ -2978,6 +2984,10 @@ button:focus-visible {
   grid-template-columns: repeat(2, 1fr);
 }
 
+.resolution-metrics.single-metric {
+  grid-template-columns: 1fr;
+}
+
 .resolution-metrics > div {
   min-height: 72px;
   padding: 12px;
@@ -3927,7 +3937,26 @@ button:focus-visible {
 .history-card-detail > h2 { margin-bottom: 4px; }
 .history-card-detail > .modal-lead { max-width: 500px; margin: 0 0 8px; }
 .history-card-detail > .card-outcome-lines { width: min(500px, 100%); text-align: left; }
-.history-card-detail > .pity-cost-badge { top: 0; right: 0; }
+.history-card-detail > .pity-cost-badge {
+  position: static;
+  min-width: 92px;
+  height: 42px;
+  margin: 0 0 3px;
+  padding: 0 16px;
+  gap: 9px;
+  color: #211307 !important;
+  background: linear-gradient(135deg, #d97725, #f2a84d);
+  border: 1px solid #ffc06d;
+  border-radius: 2px;
+  box-shadow: 0 7px 18px rgba(222, 112, 26, .28), inset 0 1px 0 rgba(255, 235, 190, .32);
+  font-size: 18px !important;
+}
+
+.history-card-detail > .pity-cost-badge svg {
+  width: 23px;
+  height: 23px;
+  stroke-width: 2.7;
+}
 
 .modal-card h2 .inline-player-name,
 .combat-banner strong .player-name-highlight { font-size: inherit !important; line-height: inherit; }
@@ -4269,6 +4298,44 @@ button:focus-visible {
 .resolution-pity > span { display: grid; gap: 3px; text-align: left; }
 .resolution-pity small { color: #d9934f; text-transform: uppercase; letter-spacing: .09em; }
 .resolution-pity strong { color: #ffe0b7; font-size: 16px; }
+
+.automatic-success-notice {
+  width: min(430px, 100%);
+  margin: 16px auto;
+  padding: 13px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  color: #ffb560;
+  border: 1px solid rgba(236, 137, 46, .5);
+  background: linear-gradient(135deg, rgba(116, 57, 13, .24), rgba(50, 28, 12, .28));
+  box-shadow: inset 3px 0 0 #ed933d;
+}
+
+.automatic-success-notice > span {
+  display: grid;
+  gap: 3px;
+  text-align: left;
+}
+
+.automatic-success-notice small {
+  color: #d9934f;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .1em;
+}
+
+.automatic-success-notice strong {
+  color: #ffe0b7;
+  font-size: 17px;
+}
+
+.automatic-success-notice b {
+  color: #c9d0cd;
+  font-size: 11px;
+  font-weight: 700;
+}
 
 @media (max-width: 700px) {
   .dice-panel { flex-wrap: wrap; }
