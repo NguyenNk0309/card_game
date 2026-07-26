@@ -57,7 +57,7 @@ assert.equal(game.maxTurns, 30);
 assert.equal(game.maxPhases, 30);
 assert.equal(game.completedPhases, 0);
 assert.equal(game.playerStates[first.id].hand.length + game.playerStates[first.id].drawPile.length + game.playerStates[first.id].discardPile.length + game.playerStates[first.id].graveyard.length, 10, "all cards begin in reusable zones with an empty graveyard");
-assert.equal(engine.createInitialGame([first, second], engine.createAdventure("TIMER"), 5).turnSeconds, 30, "battle turns always last exactly 30 seconds");
+assert.equal(engine.createInitialGame([first, second], engine.createAdventure("TIMER"), 5).turnSeconds, 60, "battle turns always last exactly 60 seconds");
 assert(game.adventure.target >= 8 && game.adventure.target <= 16, "the initial target is randomly selected from the balanced target range");
 
 const attack = first.skillDeck.find((card) => card.effect === "damage");

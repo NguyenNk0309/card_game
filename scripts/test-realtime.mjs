@@ -173,8 +173,8 @@ try {
   assert.deepEqual(secondStarted.game.playerStates[firstId].hand, [], "other draw and hand data stays private");
   assert.deepEqual(secondStarted.game.playerStates[firstId].graveyard, [], "another player's graveyard remains private");
   assert.equal(firstStarted.viewerSessionId, firstId, "WebSocket snapshots identify the session whose private zones they contain");
-  assert.equal(firstStarted.game.turnSeconds, 30, "the room overrides every client timer with a constant 30 seconds");
-  assert(firstStarted.game.turnDeadline - firstStarted.game.turnStartedAt === 30_000, "every battle turn receives exactly 30 seconds");
+  assert.equal(firstStarted.game.turnSeconds, 60, "the room overrides every client timer with a constant 60 seconds");
+  assert(firstStarted.game.turnDeadline - firstStarted.game.turnStartedAt === 60_000, "every battle turn receives exactly 60 seconds");
 
   const expiryProbePromise = first.waitForNext((state) => state.phase === "game");
   first.send({ type: "expire-turn", sessionId: firstId });
@@ -225,7 +225,7 @@ try {
   second.send({ type: "leave-game", sessionId: secondId });
   await first.waitFor((state) => !state.players.some((item) => item.id === secondId));
 
-  console.log("Realtime test passed: private hands, 30-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");
+  console.log("Realtime test passed: private hands, 60-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");
 } finally {
   first.send({ type: "return:lobby" });
   await first.waitFor((state) => state.phase === "lobby").catch(() => {});

@@ -108,8 +108,8 @@ try {
   assert.deepEqual(firstStarted.game.playerStates[firstId].graveyard, ["buried-first"], "polling responses include the owner's graveyard");
   assert.deepEqual(firstStarted.game.playerStates[secondId].hand, [], "other card zones remain private during polling");
   assert.equal(firstStarted.viewerSessionId, firstId, "polling snapshots identify the session whose private zones they contain");
-  assert.equal(firstStarted.game.turnSeconds, 30, "the polling room enforces a constant 30-second timer");
-  assert.equal(firstStarted.game.turnDeadline - firstStarted.game.turnStartedAt, 30_000, "every polling turn receives exactly 30 seconds");
+  assert.equal(firstStarted.game.turnSeconds, 60, "the polling room enforces a constant 60-second timer");
+  assert.equal(firstStarted.game.turnDeadline - firstStarted.game.turnStartedAt, 60_000, "every polling turn receives exactly 60 seconds");
   const controlledGame = structuredClone(firstStarted.game);
   controlledGame.completedTurns = 1;
   controlledGame.completedPhases = 0;
@@ -154,7 +154,7 @@ try {
   assert.equal(ended.game.ended, true);
   const left = await command(secondId, { type: "leave-game" });
   assert(!left.players.some((item) => item.id === secondId));
-  console.log("Polling test passed: private hands, 30-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");
+  console.log("Polling test passed: private hands, 60-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");
 } finally {
   await command(firstId, { type: "return:lobby" }).catch(() => {});
   await command(firstId, { type: "leave" }).catch(() => {});

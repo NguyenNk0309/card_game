@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Heart, Shield, Swords, UserMinus } from "lucide-react";
+import { Check, Heart, Shield, Sparkles, Swords, UserMinus } from "lucide-react";
 import type { PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
 
 const teamMeta: Record<TeamId, { name: string; icon: typeof Shield }> = {
@@ -30,14 +30,19 @@ export function PartyRail({ players, game, localSessionId, onRemovePlayer, onIns
           const hp = state?.hp ?? hero.hp;
           const maxHp = state?.maxHp ?? hero.maxHp;
           const dead = hp <= 0;
-          const hasBuff = Boolean(state && (state.attackBuff || state.diceBuff || state.dicePenalty));
+          const buffs: Array<{ label: string; value: string; negative?: boolean }> = [];
+          if (state?.attackBuff) buffs.push({ label: "Next attack", value: `+${state.attackBuff} damage` });
+          if (state?.diceBuff) buffs.push({ label: "Next d20", value: `+${state.diceBuff}` });
+          if (state?.dicePenalty) buffs.push({ label: "Next d20", value: `-${state.dicePenalty}`, negative: true });
+          if (state?.skipTurns) buffs.push({ label: "Cancelled turns", value: String(state.skipTurns), negative: true });
+          if (state?.reviveIn) buffs.push({ label: "Revives in", value: `${state.reviveIn} turns` });
+          const hasBuff = buffs.length > 0;
           return <article className={`hero-row ${dead ? "is-dead" : ""} ${player.id === localSessionId ? "is-you" : ""}`} key={player.id}>
             <button className="portrait-button" onClick={() => onInspectPlayer?.(player.id)} aria-label={`View ${player.displayName}'s character`}><div className="portrait" style={{ "--hero-color": hero.color } as React.CSSProperties}>{hero.initials}</div></button>
             <div className="hero-copy">
               <div className="hero-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{player.displayName}</strong><span className="hero-name-actions">{dead ? <em>DEFEATED</em> : null}{localSessionId && player.id !== localSessionId && onRemovePlayer && <button className="rail-remove-player" onClick={() => onRemovePlayer(player.id)} aria-label={`Remove ${player.displayName}`}><UserMinus size={12}/></button>}</span></div>
               <span>{hero.name} · {hero.className}</span>
-              <div className="hp-line"><Heart size={10} fill="currentColor"/><i><b style={{ width: `${Math.max(0, hp / maxHp) * 100}%` }}/></i><small>{hp} HP{state?.shield ? ` + ${state.shield} shield` : ""}</small></div>
-              {hasBuff && state && <div className="buff-line">{state.attackBuff ? `Attack +${state.attackBuff}` : ""} {state.diceBuff ? `d20 +${state.diceBuff}` : ""} {state.dicePenalty ? <em className="negative-buff">d20 -{state.dicePenalty}</em> : ""}</div>}
+              <div className="hp-line"><Heart size={11} fill="currentColor"/><div className="hp-meter" role="progressbar" aria-label={`${player.displayName} health`} aria-valuemin={0} aria-valuemax={maxHp} aria-valuenow={hp}><i style={{ width: `${Math.max(0, hp / maxHp) * 100}%` }}/><strong>{hp} / {maxHp} HP</strong></div>{Boolean(state?.shield) && <span className="roster-shield" title={`${state?.shield} shield`}><Shield size={11}/>{state?.shield}</span>}{hasBuff && <span className="roster-buff-indicator" tabIndex={0} aria-label={`${player.displayName} has active effects`}><Sparkles size={12}/><span className="roster-buff-tooltip" role="tooltip"><strong>Active effects</strong>{buffs.map((buff, index) => <span className={buff.negative ? "negative" : ""} key={`${buff.label}-${index}`}><b>{buff.label}</b><em>{buff.value}</em></span>)}</span></span>}</div>
             </div>
           </article>;
         })}

@@ -29,7 +29,7 @@ Open `http://localhost:3000`.
 2. Each browser chooses an unclaimed hero and reviews that hero's 15-card deck before joining.
 3. Every deck has five character-specific skill cards and ten common interaction cards; teams are balanced on join.
 4. Once everyone is ready, any player can press **Enter the game**. Every connected browser moves into the same adventure.
-5. On each 30-second turn, the active player chooses one of five cards in hand, selects a valid target, and rolls.
+5. On each 60-second turn, the active player chooses a card in hand, selects a valid target, and rolls.
 6. Cards can heal allies, damage rivals, grant shields, support the realm, or resolve story checks.
 7. Played cards enter the graveyard. When the draw pile empties, the graveyard is shuffled into a new draw pile.
 8. An expired turn passes automatically and raises World Doom. Players may leave, end the run, or remove another player after confirmation.

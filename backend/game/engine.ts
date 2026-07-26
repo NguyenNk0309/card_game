@@ -3,7 +3,7 @@ import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, Hero, Pl
 
 const pick = <T,>(items: T[], index = Math.floor(Math.random() * items.length)) => items[Math.abs(index) % items.length];
 const teamName = (team: TeamId) => team === "veil" ? "Veilbound" : "Embercourt";
-export const BATTLE_TURN_SECONDS = 30;
+export const BATTLE_TURN_SECONDS = 60;
 
 export function randomDiceTarget() {
   return 8 + Math.floor(Math.random() * 9);

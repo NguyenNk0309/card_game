@@ -112,7 +112,7 @@ function ownSession(socket, requestedId) {
 const teamLabel = (team) => team === 'veil' ? 'Veilbound' : 'Embercourt';
 const randomDiceTarget = () => 8 + Math.floor(Math.random() * 9);
 const randomAmount = (minimum, maximum) => minimum + Math.floor(Math.random() * (maximum - minimum + 1));
-const TURN_SECONDS = 30;
+const TURN_SECONDS = 60;
 
 function teamTotals(game, team) {
   const members = room.players.filter((player) => player.hero.team === team);
