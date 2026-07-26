@@ -53,6 +53,7 @@ export type ActionCard = {
   ignoresShield?: boolean;
   failureEffect?: FailureEffect;
   failureValue?: number;
+  pityCost: number;
   unique: boolean;
 };
 
@@ -91,6 +92,11 @@ export type GameOutcome = {
   nextTarget?: number;
   diceBuff?: number;
   dicePenalty?: number;
+  resolution?: "roll" | "pity";
+  cardId?: string;
+  pityCost?: number;
+  pityBefore?: number;
+  pityAfter?: number;
   failureDetail?: string;
   supportType?: SupportType;
   targetIds?: string[];
@@ -113,6 +119,10 @@ export type GameHistoryEntry = {
   diceBonus?: number;
   dicePenalty?: number;
   diceTotal?: number;
+  resolution?: "roll" | "pity";
+  pityCost?: number;
+  pityBefore?: number;
+  pityAfter?: number;
   createdAt: number;
 };
 
@@ -133,6 +143,7 @@ export type PlayerRunState = {
   attackBuff: number;
   diceBuff: number;
   dicePenalty: number;
+  pityPoints: number;
   reviveIn: number;
   passiveReviveUsed: boolean;
   skipTurns: number;

@@ -26,6 +26,9 @@ for (const option of options) {
   assert.equal(option.skillDeck.length, 10, `${option.hero.name} must have 10 cards`);
   assert.equal(option.skillDeck.filter((card) => card.unique).length, 3);
   assert.equal(option.skillDeck.filter((card) => !card.unique).length, 7);
+  assert(option.skillDeck.every((card) => Number.isInteger(card.pityCost) && card.pityCost >= 0 && card.pityCost <= 8), "every card must have a reachable integer pity cost");
+  assert(option.skillDeck.filter((card) => card.effect === "none").every((card) => card.pityCost === 0), "no-effect cards must cost zero pity");
+  assert(option.skillDeck.filter((card) => card.effect !== "none").every((card) => card.pityCost >= 3), "effect cards must require accumulated pity");
   assert(option.skillDeck.every((card) => card.bonus === 0), "cards cannot carry a built-in d20 bonus");
   assert(option.skillDeck.every((card) => !("risk" in card) && card.effect !== "check"));
   assert(option.skillDeck.filter((card) => card.unique).every((card) => ["self-damage", "team-damage", "lose-shield"].includes(card.failureEffect) && card.failureValue > 0), "every special card needs a balanced owner/team failure penalty");
@@ -63,11 +66,52 @@ game.turnOrder = [first.id, second.id];
 assert.equal(game.maxTurns, 30);
 assert.equal(game.maxPhases, 30);
 assert.equal(game.completedPhases, 0);
+assert.equal(game.playerStates[first.id].pityPoints, 0, "every player begins with zero pity");
 assert.equal(game.playerStates[first.id].hand.length + game.playerStates[first.id].drawPile.length + game.playerStates[first.id].discardPile.length + game.playerStates[first.id].graveyard.length, 10, "all cards begin in reusable zones with an empty graveyard");
 assert.equal(engine.createInitialGame([first, second], engine.createAdventure("TIMER"), 5).turnSeconds, 60, "battle turns always last exactly 60 seconds");
 assert(game.adventure.target >= 8 && game.adventure.target <= 16, "the initial target is randomly selected from the balanced target range");
 
 const attack = first.skillDeck.find((card) => card.effect === "damage");
+const pityFailureGame = engine.createInitialGame([first, second], engine.createAdventure("PITY-FAIL"), 30);
+pityFailureGame.turnOrder = [first.id, second.id];
+pityFailureGame.adventure.target = 16;
+pityFailureGame.playerStates[first.id].hand = [attack.id];
+const pityEarned = engine.resolveCardTurn(pityFailureGame, [first, second], attack.id, second.id, 1);
+assert.equal(pityEarned.outcome.success, false);
+assert.equal(pityEarned.playerStates[first.id].pityPoints, 1, "a failed normal d20 must award exactly one pity point");
+assert.equal(pityEarned.outcome.pityBefore, 0);
+assert.equal(pityEarned.outcome.pityAfter, 1);
+
+const insufficientPityGame = engine.createInitialGame([first, second], engine.createAdventure("PITY-LOCK"), 30);
+insufficientPityGame.turnOrder = [first.id, second.id];
+insufficientPityGame.playerStates[first.id].hand = [attack.id];
+assert.equal(engine.resolveCardTurn(insufficientPityGame, [first, second], attack.id, second.id, 0, true), insufficientPityGame, "pity play must be rejected when points are below the selected card cost");
+
+const pitySuccessGame = engine.createInitialGame([first, second], engine.createAdventure("PITY-SUCCESS"), 30);
+pitySuccessGame.turnOrder = [first.id, second.id];
+pitySuccessGame.playerStates[first.id].hand = [attack.id];
+pitySuccessGame.playerStates[first.id].pityPoints = attack.pityCost + 2;
+pitySuccessGame.playerStates[first.id].diceBuff = 2;
+pitySuccessGame.playerStates[first.id].dicePenalty = 1;
+const pitySuccess = engine.resolveCardTurn(pitySuccessGame, [first, second], attack.id, second.id, 0, true);
+assert.equal(pitySuccess.outcome.success, true, "an affordable pity play must guarantee card success");
+assert.equal(pitySuccess.outcome.resolution, "pity");
+assert.equal(pitySuccess.outcome.pityCost, attack.pityCost);
+assert.equal(pitySuccess.playerStates[first.id].pityPoints, 2, "pity play must deduct exactly the selected card cost");
+assert.equal(pitySuccess.playerStates[first.id].diceBuff, 2, "pity play must preserve the next-roll buff");
+assert.equal(pitySuccess.playerStates[first.id].dicePenalty, 1, "pity play must preserve the next-roll penalty");
+assert.equal(pitySuccess.roll, null, "pity play must not report a fabricated d20 result");
+assert.equal(pitySuccess.history.at(-1).resolution, "pity");
+assert.equal(pitySuccess.history.at(-1).diceRoll, undefined);
+
+const freePityCard = first.skillDeck.find((card) => card.effect === "none");
+const freePityGame = engine.createInitialGame([first, second], engine.createAdventure("PITY-ZERO"), 30);
+freePityGame.turnOrder = [first.id, second.id];
+freePityGame.playerStates[first.id].hand = [freePityCard.id];
+const freePityResult = engine.resolveCardTurn(freePityGame, [first, second], freePityCard.id, first.id, 0, true);
+assert.equal(freePityResult.outcome.success, true, "a zero-cost no-effect card may use pity without stored points");
+assert.equal(freePityResult.playerStates[first.id].pityPoints, 0);
+
 game.playerStates[first.id].hand = [attack.id];
 const firstTarget = game.adventure.target;
 const attacked = engine.resolveCardTurn(game, [first, second], attack.id, second.id, 20);
@@ -379,4 +423,4 @@ assert.equal(nextSpeedRound.history.at(-1).phase, 1, "the final turn in a phase 
 assert.equal(nextSpeedRound.turnOrder[0], second.id, "a completed round resets to the fastest living player");
 assert.deepEqual(nextSpeedRound.actedThisRound, []);
 
-console.log("Game-rule test passed: random targets, penalty-free common cards, special-card penalties, support effects, turn order, event history, victory, and defeated-player lockout.");
+console.log("Game-rule test passed: random targets, pity earning/spending, balanced card costs, special-card penalties, support effects, turn order, event history, victory, and defeated-player lockout.");

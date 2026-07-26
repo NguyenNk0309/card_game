@@ -13,7 +13,21 @@ export const HERO_TEMPLATES: Omit<Hero, "id" | "team" | "isYou">[] = [
   { name: "Dagan Flint", title: "Blood of the Front Line", role: "Berserker", classId: "berserker", className: "Blood Berserker", passiveName: "Pain Makes Power", passiveText: "At half HP or lower, attacks deal 1 additional damage.", skill: "None Left Standing", skillText: "A powerful AOE attack when Dagan is wounded.", summary: "A high-HP attacker who builds personal damage and becomes dangerous when wounded.", strength: "Durable pressure and strong low-HP attacks.", weakness: "Self-focused kit with damaging backlash.", impact: "Demands healing judgment: wounded Dagan hits harder but is easier to finish.", hp: 12, maxHp: 12, speed: 2, color: "#768493", initials: "DF" }
 ];
 
-type CharacterSkillCard = Omit<ActionCard, "unique">;
+type CardWithoutPity = Omit<ActionCard, "pityCost">;
+type CharacterSkillCard = Omit<CardWithoutPity, "unique">;
+
+export function calculatePityCost(card: CardWithoutPity | ActionCard) {
+  const storedCost = Number((card as Partial<ActionCard>).pityCost);
+  if (Number.isFinite(storedCost) && storedCost >= 0) return Math.min(8, Math.floor(storedCost));
+  if (card.effect === "none") return 0;
+  if (!card.unique) return Math.min(5, Math.max(3, card.value));
+  if (card.effect === "damage") return Math.min(8, 2 + card.value + (card.ignoresShield ? 1 : 0));
+  if (card.effect === "aoe") return Math.min(8, 3 + card.value + (card.ignoresShield ? 1 : 0));
+  if (card.effect === "heal" || card.effect === "guard") return Math.min(7, 2 + card.value);
+  if (["revive", "skip-enemy", "steal-card"].includes(card.supportType ?? "")) return 7;
+  if (["purge-card", "advance-ally", "dispel-enemy"].includes(card.supportType ?? "")) return 6;
+  return Math.min(6, 3 + card.value);
+}
 
 export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
   "Elara Voss": [
@@ -68,7 +82,7 @@ export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
   ]
 };
 
-export const ACTION_CARDS: ActionCard[] = [
+const COMMON_ACTION_CARDS: CardWithoutPity[] = [
   { id: "slash", name: "Slash", type: "Might", description: "Choose one living enemy. Deal 3 damage. Shield absorbs damage before HP.", bonus: 4, effect: "damage", target: "enemy", value: 3, unique: false },
   { id: "heavy", name: "Heavy Blow", type: "Might", description: "Choose one living enemy. Deal 4 damage. Shield absorbs damage before HP.", bonus: 3, effect: "damage", target: "enemy", value: 4, unique: false },
   { id: "brace", name: "Brace", type: "Spirit", description: "Grant yourself 3 shield.", bonus: 5, effect: "guard", target: "self", value: 3, unique: false },
@@ -77,6 +91,8 @@ export const ACTION_CARDS: ActionCard[] = [
   { id: "broken-plan", name: "Broken Plan", type: "Wit", description: "This card has no gameplay effect. Playing it only cycles it out of your hand.", bonus: 0, effect: "none", target: "self", value: 0, unique: false },
   { id: "lost-momentum", name: "Lost Momentum", type: "Might", description: "This card has no gameplay effect. Playing it only cycles it out of your hand.", bonus: 0, effect: "none", target: "self", value: 0, unique: false }
 ];
+
+export const ACTION_CARDS: ActionCard[] = COMMON_ACTION_CARDS.map((card) => ({ ...card, pityCost: calculatePityCost(card) }));
 
 export const REALMS: Realm[] = [
   { id: "arena", name: "Oathbound Arena", region: "The final battle line", weather: "No retreat", objective: "Defeat the entire opposing team before or on phase 30.", threat: "The opposing team", accent: "#d4b56e", sceneClass: "scene-arena" }

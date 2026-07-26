@@ -159,6 +159,7 @@ function normalizeServerTurnOrder(game) {
   for (const state of Object.values(game.playerStates || {})) {
     state.graveyard ||= [];
     state.cardUses ||= {};
+    state.pityPoints = Math.max(0, Math.floor(Number(state.pityPoints) || 0));
   }
   const validIds = new Set(room.players.map((player) => player.id));
   const currentId = room.players[game.activePlayerIndex]?.id;
@@ -289,6 +290,42 @@ function triggerSableRevives(game) {
     state.reviveIn = 0;
     return true;
   });
+}
+
+function cardPityCost(card) {
+  const stored = Number(card?.pityCost);
+  if (Number.isFinite(stored) && stored >= 0) return Math.min(8, Math.floor(stored));
+  if (card?.effect === 'none') return 0;
+  if (!card?.unique) return Math.min(5, Math.max(3, Number(card?.value) || 0));
+  if (card?.effect === 'damage') return Math.min(8, 2 + (Number(card.value) || 0) + (card.ignoresShield ? 1 : 0));
+  if (card?.effect === 'aoe') return Math.min(8, 3 + (Number(card.value) || 0) + (card.ignoresShield ? 1 : 0));
+  if (card?.effect === 'heal' || card?.effect === 'guard') return Math.min(7, 2 + (Number(card.value) || 0));
+  if (['revive', 'skip-enemy', 'steal-card'].includes(card?.supportType || '')) return 7;
+  if (['purge-card', 'advance-ally', 'dispel-enemy'].includes(card?.supportType || '')) return 6;
+  return Math.min(6, 3 + (Number(card?.value) || 0));
+}
+
+function reconcilePityPoints(previousGame, incomingGame, actor) {
+  const previousState = previousGame?.playerStates?.[actor?.id];
+  const incomingState = incomingGame?.playerStates?.[actor?.id];
+  const outcome = incomingGame?.outcome;
+  if (!previousState || !incomingState || outcome?.kind !== 'card') return 'The pity update is incomplete.';
+  const card = room.players.flatMap((player) => player.skillDeck || []).find((item) => item.id === outcome.cardId)
+    || room.players.flatMap((player) => player.skillDeck || []).find((item) => item.name === outcome.cardName);
+  if (!card || !(previousState.hand || []).includes(card.id)) return 'The selected card is not in the active hand.';
+  const before = Math.max(0, Math.floor(Number(previousState.pityPoints) || 0));
+  const cost = cardPityCost(card);
+  if (outcome.resolution === 'pity') {
+    if (before < cost) return 'There are not enough pity points for that card.';
+    incomingState.pityPoints = before - cost;
+    outcome.success = true;
+    outcome.pityCost = cost;
+  } else {
+    incomingState.pityPoints = before + (outcome.success ? 0 : 1);
+  }
+  outcome.pityBefore = before;
+  outcome.pityAfter = incomingState.pityPoints;
+  return '';
 }
 
 function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
@@ -614,8 +651,11 @@ function handleMessage(socket, rawMessage) {
         message.game.playerStates[id].graveyard = [...(state.graveyard || [])];
         message.game.playerStates[id].borrowedCards = [...(state.borrowedCards || [])];
         message.game.playerStates[id].cardUses = { ...(state.cardUses || {}) };
+        message.game.playerStates[id].pityPoints = Math.max(0, Math.floor(Number(state.pityPoints) || 0));
       }
     }
+    const pityError = reconcilePityPoints(previousGame, message.game, activePlayer);
+    if (pityError) return reject(socket, pityError);
     reconcileHiddenCardEffects(previousGame, message.game, activePlayer);
     message.game.adventure.target = randomDiceTarget();
     if (message.game.outcome?.kind === 'card') message.game.outcome.nextTarget = message.game.adventure.target;

@@ -1,4 +1,4 @@
-import { ACTION_CARDS, CHARACTER_SKILL_CARDS, EVENTS, HERO_TEMPLATES, REALMS, STORY_BEATS } from "./catalog";
+import { ACTION_CARDS, calculatePityCost, CHARACTER_SKILL_CARDS, EVENTS, HERO_TEMPLATES, REALMS, STORY_BEATS } from "./catalog";
 import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, Hero, PlayerRunState, PlayerSession, SyncedGameState, TeamId, WorldEventOutcome } from "@/shared/types";
 
 export function randomIntInclusive(minimum: number, maximum: number) {
@@ -55,7 +55,8 @@ export function createSkillDeck(hero: Omit<Hero, "id" | "team" | "isYou">): Acti
   const specialCards = uniqueCards.map((card) => {
     const failureEffect = card.failureEffect ?? (card.target === "all-allies" || card.target === "all-enemies" ? "team-damage" : "self-damage");
     const failureValue = card.failureValue ?? (card.value >= 5 ? 2 : 1);
-    return { ...card, bonus: 0, failureEffect, failureValue, unique: true } as ActionCard;
+    const completeCard = { ...card, bonus: 0, failureEffect, failureValue, unique: true };
+    return { ...completeCard, pityCost: calculatePityCost(completeCard) } as ActionCard;
   });
   const deck = [...specialCards, ...commonCards];
   if (deck.length !== 10) throw new Error(`${hero.name} must have a 10-card deck.`);
@@ -75,7 +76,7 @@ export function createPlayerSession(displayName: string, seatIndex: number, hero
 
 function createRunState(player: PlayerSession): PlayerRunState {
   const drawPile = shuffle(player.skillDeck.map((card) => card.id));
-  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, reviveIn: 0, passiveReviveUsed: false, skipTurns: 0, borrowedCards: [], cardUses: {}, hand: drawPile.splice(0, 4), drawPile, discardPile: [], graveyard: [] };
+  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, pityPoints: 0, reviveIn: 0, passiveReviveUsed: false, skipTurns: 0, borrowedCards: [], cardUses: {}, hand: drawPile.splice(0, 4), drawPile, discardPile: [], graveyard: [] };
 }
 
 function speedOrder(players: PlayerSession[], states?: Record<string, PlayerRunState>) {
@@ -327,16 +328,19 @@ function applyWorldEvent(phase: number, players: PlayerSession[], states: Record
   return { event, history: { id: `${event.id}-history`, turn: phase, phase, kind: "world", actorName: "World Event", message: `World Event · Level ${level} — ${title}: ${description}`, success: true, createdAt: Date.now() } };
 }
 
-export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[], cardId: string, targetId: string | undefined, roll: number): SyncedGameState {
+export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[], cardId: string, targetId: string | undefined, roll: number, usePity = false): SyncedGameState {
   let turnOrder = normalizeTurnOrder(game, players);
   const actor = players.find((player) => player.id === turnOrder[0]) ?? players[game.activePlayerIndex];
   const actorIndex = players.findIndex((player) => player.id === actor?.id);
   const actorState = actor && game.playerStates[actor.id];
   const card = players.flatMap((player) => player.skillDeck).find((item) => item.id === cardId);
-  if (!actor || !actorState || actorState.hp <= 0 || !card || !actorState.hand.includes(card.id) || game.ended) return game;
+  const pityCost = card ? calculatePityCost(card) : 0;
+  const pityBefore = actorState?.pityPoints ?? 0;
+  if (!actor || !actorState || actorState.hp <= 0 || !card || !actorState.hand.includes(card.id) || game.ended || (usePity && pityBefore < pityCost)) return game;
 
   const states = Object.fromEntries(Object.entries(game.playerStates).map(([id, state]) => [id, {
     ...state,
+    pityPoints: state.pityPoints ?? 0,
     reviveIn: state.reviveIn ?? 0,
     passiveReviveUsed: state.passiveReviveUsed ?? false,
     skipTurns: state.skipTurns ?? 0,
@@ -355,7 +359,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const passiveDiceBonus = getPassiveDiceBonus(actor, card, actorState);
   const totalBonus = diceBuff + passiveDiceBonus;
   const total = roll + totalBonus - dicePenalty;
-  const success = total >= game.adventure.target;
+  const success = usePity || total >= game.adventure.target;
   const enemies = living(players, states).filter((player) => player.hero.team !== actor.hero.team);
   const allies = living(players, states, actor.hero.team);
   const defeatedAllies = players.filter((player) => player.hero.team === actor.hero.team && (states[player.id]?.hp ?? 0) <= 0);
@@ -372,8 +376,11 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
             : card.target === "player" ? (selectedPlayer ? [selectedPlayer] : [])
               : selectedEnemy ? [selectedEnemy] : [];
   const needsTarget = ["ally", "defeated-ally", "enemy", "player"].includes(card.target);
-  states[actor.id].diceBuff = 0;
-  states[actor.id].dicePenalty = 0;
+  if (!usePity) {
+    states[actor.id].diceBuff = 0;
+    states[actor.id].dicePenalty = 0;
+  }
+  states[actor.id].pityPoints = usePity ? pityBefore - pityCost : pityBefore + (success ? 0 : 1);
   let amount = 0;
   let defeated = false;
   let detail = `${actor.displayName} used ${card.name} but did not meet target ${game.adventure.target}.`;
@@ -520,8 +527,8 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   }
   let adventure = { ...game.adventure, target: randomDiceTarget() };
   if (success && (card.effect === "damage" || card.effect === "aoe")) adventure = { ...adventure, veilInfluence: adventure.veilInfluence + (actor.hero.team === "veil" ? amount : 0), emberInfluence: adventure.emberInfluence + (actor.hero.team === "ember" ? amount : 0) };
-  const rollSummary = `d20 ${roll} + bonus ${totalBonus}${dicePenalty ? ` - penalty ${dicePenalty}` : ""} = ${total}; target ${game.adventure.target}`;
-  const actionHistory: GameHistoryEntry = { id: `turn-${turn}-${Date.now()}`, turn, phase: actionPhase, kind: card.effect, actorName: actor.displayName, actorTeam: actor.hero.team, targetName: targets.map((target) => target.displayName).join(", "), cardName: card.name, message: `${actor.displayName} used ${card.name} (${rollSummary}) — ${detail}`, success, amount, diceRoll: roll, diceTarget: game.adventure.target, diceBonus: totalBonus, dicePenalty, diceTotal: total, createdAt: Date.now() };
+  const rollSummary = usePity ? `spent ${pityCost} pity (${pityBefore} to ${states[actor.id].pityPoints})` : `d20 ${roll} + bonus ${totalBonus}${dicePenalty ? ` - penalty ${dicePenalty}` : ""} = ${total}; target ${game.adventure.target}`;
+  const actionHistory: GameHistoryEntry = { id: `turn-${turn}-${Date.now()}`, turn, phase: actionPhase, kind: card.effect, actorName: actor.displayName, actorTeam: actor.hero.team, targetName: targets.map((target) => target.displayName).join(", "), cardName: card.name, message: `${actor.displayName} used ${card.name} (${rollSummary}) — ${detail}`, success, amount, diceRoll: usePity ? undefined : roll, diceTarget: usePity ? undefined : game.adventure.target, diceBonus: usePity ? undefined : totalBonus, dicePenalty: usePity ? undefined : dicePenalty, diceTotal: usePity ? undefined : total, resolution: usePity ? "pity" : "roll", pityCost: usePity ? pityCost : undefined, pityBefore, pityAfter: states[actor.id].pityPoints, createdAt: Date.now() };
   let history = [...(game.history ?? []), actionHistory];
   const passiveRevives = triggerSableRevives(players, states);
   if (passiveRevives.length) {
@@ -571,7 +578,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const now = Date.now();
   const veilTotal = totals(players, states, "veil").hp;
   const emberTotal = totals(players, states, "ember").hp;
-  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, completedPhases, maxPhases: 30, roll, outcome: { kind: "card", success, total, target: game.adventure.target, label: `${actor.displayName} used ${card.name}`, detail, actorName: actor.displayName, cardName: card.name, cardType: card.type, effect: card.effect, supportType: card.supportType, targetIds: targets.map((target) => target.id), targetName: targets.map((target) => target.displayName).join(", "), roll, bonus: totalBonus, diceBuff, dicePenalty, amount, defeated, nextTarget: adventure.target, failureDetail }, playerStates: states, history, worldEvent, turnStartedAt: now, turnDeadline: ended ? 0 : now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} wins. Total HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder, roundNumber, roundOrder, actedThisRound };
+  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, completedPhases, maxPhases: 30, roll: usePity ? null : roll, outcome: { kind: "card", success, total: usePity ? game.adventure.target : total, target: game.adventure.target, label: `${actor.displayName} used ${card.name}`, detail, actorName: actor.displayName, cardId: card.id, cardName: card.name, cardType: card.type, effect: card.effect, supportType: card.supportType, targetIds: targets.map((target) => target.id), targetName: targets.map((target) => target.displayName).join(", "), roll: usePity ? undefined : roll, bonus: usePity ? undefined : totalBonus, diceBuff: usePity ? undefined : diceBuff, dicePenalty: usePity ? undefined : dicePenalty, resolution: usePity ? "pity" : "roll", pityCost: usePity ? pityCost : undefined, pityBefore, pityAfter: states[actor.id].pityPoints, amount, defeated, nextTarget: adventure.target, failureDetail }, playerStates: states, history, worldEvent, turnStartedAt: now, turnDeadline: ended ? 0 : now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} wins. Total HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder, roundNumber, roundOrder, actedThisRound };
 }
 
 export function resolveAction(adventure: Adventure, cardId: string, roll: number, _advanceChapter = true, availableCards: ActionCard[] = ACTION_CARDS) {
