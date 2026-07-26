@@ -15,7 +15,7 @@ const defaultExportStart = cloudflareWorker.indexOf('export default', durableCla
 if (durableClassStart < 0 || defaultExportStart < 0) throw new Error('Could not locate the Durable Object export in the realtime worker.');
 
 const sitesWorker = `${cloudflareWorker.slice(0, durableClassStart)}${cloudflareWorker.slice(defaultExportStart)}`.replace(
-  /      if \(env\.GAME_ROOM\) \{[\s\S]*?      if \(env\.REALTIME_ORIGIN\) return proxyRoomRequest\(request, env\.REALTIME_ORIGIN\);\n      return handleRoomRequest\(request\);/,
+  /      if \(env\.GAME_ROOM\) \{[\s\S]*?      if \(env\.REALTIME_ORIGIN\) return proxyRoomRequest\(request, env\.REALTIME_ORIGIN\);\r?\n      return handleRoomRequest\(request\);/,
   `      if (env.REALTIME_ORIGIN) return proxyRoomRequest(request, env.REALTIME_ORIGIN);
       return json({ error: 'The shared room backend is not configured.' }, 503);`
 );

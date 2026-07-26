@@ -152,16 +152,9 @@ export function nextStory(adventure: Adventure): Adventure {
 }
 
 export function getPassiveDiceBonus(player: PlayerSession, card: ActionCard, state: PlayerRunState) {
-  const classId = player.hero.classId;
-  if (classId === "ranger" && card.effect === "damage") return 1;
-  if (classId === "mage" && card.effect === "aoe") return 1;
-  if (classId === "healer" && card.effect === "heal") return 1;
-  if (classId === "assassin" && card.effect === "damage") return 1;
-  if (classId === "tank" && card.effect === "guard") return 1;
-  if (classId === "support") return 1;
-  if (classId === "duelist" && card.effect === "damage" && state.shield === 0) return 1;
-  if (classId === "berserker" && (card.effect === "damage" || card.effect === "aoe") && state.hp <= state.maxHp / 2) return 1;
-  return 0;
+  void card;
+  void state;
+  return player.hero.classId === "support" ? 1 : 0;
 }
 
 function startNewCycleIfEmpty(state: PlayerRunState): PlayerRunState {

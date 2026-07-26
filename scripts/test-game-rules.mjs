@@ -47,6 +47,8 @@ for (const option of options) {
 }
 const supportTypes = new Set(options.flatMap((option) => option.skillDeck.filter((card) => card.effect === "support").map((card) => card.supportType)));
 assert.deepEqual([...supportTypes].sort(), ["advance-ally", "attack", "dice", "dispel-enemy", "enemy-dice", "healing", "purge-card", "revive", "shield", "skip-enemy", "steal-card"]);
+const diceModifierCards = options.flatMap((option) => option.skillDeck).filter((card) => card.supportType === "dice" || card.supportType === "enemy-dice");
+assert.deepEqual(diceModifierCards.map((card) => card.name).sort(), ["Dark Omen", "Focus Order", "Gravity Hex"], "only the approved cards can create stored d20 modifiers");
 const durationCards = options.flatMap((option) => option.skillDeck).filter((card) =>
   card.effect === "guard" || ["attack", "shield", "dice", "enemy-dice", "skip-enemy", "steal-card"].includes(card.supportType)
 );
@@ -68,6 +70,12 @@ const second = engine.createPlayerSession("Binh", 1, options[1].hero.name, "seco
 const elaraSupport = first.skillDeck.find((card) => card.effect === "support");
 const elaraGame = engine.createInitialGame([first, second], engine.createAdventure("ELARA-DICE"), 30);
 assert.equal(engine.getPassiveDiceBonus(first, elaraSupport, elaraGame.playerStates[first.id]), 0, "Elara's passive cannot modify d20 results");
+for (const option of options.filter((candidate) => candidate.hero.classId !== "support")) {
+  const sampleCard = option.skillDeck.find((card) => card.effect !== "none") ?? option.skillDeck[0];
+  const samplePlayer = engine.createPlayerSession(option.hero.initials, 0, option.hero.name, `passive-${option.hero.initials}`);
+  const sampleGame = engine.createInitialGame([samplePlayer, second], engine.createAdventure(`PASSIVE-${option.hero.initials}`), 30);
+  assert.equal(engine.getPassiveDiceBonus(samplePlayer, sampleCard, sampleGame.playerStates[samplePlayer.id]), 0, `${option.hero.passiveName} cannot modify d20 results`);
+}
 const game = engine.createInitialGame([first, second], engine.createAdventure("RULES"), 30);
 assert.equal(game.turnOrder[0], second.id, "the faster character acts first");
 game.turnOrder = [first.id, second.id];
@@ -213,6 +221,7 @@ const diceParty = [commander, diceEnemy, diceAlly];
 const diceGame = engine.createInitialGame(diceParty, engine.createAdventure("DICE"), 30);
 diceGame.turnOrder = [commander.id, diceEnemy.id, diceAlly.id];
 const diceCard = commander.skillDeck.find((card) => card.supportType === "dice");
+assert.equal(diceCard.name, "Focus Order", "Focus Order is the only allied d20 buff card");
 diceGame.playerStates[commander.id].hand = [diceCard.id];
 const diceBuffed = engine.resolveCardTurn(diceGame, diceParty, diceCard.id, commander.id, 20);
 assert.equal(diceBuffed.playerStates[commander.id].diceBuff, 2);
@@ -232,9 +241,19 @@ const oracle = engine.createPlayerSession("Sable", 0, "Sable Fen", "oracle");
 const cursedEnemy = engine.createPlayerSession("Cursed enemy", 1, "Thorne Vale", "cursed-enemy");
 const oracleAlly = engine.createPlayerSession("Oracle ally", 2, "Dagan Flint", "oracle-ally");
 const curseParty = [oracle, cursedEnemy, oracleAlly];
+const favorableOmen = oracle.skillDeck.find((card) => card.id === "sf-favor");
+assert.equal(favorableOmen.supportType, "shield", "Favorable Omen must not modify d20 results");
+const favorableGame = engine.createInitialGame(curseParty, engine.createAdventure("FAVOR"), 30);
+favorableGame.turnOrder = [oracle.id, cursedEnemy.id, oracleAlly.id];
+favorableGame.playerStates[oracle.id].hand = [favorableOmen.id];
+const favorableResult = engine.resolveCardTurn(favorableGame, curseParty, favorableOmen.id, oracle.id, 20);
+assert.equal(favorableResult.playerStates[oracle.id].diceBuff, 0, "Favorable Omen cannot create a d20 buff");
+assert.equal(favorableResult.playerStates[oracleAlly.id].diceBuff, 0, "Favorable Omen cannot create allied d20 buffs");
+assert.equal(favorableResult.playerStates[oracle.id].shield, 2, "Favorable Omen now protects allies with shield");
 const curseGame = engine.createInitialGame(curseParty, engine.createAdventure("CURSE"), 30);
 curseGame.turnOrder = [oracle.id, cursedEnemy.id, oracleAlly.id];
 const curseCard = oracle.skillDeck.find((card) => card.supportType === "enemy-dice");
+assert.equal(curseCard.name, "Dark Omen");
 curseGame.playerStates[oracle.id].hand = [curseCard.id];
 const cursed = engine.resolveCardTurn(curseGame, curseParty, curseCard.id, cursedEnemy.id, 20);
 assert.equal(cursed.playerStates[cursedEnemy.id].dicePenalty, 3);
