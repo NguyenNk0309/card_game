@@ -2288,7 +2288,7 @@ button:focus-visible {
   border-block: 1px solid var(--line);
 }
 
-.character-stats span {
+.character-stats > span {
   padding: 0 10px;
   display: flex;
   flex-direction: column;
@@ -2298,14 +2298,38 @@ button:focus-visible {
   font-size: 9px;
 }
 
-.character-stats span:last-child {
+.character-stats > span:last-child {
   border: 0;
 }
 
-.character-stats strong {
+.character-stats > span > strong {
   color: var(--paper);
   font: 500 13px Georgia, "Times New Roman", serif;
 }
+
+.character-stats > .stat-health,
+.character-stats > .stat-speed,
+.character-stats > .stat-cards {
+  justify-content: center;
+  min-height: 52px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.character-stats > .stat-health > strong,
+.character-stats > .stat-speed > strong,
+.character-stats > .stat-cards > strong {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 0 14px currentColor;
+}
+
+.character-stats > .stat-health > strong { color: #84dfa4; }
+.character-stats > .stat-speed > strong { color: #efcb72; }
+.character-stats > .stat-cards > strong,
+.character-stats > .stat-cards b { color: #7fcff2; }
+.character-stats > span > span { color: var(--muted); font-size: 10px; }
+.character-stats > .stat-cards b { font-size: 12px; }
 
 .deck-heading {
   margin-bottom: 10px;
@@ -2451,7 +2475,7 @@ button:focus-visible {
     grid-template-columns: 1fr;
   }
 
-  .character-stats span {
+  .character-stats > span {
     padding: 8px 0;
     border-right: 0;
     border-bottom: 1px solid var(--line);
@@ -2997,6 +3021,22 @@ button:focus-visible {
 .card-success-line { color: #b9dfc4; border-left: 3px solid #75b58a; background: rgba(82, 148, 103, 0.1); }
 .card-failure-line { color: #efb1a6; border-left: 3px solid #d66f5f; background: rgba(182, 75, 59, 0.1); }
 
+.effect-number {
+  display: inline;
+  color: #f0cf79;
+  font: inherit;
+  font-weight: 900;
+  text-shadow: 0 0 9px color-mix(in srgb, currentColor 42%, transparent);
+}
+
+.effect-number.damage,
+.effect-number.penalty { color: #ff8274; }
+.effect-number.heal { color: #7ee0a2; }
+.effect-number.shield { color: #7acbf1; }
+.effect-number.dice { color: #d7a8ff; }
+.effect-number.speed { color: #f0cd72; }
+.effect-number.cards { color: #8bd7ef; }
+
 .portrait-button,
 .panel-expand-button {
   padding: 0;
@@ -3353,10 +3393,59 @@ button:focus-visible {
 .encounter-row > .skip-turn-button { display: none; }
 
 .turn-action-buttons { display: flex; align-items: stretch; gap: 5px; margin-left: 2px; }
+.turn-action-control { position: relative; display: flex; }
 .turn-action-buttons .skip-turn-button,
 .turn-action-buttons .discard-card-button { position: static; min-height: 42px; margin: 0; padding: 6px 9px; transform: none; box-shadow: none; }
 .turn-action-buttons button { display: grid; grid-template-columns: auto auto; align-items: center; column-gap: 5px; }
 .turn-action-buttons button small { grid-column: 1 / -1; font-size: 8px; }
+
+.turn-action-confirm {
+  position: absolute;
+  z-index: 80;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: 210px;
+  padding: 10px;
+  color: var(--paper);
+  background: rgba(10, 16, 18, .98);
+  border: 1px solid rgba(226, 192, 108, .62);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .5);
+  animation: action-confirm-in 130ms ease-out both;
+}
+
+.turn-action-confirm::after {
+  content: "";
+  position: absolute;
+  right: 18px;
+  top: 100%;
+  border: 6px solid transparent;
+  border-top-color: rgba(226, 192, 108, .62);
+}
+
+.turn-action-confirm > strong,
+.turn-action-confirm > span { display: block; }
+.turn-action-confirm > strong { color: #f5d986; font-size: 12px; }
+.turn-action-confirm > span { margin-top: 3px; color: var(--muted); font-size: 10px; line-height: 1.35; }
+.turn-action-confirm > div { display: flex; gap: 5px; margin-top: 8px; }
+.turn-action-confirm > div > button {
+  min-height: 28px;
+  padding: 5px 7px;
+  display: inline-flex;
+  grid-template-columns: none;
+  justify-content: center;
+  gap: 4px;
+  color: var(--paper);
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid var(--line);
+  font-size: 9px;
+}
+.turn-action-confirm > div > button:first-child { color: #101719; background: var(--gold); border-color: var(--gold); font-weight: 900; }
+.turn-action-confirm > div > button:hover { border-color: #f0ce79; }
+
+@keyframes action-confirm-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 .player-name-highlight,
 .hero-name > strong,

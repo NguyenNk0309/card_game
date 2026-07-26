@@ -28,6 +28,8 @@ for (const option of options) {
   assert.equal(common.filter((card) => card.effect === "guard" && card.target === "self").length, 1, "common deck needs one self guard");
   assert.equal(common.filter((card) => card.effect === "heal" && card.target === "self").length, 1, "common deck needs one self heal");
   assert.equal(common.filter((card) => card.effect === "none" && card.value === 0).length, 3, "common deck needs three no-effect cards");
+  assert(option.skillDeck.filter((card) => card.target === "all-allies").every((card) => /including yourself/i.test(card.description)), "all-allies descriptions must explicitly include the acting player");
+  assert(option.skillDeck.filter((card) => card.target === "ally" && card.supportType !== "advance-ally").every((card) => /including yourself/i.test(card.description)), "one-ally descriptions must explicitly include the acting player");
 }
 const supportTypes = new Set(options.flatMap((option) => option.skillDeck.filter((card) => card.effect === "support").map((card) => card.supportType)));
 assert.deepEqual([...supportTypes].sort(), ["advance-ally", "attack", "dice", "dispel-enemy", "enemy-dice", "healing", "purge-card", "revive", "shield", "skip-enemy", "steal-card"]);
@@ -68,6 +70,14 @@ assert.equal(attacked.history[0].diceRoll, 20);
 assert.equal(attacked.history[0].diceTarget, firstTarget);
 assert.equal(attacked.history[0].diceTotal, 20 + engine.getPassiveDiceBonus(first, attack, game.playerStates[first.id]));
 assert.match(attacked.history[0].message, /An.*Binh|Binh.*HP/);
+
+const exactTargetGame = engine.createInitialGame([first, second], engine.createAdventure("EXACT-TARGET"), 30);
+exactTargetGame.turnOrder = [first.id, second.id];
+exactTargetGame.adventure.target = 12;
+exactTargetGame.playerStates[first.id].hand = [attack.id];
+const exactTargetResult = engine.resolveCardTurn(exactTargetGame, [first, second], attack.id, second.id, 12);
+assert.equal(exactTargetResult.outcome.success, true, "a d20 total exactly equal to the target must succeed");
+assert.equal(exactTargetResult.outcome.total, exactTargetResult.outcome.target);
 
 const healer = engine.createPlayerSession("Orren", 0, "Brother Orren", "healer");
 const supportAlly = engine.createPlayerSession("Support ally", 2, "Elara Voss", "support-ally");
