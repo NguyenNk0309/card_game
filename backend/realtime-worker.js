@@ -644,9 +644,12 @@ async function applyCommand(ownerId, message) {
     if (room.phase !== 'game' || !room.game) return 'There is no active adventure.';
     if (!ownerId || ownerId !== message.sessionId || !room.players.some((player) => player.id === ownerId)) return 'Only a joined player can end the game.';
     const player = room.players.find((current) => current.id === ownerId);
+    const winner = decideWinner(room.game, player?.hero.team || 'veil', true);
+    const veil = teamTotals(room.game, 'veil');
+    const ember = teamTotals(room.game, 'ember');
     room.game.ended = true;
-    room.game.winnerTeam = null;
-    room.game.endReason = `The battle was ended by ${player?.displayName || 'a player'}.`;
+    room.game.winnerTeam = winner;
+    room.game.endReason = `${teamLabel(winner)} wins. Total HP: Veilbound ${veil.hp} — Embercourt ${ember.hp}. Battle ended by ${player?.displayName || 'a player'}.`;
     room.game.turnDeadline = 0;
     await commitRoom();
     return null;

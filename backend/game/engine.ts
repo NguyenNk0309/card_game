@@ -419,7 +419,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const passiveDiceBonus = getPassiveDiceBonus(actor, card, actorState);
   const totalBonus = diceBuff + passiveDiceBonus;
   const total = roll + totalBonus - dicePenalty;
-  const success = usePity || total >= game.adventure.target;
+  const success = usePity || pityCost === 0 || total >= game.adventure.target;
   const enemies = living(players, states).filter((player) => player.hero.team !== actor.hero.team);
   const allies = living(players, states, actor.hero.team);
   const defeatedAllies = players.filter((player) => player.hero.team === actor.hero.team && (states[player.id]?.hp ?? 0) <= 0);

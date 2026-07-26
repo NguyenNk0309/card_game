@@ -744,9 +744,12 @@ function handleMessage(socket, rawMessage) {
     if (room.phase !== 'game' || !room.game) return reject(socket, 'There is no active adventure.');
     if (!ownSession(socket, message.sessionId) || !room.players.some((player) => player.id === message.sessionId)) return reject(socket, 'Only a joined player can end the game.');
     const player = room.players.find((current) => current.id === message.sessionId);
+    const winner = decideWinner(room.game, player?.hero.team || 'veil', true);
+    const veil = teamTotals(room.game, 'veil');
+    const ember = teamTotals(room.game, 'ember');
     room.game.ended = true;
-    room.game.winnerTeam = null;
-    room.game.endReason = `The battle was ended by ${player?.displayName || 'a player'}.`;
+    room.game.winnerTeam = winner;
+    room.game.endReason = `${teamLabel(winner)} wins. Total HP: Veilbound ${veil.hp} — Embercourt ${ember.hp}. Battle ended by ${player?.displayName || 'a player'}.`;
     room.game.turnDeadline = 0;
     broadcast();
     return;

@@ -232,7 +232,9 @@ try {
   assert(!removedDuringGame.game.turnOrder.includes(thirdId));
 
   second.send({ type: "end-game", sessionId: secondId });
-  await first.waitFor((state) => state.game?.ended === true);
+  const manuallyEnded = await first.waitFor((state) => state.game?.ended === true);
+  assert.equal(manuallyEnded.game.winnerTeam, "ember", "manual end uses the phase-30 judgment and the ending player's team resolves a complete tie");
+  assert.match(manuallyEnded.game.endReason, /Embercourt wins\. Total HP: Veilbound 8 — Embercourt 8\./);
   second.send({ type: "leave-game", sessionId: secondId });
   await first.waitFor((state) => !state.players.some((item) => item.id === secondId));
 

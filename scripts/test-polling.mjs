@@ -165,6 +165,8 @@ try {
 
   const ended = await command(secondId, { type: "end-game" });
   assert.equal(ended.game.ended, true);
+  assert.equal(ended.game.winnerTeam, "ember", "manual polling end uses the phase-30 judgment and the ending player's team resolves a complete tie");
+  assert.match(ended.game.endReason, /Embercourt wins\. Total HP: Veilbound 8 — Embercourt 8\./);
   const left = await command(secondId, { type: "leave-game" });
   assert(!left.players.some((item) => item.id === secondId));
   console.log("Polling test passed: private hands, 60-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");

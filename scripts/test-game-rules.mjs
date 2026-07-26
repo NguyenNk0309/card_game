@@ -9,6 +9,8 @@ const compile = (source, fileName) => ts.transpileModule(source, {
 
 const catalogSource = await readFile(new URL("../backend/game/catalog.ts", import.meta.url), "utf8");
 const catalogUrl = `data:text/javascript;base64,${Buffer.from(compile(catalogSource, "catalog.ts")).toString("base64")}`;
+const cardRulesSource = await readFile(new URL("../shared/cardRules.ts", import.meta.url), "utf8");
+const cardRules = await import(`data:text/javascript;base64,${Buffer.from(compile(cardRulesSource, "cardRules.ts")).toString("base64")}`);
 const engineSource = await readFile(new URL("../backend/game/engine.ts", import.meta.url), "utf8");
 const compiledEngine = compile(engineSource, "engine.ts").replace('from "./catalog"', `from "${catalogUrl}"`);
 const engine = await import(`data:text/javascript;base64,${Buffer.from(compiledEngine).toString("base64")}`);
@@ -22,6 +24,8 @@ assert(new Set(sampledRolls).size > 1, "d20 sampling must not return a fixed val
 
 const options = engine.getCharacterOptions();
 assert.equal(options.length, 10);
+assert.equal(cardRules.describeCardFailure(options[0].skillDeck.find((card) => !card.unique)), "Nothing happen", "common-card failure copy stays concise");
+assert.equal(cardRules.describeCardSuccess(options[0].skillDeck.find((card) => card.effect === "none")), "Nothing happen", "no-effect success copy stays concise");
 for (const option of options) {
   assert.equal(option.skillDeck.length, 10, `${option.hero.name} must have 10 cards`);
   assert.equal(option.skillDeck.filter((card) => card.unique).length, 3);
@@ -115,6 +119,15 @@ freePityGame.playerStates[first.id].hand = [freePityCard.id];
 const freePityResult = engine.resolveCardTurn(freePityGame, [first, second], freePityCard.id, first.id, 0, true);
 assert.equal(freePityResult.outcome.success, true, "a zero-cost no-effect card may use pity without stored points");
 assert.equal(freePityResult.playerStates[first.id].pityPoints, 0);
+
+const freeRollGame = engine.createInitialGame([first, second], engine.createAdventure("ROLL-ZERO"), 30);
+freeRollGame.turnOrder = [first.id, second.id];
+freeRollGame.adventure.target = 16;
+freeRollGame.playerStates[first.id].hand = [freePityCard.id];
+const freeRollResult = engine.resolveCardTurn(freeRollGame, [first, second], freePityCard.id, first.id, 1);
+assert.equal(freeRollResult.outcome.success, true, "a normal roll with a zero-pity-cost card always succeeds regardless of the d20 result");
+assert.equal(freeRollResult.outcome.roll, 1, "the ignored d20 result is still shown in the roll outcome");
+assert.equal(freeRollResult.playerStates[first.id].pityPoints, 0, "an automatic zero-cost success does not award pity");
 
 game.playerStates[first.id].hand = [attack.id];
 const firstTarget = game.adventure.target;
