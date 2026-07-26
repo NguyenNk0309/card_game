@@ -23,17 +23,19 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-## Prototype loop
+## Battle loop
 
-1. Each player enters a unique name and presses **Join** to create one session.
-2. Each browser chooses an unclaimed hero and reviews that hero's 15-card deck before joining.
-3. Every deck has five character-specific skill cards and ten common interaction cards; teams are balanced on join.
-4. Once everyone is ready, any player can press **Enter the game**. Every connected browser moves into the same adventure.
-5. On each 60-second turn, the active player chooses a card in hand, selects a valid target, and rolls.
-6. Cards can heal allies, damage rivals, grant shields, support the realm, or resolve story checks.
-7. Played cards enter the graveyard. When the draw pile empties, the graveyard is shuffled into a new draw pile.
-8. An expired turn passes automatically and raises World Doom. Players may leave, end the run, or remove another player after confirmation.
-9. Both factions gain influence while failure raises shared World Doom; the realm must survive before either team can win.
+1. Each browser joins with a saved player name, chooses any character (duplicates are allowed), and selects Veilbound or Embercourt.
+2. Every character has a public 10-card deck: 3 character specials, 2 common attacks, 1 common shield, 1 common heal, and 3 no-effect cards. Private card-zone contents and order remain visible only to their owner.
+3. A ready player cannot change team until they cancel Ready. The battle can start only when every player is ready and each team has at least one player.
+4. Living players act from highest Speed to lowest. After every living player resolves a turn, the next phase begins. The match lasts 30 phases and world events occur after every fifth completed phase.
+5. Every active turn starts with no card selected. Click a card to select it, click it again to unselect it, then choose a target when required. Inactive hands cannot select cards.
+6. Roll against the fresh random target for that turn. A modified total equal to or above the target succeeds. Each failed normal roll immediately grants 1 cumulative pity point.
+7. Every card shows a pity cost. **Pity Roll** spends that cost to guarantee the selected card succeeds; no-effect cards cost 0. Saved d20 buffs and penalties are not consumed by a pity play.
+8. Playing or manually discarding a card moves it to discard and ends the turn. A random replacement is drawn into the same hand slot while draw has cards. Manual Skip and timeout preserve all card zones.
+9. Only when both hand and draw are empty does the entire discard pile return to draw, shuffle, and deal up to 4 cards. Graveyard cards are permanently removed from circulation.
+10. Returning Light enters Brother Orren's graveyard after its first use. Tactical Purge moves one chosen ally's no-effect common to that ally's graveyard and enters Ione Mire's graveyard after its third use.
+11. Eliminate the opposing team to win immediately. Otherwise, after phase 30, the team with more total HP wins, with living players, shield, and influence used for ties.
 
 The shared room is authoritative and in-memory: separate browser sessions see
 the same players, readiness, start event, turns, dice results, and story state in

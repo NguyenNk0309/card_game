@@ -1509,12 +1509,14 @@ button:focus-visible {
 .combat-banner p { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 
 .dice-copy em {
-  max-width: 160px;
+  max-width: none;
   margin-top: 2px;
   color: var(--gold);
-  font-size: 9px;
+  font-size: 11px;
+  font-weight: 800;
   font-style: normal;
-  line-height: 1.25;
+  line-height: 1.35;
+  white-space: nowrap;
 }
 
 .action-card .card-impact,
@@ -4002,20 +4004,21 @@ button:focus-visible {
 .dice-panel .pity-button,
 .dice-panel .turn-action-buttons .skip-turn-button,
 .dice-panel .turn-action-buttons .discard-card-button {
-  width: 128px;
-  min-width: 128px;
+  width: auto;
+  min-width: max-content;
   height: 50px;
   min-height: 50px;
   margin: 0;
-  padding: 6px 9px;
-  flex: 0 0 128px;
+  padding: 6px 14px;
+  flex: 0 0 auto;
   text-align: center;
-  white-space: normal;
+  white-space: nowrap;
 }
 
 .dice-panel .turn-action-control {
-  width: 128px;
-  min-width: 128px;
+  width: auto;
+  min-width: max-content;
+  flex: 0 0 auto;
 }
 
 .dice-panel .turn-action-buttons {
@@ -4155,8 +4158,8 @@ button:focus-visible {
   .dice-panel .roll-button,
   .dice-panel .pity-button,
   .dice-panel .turn-action-buttons .skip-turn-button,
-  .dice-panel .turn-action-buttons .discard-card-button { width: calc(50% - 5px); min-width: 132px; flex: 1 1 132px; }
-  .dice-panel .turn-action-control { width: auto; min-width: 132px; flex: 1 1 132px; }
+  .dice-panel .turn-action-buttons .discard-card-button { width: auto; min-width: max-content; flex: 1 0 max-content; }
+  .dice-panel .turn-action-control { width: auto; min-width: max-content; flex: 1 0 max-content; }
   .turn-action-buttons { margin-left: auto; }
   .battle-interaction-space { min-height: 76px; padding: 8px 0; }
   .battle-interaction-space .interaction-selector { width: 100%; }
