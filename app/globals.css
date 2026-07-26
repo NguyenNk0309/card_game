@@ -3529,12 +3529,32 @@ button:focus-visible {
 .card-motion.hand-to-zone { z-index: 1; animation: hand-card-fade-in 1.18s ease-in-out 1.05s both; }
 .single-zone-motion .card-motion.hand-to-zone { animation-delay: 0s; }
 
+.action-hand .hand-card-compacting {
+  animation: hand-card-compact 1.55s cubic-bezier(.22, .75, .25, 1) both;
+}
+
+.action-hand .hand-card-refilling {
+  animation: hand-cycle-refill-in 1.05s ease-out 1.05s both;
+}
+
 @keyframes hand-card-fade-out {
   0%, 22% { opacity: 1; }
   100% { opacity: 0; }
 }
 
 @keyframes hand-card-fade-in {
+  0%, 18% { opacity: 0; }
+  100% { opacity: var(--settled-card-opacity, 1); }
+}
+
+@keyframes hand-card-compact {
+  0%, 68% {
+    transform: translateX(calc(var(--hand-shift-slots, 0) * (100% + 8px)));
+  }
+  100% { transform: translateX(0); }
+}
+
+@keyframes hand-cycle-refill-in {
   0%, 18% { opacity: 0; }
   100% { opacity: var(--settled-card-opacity, 1); }
 }
@@ -3546,7 +3566,9 @@ button:focus-visible {
 
 @media (prefers-reduced-motion: reduce) {
   .card-motion.hand-from-zone,
-  .card-motion.hand-to-zone { animation-duration: .2s; animation-delay: 0s; }
+  .card-motion.hand-to-zone,
+  .action-hand .hand-card-compacting,
+  .action-hand .hand-card-refilling { animation-duration: .2s; animation-delay: 0s; }
 }
 
 /* Flexible player rows and visible names across compact and expanded panels. */

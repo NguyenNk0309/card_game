@@ -92,9 +92,24 @@ function RunStatus({ completedPhases, secondsLeft, eventPhase, onEvents }: { com
   return <nav className="run-status" aria-label="Battle status"><div><span className="eyebrow">PHASE</span><strong>{currentPhase} <i>/ 30</i></strong></div><div className="chapter-pips" aria-label="Thirty-phase timeline">{Array.from({ length: 30 }).map((_, index) => { const phase = index + 1; const phaseClass = index < completedPhases ? "complete" : index === completedPhases ? "current" : "future"; return <i key={phase} data-turn={phase} title={phase % 5 === 0 ? `Phase ${phase}: World Event` : `Phase ${phase}`} aria-label={phase % 5 === 0 ? `Phase ${phase}, World Event` : `Phase ${phase}`} className={`${phaseClass} ${phase % 5 === 0 ? "world-event-turn" : ""} ${eventPhase === phase ? "event-triggered" : ""}`}/>; })}</div><button className="world-event-library-button" onClick={onEvents}><Zap size={15}/><span>All world events</span></button><div className={`turn-clock ${secondsLeft <= 10 ? "urgent" : ""}`}><Clock3 size={14}/> {secondsLeft} seconds</div></nav>;
 }
 
-function CardZoneVfx({ motion, player, playable }: { motion: { id: number; slotIndex: number; drawn?: ActionCard; discarded?: ActionCard }; player: PlayerSession; playable: boolean }) {
-  const [slotStyle, setSlotStyle] = useState<React.CSSProperties | null>(null);
+type CardSlotRect = { top: number; left: number; width: number; height: number };
+type CardZoneMotion = {
+  id: number;
+  slotIndex: number;
+  mode: "replace" | "compact" | "refill";
+  previousHand: string[];
+  slotRect?: CardSlotRect;
+  drawn?: ActionCard;
+  discarded?: ActionCard;
+};
+
+function CardZoneVfx({ motion, player, playable }: { motion: CardZoneMotion; player: PlayerSession; playable: boolean }) {
+  const [slotStyle, setSlotStyle] = useState<React.CSSProperties | null>(motion.slotRect ?? null);
   useLayoutEffect(() => {
+    if (motion.slotRect) {
+      setSlotStyle(motion.slotRect);
+      return;
+    }
     const slots = [...document.querySelectorAll<HTMLElement>(".action-hand [data-hand-slot]")];
     const slot = document.querySelector<HTMLElement>(`.action-hand [data-hand-slot="${motion.slotIndex}"]`) ?? slots.at(-1);
     if (!slot) return;
@@ -102,17 +117,17 @@ function CardZoneVfx({ motion, player, playable }: { motion: { id: number; slotI
       const rect = slot.getBoundingClientRect();
       setSlotStyle({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
     };
-    slot.classList.add("zone-vfx-slot-hidden");
+    if (motion.mode === "replace") slot.classList.add("zone-vfx-slot-hidden");
     placeOverSlot();
     window.addEventListener("resize", placeOverSlot);
     return () => {
-      slot.classList.remove("zone-vfx-slot-hidden");
+      if (motion.mode === "replace") slot.classList.remove("zone-vfx-slot-hidden");
       window.removeEventListener("resize", placeOverSlot);
     };
-  }, [motion.id, motion.slotIndex]);
+  }, [motion.id, motion.mode, motion.slotIndex, motion.slotRect]);
   if (!slotStyle) return null;
   const cardStyle = { ...slotStyle, "--hero-color": player.hero.color, "--settled-card-opacity": playable ? 1 : 0.48 } as React.CSSProperties;
-  return <div className={`card-zone-vfx ${motion.discarded && motion.drawn ? "replacement-motion" : "single-zone-motion"} ${playable ? "playable-motion" : "inactive-motion"}`} aria-hidden="true">{motion.discarded && <article className={`action-card card-motion hand-from-zone effect-${motion.discarded.effect} ${motion.discarded.unique ? "hero-special-card" : "common-action-card"} ${motion.discarded.effect === "none" ? "no-effect-card" : ""}`} style={cardStyle}><HandCardContents card={motion.discarded} player={player}/></article>}{motion.drawn && <article className={`action-card card-motion hand-to-zone effect-${motion.drawn.effect} ${motion.drawn.unique ? "hero-special-card" : "common-action-card"} ${motion.drawn.effect === "none" ? "no-effect-card" : ""}`} style={cardStyle}><HandCardContents card={motion.drawn} player={player}/></article>}</div>;
+  return <div className={`card-zone-vfx ${motion.mode}-motion ${motion.discarded && motion.drawn ? "replacement-motion" : "single-zone-motion"} ${playable ? "playable-motion" : "inactive-motion"}`} aria-hidden="true">{motion.discarded && <article className={`action-card card-motion hand-from-zone effect-${motion.discarded.effect} ${motion.discarded.unique ? "hero-special-card" : "common-action-card"} ${motion.discarded.effect === "none" ? "no-effect-card" : ""}`} style={cardStyle}><HandCardContents card={motion.discarded} player={player}/></article>}{motion.drawn && <article className={`action-card card-motion hand-to-zone effect-${motion.drawn.effect} ${motion.drawn.unique ? "hero-special-card" : "common-action-card"} ${motion.drawn.effect === "none" ? "no-effect-card" : ""}`} style={cardStyle}><HandCardContents card={motion.drawn} player={player}/></article>}</div>;
 }
 
 export default function GameApp() {
@@ -140,10 +155,10 @@ export default function GameApp() {
   const [inspectedView, setInspectedView] = useState<"status" | "deck">("status");
   const [mobileParty, setMobileParty] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const [cardZoneMotion, setCardZoneMotion] = useState<{ id: number; slotIndex: number; drawn?: ActionCard; discarded?: ActionCard } | null>(null);
+  const [cardZoneMotion, setCardZoneMotion] = useState<CardZoneMotion | null>(null);
   const expirySentRef = useRef(0);
   const previousLocalZonesRef = useRef<{ playerId: string; hand: string[]; drawPile: string[]; discardPile: string[] } | null>(null);
-  const pendingCardMotionRef = useRef<{ completedTurns: number; slotIndex: number; discarded: ActionCard } | null>(null);
+  const pendingCardMotionRef = useRef<{ completedTurns: number; slotIndex: number; slotRect?: CardSlotRect; discarded: ActionCard } | null>(null);
   const outcomeSoundReadyRef = useRef(false);
   const lastOutcomeSoundKeyRef = useRef("");
   const lastBattleResultKeyRef = useRef("");
@@ -256,9 +271,13 @@ export default function GameApp() {
       const incomingId = localState.hand.find((id) => !previous.hand.includes(id));
       const slotIndex = pending?.slotIndex ?? (outgoingId ? Math.max(0, previous.hand.indexOf(outgoingId)) : Math.max(0, localState.hand.indexOf(incomingId ?? "")));
       const discarded = pending?.discarded ?? (outgoingId ? cardCatalog.find((card) => card.id === outgoingId) : undefined);
-      const replacementId = pending ? localState.hand[slotIndex] : incomingId;
+      const recycledPlayedCard = Boolean(pending && previous.hand.length === 1 && previous.drawPile.length === 0 && localState.discardPile.length === 0 && localState.hand.includes(pending.discarded.id));
+      const refill = previous.hand.length > 0 && previous.drawPile.length === 0 && localState.discardPile.length === 0 && (localState.hand.length > previous.hand.length || recycledPlayedCard);
+      const compact = !refill && previous.drawPile.length === 0 && localState.hand.length < previous.hand.length;
+      const mode: CardZoneMotion["mode"] = refill ? "refill" : compact ? "compact" : "replace";
+      const replacementId = mode === "replace" ? incomingId : undefined;
       const drawn = replacementId ? cardCatalog.find((card) => card.id === replacementId) : undefined;
-      if (discarded || drawn) setCardZoneMotion({ id: Date.now(), slotIndex, discarded, drawn });
+      if (discarded || drawn || refill || compact) setCardZoneMotion({ id: Date.now(), slotIndex, slotRect: pending?.slotRect, mode, previousHand: [...previous.hand], discarded, drawn });
       if (pending) pendingCardMotionRef.current = null;
     }
     previousLocalZonesRef.current = { playerId: localPlayer.id, hand: [...localState.hand], drawPile: [...localState.drawPile], discardPile: [...localState.discardPile] };
@@ -317,11 +336,17 @@ export default function GameApp() {
     if (!players.some((player) => player.hero.team === "veil") || !players.some((player) => player.hero.team === "ember")) return setLobbyError("At least one player must join each team before the battle starts.");
     send({ type: "start", game: createInitialGame(players, createAdventure(), 30) });
   };
+  const captureCardSlot = (slotIndex: number): CardSlotRect | undefined => {
+    const slot = document.querySelector<HTMLElement>(`.action-hand [data-hand-slot="${slotIndex}"]`);
+    if (!slot) return undefined;
+    const rect = slot.getBoundingClientRect();
+    return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+  };
   const castDie = () => {
     if (rolling || !game || !activePlayer || activePlayer.id !== sessionId || !activeCard || runComplete || status !== "connected" || (activeState?.hp ?? 0) <= 0) return;
     playEffect("roll");
     setRolling(true); let ticks = 0;
-    const timer = window.setInterval(() => { setAnimatedRoll(Math.floor(Math.random() * 20) + 1); ticks += 1; if (ticks >= 9) { window.clearInterval(timer); const finalRoll = Math.floor(Math.random() * 20) + 1; pendingCardMotionRef.current = { completedTurns: game.completedTurns, slotIndex: Math.max(0, localState?.hand.indexOf(activeCard.id) ?? 0), discarded: activeCard }; if (send({ type: "game:update", game: resolveCardTurn(game, players, activeCard.id, targetPlayerId, finalRoll) })) playEffect("play"); else pendingCardMotionRef.current = null; setAnimatedRoll(finalRoll); setRolling(false); } }, 85);
+    const timer = window.setInterval(() => { setAnimatedRoll(Math.floor(Math.random() * 20) + 1); ticks += 1; if (ticks >= 9) { window.clearInterval(timer); const finalRoll = Math.floor(Math.random() * 20) + 1; const slotIndex = Math.max(0, localState?.hand.indexOf(activeCard.id) ?? 0); pendingCardMotionRef.current = { completedTurns: game.completedTurns, slotIndex, slotRect: captureCardSlot(slotIndex), discarded: activeCard }; if (send({ type: "game:update", game: resolveCardTurn(game, players, activeCard.id, targetPlayerId, finalRoll) })) playEffect("play"); else pendingCardMotionRef.current = null; setAnimatedRoll(finalRoll); setRolling(false); } }, 85);
   };
   const skipTurn = () => {
     if (!game || !activePlayer || activePlayer.id !== sessionId || runComplete || status !== "connected" || (activeState?.hp ?? 0) <= 0) return;
@@ -329,7 +354,8 @@ export default function GameApp() {
   };
   const discardCard = () => {
     if (!game || !activePlayer || activePlayer.id !== sessionId || !activeCard || runComplete || status !== "connected" || rolling || (activeState?.hp ?? 0) <= 0) return;
-    pendingCardMotionRef.current = { completedTurns: game.completedTurns, slotIndex: Math.max(0, localState?.hand.indexOf(activeCard.id) ?? 0), discarded: activeCard };
+    const slotIndex = Math.max(0, localState?.hand.indexOf(activeCard.id) ?? 0);
+    pendingCardMotionRef.current = { completedTurns: game.completedTurns, slotIndex, slotRect: captureCardSlot(slotIndex), discarded: activeCard };
     if (send({ type: "discard-card", sessionId, cardId: activeCard.id })) playEffect("discard");
     else pendingCardMotionRef.current = null;
   };
@@ -368,7 +394,14 @@ export default function GameApp() {
           {activePlayer?.id === sessionId && ["enemy", "ally", "defeated-ally", "player"].includes(activeCard?.target ?? "") ? <section className="interaction-selector" aria-label="Choose interaction target"><label className="target-picker"><Target size={16}/><span>Choose {getCardTargetLabel(activeCard).toLowerCase()}</span>{targetOptions.length ? <select value={targetPlayerId} onChange={(event) => setTargetPlayerId(event.target.value)}>{targetOptions.map((player) => <option value={player.id} key={player.id}>{player.displayName} · {player.hero.name} · {game?.playerStates[player.id]?.hp ?? player.hero.hp} HP · {game?.playerStates[player.id]?.shield ?? 0} shield{(game?.playerStates[player.id]?.skipTurns ?? 0) > 0 ? " · NEXT TURN CANCELLED" : ""}{(game?.playerStates[player.id]?.reviveIn ?? 0) > 0 ? " · REVIVING" : ""}</option>)}</select> : <span className="no-valid-target">No valid target is available. A successful roll will have no effect.</span>}</label></section> : null}
           <section className="hand-zone private-hand-zone"><div className="hand-heading"><div><span className="eyebrow">{localPlayer ? "YOUR PRIVATE HAND" : "PRIVATE HAND"}</span><strong>{activePlayer?.id === sessionId ? "Choose a card, select a target when required, then roll the die" : "Plan your next move while the current player acts"}</strong></div>{localPlayer && <div className="pile-review-actions"><span><Hand size={16}/> Hand ({localState?.hand.length ?? 0})</span><button onClick={() => setDeckReview("draw")}><Layers size={16}/> Draw pile ({localState?.drawPile.length ?? 0})</button><button onClick={() => setDeckReview("discard")}><Archive size={16}/> Discard ({localState?.discardPile.length ?? 0})</button><button onClick={() => setDeckReview("graveyard")}><Skull size={16}/> Graveyard ({localState?.graveyard?.length ?? 0})</button></div>}</div>
             {localState && <div className="active-effects-strip"><b>ACTIVE EFFECTS</b>{localState.attackBuff > 0 && <span className="effect-attack">Next attack +{localState.attackBuff}</span>}{localState.diceBuff > 0 && <span className="effect-bonus">Next d20 +{localState.diceBuff}</span>}{localState.dicePenalty > 0 && <span className="effect-penalty">Next d20 -{localState.dicePenalty}</span>}{localState.skipTurns > 0 && <span className="effect-penalty">Next turn cancelled</span>}{localState.reviveIn > 0 && <span className="effect-heal">Revives in {localState.reviveIn} turns</span>}{(localState.borrowedCards?.length ?? 0) > 0 && <span className="effect-support">{(localState.borrowedCards?.length ?? 0)} borrowed card</span>}{!localState.attackBuff && !localState.diceBuff && !localState.dicePenalty && !localState.skipTurns && !localState.reviveIn && !(localState.borrowedCards?.length ?? 0) && <span>No active effects</span>}</div>}
-            {localPlayer ? <div className="action-hand four-cards">{localHand.map((card, index) => <button className={`action-card effect-${card.effect} ${card.unique ? "hero-special-card" : "common-action-card"} ${card.effect === "none" ? "no-effect-card" : ""} ${selectedCard === card.id ? "selected" : ""}`} aria-pressed={selectedCard === card.id} data-hand-slot={index} style={{ "--hero-color": localPlayer.hero.color } as React.CSSProperties} key={card.id} onClick={() => setSelectedCard(card.id)} disabled={runComplete || activePlayer?.id !== sessionId || (localState?.hp ?? 0) <= 0}><HandCardContents card={card} player={localPlayer}/></button>)}</div> : <div className="private-hand-empty"><Eye size={20}/><strong>Join the battle to receive a private hand.</strong></div>}
+            {localPlayer ? <div className="action-hand four-cards">{localHand.map((card, index) => {
+              const activeMotion = !panelOverlayOpen ? cardZoneMotion : null;
+              const previousIndex = activeMotion?.previousHand.indexOf(card.id) ?? -1;
+              const shiftSlots = previousIndex >= 0 ? previousIndex - index : 0;
+              const motionClass = activeMotion?.mode === "refill" ? "hand-card-refilling" : activeMotion?.mode === "compact" && shiftSlots > 0 ? "hand-card-compacting" : "";
+              const playable = !runComplete && activePlayer?.id === sessionId && (localState?.hp ?? 0) > 0;
+              return <button className={`action-card effect-${card.effect} ${card.unique ? "hero-special-card" : "common-action-card"} ${card.effect === "none" ? "no-effect-card" : ""} ${selectedCard === card.id ? "selected" : ""} ${motionClass}`} aria-pressed={selectedCard === card.id} data-hand-slot={index} style={{ "--hero-color": localPlayer.hero.color, "--hand-shift-slots": shiftSlots, "--settled-card-opacity": playable ? 1 : 0.48 } as React.CSSProperties} key={card.id} onClick={() => setSelectedCard(card.id)} disabled={!playable}><HandCardContents card={card} player={localPlayer}/></button>;
+            })}</div> : <div className="private-hand-empty"><Eye size={20}/><strong>Join the battle to receive a private hand.</strong></div>}
           </section>
         </section>
         <aside className="rival-panel"><section className="current-turn-card"><span className="eyebrow">CURRENT PLAYER</span><div><button className="portrait-button" onClick={() => { if (activePlayer) inspectPlayer(activePlayer.id); }} aria-label="View current character"><div className="portrait" style={{ "--hero-color": activePlayer?.hero.color } as React.CSSProperties}>{activePlayer?.hero.initials}</div></button><div><strong className={`player-name-highlight ${playerRelationClass(activePlayer, localPlayer)}`}>{activePlayer?.displayName}</strong><span>{activePlayer?.hero.name} · {activePlayer?.hero.className}</span></div></div><small>{secondsLeft} seconds left · Target {adventure.target}</small></section>
