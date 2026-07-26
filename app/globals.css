@@ -907,7 +907,7 @@ button:focus-visible {
   box-shadow: inset 0 0 24px color-mix(in srgb, var(--hero-color) 12%, transparent);
 }
 
-.action-card.hero-special-card:hover,
+.action-hand > .action-card.hero-special-card:not(:disabled):hover,
 .action-card.hero-special-card.selected {
   border-color: color-mix(in srgb, var(--hero-color) 55%, #fff1bd);
   box-shadow: inset 0 -3px 0 var(--hero-color), 0 9px 26px color-mix(in srgb, var(--hero-color) 22%, transparent);
@@ -934,7 +934,7 @@ button:focus-visible {
   top: 34px;
 }
 
-.action-card:hover {
+.action-hand > .action-card:not(:disabled):hover {
   transform: translateY(-3px);
   border-color: rgba(212, 181, 110, 0.42);
 }
