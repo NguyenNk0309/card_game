@@ -8,9 +8,8 @@ const teamMeta: Record<TeamId, { name: string; icon: typeof Shield }> = {
   ember: { name: "Embercourt", icon: Swords }
 };
 
-export function PartyRail({ players, activePlayerId, game, localSessionId, onRemovePlayer, onInspectPlayer }: {
+export function PartyRail({ players, game, localSessionId, onRemovePlayer, onInspectPlayer }: {
   players: PlayerSession[];
-  activePlayerId: string;
   game?: SyncedGameState | null;
   localSessionId?: string;
   onRemovePlayer?: (id: string) => void;
@@ -31,9 +30,8 @@ export function PartyRail({ players, activePlayerId, game, localSessionId, onRem
           const hp = state?.hp ?? hero.hp;
           const maxHp = state?.maxHp ?? hero.maxHp;
           const dead = hp <= 0;
-          const active = !dead && player.id === activePlayerId;
           const hasBuff = Boolean(state && (state.attackBuff || state.diceBuff || state.dicePenalty));
-          return <article className={`hero-row ${active ? "is-active" : ""} ${dead ? "is-dead" : ""} ${player.id === localSessionId ? "is-you" : ""}`} key={player.id}>
+          return <article className={`hero-row ${dead ? "is-dead" : ""} ${player.id === localSessionId ? "is-you" : ""}`} key={player.id}>
             <button className="portrait-button" onClick={() => onInspectPlayer?.(player.id)} aria-label={`View ${player.displayName}'s character`}><div className="portrait" style={{ "--hero-color": hero.color } as React.CSSProperties}>{hero.initials}</div></button>
             <div className="hero-copy">
               <div className="hero-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{player.displayName}</strong><span className="hero-name-actions">{dead ? <em>DEFEATED</em> : null}{localSessionId && player.id !== localSessionId && onRemovePlayer && <button className="rail-remove-player" onClick={() => onRemovePlayer(player.id)} aria-label={`Remove ${player.displayName}`}><UserMinus size={12}/></button>}</span></div>

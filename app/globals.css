@@ -2365,11 +2365,6 @@ button:focus-visible {
   font-size: 9px;
 }
 
-.hero-row.is-active {
-  background: rgba(212, 181, 110, 0.08);
-  border-color: rgba(212, 181, 110, 0.45);
-}
-
 .action-hand.three-cards {
   grid-template-columns: repeat(3, 1fr);
 }
