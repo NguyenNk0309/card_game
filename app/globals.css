@@ -451,7 +451,6 @@ button:focus-visible {
   text-shadow: 0 1px 3px #260d0b, 0 0 5px rgba(0, 0, 0, .8);
 }
 
-.roster-shield,
 .roster-buff-indicator {
   min-width: 20px;
   height: 20px;
@@ -479,17 +478,27 @@ button:focus-visible {
 .roster-buff-row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 5px;
   min-height: 20px;
   margin-top: 5px;
   padding-left: 16px;
+  min-width: 0;
 }
 
 .roster-buff-row .roster-buff-indicator.negative {
   color: #ef9187;
   background: rgba(194, 79, 67, .12);
   border-color: rgba(216, 102, 89, .4);
+}
+
+.roster-buff-row .roster-buff-indicator.shield {
+  min-width: 28px;
+  padding: 0 4px;
+  color: #83cbea;
+  background: rgba(61, 133, 164, .13);
+  border-color: rgba(90, 164, 194, .35);
+  border-radius: 10px;
 }
 
 .roster-buff-tooltip {
