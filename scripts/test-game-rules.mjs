@@ -131,11 +131,19 @@ assert.equal(freeRollResult.outcome.pityCost, 0, "the shared result identifies a
 assert.equal(freeRollResult.playerStates[first.id].pityPoints, 0, "an automatic zero-cost success does not award pity");
 assert.equal(freeRollResult.history.at(-1).pityCost, 0, "history identifies the zero-pity automatic success");
 assert.match(freeRollResult.history.at(-1).message, /d20 1 ignored; zero-pity card always succeeds/, "history explains that the roll result was ignored");
+assert.deepEqual(freeRollResult.outcome.impacts, [{ targetId: first.id, kind: "none", amount: 0 }], "no-effect cards still expose a deterministic no-impact animation result");
 
 game.playerStates[first.id].hand = [attack.id];
 const firstTarget = game.adventure.target;
 const attacked = engine.resolveCardTurn(game, [first, second], attack.id, second.id, 20);
 assert(attacked.adventure.target >= 8 && attacked.adventure.target <= 16, "each next target is generated independently of the raw d20");
+assert.equal(attacked.outcome.actorId, first.id, "card outcomes expose the stable acting session id for synchronized animation");
+assert.equal(attacked.outcome.cardId, attack.id, "card outcomes preserve the exact played card id");
+assert.deepEqual(attacked.outcome.targetIds, [second.id], "card outcomes preserve exact selected target ids");
+assert.deepEqual(attacked.outcome.impacts.map((impact) => impact.targetId), [second.id], "single-target attacks expose their structured target impact");
+assert.equal(attacked.outcome.impacts[0].kind, "damage");
+assert.equal(attacked.outcome.impacts[0].hpBefore, game.playerStates[second.id].hp);
+assert.equal(attacked.outcome.impacts[0].hpAfter, attacked.playerStates[second.id].hp);
 assert.equal(attacked.history.length, 1);
 assert.equal(attacked.history[0].diceRoll, 20);
 assert.equal(attacked.history[0].diceTarget, firstTarget);
@@ -162,6 +170,7 @@ healGame.playerStates[supportAlly.id].hp = 1;
 const allyHealed = engine.resolveCardTurn(healGame, supportParty, healCard.id, supportAlly.id, 20);
 assert.equal(allyHealed.playerStates[supportAlly.id].hp, 7, "healer restores the chosen ally with its passive bonus up to max HP");
 assert.equal(allyHealed.playerStates[healer.id].hp, healer.hero.maxHp, "ally heal does not redirect to the caster");
+assert.deepEqual(allyHealed.outcome.impacts[0], { targetId: supportAlly.id, kind: "heal", amount: 6, hpBefore: 1, hpAfter: 7 }, "healing exposes exact before/after HP for target VFX");
 
 const tank = engine.createPlayerSession("Bram", 0, "Bram Coalhand", "tank");
 const tankAlly = engine.createPlayerSession("Tank ally", 2, "Mira Ash", "tank-ally");
@@ -173,6 +182,7 @@ const guardCard = tank.skillDeck.find((card) => card.effect === "guard");
 guardGame.playerStates[tank.id].hand = [guardCard.id];
 const allyGuarded = engine.resolveCardTurn(guardGame, tankParty, guardCard.id, tankAlly.id, 20);
 assert.equal(allyGuarded.playerStates[tankAlly.id].shield, 7, "tank passive strengthens shield placed on an ally");
+assert.deepEqual(allyGuarded.outcome.impacts[0], { targetId: tankAlly.id, kind: "shield", amount: 7, shieldBefore: 0, shieldAfter: 7 }, "guard outcomes expose exact shield construction metadata");
 const allyBrace = tankAlly.skillDeck.find((card) => card.effect === "guard" && card.target === "self");
 allyGuarded.turnOrder = [tankAlly.id, tankEnemy.id, tank.id];
 allyGuarded.activePlayerIndex = 2;
@@ -416,6 +426,9 @@ assert.match(eventTurn.history.find((entry) => entry.kind === "world").message, 
 assert.match(eventTurn.worldEvent.description, /Both teams are affected/);
 assert.match(eventTurn.worldEvent.description, /An/);
 assert.match(eventTurn.worldEvent.description, /Binh/);
+assert(Array.isArray(eventTurn.worldEvent.results) && eventTurn.worldEvent.results.length >= 2, "world events expose one structured result for each affected living player");
+assert(eventTurn.worldEvent.results.every((result) => [first.id, second.id].includes(result.targetId)), "world-event results use stable player session ids");
+assert(eventTurn.worldEvent.results.every((result) => ["damage", "heal", "shield-loss", "attack-buff", "revive"].includes(result.kind)), "world-event results identify the matching reaction VFX");
 
 const finalGame = engine.createInitialGame([first, second], engine.createAdventure("FINAL"), 30);
 finalGame.turnOrder = [first.id, second.id];

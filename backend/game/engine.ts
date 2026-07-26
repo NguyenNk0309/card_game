@@ -1,5 +1,5 @@
 import { ACTION_CARDS, calculatePityCost, CHARACTER_SKILL_CARDS, EVENTS, HERO_TEMPLATES, REALMS, STORY_BEATS } from "./catalog";
-import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, Hero, PlayerRunState, PlayerSession, SyncedGameState, TeamId, TimedEffectKind, WorldEventOutcome } from "@/shared/types";
+import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, GameTargetImpact, Hero, PlayerRunState, PlayerSession, SyncedGameState, TeamId, TimedEffectKind, WorldEventOutcome } from "@/shared/types";
 
 export function randomIntInclusive(minimum: number, maximum: number) {
   const lower = Math.ceil(minimum);
@@ -349,40 +349,53 @@ function applyWorldEvent(phase: number, players: PlayerSession[], states: Record
   const level = Math.ceil(phase / 5);
   const title = pick(["Chaos Convergence", "Fractured Fate", "Crimson World Pulse", "Unstable Arena Surge"]);
   const reports: string[] = [];
+  const results: GameTargetImpact[] = [];
   for (const player of living(players, states)) {
     const kind = Math.floor(Math.random() * 5);
     if (kind === 0) {
       const damage = randomAmount(1, level + 1);
+      const hpBefore = states[player.id].hp;
       states[player.id].hp = Math.max(0, states[player.id].hp - damage);
-      reports.push(`${player.displayName} -${damage} HP`);
+      const amount = hpBefore - states[player.id].hp;
+      reports.push(`${player.displayName} -${amount} HP`);
+      results.push({ targetId: player.id, kind: "damage", amount, hpBefore, hpAfter: states[player.id].hp, defeated: states[player.id].hp === 0 });
     } else if (kind === 1) {
       const healing = randomAmount(1, level + 1);
       const before = states[player.id].hp;
       states[player.id].hp = Math.min(states[player.id].maxHp, states[player.id].hp + healing);
-      reports.push(`${player.displayName} +${states[player.id].hp - before} HP`);
+      const amount = states[player.id].hp - before;
+      reports.push(`${player.displayName} +${amount} HP`);
+      results.push({ targetId: player.id, kind: "heal", amount, hpBefore: before, hpAfter: states[player.id].hp });
     } else if (kind === 2) {
+      const shieldBefore = states[player.id].shield;
       const lost = Math.min(states[player.id].shield, randomAmount(1, level * 2));
       removeTimedEffectAmount(states[player.id], "shield", lost);
       reports.push(`${player.displayName} -${lost} shield`);
+      results.push({ targetId: player.id, kind: "shield-loss", amount: lost, shieldBefore, shieldAfter: states[player.id].shield });
     } else if (kind === 3) {
       const bonus = randomAmount(1, level);
       addTimedEffect(states[player.id], "attackBuff", bonus, false);
       reports.push(`${player.displayName} +${bonus} next-attack damage`);
+      results.push({ targetId: player.id, kind: "attack-buff", amount: bonus });
     } else {
       const amount = randomAmount(1, level + 1);
       if (Math.random() < 0.5) {
-        const damage = amount;
-        states[player.id].hp = Math.max(0, states[player.id].hp - damage);
+        const hpBefore = states[player.id].hp;
+        states[player.id].hp = Math.max(0, states[player.id].hp - amount);
+        const damage = hpBefore - states[player.id].hp;
         reports.push(`${player.displayName} -${damage} HP`);
+        results.push({ targetId: player.id, kind: "damage", amount: damage, hpBefore, hpAfter: states[player.id].hp, defeated: states[player.id].hp === 0 });
       } else {
         const before = states[player.id].hp;
         states[player.id].hp = Math.min(states[player.id].maxHp, states[player.id].hp + amount);
-        reports.push(`${player.displayName} +${states[player.id].hp - before} HP`);
+        const healing = states[player.id].hp - before;
+        reports.push(`${player.displayName} +${healing} HP`);
+        results.push({ targetId: player.id, kind: "heal", amount: healing, hpBefore: before, hpAfter: states[player.id].hp });
       }
     }
   }
   const description = `Both teams are affected with a separate random result for every living player: ${reports.join("; ")}.`;
-  const event = { id: `world-${phase}-${Date.now()}`, turn: phase, level, title, description };
+  const event = { id: `world-${phase}-${Date.now()}`, turn: phase, level, title, description, results };
   return { event, history: { id: `${event.id}-history`, turn: phase, phase, kind: "world", actorName: "World Event", message: `World Event · Level ${level} — ${title}: ${description}`, success: true, createdAt: Date.now() } };
 }
 
@@ -437,6 +450,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
             : card.target === "player" ? (selectedPlayer ? [selectedPlayer] : [])
               : selectedEnemy ? [selectedEnemy] : [];
   const needsTarget = ["ally", "defeated-ally", "enemy", "player"].includes(card.target);
+  const impacts: GameTargetImpact[] = [];
   if (!usePity) {
     clearTimedEffect(states[actor.id], "diceBuff");
     clearTimedEffect(states[actor.id], "dicePenalty");
@@ -460,12 +474,25 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       const reports: string[] = [];
       for (const target of targets) {
         const state = states[target.id];
+        const hpBefore = state.hp;
+        const shieldBefore = state.shield;
         const blocked = ignoresShield ? 0 : Math.min(state.shield, power);
         removeTimedEffectAmount(state, "shield", blocked);
         const damage = power - blocked;
         state.hp = Math.max(0, state.hp - damage);
         amount += damage;
         if (state.hp === 0) defeated = true;
+        impacts.push({
+          targetId: target.id,
+          kind: "damage",
+          amount: hpBefore - state.hp,
+          hpBefore,
+          hpAfter: state.hp,
+          shieldBefore,
+          shieldAfter: state.shield,
+          blocked,
+          defeated: state.hp === 0
+        });
         reports.push(`${target.displayName} lost ${damage} HP${blocked ? ` (${blocked} blocked by shield)` : ""}${state.hp === 0 ? " and was defeated" : ""}`);
       }
       if (targets.length) clearTimedEffect(states[actor.id], "attackBuff");
@@ -477,13 +504,16 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         const before = states[target.id].hp;
         states[target.id].hp = Math.min(states[target.id].maxHp, states[target.id].hp + power);
         amount = states[target.id].hp - before;
+        impacts.push({ targetId: target.id, kind: "heal", amount, hpBefore: before, hpAfter: states[target.id].hp });
         detail = `${actor.displayName} restored ${amount} HP to ${target.displayName}.`;
       }
     } else if (card.effect === "guard") {
       const target = targets[0];
       if (target) {
         amount = card.value + (actor.hero.classId === "tank" ? 2 : 0);
+        const shieldBefore = states[target.id].shield;
         addTimedEffect(states[target.id], "shield", amount, target.id === actor.id);
+        impacts.push({ targetId: target.id, kind: "shield", amount, shieldBefore, shieldAfter: states[target.id].shield });
         detail = `${actor.displayName} granted ${amount} shield to ${target.displayName}.`;
       }
     } else if (card.effect === "support") {
@@ -492,31 +522,54 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       const reports: string[] = [];
       const supportTargets = card.target === "all-allies" ? allies : targets;
       for (const target of supportTargets) {
-        if (card.supportType === "attack") addTimedEffect(states[target.id], "attackBuff", amount, target.id === actor.id);
-        if (card.supportType === "shield") addTimedEffect(states[target.id], "shield", amount, target.id === actor.id);
+        if (card.supportType === "attack") {
+          addTimedEffect(states[target.id], "attackBuff", amount, target.id === actor.id);
+          impacts.push({ targetId: target.id, kind: "attack-buff", amount });
+        }
+        if (card.supportType === "shield") {
+          const shieldBefore = states[target.id].shield;
+          addTimedEffect(states[target.id], "shield", amount, target.id === actor.id);
+          impacts.push({ targetId: target.id, kind: "shield", amount, shieldBefore, shieldAfter: states[target.id].shield });
+        }
         if (card.supportType === "healing") {
           const before = states[target.id].hp;
           states[target.id].hp = Math.min(states[target.id].maxHp, states[target.id].hp + amount);
-          reports.push(`${target.displayName} +${states[target.id].hp - before} HP`);
+          const healing = states[target.id].hp - before;
+          reports.push(`${target.displayName} +${healing} HP`);
+          impacts.push({ targetId: target.id, kind: "heal", amount: healing, hpBefore: before, hpAfter: states[target.id].hp });
         }
-        if (card.supportType === "dice") addTimedEffect(states[target.id], "diceBuff", amount, target.id === actor.id);
-        if (card.supportType === "enemy-dice") addTimedEffect(states[target.id], "dicePenalty", amount, target.id === actor.id);
+        if (card.supportType === "dice") {
+          addTimedEffect(states[target.id], "diceBuff", amount, target.id === actor.id);
+          impacts.push({ targetId: target.id, kind: "dice-buff", amount });
+        }
+        if (card.supportType === "enemy-dice") {
+          addTimedEffect(states[target.id], "dicePenalty", amount, target.id === actor.id);
+          impacts.push({ targetId: target.id, kind: "dice-penalty", amount });
+        }
         if (card.supportType === "dispel-enemy") {
+          const shieldBefore = states[target.id].shield;
           const removedShield = Math.min(states[target.id].shield, amount);
           removeTimedEffectAmount(states[target.id], "shield", removedShield);
           clearTimedEffect(states[target.id], "attackBuff");
           clearTimedEffect(states[target.id], "diceBuff");
           reports.push(`${target.displayName} lost ${removedShield} shield and all attack and d20 buffs`);
+          impacts.push({ targetId: target.id, kind: "dispel", amount: removedShield, shieldBefore, shieldAfter: states[target.id].shield });
         }
       }
-      if (card.supportType === "advance-ally" && selectedAlly) turnOrder = moveTurnTarget(turnOrder, selectedAlly.id, "advance");
+      if (card.supportType === "advance-ally" && selectedAlly) {
+        turnOrder = moveTurnTarget(turnOrder, selectedAlly.id, "advance");
+        impacts.push({ targetId: selectedAlly.id, kind: "turn-advance" });
+      }
+      if (card.supportType === "delay-enemy" && selectedEnemy) impacts.push({ targetId: selectedEnemy.id, kind: "turn-delay" });
       if (card.supportType === "revive" && selectedDefeatedAlly) {
         states[selectedDefeatedAlly.id].reviveIn = Math.max(1, card.value);
         reports.push(`${selectedDefeatedAlly.displayName} will revive in ${card.value} completed turns`);
+        impacts.push({ targetId: selectedDefeatedAlly.id, kind: "revive-pending", amount: card.value });
       }
       if (card.supportType === "skip-enemy" && selectedEnemy) {
         states[selectedEnemy.id].skipTurns = (states[selectedEnemy.id].skipTurns ?? 0) + 1;
         reports.push(`${selectedEnemy.displayName}'s next turn will be skipped`);
+        impacts.push({ targetId: selectedEnemy.id, kind: "skip-turn", amount: 1 });
       }
       if (card.supportType === "purge-card" && selectedAlly) {
         const selectedState = states[selectedAlly.id];
@@ -530,6 +583,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
           moveCardToGraveyard(selectedState, removedId);
           const removedCard = selectedAlly.skillDeck.find((item) => item.id === removedId);
           reports.push(`${removedCard?.name ?? "one no-effect common card"} moved to ${selectedAlly.displayName}'s graveyard for this battle`);
+          impacts.push({ targetId: selectedAlly.id, kind: "card-purge", cardId: removedId });
         }
       }
       if (card.supportType === "steal-card" && selectedEnemy) {
@@ -549,6 +603,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
             expiresAfterOwnerTurn: (states[selectedEnemy.id].completedPlayerTurns ?? 0) + 1
           });
           reports.push(`${actor.displayName} borrowed one hidden common card from ${selectedEnemy.displayName}`);
+          impacts.push({ targetId: selectedEnemy.id, kind: "card-steal", cardId: stolenId });
         }
       }
       if (card.supportType === "healing") detail = `${actor.displayName} healed the team: ${reports.join(", ")}.`;
@@ -561,6 +616,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       else detail = `${actor.displayName} granted ${targets[0]?.displayName ?? "the target"} +${amount} ${card.supportType === "attack" ? "next-attack damage" : card.supportType === "shield" ? "shield" : "to the next d20 result"}.`;
     } else if (card.effect === "none") {
       detail = `${actor.displayName} played ${card.name}. The card had no effect.`;
+      impacts.push({ targetId: actor.id, kind: "none", amount: 0 });
     }
   }
 
@@ -568,21 +624,34 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   if (!success && card.failureEffect && (card.failureValue ?? 0) > 0) {
     const penalty = card.failureValue ?? 0;
     if (card.failureEffect === "self-damage") {
+      const hpBefore = states[actor.id].hp;
       states[actor.id].hp = Math.max(0, states[actor.id].hp - penalty);
+      impacts.push({ targetId: actor.id, kind: "damage", amount: hpBefore - states[actor.id].hp, hpBefore, hpAfter: states[actor.id].hp, defeated: states[actor.id].hp === 0 });
       failureDetail = `${actor.displayName} took ${penalty} backlash damage.`;
     } else if (card.failureEffect === "team-damage") {
-      for (const ally of allies) states[ally.id].hp = Math.max(0, states[ally.id].hp - penalty);
+      for (const ally of allies) {
+        const hpBefore = states[ally.id].hp;
+        states[ally.id].hp = Math.max(0, states[ally.id].hp - penalty);
+        impacts.push({ targetId: ally.id, kind: "damage", amount: hpBefore - states[ally.id].hp, hpBefore, hpAfter: states[ally.id].hp, defeated: states[ally.id].hp === 0 });
+      }
       failureDetail = `The entire ${teamName(actor.hero.team)} team took ${penalty} backlash damage.`;
     } else if (card.failureEffect === "lose-shield") {
+      const shieldBefore = states[actor.id].shield;
       const lost = Math.min(states[actor.id].shield, penalty);
       removeTimedEffectAmount(states[actor.id], "shield", lost);
+      impacts.push({ targetId: actor.id, kind: "shield-loss", amount: lost, shieldBefore, shieldAfter: states[actor.id].shield });
       failureDetail = `${actor.displayName} lost ${lost} shield when their guard broke.`;
     } else if (card.failureEffect === "enemy-shield") {
-      for (const enemy of enemies) addTimedEffect(states[enemy.id], "shield", penalty, false);
+      for (const enemy of enemies) {
+        const shieldBefore = states[enemy.id].shield;
+        addTimedEffect(states[enemy.id], "shield", penalty, false);
+        impacts.push({ targetId: enemy.id, kind: "shield", amount: penalty, shieldBefore, shieldAfter: states[enemy.id].shield });
+      }
       failureDetail = `Every enemy gained ${penalty} shield because the action failed.`;
     }
     detail = `${detail} ${failureDetail}`;
   }
+  if (!impacts.length) impacts.push({ targetId: actor.id, kind: "none", amount: 0 });
 
   finishPlayedCard(states, actor.id, card.id);
   expireTimedEffectsAtTurnEnd(states[actor.id]);
@@ -590,6 +659,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const revivedIds = tickRevival(states, revivingAtTurnStart);
   if (revivedIds.length) {
     const revivedNames = revivedIds.map((id) => players.find((player) => player.id === id)?.displayName ?? "An ally");
+    for (const id of revivedIds) impacts.push({ targetId: id, kind: "revive", hpBefore: 0, hpAfter: states[id].hp });
     detail = `${detail} ${revivedNames.join(", ")} revived with one-third HP.`;
   }
   let adventure = { ...game.adventure, target: randomDiceTarget() };
@@ -604,6 +674,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const passiveRevives = triggerSableRevives(players, states);
   if (passiveRevives.length) {
     const names = passiveRevives.map((player) => player.displayName);
+    for (const player of passiveRevives) impacts.push({ targetId: player.id, kind: "revive", hpBefore: 0, hpAfter: states[player.id].hp });
     const reviveMessage = `${names.join(", ")} invoked Second Sight and revived with half HP.`;
     detail = `${detail} ${reviveMessage}`;
     actionHistory.message = `${actor.displayName} used ${card.name} (${rollSummary}) — ${detail}`;
@@ -634,6 +705,8 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     const eventPassiveRevives = triggerSableRevives(players, states);
     if (eventPassiveRevives.length) {
       const reviveMessage = `${eventPassiveRevives.map((player) => player.displayName).join(", ")} invoked Second Sight and revived with half HP.`;
+      worldEvent.results ??= [];
+      for (const player of eventPassiveRevives) worldEvent.results.push({ targetId: player.id, kind: "revive", hpBefore: 0, hpAfter: states[player.id].hp });
       worldEvent.description = `${worldEvent.description} ${reviveMessage}`;
       result.history.message = `${result.history.message} ${reviveMessage}`;
       history.push({ id: `sable-event-revive-${turn}-${Date.now()}`, turn, phase: completedPhases, kind: "system", actorName: "Second Sight", message: reviveMessage, success: true, createdAt: Date.now() });
@@ -649,7 +722,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const now = Date.now();
   const veilTotal = totals(players, states, "veil").hp;
   const emberTotal = totals(players, states, "ember").hp;
-  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, completedPhases, maxPhases: 30, roll: usePity ? null : roll, outcome: { kind: "card", success, total: usePity ? game.adventure.target : total, target: game.adventure.target, label: `${actor.displayName} used ${card.name}`, detail, actorName: actor.displayName, cardId: card.id, cardName: card.name, cardType: card.type, effect: card.effect, supportType: card.supportType, targetIds: targets.map((target) => target.id), targetName: targets.map((target) => target.displayName).join(", "), roll: usePity ? undefined : roll, bonus: usePity ? undefined : totalBonus, diceBuff: usePity ? undefined : diceBuff, dicePenalty: usePity ? undefined : dicePenalty, resolution: usePity ? "pity" : "roll", pityCost: usePity || automaticSuccess ? pityCost : undefined, pityBefore, pityAfter: states[actor.id].pityPoints, amount, defeated, nextTarget: adventure.target, failureDetail }, playerStates: states, history, worldEvent, turnStartedAt: now, turnDeadline: ended ? 0 : now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} wins. Total HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder, roundNumber, roundOrder, actedThisRound };
+  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, completedPhases, maxPhases: 30, roll: usePity ? null : roll, outcome: { kind: "card", success, total: usePity ? game.adventure.target : total, target: game.adventure.target, label: `${actor.displayName} used ${card.name}`, detail, actorId: actor.id, actorName: actor.displayName, cardId: card.id, cardName: card.name, cardType: card.type, effect: card.effect, supportType: card.supportType, targetIds: targets.map((target) => target.id), targetName: targets.map((target) => target.displayName).join(", "), roll: usePity ? undefined : roll, bonus: usePity ? undefined : totalBonus, diceBuff: usePity ? undefined : diceBuff, dicePenalty: usePity ? undefined : dicePenalty, resolution: usePity ? "pity" : "roll", pityCost: usePity || automaticSuccess ? pityCost : undefined, pityBefore, pityAfter: states[actor.id].pityPoints, amount, defeated, nextTarget: adventure.target, failureDetail, impacts }, playerStates: states, history, worldEvent, turnStartedAt: now, turnDeadline: ended ? 0 : now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} wins. Total HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder, roundNumber, roundOrder, actedThisRound };
 }
 
 export function resolveAction(adventure: Adventure, cardId: string, roll: number, _advanceChapter = true, availableCards: ActionCard[] = ACTION_CARDS) {

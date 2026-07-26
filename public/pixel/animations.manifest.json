@@ -1,0 +1,2768 @@
+{
+  "version": 1,
+  "clips": {
+    "character.elara-voss.idle": {
+      "src": "/pixel/characters/elara-voss/idle.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": true
+    },
+    "character.elara-voss.enter": {
+      "src": "/pixel/characters/elara-voss/enter.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.slash": {
+      "src": "/pixel/characters/elara-voss/slash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.heavy": {
+      "src": "/pixel/characters/elara-voss/heavy.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.brace": {
+      "src": "/pixel/characters/elara-voss/brace.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.second-wind": {
+      "src": "/pixel/characters/elara-voss/second-wind.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.hurt": {
+      "src": "/pixel/characters/elara-voss/hurt.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.shield-hit": {
+      "src": "/pixel/characters/elara-voss/shield-hit.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.shield-break": {
+      "src": "/pixel/characters/elara-voss/shield-break.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.backlash": {
+      "src": "/pixel/characters/elara-voss/backlash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.defeat": {
+      "src": "/pixel/characters/elara-voss/defeat.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.revive": {
+      "src": "/pixel/characters/elara-voss/revive.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.victory": {
+      "src": "/pixel/characters/elara-voss/victory.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.discard": {
+      "src": "/pixel/characters/elara-voss/discard.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.skip": {
+      "src": "/pixel/characters/elara-voss/skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.timeout": {
+      "src": "/pixel/characters/elara-voss/timeout.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.forced-skip": {
+      "src": "/pixel/characters/elara-voss/forced-skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.pity-success": {
+      "src": "/pixel/characters/elara-voss/pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.zero-pity-success": {
+      "src": "/pixel/characters/elara-voss/zero-pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.elara-voss.cast": {
+      "src": "/pixel/characters/elara-voss/cast.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.idle": {
+      "src": "/pixel/characters/thorne-vale/idle.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": true
+    },
+    "character.thorne-vale.enter": {
+      "src": "/pixel/characters/thorne-vale/enter.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.slash": {
+      "src": "/pixel/characters/thorne-vale/slash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.heavy": {
+      "src": "/pixel/characters/thorne-vale/heavy.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.brace": {
+      "src": "/pixel/characters/thorne-vale/brace.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.second-wind": {
+      "src": "/pixel/characters/thorne-vale/second-wind.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.hurt": {
+      "src": "/pixel/characters/thorne-vale/hurt.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.shield-hit": {
+      "src": "/pixel/characters/thorne-vale/shield-hit.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.shield-break": {
+      "src": "/pixel/characters/thorne-vale/shield-break.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.backlash": {
+      "src": "/pixel/characters/thorne-vale/backlash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.defeat": {
+      "src": "/pixel/characters/thorne-vale/defeat.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.revive": {
+      "src": "/pixel/characters/thorne-vale/revive.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.victory": {
+      "src": "/pixel/characters/thorne-vale/victory.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.discard": {
+      "src": "/pixel/characters/thorne-vale/discard.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.skip": {
+      "src": "/pixel/characters/thorne-vale/skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.timeout": {
+      "src": "/pixel/characters/thorne-vale/timeout.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.forced-skip": {
+      "src": "/pixel/characters/thorne-vale/forced-skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.pity-success": {
+      "src": "/pixel/characters/thorne-vale/pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.zero-pity-success": {
+      "src": "/pixel/characters/thorne-vale/zero-pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.thorne-vale.cast": {
+      "src": "/pixel/characters/thorne-vale/cast.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.idle": {
+      "src": "/pixel/characters/mira-ash/idle.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": true
+    },
+    "character.mira-ash.enter": {
+      "src": "/pixel/characters/mira-ash/enter.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.slash": {
+      "src": "/pixel/characters/mira-ash/slash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.heavy": {
+      "src": "/pixel/characters/mira-ash/heavy.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.brace": {
+      "src": "/pixel/characters/mira-ash/brace.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.second-wind": {
+      "src": "/pixel/characters/mira-ash/second-wind.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.hurt": {
+      "src": "/pixel/characters/mira-ash/hurt.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.shield-hit": {
+      "src": "/pixel/characters/mira-ash/shield-hit.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.shield-break": {
+      "src": "/pixel/characters/mira-ash/shield-break.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.backlash": {
+      "src": "/pixel/characters/mira-ash/backlash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.defeat": {
+      "src": "/pixel/characters/mira-ash/defeat.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.revive": {
+      "src": "/pixel/characters/mira-ash/revive.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.victory": {
+      "src": "/pixel/characters/mira-ash/victory.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.discard": {
+      "src": "/pixel/characters/mira-ash/discard.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.skip": {
+      "src": "/pixel/characters/mira-ash/skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.timeout": {
+      "src": "/pixel/characters/mira-ash/timeout.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.forced-skip": {
+      "src": "/pixel/characters/mira-ash/forced-skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.pity-success": {
+      "src": "/pixel/characters/mira-ash/pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.zero-pity-success": {
+      "src": "/pixel/characters/mira-ash/zero-pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.mira-ash.cast": {
+      "src": "/pixel/characters/mira-ash/cast.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.idle": {
+      "src": "/pixel/characters/brother-orren/idle.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": true
+    },
+    "character.brother-orren.enter": {
+      "src": "/pixel/characters/brother-orren/enter.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.slash": {
+      "src": "/pixel/characters/brother-orren/slash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.heavy": {
+      "src": "/pixel/characters/brother-orren/heavy.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.brace": {
+      "src": "/pixel/characters/brother-orren/brace.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.second-wind": {
+      "src": "/pixel/characters/brother-orren/second-wind.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.hurt": {
+      "src": "/pixel/characters/brother-orren/hurt.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.shield-hit": {
+      "src": "/pixel/characters/brother-orren/shield-hit.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.shield-break": {
+      "src": "/pixel/characters/brother-orren/shield-break.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.backlash": {
+      "src": "/pixel/characters/brother-orren/backlash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.defeat": {
+      "src": "/pixel/characters/brother-orren/defeat.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.revive": {
+      "src": "/pixel/characters/brother-orren/revive.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.victory": {
+      "src": "/pixel/characters/brother-orren/victory.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.discard": {
+      "src": "/pixel/characters/brother-orren/discard.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.skip": {
+      "src": "/pixel/characters/brother-orren/skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.timeout": {
+      "src": "/pixel/characters/brother-orren/timeout.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.forced-skip": {
+      "src": "/pixel/characters/brother-orren/forced-skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.pity-success": {
+      "src": "/pixel/characters/brother-orren/pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.zero-pity-success": {
+      "src": "/pixel/characters/brother-orren/zero-pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.brother-orren.cast": {
+      "src": "/pixel/characters/brother-orren/cast.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.idle": {
+      "src": "/pixel/characters/nyx-calder/idle.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": true
+    },
+    "character.nyx-calder.enter": {
+      "src": "/pixel/characters/nyx-calder/enter.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.slash": {
+      "src": "/pixel/characters/nyx-calder/slash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.heavy": {
+      "src": "/pixel/characters/nyx-calder/heavy.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.brace": {
+      "src": "/pixel/characters/nyx-calder/brace.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.second-wind": {
+      "src": "/pixel/characters/nyx-calder/second-wind.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.hurt": {
+      "src": "/pixel/characters/nyx-calder/hurt.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.shield-hit": {
+      "src": "/pixel/characters/nyx-calder/shield-hit.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.shield-break": {
+      "src": "/pixel/characters/nyx-calder/shield-break.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.backlash": {
+      "src": "/pixel/characters/nyx-calder/backlash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.defeat": {
+      "src": "/pixel/characters/nyx-calder/defeat.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.revive": {
+      "src": "/pixel/characters/nyx-calder/revive.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.victory": {
+      "src": "/pixel/characters/nyx-calder/victory.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.discard": {
+      "src": "/pixel/characters/nyx-calder/discard.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.skip": {
+      "src": "/pixel/characters/nyx-calder/skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.timeout": {
+      "src": "/pixel/characters/nyx-calder/timeout.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.forced-skip": {
+      "src": "/pixel/characters/nyx-calder/forced-skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.pity-success": {
+      "src": "/pixel/characters/nyx-calder/pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.zero-pity-success": {
+      "src": "/pixel/characters/nyx-calder/zero-pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.nyx-calder.cast": {
+      "src": "/pixel/characters/nyx-calder/cast.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.idle": {
+      "src": "/pixel/characters/bram-coalhand/idle.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": true
+    },
+    "character.bram-coalhand.enter": {
+      "src": "/pixel/characters/bram-coalhand/enter.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.slash": {
+      "src": "/pixel/characters/bram-coalhand/slash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.heavy": {
+      "src": "/pixel/characters/bram-coalhand/heavy.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.brace": {
+      "src": "/pixel/characters/bram-coalhand/brace.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.second-wind": {
+      "src": "/pixel/characters/bram-coalhand/second-wind.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.hurt": {
+      "src": "/pixel/characters/bram-coalhand/hurt.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.shield-hit": {
+      "src": "/pixel/characters/bram-coalhand/shield-hit.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.shield-break": {
+      "src": "/pixel/characters/bram-coalhand/shield-break.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.backlash": {
+      "src": "/pixel/characters/bram-coalhand/backlash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.defeat": {
+      "src": "/pixel/characters/bram-coalhand/defeat.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.revive": {
+      "src": "/pixel/characters/bram-coalhand/revive.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.victory": {
+      "src": "/pixel/characters/bram-coalhand/victory.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.discard": {
+      "src": "/pixel/characters/bram-coalhand/discard.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.skip": {
+      "src": "/pixel/characters/bram-coalhand/skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.timeout": {
+      "src": "/pixel/characters/bram-coalhand/timeout.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.forced-skip": {
+      "src": "/pixel/characters/bram-coalhand/forced-skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.pity-success": {
+      "src": "/pixel/characters/bram-coalhand/pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.zero-pity-success": {
+      "src": "/pixel/characters/bram-coalhand/zero-pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.bram-coalhand.cast": {
+      "src": "/pixel/characters/bram-coalhand/cast.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.idle": {
+      "src": "/pixel/characters/sable-fen/idle.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": true
+    },
+    "character.sable-fen.enter": {
+      "src": "/pixel/characters/sable-fen/enter.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.slash": {
+      "src": "/pixel/characters/sable-fen/slash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.heavy": {
+      "src": "/pixel/characters/sable-fen/heavy.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.brace": {
+      "src": "/pixel/characters/sable-fen/brace.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.second-wind": {
+      "src": "/pixel/characters/sable-fen/second-wind.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.hurt": {
+      "src": "/pixel/characters/sable-fen/hurt.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.shield-hit": {
+      "src": "/pixel/characters/sable-fen/shield-hit.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.shield-break": {
+      "src": "/pixel/characters/sable-fen/shield-break.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.backlash": {
+      "src": "/pixel/characters/sable-fen/backlash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.defeat": {
+      "src": "/pixel/characters/sable-fen/defeat.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.revive": {
+      "src": "/pixel/characters/sable-fen/revive.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.victory": {
+      "src": "/pixel/characters/sable-fen/victory.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.discard": {
+      "src": "/pixel/characters/sable-fen/discard.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.skip": {
+      "src": "/pixel/characters/sable-fen/skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.timeout": {
+      "src": "/pixel/characters/sable-fen/timeout.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.forced-skip": {
+      "src": "/pixel/characters/sable-fen/forced-skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.pity-success": {
+      "src": "/pixel/characters/sable-fen/pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.zero-pity-success": {
+      "src": "/pixel/characters/sable-fen/zero-pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.sable-fen.cast": {
+      "src": "/pixel/characters/sable-fen/cast.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.idle": {
+      "src": "/pixel/characters/kael-rook/idle.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": true
+    },
+    "character.kael-rook.enter": {
+      "src": "/pixel/characters/kael-rook/enter.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.slash": {
+      "src": "/pixel/characters/kael-rook/slash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.heavy": {
+      "src": "/pixel/characters/kael-rook/heavy.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.brace": {
+      "src": "/pixel/characters/kael-rook/brace.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.second-wind": {
+      "src": "/pixel/characters/kael-rook/second-wind.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.hurt": {
+      "src": "/pixel/characters/kael-rook/hurt.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.shield-hit": {
+      "src": "/pixel/characters/kael-rook/shield-hit.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.shield-break": {
+      "src": "/pixel/characters/kael-rook/shield-break.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.backlash": {
+      "src": "/pixel/characters/kael-rook/backlash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.defeat": {
+      "src": "/pixel/characters/kael-rook/defeat.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.revive": {
+      "src": "/pixel/characters/kael-rook/revive.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.victory": {
+      "src": "/pixel/characters/kael-rook/victory.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.discard": {
+      "src": "/pixel/characters/kael-rook/discard.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.skip": {
+      "src": "/pixel/characters/kael-rook/skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.timeout": {
+      "src": "/pixel/characters/kael-rook/timeout.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.forced-skip": {
+      "src": "/pixel/characters/kael-rook/forced-skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.pity-success": {
+      "src": "/pixel/characters/kael-rook/pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.zero-pity-success": {
+      "src": "/pixel/characters/kael-rook/zero-pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.kael-rook.cast": {
+      "src": "/pixel/characters/kael-rook/cast.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.idle": {
+      "src": "/pixel/characters/ione-mire/idle.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": true
+    },
+    "character.ione-mire.enter": {
+      "src": "/pixel/characters/ione-mire/enter.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.slash": {
+      "src": "/pixel/characters/ione-mire/slash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.heavy": {
+      "src": "/pixel/characters/ione-mire/heavy.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.brace": {
+      "src": "/pixel/characters/ione-mire/brace.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.second-wind": {
+      "src": "/pixel/characters/ione-mire/second-wind.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.hurt": {
+      "src": "/pixel/characters/ione-mire/hurt.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.shield-hit": {
+      "src": "/pixel/characters/ione-mire/shield-hit.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.shield-break": {
+      "src": "/pixel/characters/ione-mire/shield-break.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.backlash": {
+      "src": "/pixel/characters/ione-mire/backlash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.defeat": {
+      "src": "/pixel/characters/ione-mire/defeat.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.revive": {
+      "src": "/pixel/characters/ione-mire/revive.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.victory": {
+      "src": "/pixel/characters/ione-mire/victory.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.discard": {
+      "src": "/pixel/characters/ione-mire/discard.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.skip": {
+      "src": "/pixel/characters/ione-mire/skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.timeout": {
+      "src": "/pixel/characters/ione-mire/timeout.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.forced-skip": {
+      "src": "/pixel/characters/ione-mire/forced-skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.pity-success": {
+      "src": "/pixel/characters/ione-mire/pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.zero-pity-success": {
+      "src": "/pixel/characters/ione-mire/zero-pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.ione-mire.cast": {
+      "src": "/pixel/characters/ione-mire/cast.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.idle": {
+      "src": "/pixel/characters/dagan-flint/idle.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": true
+    },
+    "character.dagan-flint.enter": {
+      "src": "/pixel/characters/dagan-flint/enter.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.slash": {
+      "src": "/pixel/characters/dagan-flint/slash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.heavy": {
+      "src": "/pixel/characters/dagan-flint/heavy.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.brace": {
+      "src": "/pixel/characters/dagan-flint/brace.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.second-wind": {
+      "src": "/pixel/characters/dagan-flint/second-wind.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.hurt": {
+      "src": "/pixel/characters/dagan-flint/hurt.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.shield-hit": {
+      "src": "/pixel/characters/dagan-flint/shield-hit.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.shield-break": {
+      "src": "/pixel/characters/dagan-flint/shield-break.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.backlash": {
+      "src": "/pixel/characters/dagan-flint/backlash.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.defeat": {
+      "src": "/pixel/characters/dagan-flint/defeat.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.revive": {
+      "src": "/pixel/characters/dagan-flint/revive.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.victory": {
+      "src": "/pixel/characters/dagan-flint/victory.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.discard": {
+      "src": "/pixel/characters/dagan-flint/discard.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.skip": {
+      "src": "/pixel/characters/dagan-flint/skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.timeout": {
+      "src": "/pixel/characters/dagan-flint/timeout.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.forced-skip": {
+      "src": "/pixel/characters/dagan-flint/forced-skip.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.pity-success": {
+      "src": "/pixel/characters/dagan-flint/pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.zero-pity-success": {
+      "src": "/pixel/characters/dagan-flint/zero-pity-success.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "character.dagan-flint.cast": {
+      "src": "/pixel/characters/dagan-flint/cast.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 12,
+      "columns": 12,
+      "fps": 6,
+      "loop": false
+    },
+    "shared.neutral": {
+      "src": "/pixel/vfx/shared/neutral.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.world": {
+      "src": "/pixel/vfx/shared/world.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.damage": {
+      "src": "/pixel/vfx/shared/damage.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.heal": {
+      "src": "/pixel/vfx/shared/heal.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.shield-gain": {
+      "src": "/pixel/vfx/shared/shield-gain.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.shield-loss": {
+      "src": "/pixel/vfx/shared/shield-loss.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.shield-hit": {
+      "src": "/pixel/vfx/shared/shield-hit.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.shield-break": {
+      "src": "/pixel/vfx/shared/shield-break.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.shield-pierce": {
+      "src": "/pixel/vfx/shared/shield-pierce.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.attack-buff": {
+      "src": "/pixel/vfx/shared/attack-buff.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.dice-buff": {
+      "src": "/pixel/vfx/shared/dice-buff.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.dice-penalty": {
+      "src": "/pixel/vfx/shared/dice-penalty.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.turn-skip": {
+      "src": "/pixel/vfx/shared/turn-skip.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.turn-advance": {
+      "src": "/pixel/vfx/shared/turn-advance.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.card-steal": {
+      "src": "/pixel/vfx/shared/card-steal.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.card-purge": {
+      "src": "/pixel/vfx/shared/card-purge.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.revival-pending": {
+      "src": "/pixel/vfx/shared/revival-pending.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.revive": {
+      "src": "/pixel/vfx/shared/revive.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.dispel": {
+      "src": "/pixel/vfx/shared/dispel.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.backlash": {
+      "src": "/pixel/vfx/shared/backlash.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.pity-success": {
+      "src": "/pixel/vfx/shared/pity-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.zero-pity-success": {
+      "src": "/pixel/vfx/shared/zero-pity-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.no-effect": {
+      "src": "/pixel/vfx/shared/no-effect.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.discard": {
+      "src": "/pixel/vfx/shared/discard.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.skip": {
+      "src": "/pixel/vfx/shared/skip.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.timeout": {
+      "src": "/pixel/vfx/shared/timeout.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "shared.forced-skip": {
+      "src": "/pixel/vfx/shared/forced-skip.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.ev-aegis.success": {
+      "src": "/pixel/vfx/cards/ev-aegis-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.ev-aegis.failure": {
+      "src": "/pixel/vfx/cards/ev-aegis-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.ev-ward.success": {
+      "src": "/pixel/vfx/cards/ev-ward-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.ev-ward.failure": {
+      "src": "/pixel/vfx/cards/ev-ward-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.ev-command.success": {
+      "src": "/pixel/vfx/cards/ev-command-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.ev-command.failure": {
+      "src": "/pixel/vfx/cards/ev-command-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.tv-mark.success": {
+      "src": "/pixel/vfx/cards/tv-mark-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.tv-mark.failure": {
+      "src": "/pixel/vfx/cards/tv-mark-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.tv-pierce.success": {
+      "src": "/pixel/vfx/cards/tv-pierce-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.tv-pierce.failure": {
+      "src": "/pixel/vfx/cards/tv-pierce-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.tv-hunt.success": {
+      "src": "/pixel/vfx/cards/tv-hunt-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.tv-hunt.failure": {
+      "src": "/pixel/vfx/cards/tv-hunt-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.ma-inferno.success": {
+      "src": "/pixel/vfx/cards/ma-inferno-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.ma-inferno.failure": {
+      "src": "/pixel/vfx/cards/ma-inferno-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.ma-comet.success": {
+      "src": "/pixel/vfx/cards/ma-comet-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.ma-comet.failure": {
+      "src": "/pixel/vfx/cards/ma-comet-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.ma-gravity.success": {
+      "src": "/pixel/vfx/cards/ma-gravity-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.ma-gravity.failure": {
+      "src": "/pixel/vfx/cards/ma-gravity-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.bo-prayer.success": {
+      "src": "/pixel/vfx/cards/bo-prayer-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.bo-prayer.failure": {
+      "src": "/pixel/vfx/cards/bo-prayer-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.bo-blessing.success": {
+      "src": "/pixel/vfx/cards/bo-blessing-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.bo-blessing.failure": {
+      "src": "/pixel/vfx/cards/bo-blessing-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.bo-return.success": {
+      "src": "/pixel/vfx/cards/bo-return-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.bo-return.failure": {
+      "src": "/pixel/vfx/cards/bo-return-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.nc-knife.success": {
+      "src": "/pixel/vfx/cards/nc-knife-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.nc-knife.failure": {
+      "src": "/pixel/vfx/cards/nc-knife-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.nc-execute.success": {
+      "src": "/pixel/vfx/cards/nc-execute-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.nc-execute.failure": {
+      "src": "/pixel/vfx/cards/nc-execute-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.nc-pilfer.success": {
+      "src": "/pixel/vfx/cards/nc-pilfer-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.nc-pilfer.failure": {
+      "src": "/pixel/vfx/cards/nc-pilfer-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.bc-fortress.success": {
+      "src": "/pixel/vfx/cards/bc-fortress-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.bc-fortress.failure": {
+      "src": "/pixel/vfx/cards/bc-fortress-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.bc-temper.success": {
+      "src": "/pixel/vfx/cards/bc-temper-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.bc-temper.failure": {
+      "src": "/pixel/vfx/cards/bc-temper-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.bc-march.success": {
+      "src": "/pixel/vfx/cards/bc-march-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.bc-march.failure": {
+      "src": "/pixel/vfx/cards/bc-march-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.sf-favor.success": {
+      "src": "/pixel/vfx/cards/sf-favor-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.sf-favor.failure": {
+      "src": "/pixel/vfx/cards/sf-favor-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.sf-hex.success": {
+      "src": "/pixel/vfx/cards/sf-hex-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.sf-hex.failure": {
+      "src": "/pixel/vfx/cards/sf-hex-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.sf-stolen.success": {
+      "src": "/pixel/vfx/cards/sf-stolen-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.sf-stolen.failure": {
+      "src": "/pixel/vfx/cards/sf-stolen-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.kr-riposte.success": {
+      "src": "/pixel/vfx/cards/kr-riposte-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.kr-riposte.failure": {
+      "src": "/pixel/vfx/cards/kr-riposte-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.kr-duel.success": {
+      "src": "/pixel/vfx/cards/kr-duel-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.kr-duel.failure": {
+      "src": "/pixel/vfx/cards/kr-duel-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.kr-break.success": {
+      "src": "/pixel/vfx/cards/kr-break-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.kr-break.failure": {
+      "src": "/pixel/vfx/cards/kr-break-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.im-command.success": {
+      "src": "/pixel/vfx/cards/im-command-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.im-command.failure": {
+      "src": "/pixel/vfx/cards/im-command-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.im-focus.success": {
+      "src": "/pixel/vfx/cards/im-focus-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.im-focus.failure": {
+      "src": "/pixel/vfx/cards/im-focus-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.im-purge.success": {
+      "src": "/pixel/vfx/cards/im-purge-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.im-purge.failure": {
+      "src": "/pixel/vfx/cards/im-purge-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.df-none.success": {
+      "src": "/pixel/vfx/cards/df-none-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.df-none.failure": {
+      "src": "/pixel/vfx/cards/df-none-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.df-cleave.success": {
+      "src": "/pixel/vfx/cards/df-cleave-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.df-cleave.failure": {
+      "src": "/pixel/vfx/cards/df-cleave-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.df-frenzy.success": {
+      "src": "/pixel/vfx/cards/df-frenzy-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.df-frenzy.failure": {
+      "src": "/pixel/vfx/cards/df-frenzy-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.slash.success": {
+      "src": "/pixel/vfx/cards/slash-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.slash.failure": {
+      "src": "/pixel/vfx/cards/slash-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.heavy.success": {
+      "src": "/pixel/vfx/cards/heavy-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.heavy.failure": {
+      "src": "/pixel/vfx/cards/heavy-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.brace.success": {
+      "src": "/pixel/vfx/cards/brace-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.brace.failure": {
+      "src": "/pixel/vfx/cards/brace-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.second-wind.success": {
+      "src": "/pixel/vfx/cards/second-wind-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.second-wind.failure": {
+      "src": "/pixel/vfx/cards/second-wind-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.empty-gesture.success": {
+      "src": "/pixel/vfx/cards/empty-gesture-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.empty-gesture.failure": {
+      "src": "/pixel/vfx/cards/empty-gesture-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.broken-plan.success": {
+      "src": "/pixel/vfx/cards/broken-plan-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.broken-plan.failure": {
+      "src": "/pixel/vfx/cards/broken-plan-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.lost-momentum.success": {
+      "src": "/pixel/vfx/cards/lost-momentum-success.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "card.lost-momentum.failure": {
+      "src": "/pixel/vfx/cards/lost-momentum-failure.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 16,
+      "columns": 16,
+      "fps": 7,
+      "loop": false
+    },
+    "world.chaos-convergence": {
+      "src": "/pixel/vfx/world/chaos-convergence.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 20,
+      "columns": 20,
+      "fps": 6,
+      "loop": false
+    },
+    "world.fractured-fate": {
+      "src": "/pixel/vfx/world/fractured-fate.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 20,
+      "columns": 20,
+      "fps": 6,
+      "loop": false
+    },
+    "world.crimson-world-pulse": {
+      "src": "/pixel/vfx/world/crimson-world-pulse.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 20,
+      "columns": 20,
+      "fps": 6,
+      "loop": false
+    },
+    "world.unstable-arena-surge": {
+      "src": "/pixel/vfx/world/unstable-arena-surge.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 20,
+      "columns": 20,
+      "fps": 6,
+      "loop": false
+    },
+    "result.victory": {
+      "src": "/pixel/vfx/results/victory.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 20,
+      "columns": 20,
+      "fps": 6,
+      "loop": false
+    },
+    "result.defeat": {
+      "src": "/pixel/vfx/results/defeat.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frames": 20,
+      "columns": 20,
+      "fps": 6,
+      "loop": false
+    }
+  }
+}

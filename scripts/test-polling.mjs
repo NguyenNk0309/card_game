@@ -136,6 +136,10 @@ try {
   assert.equal(forcedSkipped.game.completedTurns, 2);
   assert.equal(forcedSkipped.game.outcome.kind, "forced-skip");
   assert.equal(forcedSkipped.game.history.at(-1).kind, "forced-skip");
+  assert.equal(forcedSkipped.game.outcome.actorId, secondId, "forced-skip polling outcomes expose the affected player's stable id");
+  assert.deepEqual(forcedSkipped.game.outcome.targetIds, [secondId]);
+  assert.deepEqual(forcedSkipped.game.outcome.impacts, [{ targetId: secondId, kind: "skip-turn", amount: 1 }]);
+  assert.equal(forcedOwnerView.game.outcome.actorId, secondId, "animation outcome metadata is synchronized to every polling viewer");
   assert.equal(forcedSkipped.game.completedPhases, 0, "a phase remains open until every player has acted");
   assert.equal(forcedSkipped.game.turnOrder[0], thirdId);
   assert.deepEqual(forcedOwnerView.game.playerStates[secondId].hand, [`card-${secondId}`], "forced skip preserves the affected player's hand");
@@ -150,6 +154,8 @@ try {
   assert.equal(manuallySkipped.game.completedTurns, 3);
   assert.equal(manuallySkipped.game.outcome.kind, "skip");
   assert.equal(manuallySkipped.game.history.at(-1).kind, "skip");
+  assert.equal(manuallySkipped.game.outcome.actorId, thirdId, "manual polling skips expose the acting player's stable id");
+  assert.deepEqual(manuallySkipped.game.outcome.targetIds, [thirdId]);
   assert.equal(manuallySkipped.game.completedPhases, 1, "the phase completes after all three players act");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].hand, [`card-${thirdId}`], "manual skip preserves the hand");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].drawPile, [], "manual skip preserves the draw pile");
@@ -157,11 +163,14 @@ try {
   assert.equal(manuallySkipped.game.playerStates[thirdId].shield, 0, "a manual polling skip still expires shield at turn end");
   assert.equal(manuallySkipped.game.turnOrder[0], firstId);
 
-  const removedDuringGame = await command(firstId, { type: "remove-player", targetSessionId: thirdId });
-  assert(!removedDuringGame.players.some((item) => item.id === thirdId));
+  const removedDuringGame = await command(secondId, { type: "remove-player", targetSessionId: firstId });
+  assert(!removedDuringGame.players.some((item) => item.id === firstId));
   assert.equal(removedDuringGame.game.ended, false);
-  assert.equal(removedDuringGame.game.playerStates[thirdId], undefined);
-  assert(!removedDuringGame.game.turnOrder.includes(thirdId));
+  assert.equal(removedDuringGame.game.playerStates[firstId], undefined);
+  assert(!removedDuringGame.game.turnOrder.includes(firstId));
+  assert.equal(removedDuringGame.game.outcome.kind, "system");
+  assert.equal(removedDuringGame.game.outcome.actorId, secondId, "active-player polling removal identifies the requesting player");
+  assert.deepEqual(removedDuringGame.game.outcome.targetIds, [firstId], "active-player polling removal identifies the removed animation target");
 
   const ended = await command(secondId, { type: "end-game" });
   assert.equal(ended.game.ended, true);

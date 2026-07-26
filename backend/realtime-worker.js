@@ -265,6 +265,19 @@ function reconcilePityPoints(previousGame, incomingGame, actor) {
   return '';
 }
 
+function reconcileOutcomeMetadata(incomingGame, actor) {
+  const outcome = incomingGame?.outcome;
+  if (!outcome || outcome.kind !== 'card' || !actor) return;
+  outcome.actorId = actor.id;
+  const card = room.players.flatMap((player) => player.skillDeck || []).find((item) => item.id === outcome.cardId)
+    || room.players.flatMap((player) => player.skillDeck || []).find((item) => item.name === outcome.cardName);
+  if (card) outcome.cardId = card.id;
+  const validIds = new Set(room.players.map((player) => player.id));
+  const namedIds = String(outcome.targetName || '').split(', ').map((name) => room.players.find((player) => player.displayName === name)?.id).filter(Boolean);
+  outcome.targetIds = [...new Set([...(Array.isArray(outcome.targetIds) ? outcome.targetIds : []), ...namedIds])].filter((id) => validIds.has(id));
+  if (Array.isArray(outcome.impacts)) outcome.impacts = outcome.impacts.filter((impact) => impact && validIds.has(impact.targetId));
+}
+
 function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
   if (!previousGame || !incomingGame || !actor) return;
   returnBorrowedCards(incomingGame, actor.id, incomingGame.completedTurns);
@@ -287,6 +300,7 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
       moveCardToGraveyard(targetState, removedId);
       const removed = target.skillDeck.find((item) => item.id === removedId);
       serverDetail = ` ${removed?.name || 'One no-effect common card'} moved to ${target.displayName}'s graveyard for this battle.`;
+      outcome.impacts = [...(outcome.impacts || []).filter((impact) => impact.kind !== 'card-purge'), { targetId: target.id, kind: 'card-purge', cardId: removedId }];
     }
   }
   if (card.supportType === 'steal-card') {
@@ -301,6 +315,7 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
       actorState.hand.push(stolenId);
       actorState.borrowedCards = [...(actorState.borrowedCards || []), { cardId: stolenId, ownerId: target.id, borrowedAtTurn: incomingGame.completedTurns }];
       serverDetail = ` ${actor.displayName} temporarily stole one hidden common card from ${target.displayName}.`;
+      outcome.impacts = [...(outcome.impacts || []).filter((impact) => impact.kind !== 'card-steal'), { targetId: target.id, kind: 'card-steal', cardId: stolenId }];
     }
   }
   if (serverDetail) {
@@ -315,47 +330,63 @@ function applyWorldEvent(game, turn, now) {
   const titles = ['Chaos Convergence', 'Fractured Fate', 'Crimson World Pulse', 'Unstable Arena Surge'];
   const title = titles[Math.floor(Math.random() * titles.length)];
   const reports = [];
+  const results = [];
   for (const player of living()) {
     const kind = Math.floor(Math.random() * 5);
     const state = game.playerStates[player.id];
     if (kind === 0) {
       const damage = randomAmount(1, level + 1);
+      const hpBefore = state.hp;
       state.hp = Math.max(0, state.hp - damage);
-      reports.push(`${player.displayName} -${damage} HP`);
+      const amount = hpBefore - state.hp;
+      reports.push(`${player.displayName} -${amount} HP`);
+      results.push({ targetId: player.id, kind: 'damage', amount, hpBefore, hpAfter: state.hp, defeated: state.hp === 0 });
     } else if (kind === 1) {
       const before = state.hp;
       state.hp = Math.min(state.maxHp, state.hp + randomAmount(1, level + 1));
-      reports.push(`${player.displayName} +${state.hp - before} HP`);
+      const amount = state.hp - before;
+      reports.push(`${player.displayName} +${amount} HP`);
+      results.push({ targetId: player.id, kind: 'heal', amount, hpBefore: before, hpAfter: state.hp });
     } else if (kind === 2) {
+      const shieldBefore = state.shield || 0;
       const lost = Math.min(state.shield || 0, randomAmount(1, level * 2));
       state.shield -= lost;
       reports.push(`${player.displayName} -${lost} shield`);
+      results.push({ targetId: player.id, kind: 'shield-loss', amount: lost, shieldBefore, shieldAfter: state.shield });
     } else if (kind === 3) {
       const bonus = randomAmount(1, level);
       state.attackBuff = (state.attackBuff || 0) + bonus;
       reports.push(`${player.displayName} +${bonus} next-attack damage`);
+      results.push({ targetId: player.id, kind: 'attack-buff', amount: bonus });
     } else {
       const amount = randomAmount(1, level + 1);
       if (Math.random() < 0.5) {
-        const damage = amount;
-        state.hp = Math.max(0, state.hp - damage);
+        const hpBefore = state.hp;
+        state.hp = Math.max(0, state.hp - amount);
+        const damage = hpBefore - state.hp;
         reports.push(`${player.displayName} -${damage} HP`);
+        results.push({ targetId: player.id, kind: 'damage', amount: damage, hpBefore, hpAfter: state.hp, defeated: state.hp === 0 });
       } else {
         const before = state.hp;
         state.hp = Math.min(state.maxHp, state.hp + amount);
-        reports.push(`${player.displayName} +${state.hp - before} HP`);
+        const healing = state.hp - before;
+        reports.push(`${player.displayName} +${healing} HP`);
+        results.push({ targetId: player.id, kind: 'heal', amount: healing, hpBefore: before, hpAfter: state.hp });
       }
     }
   }
   const passiveRevives = triggerSableRevives(game);
-  for (const player of passiveRevives) reports.push(`${player.displayName} invoked Second Sight and revived with half HP`);
+  for (const player of passiveRevives) {
+    reports.push(`${player.displayName} invoked Second Sight and revived with half HP`);
+    results.push({ targetId: player.id, kind: 'revive', hpBefore: 0, hpAfter: game.playerStates[player.id].hp });
+  }
   const description = `Both teams are affected with a separate random result for every living player: ${reports.join('; ')}.`;
-  const event = { id: `world-${turn}-${now}`, turn, level, title, description };
+  const event = { id: `world-${turn}-${now}`, turn, level, title, description, results };
   game.worldEvent = event;
   game.history.push({ id: `${event.id}-history`, turn, phase: turn, kind: 'world', actorName: 'World Event', message: `World Event · Level ${level} — ${title}: ${description}`, success: true, createdAt: now });
 }
 
-function removePlayerFromRoom(targetId, removedBy) {
+function removePlayerFromRoom(targetId, removedBy, removedById = '') {
   const removingIndex = room.players.findIndex((player) => player.id === targetId);
   if (removingIndex < 0) return null;
   const removedPlayer = room.players[removingIndex];
@@ -384,7 +415,11 @@ function removePlayerFromRoom(targetId, removedBy) {
           target: room.game.adventure.target,
           label: `${removedPlayer.displayName} was removed`,
           detail: `${removedBy} removed this player. The next turn begins now.`,
-          actorName: removedBy
+          actorId: removedById || undefined,
+          actorName: removedBy,
+          targetIds: [removedPlayer.id],
+          targetName: removedPlayer.displayName,
+          impacts: [{ targetId: removedPlayer.id, kind: 'none', amount: 0 }]
         };
         room.game.history = [...(room.game.history || []), { id: `remove-${Date.now()}`, turn: room.game.completedTurns, phase: Math.min(30, (room.game.completedPhases || 0) + 1), kind: 'system', actorName: removedBy, message: `${removedBy} removed ${removedPlayer.displayName} from the battle.`, success: true, createdAt: Date.now() }].slice(-80);
       }
@@ -425,7 +460,7 @@ function expireTimedEffectsAtTurnEnd(state) {
   state.timedEffects = keeping;
 }
 
-async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '') {
+async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', discardedCardId = '') {
   const game = room.game;
   if (room.phase !== 'game' || !game || game.ended || !room.players.length) return false;
   const order = normalizeServerTurnOrder(game);
@@ -441,7 +476,20 @@ async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '') {
   const discarded = kind === 'discard';
   game.completedTurns = completedTurns;
   game.adventure = { ...game.adventure, target: randomDiceTarget() };
-  game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered the discard pile and advanced the full-deck cycle. Expiring effects ended normally.` : forced ? 'A support effect cancelled this turn. Cards were preserved; expiring effects ended normally.' : timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled; expiring effects ended normally.' : 'The turn was skipped. No cards were discarded or shuffled; expiring effects ended normally.', actorName: playerName, cardName: discardedCardName || undefined };
+  game.outcome = {
+    kind,
+    success: false,
+    total: 0,
+    target: game.adventure.target,
+    label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`,
+    detail: discarded ? `${discardedCardName} entered the discard pile and advanced the full-deck cycle. Expiring effects ended normally.` : forced ? 'A support effect cancelled this turn. Cards were preserved; expiring effects ended normally.' : timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled; expiring effects ended normally.' : 'The turn was skipped. No cards were discarded or shuffled; expiring effects ended normally.',
+    actorId: passingPlayer?.id,
+    actorName: playerName,
+    cardId: discardedCardId || undefined,
+    cardName: discardedCardName || undefined,
+    targetIds: passingPlayer ? [passingPlayer.id] : [],
+    impacts: passingPlayer ? [{ targetId: passingPlayer.id, kind: forced ? 'skip-turn' : 'none', amount: forced ? 1 : 0 }] : []
+  };
   game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} manually discarded ${discardedCardName} and advanced their full-deck cycle. Expiring effects ended normally.` : forced ? `${playerName}'s turn was cancelled by an enemy support effect. Their hand was preserved; expiring effects ended normally.` : timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved; expiring effects ended normally.` : `${playerName} manually skipped the turn. Their hand was preserved; expiring effects ended normally.`, success: false, createdAt: now }];
   game.worldEvent = null;
   if (revived.length) game.history.push({ id: `revive-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind: 'system', actorName: 'Returning Light', message: `${revived.join(', ')} revived with one-third HP.`, success: true, createdAt: now });
@@ -540,7 +588,7 @@ async function applyCommand(ownerId, message) {
     const requester = room.players.find((player) => player.id === ownerId);
     if (!ownerId || ownerId !== message.sessionId || !requester) return 'Only a joined player can remove another player.';
     if (message.targetSessionId === ownerId) return 'Use Leave to remove your own player.';
-    const removed = removePlayerFromRoom(String(message.targetSessionId || ''), requester.displayName);
+    const removed = removePlayerFromRoom(String(message.targetSessionId || ''), requester.displayName, requester.id);
     if (!removed) return 'That player is no longer in the room.';
     await commitRoom();
     return null;
@@ -585,6 +633,7 @@ async function applyCommand(ownerId, message) {
     }
     const pityError = reconcilePityPoints(previousGame, message.game, activePlayer);
     if (pityError) return pityError;
+    reconcileOutcomeMetadata(message.game, activePlayer);
     reconcileHiddenCardEffects(previousGame, message.game, activePlayer);
     message.game.adventure.target = randomDiceTarget();
     if (message.game.outcome?.kind === 'card') message.game.outcome.nextTarget = message.game.adventure.target;
@@ -631,7 +680,7 @@ async function applyCommand(ownerId, message) {
       }
     } else state.discardPile.push(message.cardId);
     drawOneOrStartNewCycle(state, discardedIndex >= 0 ? discardedIndex : state.hand.length);
-    await passCurrentTurn('discard', Date.now(), card?.name || 'a card');
+    await passCurrentTurn('discard', Date.now(), card?.name || 'a card', card?.id || message.cardId);
     return null;
   }
 

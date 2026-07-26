@@ -11,6 +11,7 @@ import { Lobby } from "./components/Lobby";
 import { PartyRail } from "./components/PartyRail";
 import { CardEffectIcon } from "./components/CardEffectIcon";
 import { PityCostBadge, PityIcon } from "./components/PityCost";
+import { PixelBattleStage } from "./components/PixelBattleStage";
 import { useGameAudio } from "./hooks/useGameAudio";
 import { useRoomSocket } from "./hooks/useRoomSocket";
 
@@ -196,7 +197,6 @@ export default function GameApp() {
   const [showGuide, setShowGuide] = useState(false);
   const [dismissedOutcomeKey, setDismissedOutcomeKey] = useState("");
   const [dismissedSummaryKey, setDismissedSummaryKey] = useState("");
-  const [dismissedVfxKey, setDismissedVfxKey] = useState("");
   const [dismissedWorldEventId, setDismissedWorldEventId] = useState("");
   const [dismissedBattleResultKey, setDismissedBattleResultKey] = useState("");
   const [deckReview, setDeckReview] = useState<"draw" | "discard" | "graveyard" | null>(null);
@@ -207,6 +207,7 @@ export default function GameApp() {
   const [mobileParty, setMobileParty] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [cardZoneMotion, setCardZoneMotion] = useState<CardZoneMotion | null>(null);
+  const [panelTiming, setPanelTiming] = useState({ key: "", minimumElapsed: false, animationComplete: false });
   const expirySentRef = useRef(0);
   const previousLocalZonesRef = useRef<{ playerId: string; hand: string[]; drawPile: string[]; discardPile: string[] } | null>(null);
   const pendingCardMotionRef = useRef<{ completedTurns: number; slotIndex: number; slotRect?: CardSlotRect; discarded: ActionCard } | null>(null);
@@ -239,8 +240,7 @@ export default function GameApp() {
   const isLocalCardOutcome = Boolean(outcome?.kind === "card" && outcome.actorName === localPlayer?.displayName);
   const showOutcome = Boolean(isLocalCardOutcome && outcomeKey !== dismissedOutcomeKey && !runComplete);
   const showTurnSummary = Boolean(outcome?.actorName && !isLocalCardOutcome && outcomeKey !== dismissedSummaryKey && !runComplete);
-  const vfxCard = outcome?.kind === "card" ? cardCatalog.find((card) => card.name === outcome.cardName) : undefined;
-  const showBattleVfx = Boolean(vfxCard && outcomeKey !== dismissedVfxKey && !runComplete);
+  const outcomeCard = outcome?.kind === "card" ? cardCatalog.find((card) => card.id === outcome.cardId) ?? cardCatalog.find((card) => card.name === outcome.cardName) : undefined;
   const showWorldEvent = Boolean(game?.worldEvent && game.worldEvent.id !== dismissedWorldEventId && !runComplete);
   const inspectedPlayer = players.find((player) => player.id === inspectedPlayerId);
   const inspectedCard = [...cardCatalog, ...previewCardCatalog].find((card) => card.name === inspectedCardName);
@@ -248,6 +248,13 @@ export default function GameApp() {
   const reviewedCards = reviewedCardIds.map((id) => cardCatalog.find((card) => card.id === id)).filter((card): card is ActionCard => Boolean(card));
   const manualPanelOpen = Boolean(deckReview) || Boolean(expandedPanel) || Boolean(inspectedPlayer) || Boolean(inspectedCard) || showRunComplete;
   const activeAutoPanel = manualPanelOpen ? null : showOutcome ? "outcome" : showTurnSummary ? "summary" : showWorldEvent ? "world" : null;
+  const battleResultPanelActive = Boolean(showRunComplete && !showGuide && !deckReview && !expandedPanel && !inspectedPlayer && !inspectedCard);
+  const autoPanelSequenceKey = activeAutoPanel === "world" ? `world:${game?.worldEvent?.id ?? ""}` : activeAutoPanel ? `${activeAutoPanel}:${outcomeKey}` : "";
+  const animatedPanelKey = battleResultPanelActive ? `result:${battleResultKey}` : autoPanelSequenceKey;
+  const panelTimingMatches = Boolean(animatedPanelKey && panelTiming.key === animatedPanelKey);
+  const automaticPanelReady = Boolean(activeAutoPanel && panelTimingMatches && panelTiming.minimumElapsed && panelTiming.animationComplete);
+  const resultAnimationReady = Boolean(battleResultPanelActive && panelTimingMatches && panelTiming.animationComplete);
+  const panelInteractionLocked = Boolean(activeAutoPanel ? !automaticPanelReady : battleResultPanelActive ? !resultAnimationReady : false);
   const modalOpen = manualPanelOpen || Boolean(activeAutoPanel);
   const panelOverlayOpen = modalOpen || showGuide || mobileParty;
   const visibleTurnOrder = useMemo(() => {
@@ -260,6 +267,23 @@ export default function GameApp() {
       .map((id) => players.find((player) => player.id === id))
       .filter((player): player is NonNullable<typeof player> => Boolean(player && (game.playerStates[player.id]?.hp ?? 0) > 0));
   }, [game, players, activePlayerIndex]);
+  const outcomeActor = players.find((player) => player.id === outcome?.actorId)
+    ?? players.find((player) => player.displayName === outcome?.actorName);
+  const outcomeTargetIds = [...new Set([...(outcome?.targetIds ?? []), ...(outcome?.impacts ?? []).map((impact) => impact.targetId)])]
+    .filter((id) => id !== outcomeActor?.id);
+  const outcomeTargets = outcomeTargetIds
+    .map((id) => players.find((player) => player.id === id))
+    .filter((player): player is PlayerSession => Boolean(player));
+  const fallbackOutcomeTargets = outcomeTargets.length
+    ? outcomeTargets
+    : players.filter((player) => Boolean(outcome?.targetName && outcome.targetName.split(", ").includes(player.displayName)));
+  const worldEventTargetIds = game?.worldEvent?.results?.map((result) => result.targetId) ?? [];
+  const worldEventTargets = worldEventTargetIds.length
+    ? [...new Set(worldEventTargetIds)].map((id) => players.find((player) => player.id === id)).filter((player): player is PlayerSession => Boolean(player))
+    : players.filter((player) => (game?.playerStates[player.id]?.hp ?? player.hero.hp) > 0);
+  const resultTargets = localPlayer
+    ? players.filter((player) => player.hero.team !== localPlayer.hero.team)
+    : players;
 
   const targetOptions = activeCard && localPlayer ? players.filter((player) => {
     const hp = game?.playerStates[player.id]?.hp ?? player.hero.hp;
@@ -311,19 +335,25 @@ export default function GameApp() {
     if (!players.some((player) => player.id === selectedPlayerId)) setSelectedPlayerId(localPlayer.id);
   }, [players, selectedPlayerId, localPlayer]);
   useEffect(() => {
-    if (!activeAutoPanel) return;
+    if (!animatedPanelKey) {
+      setPanelTiming((current) => current.key ? { key: "", minimumElapsed: false, animationComplete: false } : current);
+      return;
+    }
+    setPanelTiming((current) => current.key === animatedPanelKey
+      ? current
+      : { key: animatedPanelKey, minimumElapsed: battleResultPanelActive, animationComplete: false });
+    if (battleResultPanelActive) return;
     const timer = window.setTimeout(() => {
-      if (activeAutoPanel === "outcome") setDismissedOutcomeKey(outcomeKey);
-      else if (activeAutoPanel === "summary") setDismissedSummaryKey(outcomeKey);
-      else if (game?.worldEvent) setDismissedWorldEventId(game.worldEvent.id);
+      setPanelTiming((current) => current.key === animatedPanelKey ? { ...current, minimumElapsed: true } : current);
     }, 5000);
     return () => window.clearTimeout(timer);
-  }, [activeAutoPanel, outcomeKey, game?.worldEvent?.id]);
+  }, [animatedPanelKey, battleResultPanelActive]);
   useEffect(() => {
-    if (!showBattleVfx || !outcomeKey) return;
-    const timer = window.setTimeout(() => setDismissedVfxKey(outcomeKey), 1400);
-    return () => window.clearTimeout(timer);
-  }, [showBattleVfx, outcomeKey]);
+    if (!automaticPanelReady || !activeAutoPanel) return;
+    if (activeAutoPanel === "outcome") setDismissedOutcomeKey(outcomeKey);
+    else if (activeAutoPanel === "summary") setDismissedSummaryKey(outcomeKey);
+    else if (game?.worldEvent) setDismissedWorldEventId(game.worldEvent.id);
+  }, [automaticPanelReady, activeAutoPanel, outcomeKey, game?.worldEvent]);
   useEffect(() => {
     if (!localPlayer || !localState) {
       previousLocalZonesRef.current = null;
@@ -458,7 +488,13 @@ export default function GameApp() {
     setInspectedPlayerId(null);
     setInspectedCardName(cardName);
   };
+  const completePanelAnimation = (sequenceKey: string) => {
+    setPanelTiming((current) => current.key === sequenceKey
+      ? { ...current, animationComplete: true }
+      : { key: sequenceKey, minimumElapsed: false, animationComplete: true });
+  };
   const closeModal = () => {
+    if (panelInteractionLocked) return;
     if (deckReview) return setDeckReview(null);
     if (expandedPanel) return setExpandedPanel(null);
     if (inspectedPlayer) { setInspectedView("status"); return setInspectedPlayerId(null); }
@@ -468,8 +504,21 @@ export default function GameApp() {
     if (showWorldEvent && game?.worldEvent) setDismissedWorldEventId(game.worldEvent.id);
     if (showRunComplete) send({ type: "return:lobby" });
   };
+  useEffect(() => {
+    if (!modalOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (panelInteractionLocked) {
+        event.preventDefault();
+        return;
+      }
+      closeModal();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  });
 
-  return <main className="game-shell arena-focus"><div className="grain"/>{showBattleVfx && vfxCard && <div className={`battle-card-vfx effect-${vfxCard.effect} ${outcome?.success ? "success" : "failure"}`} aria-hidden="true"><i/><i/><i/><div><CardEffectIcon card={vfxCard}/><strong>{vfxCard.name}</strong></div></div>}{cardZoneMotion && localPlayer && !panelOverlayOpen && <CardZoneVfx key={cardZoneMotion.id} motion={cardZoneMotion} player={localPlayer} playable={activePlayer?.id === sessionId && !runComplete && (localState?.hp ?? 0) > 0}/>} {showGuide && <DetailedGuide onClose={() => setShowGuide(false)}/>}
+  return <main className="game-shell arena-focus"><div className="grain"/>{cardZoneMotion && localPlayer && !panelOverlayOpen && <CardZoneVfx key={cardZoneMotion.id} motion={cardZoneMotion} player={localPlayer} playable={activePlayer?.id === sessionId && !runComplete && (localState?.hp ?? 0) > 0}/>} {showGuide && <DetailedGuide onClose={() => setShowGuide(false)}/>}
     <header className="topbar"><div className="brand"><div className="brand-mark"><Crown size={20}/></div><div><strong>SHATTERED OATH</strong><span>Two teams. One victor.</span></div></div>
       {phase === "game" ? <RunStatus completedPhases={game?.completedPhases ?? Math.max(0, (game?.roundNumber ?? 1) - 1)} secondsLeft={secondsLeft} eventPhase={game?.worldEvent?.turn} onEvents={() => setExpandedPanel("events")}/> : <div className="lobby-top-status"><Users size={16}/> {players.length}/10 players · {players.filter((player) => player.ready).length} ready</div>}
       <div className="top-actions"><div className="audio-controls"><button className={`icon-button music-toggle ${musicOn ? "playing" : ""}`} onClick={() => void toggleMusic()} aria-label={musicOn ? "Pause medieval music" : "Play medieval music"} title={musicOn ? "Pause medieval music" : "Play medieval music"}>{musicOn ? <Volume2 size={18}/> : <AudioLines size={18}/>}</button><label className="volume-control" title={`Audio volume ${volume}%`}><input type="range" min="0" max="100" value={volume} style={{ "--audio-volume": `${volume}%` } as React.CSSProperties} onChange={(event) => setVolume(Number(event.target.value))} aria-label="Game audio volume"/><output>{volume}%</output></label></div><button className="text-button" onClick={() => setShowGuide(true)}><CircleHelp size={16}/> How to play</button>{phase === "game" && localPlayer && <ConfirmedTopAction className="leave-game-control" icon={<LogOut size={16}/>} label="Leave battle" title="Leave this battle?" detail="Your player will be removed from the current battle." onConfirm={() => send({ type: "leave-game", sessionId })}/>} {phase === "game" && localPlayer && !runComplete && <ConfirmedTopAction className="end-game-control" icon={<Octagon size={16}/>} label="End battle" title="End this battle?" detail="The current team totals will decide victory and defeat." onConfirm={() => send({ type: "end-game", sessionId })}/>} {runComplete && !showRunComplete && <button className="text-button" onClick={() => setDismissedBattleResultKey("")}><Crown size={16}/> Battle result</button>}{phase === "game" && <button className="icon-button mobile-party-button" onClick={() => setMobileParty(true)} aria-label="Open player list"><Users size={18}/></button>}</div>
@@ -499,7 +548,7 @@ export default function GameApp() {
           <section className="history-panel"><div className="panel-heading"><div><span className="eyebrow">BATTLE HISTORY</span><strong>Actions, rolls, and world events</strong></div><button className="panel-expand-button" onClick={() => setExpandedPanel("history")} aria-label="Expand battle history"><History size={17}/></button></div><HistoryEntries entries={game?.history ?? []} players={players} localPlayer={localPlayer} onInspectPlayer={inspectPlayer} onInspectCard={inspectCard}/></section>
         </aside>
       </div>}
-    {modalOpen && <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={closeModal}><section className={`modal-card ${showGuide ? "tutorial-modal" : ""} ${deckReview || expandedPanel || inspectedPlayer ? "wide-modal" : ""} ${(showOutcome || showTurnSummary || showWorldEvent) && !showGuide && !deckReview && !expandedPanel && !inspectedPlayer && !inspectedCard ? "resolution-card" : ""}`} onClick={(event) => event.stopPropagation()}><button className="modal-close icon-button" onClick={closeModal} aria-label="Close"><X size={18}/></button>
+    {modalOpen && <div className={`modal-backdrop ${panelInteractionLocked ? "animation-locked" : ""}`} role="dialog" aria-modal="true" aria-busy={panelInteractionLocked} onClick={closeModal}><section className={`modal-card ${showGuide ? "tutorial-modal" : ""} ${deckReview || expandedPanel || inspectedPlayer ? "wide-modal" : ""} ${(showOutcome || showTurnSummary || showWorldEvent || battleResultPanelActive) && !showGuide && !deckReview && !expandedPanel && !inspectedPlayer && !inspectedCard ? "resolution-card" : ""}`} onClick={(event) => event.stopPropagation()} onClickCapture={(event) => { if (panelInteractionLocked) { event.preventDefault(); event.stopPropagation(); } }} onKeyDownCapture={(event) => { if (panelInteractionLocked && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); event.stopPropagation(); } }}><button className="modal-close icon-button" onClick={closeModal} aria-label={panelInteractionLocked ? "Animation is still playing" : "Close"} title={panelInteractionLocked ? "Wait for the animation to finish" : "Close"} disabled={panelInteractionLocked}><X size={18}/></button>
       {showGuide ? <div className="tutorial-scroll"><span className="eyebrow">COMPLETE TUTORIAL</span><h2>How to win Shattered Oath</h2><p className="modal-lead">Two teams alternate cards and d20 rolls. Eliminate the opposing team, or hold more total HP after phase 30.</p><section className="tutorial-section"><h3><Users size={20}/> Setup</h3><div className="tutorial-steps"><article><b>1</b><div><strong>Choose a class</strong><p>Every 10-card deck contains 3 class specials, 2 common attacks, 1 common shield, 1 common heal, and 3 no-effect cards. Special cards cause their printed failure penalty; common-card failures do nothing.</p></div></article><article><b>2</b><div><strong>Your cards are private</strong><p>The server sends each browser only its own hand, draw pile, discard pile, and graveyard. Click any avatar to inspect public character details without revealing private card zones.</p></div></article></div></section><section className="tutorial-section"><h3><Dices size={20}/> Playing a turn</h3><div className="tutorial-steps"><article><b>1</b><div><strong>Choose a highlighted card</strong><p>The played card enters discard. A random replacement is drawn while draw has cards. Once hand and draw are both empty, discard moves to draw, shuffles, and deals up to four cards; graveyard cards never return.</p></div></article><article><b>2</b><div><strong>Beat the random target</strong><p>The server reveals a fresh target from 8 to 16 every turn. It is independent of every previous roll. Only active buffs and the acting character's matching passive modify the d20.</p></div></article><article><b>3</b><div><strong>Skip without changing cards</strong><p>Manual Skip and automatic timeout preserve the exact hand, draw pile, discard pile, and graveyard. Playing or manually discarding a card advances its normal cycle.</p></div></article></div></section><section className="tutorial-section"><h3><Zap size={20}/> Failure and events</h3><p>Special-card failures cause the listed balanced backlash; common-card failures have no effect. Guardians and tanks shield, healers restore or revive, controllers change rolls and turns, commanders improve decks, and attackers focus damage. Large red world-event markers appear every 5 phases. Each event affects both teams with a separate random result for every living player and is recorded in Battle History.</p></section><section className="tutorial-section warning-section"><h3><Clock3 size={20}/> Synchronized turns</h3><p>Every client uses the server clock for the same 60-second deadline. At zero, the server immediately passes the turn without changing cards. Eliminating a team wins immediately; after phase 30, total HP decides the winner.</p></section></div> :
       deckReview ? <div className="expanded-panel-content"><span className="eyebrow">YOUR PRIVATE DECK</span><h2>{deckReview === "draw" ? "Draw pile" : deckReview === "discard" ? "Discard pile" : "Graveyard"}</h2><p className="modal-lead">{deckReview === "draw" ? "These cards remain available for random replacement draws. Their order is shown only to you." : deckReview === "discard" ? "Cycled cards remain here until both hand and draw are empty. Then this whole pile moves to draw, shuffles, and deals up to four cards." : "These cards are permanently out of circulation and cannot return to hand, draw pile, or discard pile during this battle."}</p>{reviewedCards.length ? <div className="pile-card-grid">{reviewedCards.map((card, index) => <article className={`pile-review-card effect-${card.effect} ${card.unique ? "special" : ""}`} key={`${card.id}-${index}`}><PityCostBadge card={card}/><span>{index + 1} · {card.unique ? "Special" : "Common"}</span><div className={`card-sigil effect-${card.effect}`}><CardEffectIcon card={card}/></div><strong>{card.name}</strong><p><EffectText text={card.description} card={card}/></p><CardOutcomeLines card={card}/></article>)}</div> : <div className="private-hand-empty"><Archive size={24}/><strong>This pile is empty.</strong></div>}</div> :
       expandedPanel === "events" ? <div className="expanded-panel-content world-event-library"><span className="eyebrow">WORLD EVENT LIBRARY</span><h2>Every event in Shattered Oath</h2><p className="modal-lead">One of these events triggers every fifth completed phase. Its level rises with the battle, and every living player receives an independent random result.</p><div>{worldEventLibrary.map((event, index) => <article key={event.title}><span>EVENT {index + 1}</span><strong>{event.title}</strong><p>{event.detail}</p><small>Possible results: HP damage · HP healing · shield loss · next-attack bonus · volatile heal/damage</small></article>)}</div></div> :
@@ -511,6 +560,7 @@ export default function GameApp() {
       showTurnSummary && outcome ? <div className="resolution-content"><div className={`resolution-hero ${outcome.success ? "success" : "failure"}`}>{outcome.success ? <Check size={34}/> : <Skull size={34}/>}</div><span className="eyebrow">TURN SUMMARY</span><h2><HighlightPlayerNames text={outcome.label} players={players} localPlayer={localPlayer}/></h2>{outcome.resolution === "roll" && outcome.pityCost === 0 && <AutomaticSuccessNotice roll={outcome.roll}/>}<p className="modal-lead"><HighlightPlayerNames text={outcome.detail} players={players} localPlayer={localPlayer}/></p></div> :
       showWorldEvent && game?.worldEvent ? <div className="resolution-content world-event-resolution"><div className="resolution-hero world"><Zap size={34}/></div><span className="eyebrow">WORLD EVENT · LEVEL {game.worldEvent.level}</span><h2>{game.worldEvent.title}</h2><p className="modal-lead"><HighlightPlayerNames text={game.worldEvent.description} players={players} localPlayer={localPlayer}/></p><div className="resolution-metrics"><div><span>Occurred on phase</span><strong>{game.worldEvent.turn}</strong></div><div><span>Next event</span><strong>{game.worldEvent.turn < 30 ? game.worldEvent.turn + 5 : "None"}</strong></div></div><button className="primary-button continue-button" onClick={() => setDismissedWorldEventId(game.worldEvent!.id)}>Continue <ChevronRight size={17}/></button></div> :
       showRunComplete ? <div className={`resolution-content battle-result-content ${localBattleVerdict}`}><div className={`resolution-hero ${localBattleVerdict === "victory" ? "success" : localBattleVerdict === "defeat" ? "failure" : "world"}`}>{localBattleVerdict === "defeat" ? <Skull size={34}/> : <Crown size={34}/>}</div><span className="eyebrow">BATTLE COMPLETE</span><h2>{localBattleVerdict === "victory" ? "Victory" : localBattleVerdict === "defeat" ? "Defeat" : game?.winnerTeam ? `${teamName[game.winnerTeam]} wins!` : "The battle was ended."}</h2><p className="modal-lead">{localBattleVerdict === "victory" && localPlayer ? `${teamName[localPlayer.hero.team]} won the battle. ${game?.endReason ?? ""}` : localBattleVerdict === "defeat" && localPlayer && game?.winnerTeam ? `${teamName[game.winnerTeam]} defeated ${teamName[localPlayer.hero.team]}. ${game?.endReason ?? ""}` : game?.endReason}</p><div className="resolution-metrics"><div><span>Veilbound</span><strong>{veil.hp} HP</strong></div><div><span>Embercourt</span><strong>{ember.hp} HP</strong></div></div><button className="primary-button" onClick={() => send({ type: "return:lobby" })}><RefreshCw size={17}/> Return to lobby</button></div> : null}
+      {(showOutcome || showTurnSummary) && outcome ? <div className="pixel-stage-modal-dock"><PixelBattleStage sequenceKey={autoPanelSequenceKey} actor={outcomeActor} targets={fallbackOutcomeTargets} card={outcomeCard} outcome={outcome} onAnimationComplete={() => completePanelAnimation(autoPanelSequenceKey)}/></div> : showWorldEvent && game?.worldEvent ? <div className="pixel-stage-modal-dock"><PixelBattleStage sequenceKey={autoPanelSequenceKey} targets={worldEventTargets} mode="world" worldTitle={game.worldEvent.title} impacts={game.worldEvent.results} onAnimationComplete={() => completePanelAnimation(autoPanelSequenceKey)}/></div> : battleResultPanelActive ? <div className="pixel-stage-modal-dock"><PixelBattleStage sequenceKey={animatedPanelKey} actor={localPlayer} targets={resultTargets} mode="result" verdict={localBattleVerdict} onAnimationComplete={() => completePanelAnimation(animatedPanelKey)}/></div> : null}
     </section></div>}
   </main>;
 }

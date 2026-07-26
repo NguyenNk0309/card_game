@@ -78,6 +78,37 @@ export type PlayerSession = {
   skillDeck: ActionCard[];
 };
 
+export type GameImpactKind =
+  | "damage"
+  | "heal"
+  | "shield"
+  | "shield-loss"
+  | "attack-buff"
+  | "dice-buff"
+  | "dice-penalty"
+  | "turn-advance"
+  | "turn-delay"
+  | "skip-turn"
+  | "revive-pending"
+  | "revive"
+  | "dispel"
+  | "card-purge"
+  | "card-steal"
+  | "none";
+
+export type GameTargetImpact = {
+  targetId: string;
+  kind: GameImpactKind;
+  amount?: number;
+  hpBefore?: number;
+  hpAfter?: number;
+  shieldBefore?: number;
+  shieldAfter?: number;
+  blocked?: number;
+  defeated?: boolean;
+  cardId?: string;
+};
+
 export type GameOutcome = {
   success: boolean;
   total: number;
@@ -85,6 +116,7 @@ export type GameOutcome = {
   label: string;
   detail?: string;
   kind?: "card" | "discard" | "skip" | "timeout" | "forced-skip" | "system";
+  actorId?: string;
   actorName?: string;
   cardName?: string;
   cardType?: ActionCard["type"];
@@ -107,6 +139,7 @@ export type GameOutcome = {
   failureDetail?: string;
   supportType?: SupportType;
   targetIds?: string[];
+  impacts?: GameTargetImpact[];
 };
 
 export type GameHistoryEntry = {
@@ -140,6 +173,7 @@ export type WorldEventOutcome = {
   title: string;
   description: string;
   affectedTeam?: TeamId;
+  results?: GameTargetImpact[];
 };
 
 export type PlayerRunState = {

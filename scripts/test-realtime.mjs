@@ -200,11 +200,20 @@ try {
   controlledGame.playerStates[thirdId].shield = 3;
   controlledGame.outcome = { kind: "card", success: true, total: 20, target: 12, label: "Test control", detail: "The next enemy turn will be cancelled.", actorName: firstStarted.players.find((item) => item.id === firstId).displayName, cardName: "Test Skill", targetName: firstStarted.players.find((item) => item.id === secondId).displayName };
   controlledGame.history = [{ id: `control-${runId}`, turn: 1, kind: "support", actorName: "First", message: "Applied a turn-cancel effect.", success: true, createdAt: Date.now() }];
+  const syncedCardPromise = first.waitForNext((state) => state.game?.completedTurns === 1 && state.game?.outcome?.kind === "card");
   first.send({ type: "game:update", game: controlledGame });
+  const syncedCard = await syncedCardPromise;
+  assert.equal(syncedCard.game.outcome.actorId, firstId, "the server canonicalizes and publishes the card actor id");
+  assert.equal(syncedCard.game.outcome.cardId, `card-${firstId}`, "the server preserves the exact played card id");
+  assert.deepEqual(syncedCard.game.outcome.targetIds, [secondId], "the server resolves stable target ids from the synchronized card result");
   const forcedSkipped = await first.waitFor((state) => state.game?.completedTurns === 2 && state.game?.outcome?.kind === "forced-skip");
   const forcedSkippedOwnerView = await second.waitFor((state) => state.game?.completedTurns === 2 && state.game?.outcome?.kind === "forced-skip");
   assert.equal(forcedSkipped.game.turnOrder[0], thirdId, "a cancelled enemy turn passes immediately to the next player");
   assert.equal(forcedSkipped.game.history.at(-1).kind, "forced-skip");
+  assert.equal(forcedSkipped.game.outcome.actorId, secondId, "forced-skip outcomes expose the affected player's stable id");
+  assert.deepEqual(forcedSkipped.game.outcome.targetIds, [secondId]);
+  assert.deepEqual(forcedSkipped.game.outcome.impacts, [{ targetId: secondId, kind: "skip-turn", amount: 1 }]);
+  assert.equal(forcedSkippedOwnerView.game.outcome.actorId, secondId, "animation outcome metadata is synchronized to every WebSocket viewer");
   assert.equal(forcedSkipped.game.completedPhases, 0, "a phase remains open until every player has acted");
   assert.deepEqual(forcedSkippedOwnerView.game.playerStates[secondId].hand, [`card-${secondId}`], "forced skip preserves the affected player's private hand");
   assert.equal(forcedSkippedOwnerView.game.playerStates[secondId].skipTurns, 0);
@@ -218,6 +227,8 @@ try {
   const manuallySkipped = await third.waitFor((state) => state.game?.completedTurns === 3);
   assert.equal(manuallySkipped.game.outcome.kind, "skip");
   assert.equal(manuallySkipped.game.history.at(-1).kind, "skip");
+  assert.equal(manuallySkipped.game.outcome.actorId, thirdId, "manual skip outcomes expose the acting player's stable id");
+  assert.deepEqual(manuallySkipped.game.outcome.targetIds, [thirdId]);
   assert.equal(manuallySkipped.game.completedPhases, 1, "the phase completes after all three players act");
   assert.equal(manuallySkipped.game.playerStates[thirdId].shield, 0, "a manual skip still expires shield at turn end");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].hand, [`card-${thirdId}`], "manual skip preserves the hand");
@@ -225,11 +236,14 @@ try {
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].discardPile, [], "manual skip preserves the discard pile");
   assert.equal(manuallySkipped.game.turnOrder[0], firstId);
 
-  first.send({ type: "remove-player", sessionId: firstId, targetSessionId: thirdId });
-  const removedDuringGame = await first.waitFor((state) => !state.players.some((item) => item.id === thirdId));
+  second.send({ type: "remove-player", sessionId: secondId, targetSessionId: firstId });
+  const removedDuringGame = await second.waitFor((state) => !state.players.some((item) => item.id === firstId));
   assert.equal(removedDuringGame.game.ended, false);
-  assert.equal(removedDuringGame.game.playerStates[thirdId], undefined);
-  assert(!removedDuringGame.game.turnOrder.includes(thirdId));
+  assert.equal(removedDuringGame.game.playerStates[firstId], undefined);
+  assert(!removedDuringGame.game.turnOrder.includes(firstId));
+  assert.equal(removedDuringGame.game.outcome.kind, "system");
+  assert.equal(removedDuringGame.game.outcome.actorId, secondId, "active-player removal identifies the requesting player");
+  assert.deepEqual(removedDuringGame.game.outcome.targetIds, [firstId], "active-player removal identifies the removed animation target");
 
   second.send({ type: "end-game", sessionId: secondId });
   const manuallyEnded = await first.waitFor((state) => state.game?.ended === true);
