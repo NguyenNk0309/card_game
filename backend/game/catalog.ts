@@ -9,7 +9,7 @@ export const HERO_TEMPLATES: Omit<Hero, "id" | "team" | "isYou">[] = [
   { name: "Bram Coalhand", title: "The Red-Coal Bulwark", role: "Tank", classId: "tank", className: "Bulwark Tank", passiveName: "Tempered Steel", passiveText: "Bram's Guard cards create 2 additional shield for the chosen ally.", skill: "Living Fortress", skillText: "Create a large shield for one ally.", summary: "The toughest protector, carrying three special ways to shield allies.", strength: "Highest HP and strongest single-ally shielding.", weakness: "No special attack, healing, or turn control.", impact: "Keeps one essential teammate alive through concentrated attacks.", hp: 14, maxHp: 14, speed: 1, color: "#c98b58", initials: "BC" },
   { name: "Sable Fen", title: "The Eye of the Storm", role: "Controller", classId: "oracle", className: "Fate Oracle", passiveName: "Second Sight", passiveText: "The first time Sable is defeated, she immediately revives with half of her maximum HP.", skill: "Favorable Omen", skillText: "Improve allied rolls before a difficult target.", summary: "A fate controller who improves allied rolls, curses enemies, cancels one enemy turn, and can return from defeat once.", strength: "Powerful tempo control and a one-time self-revival.", weakness: "Low HP, no special damage, and severe team backlash.", impact: "Changes who succeeds and who gets to act, then bends fate once to survive defeat.", hp: 8, maxHp: 8, speed: 7, color: "#6aa8a5", initials: "SF" },
   { name: "Kael Rook", title: "The Challenger", role: "Duelist", classId: "duelist", className: "Disruptive Duelist", passiveName: "No Guard", passiveText: "While Kael has no shield, attacks deal 1 additional damage.", skill: "Riposte", skillText: "A devastating single-target attack.", summary: "A risky duelist who attacks twice and breaks one enemy's prepared defenses.", strength: "High single-target pressure and buff removal.", weakness: "Strongest without shield and vulnerable to backlash.", impact: "Challenges one prepared enemy and strips their advantage before a follow-up.", hp: 10, maxHp: 10, speed: 8, color: "#a96161", initials: "KR" },
-  { name: "Ione Mire", title: "The Oathkeeper", role: "Support", classId: "support", className: "Tactical Commander", passiveName: "Commanding Voice", passiveText: "Ione gains +1 to every d20 result.", skill: "Attack Order", skillText: "Increase the next attack damage of the whole team.", summary: "A pure support commander who buffs allies and removes an unwanted or useful common card.", strength: "Reliable d20 results and strong team-wide preparation.", weakness: "No special damage, shield, or healing.", impact: "Makes every teammate better and improves an ally's deck at the right moment.", hp: 9, maxHp: 9, speed: 6, color: "#bd9f76", initials: "IM" },
+  { name: "Ione Mire", title: "The Oathkeeper", role: "Support", classId: "support", className: "Tactical Commander", passiveName: "Commanding Voice", passiveText: "Ione gains +1 to every d20 result.", skill: "Attack Order", skillText: "Increase the next attack damage of the whole team.", summary: "A pure support commander who buffs allies and moves an unwanted or useful common card to the graveyard.", strength: "Reliable d20 results and strong team-wide preparation.", weakness: "No special damage, shield, or healing.", impact: "Makes every teammate better and permanently refines a deck at the right moment.", hp: 9, maxHp: 9, speed: 6, color: "#bd9f76", initials: "IM" },
   { name: "Dagan Flint", title: "Blood of the Front Line", role: "Berserker", classId: "berserker", className: "Blood Berserker", passiveName: "Pain Makes Power", passiveText: "At half HP or lower, attacks deal 1 additional damage.", skill: "None Left Standing", skillText: "A powerful AOE attack when Dagan is wounded.", summary: "A high-HP attacker who builds personal damage and becomes dangerous when wounded.", strength: "Durable pressure and strong low-HP attacks.", weakness: "Self-focused kit with damaging backlash.", impact: "Demands healing judgment: wounded Dagan hits harder but is easier to finish.", hp: 12, maxHp: 12, speed: 2, color: "#768493", initials: "DF" }
 ];
 
@@ -34,7 +34,7 @@ export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
   "Brother Orren": [
     { id: "bo-prayer", name: "Prayer of Life", type: "Spirit", description: "Choose a living ally and restore 4 HP; Enduring Grace raises this to 6.", bonus: 0, effect: "heal", target: "ally", value: 4, failureEffect: "self-damage", failureValue: 1 },
     { id: "bo-blessing", name: "Shared Blessing", type: "Spirit", description: "Every living ally immediately restores up to 2 HP.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "healing", failureEffect: "team-damage", failureValue: 1 },
-    { id: "bo-return", name: "Returning Light", type: "Spirit", description: "Choose a defeated ally. After 2 completed turns, they revive with one-third HP.", bonus: 0, effect: "support", target: "defeated-ally", value: 2, supportType: "revive", failureEffect: "team-damage", failureValue: 2 }
+    { id: "bo-return", name: "Returning Light", type: "Spirit", description: "Choose a defeated ally. After 2 completed turns, they revive with one-third HP. After its first use, this card moves to the graveyard.", bonus: 0, effect: "support", target: "defeated-ally", value: 2, supportType: "revive", failureEffect: "team-damage", failureValue: 2 }
   ],
   "Nyx Calder": [
     { id: "nc-knife", name: "Quiet Knife", type: "Wit", description: "Deal 4 damage directly through shield.", bonus: 0, effect: "damage", target: "enemy", value: 4, failureEffect: "self-damage", failureValue: 1 },
@@ -59,7 +59,7 @@ export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
   "Ione Mire": [
     { id: "im-command", name: "Attack Order", type: "Spirit", description: "Every living ally gains +2 damage on their next attack.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "attack", failureEffect: "team-damage", failureValue: 1 },
     { id: "im-focus", name: "Focus Order", type: "Spirit", description: "Every living ally gains +2 to their next d20 result.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "dice", failureEffect: "self-damage", failureValue: 1 },
-    { id: "im-purge", name: "Tactical Purge", type: "Wit", description: "Choose any player. Remove one no-effect common from an ally, or one effect common from an enemy, for this battle.", bonus: 0, effect: "support", target: "player", value: 1, supportType: "purge-card", failureEffect: "self-damage", failureValue: 2 }
+    { id: "im-purge", name: "Tactical Purge", type: "Wit", description: "Choose any player. Move one no-effect common from an ally, or one effect common from an enemy, to their graveyard. After its second use, Tactical Purge also moves to Ione's graveyard.", bonus: 0, effect: "support", target: "player", value: 1, supportType: "purge-card", failureEffect: "self-damage", failureValue: 2 }
   ],
   "Dagan Flint": [
     { id: "df-none", name: "None Left Standing", type: "Might", description: "Deal 3 damage to every living enemy; Pain Makes Power raises this to 4 while wounded.", bonus: 0, effect: "aoe", target: "all-enemies", value: 3, failureEffect: "self-damage", failureValue: 2 },
@@ -79,7 +79,7 @@ export const ACTION_CARDS: ActionCard[] = [
 ];
 
 export const REALMS: Realm[] = [
-  { id: "arena", name: "Oathbound Arena", region: "The final battle line", weather: "No retreat", objective: "Defeat the entire opposing team before or on turn 30.", threat: "The opposing team", accent: "#d4b56e", sceneClass: "scene-arena" }
+  { id: "arena", name: "Oathbound Arena", region: "The final battle line", weather: "No retreat", objective: "Defeat the entire opposing team before or on phase 30.", threat: "The opposing team", accent: "#d4b56e", sceneClass: "scene-arena" }
 ];
 
 export const STORY_BEATS = [
@@ -87,7 +87,7 @@ export const STORY_BEATS = [
   "Steel rings as a warrior chooses the next target.",
   "HP and shield decide who remains standing after this turn.",
   "There are no side quests: defeat the enemy or be defeated.",
-  "Every card played moves the battle closer to the judgment on turn 30."
+  "Every completed phase moves the battle closer to the judgment at phase 30."
 ];
 
 export const EVENTS = [

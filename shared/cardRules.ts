@@ -41,9 +41,9 @@ export function describeCardSuccess(card: ActionCard) {
   if (card.supportType === "delay-enemy") return "Move the chosen enemy's upcoming turn to the end of the queue.";
   if (card.supportType === "advance-ally") return "Move the chosen ally to the next position in the turn queue.";
   if (card.supportType === "dispel-enemy") return `Remove the chosen enemy's attack and d20 buffs and destroy up to ${card.value} shield.`;
-  if (card.supportType === "revive") return `Choose a defeated ally. They revive with one-third HP after ${card.value} completed turns.`;
+  if (card.supportType === "revive") return `Choose a defeated ally. They revive with one-third HP after ${card.value} completed turns. Returning Light then moves to the graveyard.`;
   if (card.supportType === "skip-enemy") return "Cancel the chosen enemy's next turn without changing their hand or active buffs.";
-  if (card.supportType === "purge-card") return "Choose any player. Remove one no-effect common from an ally, or one effect common from an enemy, for this battle.";
+  if (card.supportType === "purge-card") return "Choose any player. Move one no-effect common from an ally, or one effect common from an enemy, to their graveyard. Tactical Purge moves to its owner's graveyard after its second use.";
   if (card.supportType === "steal-card") return "Temporarily steal one random common card from an enemy hand. It returns to its owner after your next turn.";
   const buff = card.supportType === "attack" ? "damage on their next attack" : "to their d20 result on their next turn";
   return `Every living ally gains +${card.value} ${buff}; the buff remains until used.`;

@@ -76,7 +76,7 @@ function publicState(viewerId = '') {
     ...room.game,
     playerStates: Object.fromEntries(Object.entries(room.game.playerStates || {}).map(([id, state]) => [
       id,
-      id === viewerId ? state : { ...state, hand: [], drawPile: [], discardPile: [], borrowedCards: [] }
+      id === viewerId ? state : { ...state, hand: [], drawPile: [], discardPile: [], graveyard: [], borrowedCards: [], cardUses: {} }
     ]))
   } : null;
   return {
@@ -147,6 +147,12 @@ function nextLivingIndex(game, currentIndex) {
 
 function normalizeServerTurnOrder(game) {
   if (!game || !room.players.length) return [];
+  if (!Number.isFinite(game.completedPhases)) game.completedPhases = Math.max(0, (game.roundNumber || 1) - 1);
+  game.maxPhases = 30;
+  for (const state of Object.values(game.playerStates || {})) {
+    state.graveyard ||= [];
+    state.cardUses ||= {};
+  }
   const validIds = new Set(room.players.map((player) => player.id));
   const currentId = room.players[game.activePlayerIndex]?.id;
   const fallback = currentId
@@ -173,15 +179,21 @@ function speedOrder(game) {
 function completeRoundTurn(game, actorId) {
   const livingIds = speedOrder(game);
   let acted = [...new Set([...(game.actedThisRound || []), actorId])].filter((id) => livingIds.includes(id));
-  game.roundNumber ||= 1;
+  game.completedPhases ??= Math.max(0, (game.roundNumber || 1) - 1);
+  game.maxPhases = 30;
+  game.roundNumber ||= game.completedPhases + 1;
   game.roundOrder = (game.roundOrder?.length ? game.roundOrder : livingIds).filter((id) => livingIds.includes(id));
+  let phaseCompleted = false;
   if (livingIds.length && livingIds.every((id) => acted.includes(id))) {
+    phaseCompleted = true;
+    game.completedPhases += 1;
     game.roundNumber += 1;
     acted = [];
     game.roundOrder = livingIds;
     game.turnOrder = livingIds;
   }
   game.actedThisRound = acted;
+  return phaseCompleted;
 }
 
 function rotateServerTurn(game, actorId) {
@@ -195,6 +207,12 @@ function removeCardFromZones(state, cardId) {
   state.hand = (state.hand || []).filter((id) => id !== cardId);
   state.drawPile = (state.drawPile || []).filter((id) => id !== cardId);
   state.discardPile = (state.discardPile || []).filter((id) => id !== cardId);
+}
+
+function moveCardToGraveyard(state, cardId) {
+  removeCardFromZones(state, cardId);
+  state.graveyard ||= [];
+  if (!state.graveyard.includes(cardId)) state.graveyard.push(cardId);
 }
 
 function returnBorrowedCards(game, actorId, completedTurn) {
@@ -255,9 +273,9 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
     });
     const removedId = candidates[Math.floor(Math.random() * candidates.length)];
     if (removedId) {
-      removeCardFromZones(targetState, removedId);
+      moveCardToGraveyard(targetState, removedId);
       const removed = target.skillDeck.find((item) => item.id === removedId);
-      serverDetail = ` ${removed?.name || 'One common card'} was removed from ${target.displayName}'s deck.`;
+      serverDetail = ` ${removed?.name || 'One common card'} moved to ${target.displayName}'s graveyard for this battle.`;
     }
   }
   if (card.supportType === 'steal-card') {
@@ -324,7 +342,7 @@ function applyWorldEvent(game, turn, now) {
   const description = `Both teams are affected with a separate random result for every living player: ${reports.join('; ')}.`;
   const event = { id: `world-${turn}-${now}`, turn, level, title, description };
   game.worldEvent = event;
-  game.history.push({ id: `${event.id}-history`, turn, kind: 'world', actorName: 'World Event', message: `World Event · Level ${level} — ${title}: ${description}`, success: true, createdAt: now });
+  game.history.push({ id: `${event.id}-history`, turn, phase: turn, kind: 'world', actorName: 'World Event', message: `World Event · Level ${level} — ${title}: ${description}`, success: true, createdAt: now });
 }
 
 function removePlayerFromRoom(targetId, removedBy) {
@@ -358,7 +376,7 @@ function removePlayerFromRoom(targetId, removedBy) {
           detail: `${removedBy} removed this player. The next turn begins now.`,
           actorName: removedBy
         };
-        room.game.history = [...(room.game.history || []), { id: `remove-${Date.now()}`, turn: room.game.completedTurns, kind: 'system', actorName: removedBy, message: `${removedBy} removed ${removedPlayer.displayName} from the battle.`, success: true, createdAt: Date.now() }].slice(-80);
+        room.game.history = [...(room.game.history || []), { id: `remove-${Date.now()}`, turn: room.game.completedTurns, phase: Math.min(30, (room.game.completedPhases || 0) + 1), kind: 'system', actorName: removedBy, message: `${removedBy} removed ${removedPlayer.displayName} from the battle.`, success: true, createdAt: Date.now() }].slice(-80);
       }
       const fallbackTeam = room.players[0]?.hero.team || removedPlayer.hero.team;
       const winner = decideWinner(room.game, fallbackTeam, false);
@@ -384,6 +402,7 @@ function passCurrentTurn(kind, now = Date.now(), discardedCardName = '') {
   const order = normalizeServerTurnOrder(game);
   const passingPlayer = room.players.find((player) => player.id === order[0]) || room.players[game.activePlayerIndex];
   const completedTurns = game.completedTurns + 1;
+  const actionPhase = Math.min(30, (game.completedPhases || 0) + 1);
   if (passingPlayer) returnBorrowedCards(game, passingPlayer.id, completedTurns);
   const revived = tickPendingRevives(game);
   const playerName = passingPlayer?.displayName || 'Player';
@@ -391,23 +410,25 @@ function passCurrentTurn(kind, now = Date.now(), discardedCardName = '') {
   const forced = kind === 'forced-skip';
   const discarded = kind === 'discard';
   game.completedTurns = completedTurns;
-  game.adventure = { ...game.adventure, chapter: Math.min(30, completedTurns + 1), target: randomDiceTarget() };
+  game.adventure = { ...game.adventure, target: randomDiceTarget() };
   game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered the discard pile and a replacement card was drawn.` : forced ? 'A support effect cancelled this turn. Cards and active buffs were preserved.' : timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled.' : 'The turn was skipped. No cards were discarded or shuffled.', actorName: playerName, cardName: discardedCardName || undefined };
-  game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} manually discarded ${discardedCardName} and drew a replacement.` : forced ? `${playerName}'s turn was cancelled by an enemy support effect. Their hand and active buffs were preserved.` : timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved.` : `${playerName} manually skipped the turn. Their hand was preserved.`, success: false, createdAt: now }];
+  game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} manually discarded ${discardedCardName} and drew a replacement.` : forced ? `${playerName}'s turn was cancelled by an enemy support effect. Their hand and active buffs were preserved.` : timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved.` : `${playerName} manually skipped the turn. Their hand was preserved.`, success: false, createdAt: now }];
   game.worldEvent = null;
-  if (revived.length) game.history.push({ id: `revive-${completedTurns}-${now}`, turn: completedTurns, kind: 'system', actorName: 'Returning Light', message: `${revived.join(', ')} revived with one-third HP.`, success: true, createdAt: now });
-  if (completedTurns % 5 === 0) applyWorldEvent(game, completedTurns, now);
-  game.history = game.history.slice(-80);
+  if (revived.length) game.history.push({ id: `revive-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind: 'system', actorName: 'Returning Light', message: `${revived.join(', ')} revived with one-third HP.`, success: true, createdAt: now });
   game.roll = null;
-  const winner = decideWinner(game, passingPlayer?.hero.team || 'veil', completedTurns >= 30);
+  let phaseCompleted = false;
+  if (passingPlayer) {
+    rotateServerTurn(game, passingPlayer.id);
+    phaseCompleted = completeRoundTurn(game, passingPlayer.id);
+  }
+  game.adventure = { ...game.adventure, chapter: Math.min(30, (game.completedPhases || 0) + 1) };
+  if (phaseCompleted && game.completedPhases % 5 === 0) applyWorldEvent(game, game.completedPhases, now);
+  game.history = game.history.slice(-80);
+  const winner = decideWinner(game, passingPlayer?.hero.team || 'veil', (game.completedPhases || 0) >= 30);
   game.ended = Boolean(winner);
   game.winnerTeam = winner;
   const veil = teamTotals(game, 'veil'); const ember = teamTotals(game, 'ember');
   game.endReason = winner ? `${teamLabel(winner)} wins. Total HP: Veilbound ${veil.hp} — Embercourt ${ember.hp}.` : null;
-  if (!winner && passingPlayer) {
-    rotateServerTurn(game, passingPlayer.id);
-    completeRoundTurn(game, passingPlayer.id);
-  }
   game.turnStartedAt = now;
   game.turnSeconds = TURN_SECONDS;
   game.turnDeadline = winner ? 0 : now + TURN_SECONDS * 1000;
@@ -553,7 +574,9 @@ function handleMessage(socket, rawMessage) {
         message.game.playerStates[id].hand = [...(state.hand || [])];
         message.game.playerStates[id].drawPile = [...(state.drawPile || [])];
         message.game.playerStates[id].discardPile = [...(state.discardPile || [])];
+        message.game.playerStates[id].graveyard = [...(state.graveyard || [])];
         message.game.playerStates[id].borrowedCards = [...(state.borrowedCards || [])];
+        message.game.playerStates[id].cardUses = { ...(state.cardUses || {}) };
       }
     }
     reconcileHiddenCardEffects(previousGame, message.game, activePlayer);

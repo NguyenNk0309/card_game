@@ -52,6 +52,9 @@ const game = engine.createInitialGame([first, second], engine.createAdventure("R
 assert.equal(game.turnOrder[0], second.id, "the faster character acts first");
 game.turnOrder = [first.id, second.id];
 assert.equal(game.maxTurns, 30);
+assert.equal(game.maxPhases, 30);
+assert.equal(game.completedPhases, 0);
+assert.equal(game.playerStates[first.id].hand.length + game.playerStates[first.id].drawPile.length + game.playerStates[first.id].discardPile.length + game.playerStates[first.id].graveyard.length, 10, "all cards begin in reusable zones with an empty graveyard");
 assert.equal(engine.createInitialGame([first, second], engine.createAdventure("TIMER"), 5).turnSeconds, 30, "battle turns always last exactly 30 seconds");
 assert(game.adventure.target >= 8 && game.adventure.target <= 16, "the initial target is randomly selected from the balanced target range");
 
@@ -199,6 +202,8 @@ revivalGame.playerStates[supportAlly.id].hp = 0;
 revivalGame.playerStates[healer.id].hand = [reviveCard.id];
 const revivalPrepared = engine.resolveCardTurn(revivalGame, supportParty, reviveCard.id, supportAlly.id, 20);
 assert.equal(revivalPrepared.playerStates[supportAlly.id].reviveIn, 2, "revival begins with a two-turn countdown");
+assert(revivalPrepared.playerStates[healer.id].graveyard.includes(reviveCard.id), "Returning Light enters the graveyard after its first use");
+assert(![...revivalPrepared.playerStates[healer.id].hand, ...revivalPrepared.playerStates[healer.id].drawPile, ...revivalPrepared.playerStates[healer.id].discardPile].includes(reviveCard.id), "graveyard cards cannot return to a reusable card zone");
 const enemyAction = supportEnemy.skillDeck.find((card) => card.effect === "damage");
 revivalPrepared.turnOrder = [supportEnemy.id, healer.id];
 revivalPrepared.activePlayerIndex = 1;
@@ -236,6 +241,13 @@ commanderPurge.playerStates[commander.id].hand = [purgeCard.id];
 commanderPurge.playerStates[commander.id].drawPile = [removableBlank.id];
 const purged = engine.resolveCardTurn(commanderPurge, [commander, diceEnemy], purgeCard.id, commander.id, 20);
 assert(![...purged.playerStates[commander.id].hand, ...purged.playerStates[commander.id].drawPile, ...purged.playerStates[commander.id].discardPile].includes(removableBlank.id), "commander can permanently remove one no-effect common from an ally");
+assert(purged.playerStates[commander.id].graveyard.includes(removableBlank.id), "removed cards move to their owner's graveyard");
+assert(!purged.playerStates[commander.id].graveyard.includes(purgeCard.id), "Tactical Purge remains reusable after its first use");
+purged.turnOrder = [commander.id, diceEnemy.id];
+purged.activePlayerIndex = 0;
+const secondPurge = engine.resolveCardTurn(purged, [commander, diceEnemy], purgeCard.id, commander.id, 20);
+assert(secondPurge.playerStates[commander.id].graveyard.includes(purgeCard.id), "Tactical Purge enters Ione's graveyard after its second use");
+assert(![...secondPurge.playerStates[commander.id].hand, ...secondPurge.playerStates[commander.id].drawPile, ...secondPurge.playerStates[commander.id].discardPile].includes(purgeCard.id), "Tactical Purge cannot be drawn after entering the graveyard");
 
 const duelist = engine.createPlayerSession("Kael", 0, "Kael Rook", "duelist");
 const failureEnemy = engine.createPlayerSession("Failure target", 1, "Thorne Vale", "failure-enemy");
@@ -286,10 +298,14 @@ assert.equal(reshuffled.playerStates[first.id].discardPile.length, 0, "discard c
 
 const eventGame = engine.createInitialGame([first, second], engine.createAdventure("EVENT"), 30);
 eventGame.turnOrder = [first.id, second.id];
-eventGame.completedTurns = 4;
+eventGame.completedTurns = 8;
+eventGame.completedPhases = 4;
+eventGame.roundNumber = 5;
+eventGame.actedThisRound = [second.id];
 eventGame.playerStates[first.id].hand = [attack.id];
 const eventTurn = engine.resolveCardTurn(eventGame, [first, second], attack.id, second.id, 20);
 assert.equal(eventTurn.worldEvent?.turn, 5);
+assert.equal(eventTurn.completedPhases, 5);
 assert(eventTurn.history.some((entry) => entry.kind === "world"));
 assert.match(eventTurn.history.find((entry) => entry.kind === "world").message, /World Event · Level 1/);
 assert.match(eventTurn.worldEvent.description, /Both teams are affected/);
@@ -298,7 +314,10 @@ assert.match(eventTurn.worldEvent.description, /Binh/);
 
 const finalGame = engine.createInitialGame([first, second], engine.createAdventure("FINAL"), 30);
 finalGame.turnOrder = [first.id, second.id];
-finalGame.completedTurns = 29;
+finalGame.completedTurns = 58;
+finalGame.completedPhases = 29;
+finalGame.roundNumber = 30;
+finalGame.actedThisRound = [second.id];
 finalGame.playerStates[first.id].hp = 50;
 finalGame.playerStates[first.id].maxHp = 50;
 finalGame.playerStates[second.id].hp = 15;
@@ -307,7 +326,8 @@ finalGame.playerStates[first.id].hand = [attack.id];
 const finalTurn = engine.resolveCardTurn(finalGame, [first, second], attack.id, second.id, 20);
 assert.equal(finalTurn.ended, true);
 assert.equal(finalTurn.winnerTeam, "veil");
-assert(finalTurn.playerStates[second.id].hp > 0, "turn-30 winner is decided by team HP while both teams still live");
+assert.equal(finalTurn.completedPhases, 30);
+assert(finalTurn.playerStates[second.id].hp > 0, "phase-30 winner is decided by team HP while both teams still live");
 
 const deadGame = engine.createInitialGame([first, second], engine.createAdventure("DEAD"), 30);
 deadGame.turnOrder = [first.id, second.id];
@@ -321,9 +341,13 @@ const firstBlank = first.skillDeck.find((card) => card.effect === "none");
 speedRound.playerStates[second.id].hand = [secondBlank.id];
 const afterFastTurn = engine.resolveCardTurn(speedRound, [first, second], secondBlank.id, second.id, 20);
 assert.equal(afterFastTurn.turnOrder[0], first.id, "the slower living player follows in the same round");
+assert.equal(afterFastTurn.completedPhases, 0, "one player's turn does not complete a phase");
+assert.equal(afterFastTurn.history.at(-1).phase, 1, "history records the active phase starting at one");
 afterFastTurn.playerStates[first.id].hand = [firstBlank.id];
 const nextSpeedRound = engine.resolveCardTurn(afterFastTurn, [first, second], firstBlank.id, first.id, 20);
 assert.equal(nextSpeedRound.roundNumber, 2);
+assert.equal(nextSpeedRound.completedPhases, 1, "a phase completes only after every living player acts");
+assert.equal(nextSpeedRound.history.at(-1).phase, 1, "the final turn in a phase keeps that phase number");
 assert.equal(nextSpeedRound.turnOrder[0], second.id, "a completed round resets to the fastest living player");
 assert.deepEqual(nextSpeedRound.actedThisRound, []);
 

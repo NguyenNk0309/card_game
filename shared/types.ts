@@ -99,6 +99,7 @@ export type GameOutcome = {
 export type GameHistoryEntry = {
   id: string;
   turn: number;
+  phase?: number;
   kind: CardEffect | "discard" | "skip" | "timeout" | "forced-skip" | "world" | "system";
   actorName: string;
   actorTeam?: TeamId;
@@ -136,15 +137,18 @@ export type PlayerRunState = {
   passiveReviveUsed: boolean;
   skipTurns: number;
   borrowedCards: { cardId: string; ownerId: string; borrowedAtTurn: number }[];
+  cardUses: Record<string, number>;
   drawPile: string[];
   hand: string[];
   discardPile: string[];
+  graveyard: string[];
 };
 
 export type SyncedGameState = {
   adventure: Adventure;
   activePlayerIndex: number;
   completedTurns: number;
+  completedPhases: number;
   roll: number | null;
   outcome: GameOutcome | null;
   playerStates: Record<string, PlayerRunState>;
@@ -152,6 +156,7 @@ export type SyncedGameState = {
   turnDeadline: number;
   turnSeconds: number;
   maxTurns: number;
+  maxPhases: number;
   ended: boolean;
   endReason: string | null;
   winnerTeam: TeamId | null;
