@@ -466,7 +466,7 @@ export default function GameApp() {
     if (showOutcome) return setDismissedOutcomeKey(outcomeKey);
     if (showTurnSummary) return setDismissedSummaryKey(outcomeKey);
     if (showWorldEvent && game?.worldEvent) setDismissedWorldEventId(game.worldEvent.id);
-    if (showRunComplete) setDismissedBattleResultKey(battleResultKey);
+    if (showRunComplete) send({ type: "return:lobby" });
   };
 
   return <main className="game-shell arena-focus"><div className="grain"/>{showBattleVfx && vfxCard && <div className={`battle-card-vfx effect-${vfxCard.effect} ${outcome?.success ? "success" : "failure"}`} aria-hidden="true"><i/><i/><i/><div><CardEffectIcon card={vfxCard}/><strong>{vfxCard.name}</strong></div></div>}{cardZoneMotion && localPlayer && !panelOverlayOpen && <CardZoneVfx key={cardZoneMotion.id} motion={cardZoneMotion} player={localPlayer} playable={activePlayer?.id === sessionId && !runComplete && (localState?.hp ?? 0) > 0}/>} {showGuide && <DetailedGuide onClose={() => setShowGuide(false)}/>}
