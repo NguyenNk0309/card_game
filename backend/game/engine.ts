@@ -157,7 +157,7 @@ function finishPlayedCard(states: Record<string, PlayerRunState>, actorId: strin
   if (!borrowed) {
     const useCount = (actorState.cardUses[cardId] ?? 0) + 1;
     actorState.cardUses[cardId] = useCount;
-    if ((cardId === "bo-return" && useCount >= 1) || (cardId === "im-purge" && useCount >= 2)) {
+    if ((cardId === "bo-return" && useCount >= 1) || (cardId === "im-purge" && useCount >= 3)) {
       moveCardToGraveyard(actorState, cardId);
       states[actorId] = actorState;
       return;
@@ -435,19 +435,18 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         states[selectedEnemy.id].skipTurns = (states[selectedEnemy.id].skipTurns ?? 0) + 1;
         reports.push(`${selectedEnemy.displayName}'s next turn will be skipped`);
       }
-      if (card.supportType === "purge-card" && selectedPlayer) {
-        const selectedState = states[selectedPlayer.id];
+      if (card.supportType === "purge-card" && selectedAlly) {
+        const selectedState = states[selectedAlly.id];
         const zoneIds = [...selectedState.hand, ...selectedState.drawPile, ...selectedState.discardPile];
-        const removingBeneficially = selectedPlayer.hero.team === actor.hero.team;
         const candidates = zoneIds.filter((id) => {
-          const candidate = selectedPlayer.skillDeck.find((item) => item.id === id);
-          return Boolean(candidate && !candidate.unique && (removingBeneficially ? candidate.effect === "none" : candidate.effect !== "none"));
+          const candidate = selectedAlly.skillDeck.find((item) => item.id === id);
+          return Boolean(candidate && !candidate.unique && candidate.effect === "none");
         });
         const removedId = candidates.length ? pick(candidates) : "";
         if (removedId) {
           moveCardToGraveyard(selectedState, removedId);
-          const removedCard = selectedPlayer.skillDeck.find((item) => item.id === removedId);
-          reports.push(`${removedCard?.name ?? "one common card"} moved to ${selectedPlayer.displayName}'s graveyard for this battle`);
+          const removedCard = selectedAlly.skillDeck.find((item) => item.id === removedId);
+          reports.push(`${removedCard?.name ?? "one no-effect common card"} moved to ${selectedAlly.displayName}'s graveyard for this battle`);
         }
       }
       if (card.supportType === "steal-card" && selectedEnemy) {

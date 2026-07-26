@@ -295,18 +295,17 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
   const targetState = target && incomingGame.playerStates[target.id];
   if (!target || !targetState) return;
   let serverDetail = '';
-  if (card.supportType === 'purge-card' && target.id !== actor.id) {
-    const beneficial = target.hero.team === actor.hero.team;
+  if (card.supportType === 'purge-card' && target.id !== actor.id && target.hero.team === actor.hero.team && (targetState.hp || 0) > 0) {
     const zoneIds = [...(targetState.hand || []), ...(targetState.drawPile || []), ...(targetState.discardPile || [])];
     const candidates = zoneIds.filter((id) => {
       const candidate = target.skillDeck.find((item) => item.id === id);
-      return candidate && !candidate.unique && (beneficial ? candidate.effect === 'none' : candidate.effect !== 'none');
+      return candidate && !candidate.unique && candidate.effect === 'none';
     });
     const removedId = candidates[Math.floor(Math.random() * candidates.length)];
     if (removedId) {
       moveCardToGraveyard(targetState, removedId);
       const removed = target.skillDeck.find((item) => item.id === removedId);
-      serverDetail = ` ${removed?.name || 'One common card'} moved to ${target.displayName}'s graveyard for this battle.`;
+      serverDetail = ` ${removed?.name || 'One no-effect common card'} moved to ${target.displayName}'s graveyard for this battle.`;
     }
   }
   if (card.supportType === 'steal-card') {

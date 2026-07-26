@@ -236,6 +236,7 @@ assert.equal(controlled.playerStates[controlEnemy.id].skipTurns, 1, "oracle can 
 const commanderPurge = engine.createInitialGame([commander, diceEnemy], engine.createAdventure("PURGE"), 30);
 commanderPurge.turnOrder = [commander.id, diceEnemy.id];
 const purgeCard = commander.skillDeck.find((card) => card.supportType === "purge-card");
+assert.equal(purgeCard.target, "ally", "Tactical Purge only exposes living allies as targets");
 const removableBlank = commander.skillDeck.find((card) => !card.unique && card.effect === "none");
 commanderPurge.playerStates[commander.id].hand = [purgeCard.id];
 commanderPurge.playerStates[commander.id].drawPile = [removableBlank.id];
@@ -246,8 +247,12 @@ assert(!purged.playerStates[commander.id].graveyard.includes(purgeCard.id), "Tac
 purged.turnOrder = [commander.id, diceEnemy.id];
 purged.activePlayerIndex = 0;
 const secondPurge = engine.resolveCardTurn(purged, [commander, diceEnemy], purgeCard.id, commander.id, 20);
-assert(secondPurge.playerStates[commander.id].graveyard.includes(purgeCard.id), "Tactical Purge enters Ione's graveyard after its second use");
-assert(![...secondPurge.playerStates[commander.id].hand, ...secondPurge.playerStates[commander.id].drawPile, ...secondPurge.playerStates[commander.id].discardPile].includes(purgeCard.id), "Tactical Purge cannot be drawn after entering the graveyard");
+assert(!secondPurge.playerStates[commander.id].graveyard.includes(purgeCard.id), "Tactical Purge remains reusable after its second use");
+secondPurge.turnOrder = [commander.id, diceEnemy.id];
+secondPurge.activePlayerIndex = 0;
+const thirdPurge = engine.resolveCardTurn(secondPurge, [commander, diceEnemy], purgeCard.id, commander.id, 20);
+assert(thirdPurge.playerStates[commander.id].graveyard.includes(purgeCard.id), "Tactical Purge enters Ione's graveyard after its third use");
+assert(![...thirdPurge.playerStates[commander.id].hand, ...thirdPurge.playerStates[commander.id].drawPile, ...thirdPurge.playerStates[commander.id].discardPile].includes(purgeCard.id), "Tactical Purge cannot be drawn after entering the graveyard");
 
 const duelist = engine.createPlayerSession("Kael", 0, "Kael Rook", "duelist");
 const failureEnemy = engine.createPlayerSession("Failure target", 1, "Thorne Vale", "failure-enemy");
