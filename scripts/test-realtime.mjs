@@ -121,11 +121,11 @@ try {
   second.send({ type: "join", player: player(secondId, `Second ${runId}`, "ember") });
   await first.waitFor((state) => state.players.some((item) => item.id === secondId));
   third.send({ type: "join", player: player(thirdId, `Third ${runId}`, "veil") });
-  await first.waitFor((state) => state.players.some((item) => item.id === thirdId));
-
+  const slottedTeams = await first.waitFor((state) => state.players.some((item) => item.id === thirdId));
+  assert.equal(slottedTeams.players.find((item) => item.id === secondId).hero.team, "ember", "the clicked join slot assigns the requested team");
   second.send({ type: "team", sessionId: secondId, team: "veil" });
-  const singleTeam = await first.waitFor((state) => state.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).every((item) => item.hero.team === "veil"));
-  assert.equal(singleTeam.players.find((item) => item.id === secondId).hero.team, "veil", "a joined player can choose their own team");
+  const switchedTeam = await first.waitFor((state) => state.players.find((item) => item.id === secondId)?.hero.team === "veil");
+  assert.equal(switchedTeam.players.find((item) => item.id === secondId).ready, false, "a not-ready player can switch through an empty team slot");
   second.send({ type: "team", sessionId: secondId, team: "ember" });
   await first.waitFor((state) => state.players.find((item) => item.id === secondId)?.hero.team === "ember");
 
@@ -193,6 +193,11 @@ try {
   controlledGame.playerStates[firstId].hand = [];
   controlledGame.playerStates[firstId].discardPile = [`card-${firstId}`];
   controlledGame.playerStates[secondId].skipTurns = 1;
+  controlledGame.playerStates[secondId].shield = 4;
+  controlledGame.playerStates[secondId].attackBuff = 2;
+  controlledGame.playerStates[secondId].diceBuff = 2;
+  controlledGame.playerStates[secondId].dicePenalty = 1;
+  controlledGame.playerStates[thirdId].shield = 3;
   controlledGame.outcome = { kind: "card", success: true, total: 20, target: 12, label: "Test control", detail: "The next enemy turn will be cancelled.", actorName: firstStarted.players.find((item) => item.id === firstId).displayName, cardName: "Test Skill", targetName: firstStarted.players.find((item) => item.id === secondId).displayName };
   controlledGame.history = [{ id: `control-${runId}`, turn: 1, kind: "support", actorName: "First", message: "Applied a turn-cancel effect.", success: true, createdAt: Date.now() }];
   first.send({ type: "game:update", game: controlledGame });
@@ -203,12 +208,18 @@ try {
   assert.equal(forcedSkipped.game.completedPhases, 0, "a phase remains open until every player has acted");
   assert.deepEqual(forcedSkippedOwnerView.game.playerStates[secondId].hand, [`card-${secondId}`], "forced skip preserves the affected player's private hand");
   assert.equal(forcedSkippedOwnerView.game.playerStates[secondId].skipTurns, 0);
+  assert.deepEqual(
+    ["shield", "attackBuff", "diceBuff", "dicePenalty"].map((field) => forcedSkippedOwnerView.game.playerStates[secondId][field]),
+    [0, 0, 0, 0],
+    "a cancelled turn still expires every timed buff and debuff"
+  );
 
   third.send({ type: "skip-turn", sessionId: thirdId });
   const manuallySkipped = await third.waitFor((state) => state.game?.completedTurns === 3);
   assert.equal(manuallySkipped.game.outcome.kind, "skip");
   assert.equal(manuallySkipped.game.history.at(-1).kind, "skip");
   assert.equal(manuallySkipped.game.completedPhases, 1, "the phase completes after all three players act");
+  assert.equal(manuallySkipped.game.playerStates[thirdId].shield, 0, "a manual skip still expires shield at turn end");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].hand, [`card-${thirdId}`], "manual skip preserves the hand");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].drawPile, [], "manual skip preserves the draw pile");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].discardPile, [], "manual skip preserves the discard pile");

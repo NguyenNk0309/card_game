@@ -49,17 +49,19 @@ async function waitForRoom(predicate, timeoutMs = 5000) {
 
 try {
   await command(firstId, { type: "join", player: player(firstId, `First ${runId}`, "veil") });
-  const joined = await command(secondId, { type: "join", player: player(secondId, `Second ${runId}`, "ember") });
+  const joined = await command(secondId, { type: "join", player: player(secondId, `Second ${runId}`, "veil") });
   assert(joined.players.some((item) => item.id === firstId));
   assert(joined.players.some((item) => item.id === secondId));
+  const fillIds = Array.from({ length: 3 }, (_, index) => `slot-fill-${index}-${runId}`);
+  for (const [index, id] of fillIds.entries()) await command(id, { type: "join", player: player(id, `Slot fill ${index} ${runId}`, "veil") });
+  const overflowId = `slot-overflow-${runId}`;
+  await assert.rejects(command(overflowId, { type: "join", player: player(overflowId, `Slot overflow ${runId}`, "veil") }), /already has five players/, "a team cannot exceed its five visible lobby slots");
+  for (const id of fillIds) await command(id, { type: "leave" });
 
   const removedFromLobby = await command(firstId, { type: "remove-player", targetSessionId: secondId });
   assert(!removedFromLobby.players.some((item) => item.id === secondId));
-  await command(secondId, { type: "join", player: player(secondId, `Second ${runId}`, "ember") });
+  await command(secondId, { type: "join", player: player(secondId, `Second ${runId}`, "veil") });
   await command(thirdId, { type: "join", player: player(thirdId, `Third ${runId}`, "veil") });
-
-  const singleTeam = await command(secondId, { type: "team", team: "veil" });
-  assert(singleTeam.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).every((item) => item.hero.team === "veil"), "a joined player can choose their own team");
 
   await command(firstId, { type: "ready", ready: true });
   await command(secondId, { type: "ready", ready: true });
@@ -93,7 +95,7 @@ try {
     worldEvent: null
   };
   await assert.rejects(command(secondId, { type: "start", game }), /At least one player must join each team/, "the server rejects a battle with an empty team");
-  await assert.rejects(command(secondId, { type: "team", team: "ember" }), /Cancel ready before changing teams/, "a ready player cannot change teams");
+  await assert.rejects(command(secondId, { type: "team", team: "ember" }), /Cancel Ready before switching teams/, "Ready locks team-slot switching");
   await command(secondId, { type: "ready", ready: false });
   const splitTeams = await command(secondId, { type: "team", team: "ember" });
   assert.equal(splitTeams.players.find((item) => item.id === secondId).hero.team, "ember");
@@ -121,6 +123,11 @@ try {
   controlledGame.playerStates[firstId].hand = [];
   controlledGame.playerStates[firstId].discardPile = [`card-${firstId}`];
   controlledGame.playerStates[secondId].skipTurns = 1;
+  controlledGame.playerStates[secondId].shield = 4;
+  controlledGame.playerStates[secondId].attackBuff = 2;
+  controlledGame.playerStates[secondId].diceBuff = 2;
+  controlledGame.playerStates[secondId].dicePenalty = 1;
+  controlledGame.playerStates[thirdId].shield = 3;
   controlledGame.outcome = { kind: "card", success: true, total: 20, target: 12, label: "Test control", detail: "The next enemy turn will be cancelled.", actorName: firstStarted.players.find((item) => item.id === firstId).displayName, cardName: "Test Skill", targetName: firstStarted.players.find((item) => item.id === secondId).displayName };
   controlledGame.history = [{ id: `control-${runId}`, turn: 1, kind: "support", actorName: "First", message: "Applied a turn-cancel effect.", success: true, createdAt: Date.now() }];
   const forcedSkipped = await command(firstId, { type: "game:update", game: controlledGame });
@@ -133,6 +140,11 @@ try {
   assert.equal(forcedSkipped.game.turnOrder[0], thirdId);
   assert.deepEqual(forcedOwnerView.game.playerStates[secondId].hand, [`card-${secondId}`], "forced skip preserves the affected player's hand");
   assert.equal(forcedOwnerView.game.playerStates[secondId].skipTurns, 0);
+  assert.deepEqual(
+    ["shield", "attackBuff", "diceBuff", "dicePenalty"].map((field) => forcedOwnerView.game.playerStates[secondId][field]),
+    [0, 0, 0, 0],
+    "a cancelled polling turn still expires every timed buff and debuff"
+  );
 
   const manuallySkipped = await command(thirdId, { type: "skip-turn" });
   assert.equal(manuallySkipped.game.completedTurns, 3);
@@ -142,6 +154,7 @@ try {
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].hand, [`card-${thirdId}`], "manual skip preserves the hand");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].drawPile, [], "manual skip preserves the draw pile");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].discardPile, [], "manual skip preserves the discard pile");
+  assert.equal(manuallySkipped.game.playerStates[thirdId].shield, 0, "a manual polling skip still expires shield at turn end");
   assert.equal(manuallySkipped.game.turnOrder[0], firstId);
 
   const removedDuringGame = await command(firstId, { type: "remove-player", targetSessionId: thirdId });

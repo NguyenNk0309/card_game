@@ -1,5 +1,5 @@
 import { ACTION_CARDS, calculatePityCost, CHARACTER_SKILL_CARDS, EVENTS, HERO_TEMPLATES, REALMS, STORY_BEATS } from "./catalog";
-import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, Hero, PlayerRunState, PlayerSession, SyncedGameState, TeamId, WorldEventOutcome } from "@/shared/types";
+import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, Hero, PlayerRunState, PlayerSession, SyncedGameState, TeamId, TimedEffectKind, WorldEventOutcome } from "@/shared/types";
 
 export function randomIntInclusive(minimum: number, maximum: number) {
   const lower = Math.ceil(minimum);
@@ -76,7 +76,60 @@ export function createPlayerSession(displayName: string, seatIndex: number, hero
 
 function createRunState(player: PlayerSession): PlayerRunState {
   const drawPile = shuffle(player.skillDeck.map((card) => card.id));
-  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, pityPoints: 0, reviveIn: 0, passiveReviveUsed: false, skipTurns: 0, borrowedCards: [], cardUses: {}, hand: drawPile.splice(0, 4), drawPile, discardPile: [], graveyard: [] };
+  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, pityPoints: 0, reviveIn: 0, passiveReviveUsed: false, skipTurns: 0, completedPlayerTurns: 0, timedEffects: [], borrowedCards: [], cardUses: {}, hand: drawPile.splice(0, 4), drawPile, discardPile: [], graveyard: [] };
+}
+
+const timedField = (kind: TimedEffectKind) => kind;
+const timedEffectKinds: TimedEffectKind[] = ["shield", "attackBuff", "diceBuff", "dicePenalty"];
+
+function normalizeTimedEffects(state: PlayerRunState) {
+  const effects = [...(state.timedEffects ?? [])];
+  for (const kind of timedEffectKinds) {
+    const tracked = effects.filter((effect) => effect.kind === kind).reduce((sum, effect) => sum + effect.value, 0);
+    const untracked = Math.max(0, (state[kind] ?? 0) - tracked);
+    if (untracked > 0) effects.push({ kind, value: untracked, expiresAfterTurn: (state.completedPlayerTurns ?? 0) + 1 });
+  }
+  return effects;
+}
+
+function addTimedEffect(state: PlayerRunState, kind: TimedEffectKind, value: number, appliedDuringOwnTurn: boolean) {
+  if (value <= 0) return;
+  const completedPlayerTurns = state.completedPlayerTurns ?? 0;
+  state[kind] = (state[kind] ?? 0) + value;
+  state.timedEffects = [...(state.timedEffects ?? []), {
+    kind,
+    value,
+    expiresAfterTurn: completedPlayerTurns + (appliedDuringOwnTurn ? 2 : 1)
+  }];
+}
+
+function clearTimedEffect(state: PlayerRunState, kind: TimedEffectKind) {
+  state[kind] = 0;
+  state.timedEffects = (state.timedEffects ?? []).filter((effect) => effect.kind !== kind);
+}
+
+function removeTimedEffectAmount(state: PlayerRunState, kind: TimedEffectKind, amount: number) {
+  let remaining = Math.max(0, amount);
+  state[kind] = Math.max(0, (state[kind] ?? 0) - remaining);
+  state.timedEffects = (state.timedEffects ?? []).map((effect) => {
+    if (effect.kind !== kind || remaining <= 0) return effect;
+    const removed = Math.min(effect.value, remaining);
+    remaining -= removed;
+    return { ...effect, value: effect.value - removed };
+  }).filter((effect) => effect.value > 0);
+}
+
+export function expireTimedEffectsAtTurnEnd(state: PlayerRunState) {
+  const completedPlayerTurns = (state.completedPlayerTurns ?? 0) + 1;
+  const keeping = [];
+  for (const effect of normalizeTimedEffects(state)) {
+    if (effect.expiresAfterTurn <= completedPlayerTurns) {
+      const field = timedField(effect.kind);
+      state[field] = Math.max(0, (state[field] ?? 0) - effect.value);
+    } else keeping.push(effect);
+  }
+  state.completedPlayerTurns = completedPlayerTurns;
+  state.timedEffects = keeping;
 }
 
 function speedOrder(players: PlayerSession[], states?: Record<string, PlayerRunState>) {
@@ -189,18 +242,23 @@ function finishPlayedCard(states: Record<string, PlayerRunState>, actorId: strin
   states[actorId] = drawWithoutDiscard(actorState, playedIndex);
 }
 
-function returnExpiredBorrowedCards(states: Record<string, PlayerRunState>, actorId: string, completedTurn: number) {
-  const actorState = states[actorId];
-  const returning = (actorState.borrowedCards ?? []).filter((entry) => entry.borrowedAtTurn < completedTurn);
-  for (const entry of returning) {
-    removeCardFromZones(actorState, entry.cardId);
-    const owner = states[entry.ownerId];
-    if (owner && !owner.discardPile.includes(entry.cardId)) {
-      owner.discardPile.push(entry.cardId);
-      states[entry.ownerId] = startNewCycleIfEmpty(owner);
+function returnExpiredBorrowedCards(states: Record<string, PlayerRunState>, completedOwnerId: string) {
+  const owner = states[completedOwnerId];
+  if (!owner) return;
+  for (const [borrowerId, borrower] of Object.entries(states)) {
+    const returning = (borrower.borrowedCards ?? []).filter((entry) =>
+      entry.ownerId === completedOwnerId && (entry.expiresAfterOwnerTurn ?? owner.completedPlayerTurns) <= owner.completedPlayerTurns
+    );
+    for (const entry of returning) {
+      removeCardFromZones(borrower, entry.cardId);
+      if (!owner.discardPile.includes(entry.cardId)) {
+        owner.discardPile.push(entry.cardId);
+        states[completedOwnerId] = startNewCycleIfEmpty(owner);
+      }
     }
+    borrower.borrowedCards = (borrower.borrowedCards ?? []).filter((entry) => !returning.includes(entry));
+    if (returning.length) states[borrowerId] = drawWithoutDiscard(borrower);
   }
-  actorState.borrowedCards = (actorState.borrowedCards ?? []).filter((entry) => entry.borrowedAtTurn >= completedTurn);
 }
 
 function tickRevival(states: Record<string, PlayerRunState>, waitingAtTurnStart: string[]) {
@@ -304,11 +362,11 @@ function applyWorldEvent(phase: number, players: PlayerSession[], states: Record
       reports.push(`${player.displayName} +${states[player.id].hp - before} HP`);
     } else if (kind === 2) {
       const lost = Math.min(states[player.id].shield, randomAmount(1, level * 2));
-      states[player.id].shield -= lost;
+      removeTimedEffectAmount(states[player.id], "shield", lost);
       reports.push(`${player.displayName} -${lost} shield`);
     } else if (kind === 3) {
       const bonus = randomAmount(1, level);
-      states[player.id].attackBuff += bonus;
+      addTimedEffect(states[player.id], "attackBuff", bonus, false);
       reports.push(`${player.displayName} +${bonus} next-attack damage`);
     } else {
       const amount = randomAmount(1, level + 1);
@@ -344,6 +402,8 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     reviveIn: state.reviveIn ?? 0,
     passiveReviveUsed: state.passiveReviveUsed ?? false,
     skipTurns: state.skipTurns ?? 0,
+    completedPlayerTurns: state.completedPlayerTurns ?? 0,
+    timedEffects: normalizeTimedEffects(state),
     borrowedCards: [...(state.borrowedCards ?? [])],
     cardUses: { ...(state.cardUses ?? {}) },
     hand: [...state.hand],
@@ -377,8 +437,8 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
               : selectedEnemy ? [selectedEnemy] : [];
   const needsTarget = ["ally", "defeated-ally", "enemy", "player"].includes(card.target);
   if (!usePity) {
-    states[actor.id].diceBuff = 0;
-    states[actor.id].dicePenalty = 0;
+    clearTimedEffect(states[actor.id], "diceBuff");
+    clearTimedEffect(states[actor.id], "dicePenalty");
   }
   states[actor.id].pityPoints = usePity ? pityBefore - pityCost : pityBefore + (success ? 0 : 1);
   let amount = 0;
@@ -400,14 +460,14 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       for (const target of targets) {
         const state = states[target.id];
         const blocked = ignoresShield ? 0 : Math.min(state.shield, power);
-        state.shield -= blocked;
+        removeTimedEffectAmount(state, "shield", blocked);
         const damage = power - blocked;
         state.hp = Math.max(0, state.hp - damage);
         amount += damage;
         if (state.hp === 0) defeated = true;
         reports.push(`${target.displayName} lost ${damage} HP${blocked ? ` (${blocked} blocked by shield)` : ""}${state.hp === 0 ? " and was defeated" : ""}`);
       }
-      if (targets.length) states[actor.id].attackBuff = 0;
+      if (targets.length) clearTimedEffect(states[actor.id], "attackBuff");
       detail = reports.length ? `${reports.join("; ")}.` : `${actor.displayName}'s attack had no valid target and no effect.`;
     } else if (card.effect === "heal") {
       const target = targets[0];
@@ -422,7 +482,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       const target = targets[0];
       if (target) {
         amount = card.value + (actor.hero.classId === "tank" ? 2 : 0);
-        states[target.id].shield += amount;
+        addTimedEffect(states[target.id], "shield", amount, target.id === actor.id);
         detail = `${actor.displayName} granted ${amount} shield to ${target.displayName}.`;
       }
     } else if (card.effect === "support") {
@@ -431,20 +491,20 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       const reports: string[] = [];
       const supportTargets = card.target === "all-allies" ? allies : targets;
       for (const target of supportTargets) {
-        if (card.supportType === "attack") states[target.id].attackBuff += amount;
-        if (card.supportType === "shield") states[target.id].shield += amount;
+        if (card.supportType === "attack") addTimedEffect(states[target.id], "attackBuff", amount, target.id === actor.id);
+        if (card.supportType === "shield") addTimedEffect(states[target.id], "shield", amount, target.id === actor.id);
         if (card.supportType === "healing") {
           const before = states[target.id].hp;
           states[target.id].hp = Math.min(states[target.id].maxHp, states[target.id].hp + amount);
           reports.push(`${target.displayName} +${states[target.id].hp - before} HP`);
         }
-        if (card.supportType === "dice") states[target.id].diceBuff = (states[target.id].diceBuff ?? 0) + amount;
-        if (card.supportType === "enemy-dice") states[target.id].dicePenalty = (states[target.id].dicePenalty ?? 0) + amount;
+        if (card.supportType === "dice") addTimedEffect(states[target.id], "diceBuff", amount, target.id === actor.id);
+        if (card.supportType === "enemy-dice") addTimedEffect(states[target.id], "dicePenalty", amount, target.id === actor.id);
         if (card.supportType === "dispel-enemy") {
           const removedShield = Math.min(states[target.id].shield, amount);
-          states[target.id].shield -= removedShield;
-          states[target.id].attackBuff = 0;
-          states[target.id].diceBuff = 0;
+          removeTimedEffectAmount(states[target.id], "shield", removedShield);
+          clearTimedEffect(states[target.id], "attackBuff");
+          clearTimedEffect(states[target.id], "diceBuff");
           reports.push(`${target.displayName} lost ${removedShield} shield and all attack and d20 buffs`);
         }
       }
@@ -481,7 +541,12 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         if (stolenId) {
           enemyState.hand = enemyState.hand.filter((id) => id !== stolenId);
           states[actor.id].hand.push(stolenId);
-          states[actor.id].borrowedCards.push({ cardId: stolenId, ownerId: selectedEnemy.id, borrowedAtTurn: turn });
+          states[actor.id].borrowedCards.push({
+            cardId: stolenId,
+            ownerId: selectedEnemy.id,
+            borrowedAtTurn: turn,
+            expiresAfterOwnerTurn: (states[selectedEnemy.id].completedPlayerTurns ?? 0) + 1
+          });
           reports.push(`${actor.displayName} borrowed one hidden common card from ${selectedEnemy.displayName}`);
         }
       }
@@ -509,17 +574,18 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       failureDetail = `The entire ${teamName(actor.hero.team)} team took ${penalty} backlash damage.`;
     } else if (card.failureEffect === "lose-shield") {
       const lost = Math.min(states[actor.id].shield, penalty);
-      states[actor.id].shield -= lost;
+      removeTimedEffectAmount(states[actor.id], "shield", lost);
       failureDetail = `${actor.displayName} lost ${lost} shield when their guard broke.`;
     } else if (card.failureEffect === "enemy-shield") {
-      for (const enemy of enemies) states[enemy.id].shield += penalty;
+      for (const enemy of enemies) addTimedEffect(states[enemy.id], "shield", penalty, false);
       failureDetail = `Every enemy gained ${penalty} shield because the action failed.`;
     }
     detail = `${detail} ${failureDetail}`;
   }
 
   finishPlayedCard(states, actor.id, card.id);
-  returnExpiredBorrowedCards(states, actor.id, turn);
+  expireTimedEffectsAtTurnEnd(states[actor.id]);
+  returnExpiredBorrowedCards(states, actor.id);
   const revivedIds = tickRevival(states, revivingAtTurnStart);
   if (revivedIds.length) {
     const revivedNames = revivedIds.map((id) => players.find((player) => player.id === id)?.displayName ?? "An ally");

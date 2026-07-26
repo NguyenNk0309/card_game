@@ -44,10 +44,10 @@ function DetailedGuide({ onClose }: { onClose: () => void }) {
       <span className="eyebrow">COMPLETE UPDATED GUIDE</span>
       <h2>How to play Shattered Oath</h2>
       <div className="guide-update-grid">
-        <article><strong>1 · Choose a warrior and team</strong><p>Players may choose the same character and select either team before readying. A battle starts only when every joined player is ready and both teams contain at least one warrior. Ready players must cancel Ready before changing teams.</p></article>
+        <article><strong>1 · Choose a warrior and team slot</strong><p>Choose a character, enter your name, then join through one of five slots on either team. Before pressing Ready, click an empty slot on the other team to switch sides. A battle starts only when every player is ready and both teams contain at least one warrior.</p></article>
         <article><strong>2 · Understand the 10-card deck</strong><p>Every public deck has 3 character specials, 2 common attacks, 1 common shield, 1 common heal, and 3 no-effect commons. Hands, draw piles, discard piles, graveyards, and their order remain private to their owner.</p></article>
         <article><strong>3 · Speed and phases</strong><p>Living players act from highest Speed to lowest. One phase finishes only after every living player has played, discarded, skipped, timed out, or had a turn cancelled. The order then resets by Speed, and the match lasts 30 phases.</p></article>
-        <article><strong>4 · Select, roll, use pity, discard, or skip</strong><p>Every active turn starts with no card selected. Click a card to select it, or click it again to unselect it; inactive hands cannot be selected. Roll, Pity Roll, and Discard require a selected card, while Skip does not. A normal failed d20 grants 1 cumulative pity point. Every card shows its pity cost at the top right; spend that cost with Pity Roll to guarantee success. No-effect cards cost 0. Pity play preserves saved d20 buffs and penalties. Manual Discard also ends the turn. Skip and Discard require confirmation.</p></article>
+        <article><strong>4 · Select, roll, use pity, discard, or skip</strong><p>Every active turn starts with no card selected. Click a card to select it, or click it again to unselect it; inactive hands cannot be selected. Roll, Pity Roll, and Discard require a selected card, while Skip does not. A normal failed d20 grants 1 cumulative pity point. Every card shows its pity cost at the top right; spend that cost with Pity Roll to guarantee success. No-effect cards cost 0. Every buff and debuff expires at the end of its target's next turn, including a pity, discarded, skipped, cancelled, or timed-out turn. Skip and Discard require confirmation.</p></article>
         <article><strong>5 · Replacement draws</strong><p>While draw contains cards, each played or discarded hand card receives one random replacement in the same slot. Once draw is empty, no early reshuffle occurs: the hand shrinks and remaining cards keep their normal four-slot size.</p></article>
         <article><strong>6 · Start a new card cycle</strong><p>Only when both hand and draw are empty does the entire discard pile move to draw, shuffle, and deal up to 4 random cards. This repeats throughout battle. Graveyard cards never join a refill, draw, hand, or discard again.</p></article>
         <article><strong>7 · Permanent cards and Tactical Purge</strong><p>Returning Light moves to Brother Orren&apos;s graveyard after its first use. Tactical Purge chooses a living ally and moves one of that ally&apos;s no-effect commons to their graveyard; after Ione uses Tactical Purge three times, it also enters Ione&apos;s graveyard.</p></article>
@@ -325,15 +325,15 @@ export default function GameApp() {
     playBattleResult(game?.winnerTeam === localPlayer.hero.team ? "win" : "lose");
   }, [runComplete, localPlayer, game?.turnStartedAt, game?.winnerTeam, game?.endReason, playBattleResult, stopBattleResult]);
 
-  const joinPlayer = () => {
+  const joinPlayer = (team: TeamId) => {
     const name = playerName.trim();
     if (status !== "connected" || !sessionId) return setLobbyError("The shared room is still connecting. Please try again shortly.");
     if (localPlayer) return setLobbyError("This browser already controls one player.");
     if (players.length >= 10) return setLobbyError("The room already has 10 players.");
-    if (!name) return setLobbyError("Enter a name before pressing Join.");
+    if (!name) return setLobbyError("Enter a name before choosing a team slot.");
     if (players.some((player) => player.displayName.toLowerCase() === name.toLowerCase())) return setLobbyError("That name is already in use. Choose another name.");
-    const veilCount = players.filter((player) => player.hero.team === "veil").length;
-    const session = createPlayerSession(name, veilCount <= players.length - veilCount ? 0 : 1, selectedHeroName, sessionId);
+    if (players.filter((player) => player.hero.team === team).length >= 5) return setLobbyError(`${team === "veil" ? "Veilbound" : "Embercourt"} already has five players.`);
+    const session = createPlayerSession(name, team === "veil" ? 0 : 1, selectedHeroName, sessionId);
     if (send({ type: "join", player: session })) {
       window.localStorage.setItem(PLAYER_NAME_STORAGE_KEY, name);
       setSelectedPlayerId(session.id);
@@ -341,8 +341,11 @@ export default function GameApp() {
     }
   };
   const toggleReady = (id: string) => send({ type: "ready", sessionId: id, ready: !players.find((player) => player.id === id)?.ready });
-  const selectTeam = (team: TeamId) => {
-    if (!localPlayer || localPlayer.ready || localPlayer.hero.team === team) return;
+  const selectLobbySlot = (team: TeamId) => {
+    if (!localPlayer) return joinPlayer(team);
+    if (localPlayer.ready) return setLobbyError("Cancel Ready before switching teams.");
+    if (localPlayer.hero.team === team) return;
+    if (players.filter((player) => player.hero.team === team).length >= 5) return setLobbyError(`${team === "veil" ? "Veilbound" : "Embercourt"} already has five players.`);
     if (send({ type: "team", sessionId, team })) setLobbyError("");
   };
   const leaveLobby = (id: string) => { send({ type: "leave", sessionId: id }); setSelectedPlayerId(null); setLobbyError(""); };
@@ -408,7 +411,7 @@ export default function GameApp() {
       {phase === "game" ? <RunStatus completedPhases={game?.completedPhases ?? Math.max(0, (game?.roundNumber ?? 1) - 1)} secondsLeft={secondsLeft} eventPhase={game?.worldEvent?.turn} onEvents={() => setExpandedPanel("events")}/> : <div className="lobby-top-status"><Users size={16}/> {players.length}/10 players · {players.filter((player) => player.ready).length} ready</div>}
       <div className="top-actions"><div className="audio-controls"><button className={`icon-button music-toggle ${musicOn ? "playing" : ""}`} onClick={() => void toggleMusic()} aria-label={musicOn ? "Pause medieval music" : "Play medieval music"} title={musicOn ? "Pause medieval music" : "Play medieval music"}>{musicOn ? <Volume2 size={18}/> : <AudioLines size={18}/>}</button><label className="volume-control" title={`Audio volume ${volume}%`}><input type="range" min="0" max="100" value={volume} style={{ "--audio-volume": `${volume}%` } as React.CSSProperties} onChange={(event) => setVolume(Number(event.target.value))} aria-label="Game audio volume"/><output>{volume}%</output></label></div><button className="text-button" onClick={() => setShowGuide(true)}><CircleHelp size={16}/> How to play</button>{phase === "game" && localPlayer && <button className="text-button leave-game-control" onClick={() => send({ type: "leave-game", sessionId })}><LogOut size={16}/> Leave battle</button>}{phase === "game" && localPlayer && !runComplete && <button className="text-button end-game-control" onClick={() => send({ type: "end-game", sessionId })}><Octagon size={16}/> End battle</button>}{runComplete && !showRunComplete && <button className="text-button" onClick={() => setDismissedBattleResultKey("")}><Crown size={16}/> Battle result</button>}{phase === "game" && <button className="icon-button mobile-party-button" onClick={() => setMobileParty(true)} aria-label="Open player list"><Users size={18}/></button>}</div>
     </header>
-    {phase === "lobby" ? <Lobby players={players} playerName={playerName} error={lobbyError || roomError} selectedPlayerId={selectedPlayerId} localSessionId={sessionId} connectionStatus={status} characterOptions={characterOptions} selectedHeroName={selectedHeroName} onNameChange={(name) => { setPlayerName(name); window.localStorage.setItem(PLAYER_NAME_STORAGE_KEY, name); setLobbyError(""); clearError(); }} onJoin={joinPlayer} onSelectPlayer={setSelectedPlayerId} onToggleReady={toggleReady} onLeave={leaveLobby} onRemovePlayer={removePlayer} onEnterGame={enterGame} onHeroSelect={(name) => { setSelectedHeroName(name); setLobbyError(""); }} onTeamSelect={selectTeam}/> :
+    {phase === "lobby" ? <Lobby players={players} playerName={playerName} error={lobbyError || roomError} selectedPlayerId={selectedPlayerId} localSessionId={sessionId} connectionStatus={status} characterOptions={characterOptions} selectedHeroName={selectedHeroName} onNameChange={(name) => { setPlayerName(name); window.localStorage.setItem(PLAYER_NAME_STORAGE_KEY, name); setLobbyError(""); clearError(); }} onSlotSelect={selectLobbySlot} onSelectPlayer={setSelectedPlayerId} onToggleReady={toggleReady} onLeave={leaveLobby} onRemovePlayer={removePlayer} onEnterGame={enterGame} onHeroSelect={(name) => { setSelectedHeroName(name); setLobbyError(""); }}/> :
       <div className="game-layout">{mobileParty && <button className="mobile-rail-backdrop" onClick={() => setMobileParty(false)} aria-label="Close player list"/>}<div className={mobileParty ? "mobile-rail open" : "mobile-rail"}><button className="mobile-close icon-button" onClick={() => setMobileParty(false)}><X size={17}/></button><PartyRail players={players} game={game} localSessionId={localPlayer ? sessionId : ""} onRemovePlayer={removePlayer} onInspectPlayer={inspectPlayer}/></div><PartyRail players={players} game={game} localSessionId={localPlayer ? sessionId : ""} onRemovePlayer={removePlayer} onInspectPlayer={inspectPlayer}/>
         <section className="world-stage combat-stage"><div className="realm-meta"><div><span className="eyebrow">TEAM BATTLE ARENA · 30-PHASE MATCH</span><h1>Eliminate the opposing team</h1></div></div>
           <section className="combat-banner"><Swords size={24}/><div><strong>{activePlayer?.displayName ? <><span className={`player-name-highlight ${playerRelationClass(activePlayer, localPlayer)}`}>{activePlayer.displayName}</span>&apos;s turn</> : "Waiting for a player"}</strong><p>Defeat every opponent to win immediately. After phase 30, the team with more total HP wins.</p></div></section>

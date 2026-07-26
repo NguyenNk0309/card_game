@@ -15,6 +15,13 @@ export type SupportType =
   | "purge-card"
   | "steal-card";
 export type FailureEffect = "self-damage" | "team-damage" | "lose-shield" | "enemy-shield";
+export type TimedEffectKind = "shield" | "attackBuff" | "diceBuff" | "dicePenalty";
+
+export type TimedEffect = {
+  kind: TimedEffectKind;
+  value: number;
+  expiresAfterTurn: number;
+};
 
 export type Hero = {
   id: string;
@@ -147,7 +154,9 @@ export type PlayerRunState = {
   reviveIn: number;
   passiveReviveUsed: boolean;
   skipTurns: number;
-  borrowedCards: { cardId: string; ownerId: string; borrowedAtTurn: number }[];
+  completedPlayerTurns: number;
+  timedEffects: TimedEffect[];
+  borrowedCards: { cardId: string; ownerId: string; borrowedAtTurn: number; expiresAfterOwnerTurn?: number }[];
   cardUses: Record<string, number>;
   drawPile: string[];
   hand: string[];

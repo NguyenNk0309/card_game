@@ -43,6 +43,10 @@ for (const option of options) {
 }
 const supportTypes = new Set(options.flatMap((option) => option.skillDeck.filter((card) => card.effect === "support").map((card) => card.supportType)));
 assert.deepEqual([...supportTypes].sort(), ["advance-ally", "attack", "dice", "dispel-enemy", "enemy-dice", "healing", "purge-card", "revive", "shield", "skip-enemy", "steal-card"]);
+const durationCards = options.flatMap((option) => option.skillDeck).filter((card) =>
+  card.effect === "guard" || ["attack", "shield", "dice", "enemy-dice", "skip-enemy", "steal-card"].includes(card.supportType)
+);
+assert(durationCards.every((card) => /expires at the end|effects expire normally|target's next turn ends/i.test(card.description)), "every buff and debuff card must state the target-turn expiry rule");
 for (const classId of ["warden", "healer", "tank", "oracle", "support"]) {
   const option = options.find((candidate) => candidate.hero.classId === classId);
   assert.equal(option.skillDeck.filter((card) => card.unique && ["damage", "aoe"].includes(card.effect)).length, 0, `${classId} must focus on its non-damage team role`);
@@ -98,8 +102,8 @@ assert.equal(pitySuccess.outcome.success, true, "an affordable pity play must gu
 assert.equal(pitySuccess.outcome.resolution, "pity");
 assert.equal(pitySuccess.outcome.pityCost, attack.pityCost);
 assert.equal(pitySuccess.playerStates[first.id].pityPoints, 2, "pity play must deduct exactly the selected card cost");
-assert.equal(pitySuccess.playerStates[first.id].diceBuff, 2, "pity play must preserve the next-roll buff");
-assert.equal(pitySuccess.playerStates[first.id].dicePenalty, 1, "pity play must preserve the next-roll penalty");
+assert.equal(pitySuccess.playerStates[first.id].diceBuff, 0, "a saved d20 buff expires when its target's pity-play turn ends");
+assert.equal(pitySuccess.playerStates[first.id].dicePenalty, 0, "a saved d20 penalty expires when its target's pity-play turn ends");
 assert.equal(pitySuccess.roll, null, "pity play must not report a fabricated d20 result");
 assert.equal(pitySuccess.history.at(-1).resolution, "pity");
 assert.equal(pitySuccess.history.at(-1).diceRoll, undefined);
@@ -153,6 +157,18 @@ const guardCard = tank.skillDeck.find((card) => card.effect === "guard");
 guardGame.playerStates[tank.id].hand = [guardCard.id];
 const allyGuarded = engine.resolveCardTurn(guardGame, tankParty, guardCard.id, tankAlly.id, 20);
 assert.equal(allyGuarded.playerStates[tankAlly.id].shield, 7, "tank passive strengthens shield placed on an ally");
+const allyBrace = tankAlly.skillDeck.find((card) => card.effect === "guard" && card.target === "self");
+allyGuarded.turnOrder = [tankAlly.id, tankEnemy.id, tank.id];
+allyGuarded.activePlayerIndex = 2;
+allyGuarded.playerStates[tankAlly.id].hand = [allyBrace.id];
+const layeredShield = engine.resolveCardTurn(allyGuarded, tankParty, allyBrace.id, tankAlly.id, 20);
+assert.equal(layeredShield.playerStates[tankAlly.id].shield, 3, "an ally's older shield expires at target turn end while a self-shield created that turn survives");
+const allyBlank = tankAlly.skillDeck.find((card) => card.effect === "none");
+layeredShield.turnOrder = [tankAlly.id, tankEnemy.id, tank.id];
+layeredShield.activePlayerIndex = 2;
+layeredShield.playerStates[tankAlly.id].hand = [allyBlank.id];
+const selfShieldExpired = engine.resolveCardTurn(layeredShield, tankParty, allyBlank.id, tankAlly.id, 20);
+assert.equal(selfShieldExpired.playerStates[tankAlly.id].shield, 0, "a self-shield expires at the end of the owner's next active turn");
 
 const teamHealGame = engine.createInitialGame(supportParty, engine.createAdventure("TEAM-HEAL"), 30);
 teamHealGame.turnOrder = [healer.id, supportEnemy.id, supportAlly.id];
@@ -249,11 +265,12 @@ const stolen = engine.resolveCardTurn(delayGame, delayParty, stealCard.id, delay
 assert(stolen.playerStates[trickster.id].hand.includes(stolenCommon.id), "assassin temporarily receives one enemy common card");
 assert(!stolen.playerStates[delayedEnemy.id].hand.includes(stolenCommon.id), "the stolen card leaves the enemy hand");
 assert.equal(stolen.playerStates[trickster.id].borrowedCards[0].ownerId, delayedEnemy.id);
-stolen.turnOrder = [trickster.id, delayedEnemy.id, tricksterAlly.id];
-stolen.activePlayerIndex = 0;
-const ownedAfterSteal = trickster.skillDeck.find((card) => stolen.playerStates[trickster.id].hand.includes(card.id));
-const returned = engine.resolveCardTurn(stolen, delayParty, ownedAfterSteal.id, delayedEnemy.id, 20);
-assert(!returned.playerStates[trickster.id].hand.includes(stolenCommon.id), "an unplayed stolen card returns after the borrower's next turn");
+stolen.turnOrder = [delayedEnemy.id, tricksterAlly.id, trickster.id];
+stolen.activePlayerIndex = 1;
+const targetAction = delayedEnemy.skillDeck.find((card) => card.id !== stolenCommon.id);
+stolen.playerStates[delayedEnemy.id].hand = [targetAction.id];
+const returned = engine.resolveCardTurn(stolen, delayParty, targetAction.id, trickster.id, 20);
+assert(!returned.playerStates[trickster.id].hand.includes(stolenCommon.id), "an unplayed stolen card returns after the affected target's next turn");
 assert(returned.playerStates[delayedEnemy.id].discardPile.includes(stolenCommon.id), "returned stolen cards enter their owner's discard pile");
 
 const revivalGame = engine.createInitialGame(supportParty, engine.createAdventure("REVIVE"), 30);

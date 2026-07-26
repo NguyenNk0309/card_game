@@ -183,20 +183,26 @@ function moveCardToGraveyard(state, cardId) {
   else startNewCycleIfEmpty(state);
 }
 
-function returnBorrowedCards(game, actorId, completedTurn) {
-  const actorState = game.playerStates[actorId];
-  if (!actorState) return [];
-  const returning = (actorState.borrowedCards || []).filter((entry) => entry.borrowedAtTurn < completedTurn);
-  for (const entry of returning) {
-    removeCardFromZones(actorState, entry.cardId);
-    const owner = game.playerStates[entry.ownerId];
-    if (owner && !(owner.discardPile || []).includes(entry.cardId)) {
-      owner.discardPile.push(entry.cardId);
-      startNewCycleIfEmpty(owner);
+function returnBorrowedCards(game, completedOwnerId) {
+  const owner = game.playerStates[completedOwnerId];
+  if (!owner) return [];
+  const returned = [];
+  for (const borrower of Object.values(game.playerStates)) {
+    const returning = (borrower.borrowedCards || []).filter((entry) =>
+      entry.ownerId === completedOwnerId && (entry.expiresAfterOwnerTurn ?? owner.completedPlayerTurns) <= owner.completedPlayerTurns
+    );
+    for (const entry of returning) {
+      removeCardFromZones(borrower, entry.cardId);
+      if (!(owner.discardPile || []).includes(entry.cardId)) {
+        owner.discardPile.push(entry.cardId);
+        startNewCycleIfEmpty(owner);
+      }
+      returned.push(entry);
     }
+    borrower.borrowedCards = (borrower.borrowedCards || []).filter((entry) => !returning.includes(entry));
+    if (returning.length) drawOneOrStartNewCycle(borrower);
   }
-  actorState.borrowedCards = (actorState.borrowedCards || []).filter((entry) => entry.borrowedAtTurn >= completedTurn);
-  return returning;
+  return returned;
 }
 
 function tickPendingRevives(game) {
@@ -400,6 +406,25 @@ function removePlayerFromRoom(targetId, removedBy) {
   return removedPlayer;
 }
 
+function expireTimedEffectsAtTurnEnd(state) {
+  if (!state) return;
+  const completedPlayerTurns = (state.completedPlayerTurns || 0) + 1;
+  const effects = [...(state.timedEffects || [])];
+  for (const kind of ['shield', 'attackBuff', 'diceBuff', 'dicePenalty']) {
+    const tracked = effects.filter((effect) => effect.kind === kind).reduce((sum, effect) => sum + effect.value, 0);
+    const untracked = Math.max(0, (state[kind] || 0) - tracked);
+    if (untracked > 0) effects.push({ kind, value: untracked, expiresAfterTurn: completedPlayerTurns });
+  }
+  const keeping = [];
+  for (const effect of effects) {
+    if (effect.expiresAfterTurn <= completedPlayerTurns) {
+      state[effect.kind] = Math.max(0, (state[effect.kind] || 0) - effect.value);
+    } else keeping.push(effect);
+  }
+  state.completedPlayerTurns = completedPlayerTurns;
+  state.timedEffects = keeping;
+}
+
 async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '') {
   const game = room.game;
   if (room.phase !== 'game' || !game || game.ended || !room.players.length) return false;
@@ -407,7 +432,8 @@ async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '') {
   const passingPlayer = room.players.find((player) => player.id === order[0]) || room.players[game.activePlayerIndex];
   const completedTurns = game.completedTurns + 1;
   const actionPhase = Math.min(30, (game.completedPhases || 0) + 1);
-  if (passingPlayer) returnBorrowedCards(game, passingPlayer.id, completedTurns);
+  if (passingPlayer) expireTimedEffectsAtTurnEnd(game.playerStates[passingPlayer.id]);
+  if (passingPlayer) returnBorrowedCards(game, passingPlayer.id);
   const revived = tickPendingRevives(game);
   const playerName = passingPlayer?.displayName || 'Player';
   const timedOut = kind === 'timeout';
@@ -415,8 +441,8 @@ async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '') {
   const discarded = kind === 'discard';
   game.completedTurns = completedTurns;
   game.adventure = { ...game.adventure, target: randomDiceTarget() };
-  game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered the discard pile and advanced the full-deck cycle.` : forced ? 'A support effect cancelled this turn. Cards and active buffs were preserved.' : timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled.' : 'The turn was skipped. No cards were discarded or shuffled.', actorName: playerName, cardName: discardedCardName || undefined };
-  game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} manually discarded ${discardedCardName} and advanced their full-deck cycle.` : forced ? `${playerName}'s turn was cancelled by an enemy support effect. Their hand and active buffs were preserved.` : timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved.` : `${playerName} manually skipped the turn. Their hand was preserved.`, success: false, createdAt: now }];
+  game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered the discard pile and advanced the full-deck cycle. Expiring effects ended normally.` : forced ? 'A support effect cancelled this turn. Cards were preserved; expiring effects ended normally.' : timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled; expiring effects ended normally.' : 'The turn was skipped. No cards were discarded or shuffled; expiring effects ended normally.', actorName: playerName, cardName: discardedCardName || undefined };
+  game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} manually discarded ${discardedCardName} and advanced their full-deck cycle. Expiring effects ended normally.` : forced ? `${playerName}'s turn was cancelled by an enemy support effect. Their hand was preserved; expiring effects ended normally.` : timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved; expiring effects ended normally.` : `${playerName} manually skipped the turn. Their hand was preserved; expiring effects ended normally.`, success: false, createdAt: now }];
   game.worldEvent = null;
   if (revived.length) game.history.push({ id: `revive-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind: 'system', actorName: 'Returning Light', message: `${revived.join(', ')} revived with one-third HP.`, success: true, createdAt: now });
   game.roll = null;
@@ -471,8 +497,8 @@ async function applyCommand(ownerId, message) {
     if (room.players.some((current) => current.id === player.id)) return null;
     if (room.players.length >= 10) return 'This lobby already has 10 players.';
     if (room.players.some((current) => current.displayName.toLowerCase() === player.displayName.toLowerCase())) return 'That player name is already joined.';
-    const veilCount = room.players.filter((current) => current.hero.team === 'veil').length;
-    player.hero.team = veilCount <= room.players.length - veilCount ? 'veil' : 'ember';
+    if (!['veil', 'ember'].includes(player.hero.team)) return 'Choose an empty Veilbound or Embercourt slot.';
+    if (room.players.filter((current) => current.hero.team === player.hero.team).length >= 5) return `${teamLabel(player.hero.team)} already has five players.`;
     room.players.push({ ...player, ready: false });
     await commitRoom();
     return null;
@@ -490,11 +516,13 @@ async function applyCommand(ownerId, message) {
 
   if (message.type === 'team') {
     if (room.phase !== 'lobby') return 'Teams can only change in the lobby.';
-    if (!ownerId || ownerId !== message.sessionId) return 'You can only choose your own team.';
-    if (!['veil', 'ember'].includes(message.team)) return 'Choose either Veilbound or Embercourt.';
+    if (!ownerId || ownerId !== message.sessionId) return 'You can only move your own player.';
+    if (!['veil', 'ember'].includes(message.team)) return 'Choose an empty Veilbound or Embercourt slot.';
     const player = room.players.find((current) => current.id === message.sessionId);
-    if (!player) return 'Join the lobby before choosing a team.';
-    if (player.ready) return 'Cancel ready before changing teams.';
+    if (!player) return 'Join the lobby before switching teams.';
+    if (player.ready) return 'Cancel Ready before switching teams.';
+    if (player.hero.team === message.team) return null;
+    if (room.players.filter((current) => current.hero.team === message.team).length >= 5) return `${teamLabel(message.team)} already has five players.`;
     player.hero.team = message.team;
     await commitRoom();
     return null;

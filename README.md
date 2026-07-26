@@ -25,13 +25,13 @@ Open `http://localhost:3000`.
 
 ## Battle loop
 
-1. Each browser joins with a saved player name, chooses any character (duplicates are allowed), and selects Veilbound or Embercourt.
+1. Each browser chooses any character (duplicates are allowed), enters a saved player name, and clicks one of five slots on Veilbound or Embercourt to join.
 2. Every character has a public 10-card deck: 3 character specials, 2 common attacks, 1 common shield, 1 common heal, and 3 no-effect cards. Private card-zone contents and order remain visible only to their owner.
-3. A ready player cannot change team until they cancel Ready. The battle can start only when every player is ready and each team has at least one player.
+3. Before pressing Ready, a player may switch teams by clicking an empty slot on the other side. Ready locks the player’s team. The battle can start only when every player is ready and each team has at least one player.
 4. Living players act from highest Speed to lowest. After every living player resolves a turn, the next phase begins. The match lasts 30 phases and world events occur after every fifth completed phase.
 5. Every active turn starts with no card selected. Click a card to select it, click it again to unselect it, then choose a target when required. Inactive hands cannot select cards.
 6. Roll against the fresh random target for that turn. A modified total equal to or above the target succeeds. Each failed normal roll immediately grants 1 cumulative pity point.
-7. Every card shows a pity cost. **Pity Roll** spends that cost to guarantee the selected card succeeds; no-effect cards cost 0. Saved d20 buffs and penalties are not consumed by a pity play.
+7. Every card shows a pity cost. **Pity Roll** spends that cost to guarantee the selected card succeeds; no-effect cards cost 0. Every buff and debuff expires at the end of its target's next turn, including a pity, discarded, skipped, cancelled, or timed-out turn.
 8. Playing or manually discarding a card moves it to discard and ends the turn. A random replacement is drawn into the same hand slot while draw has cards. Manual Skip and timeout preserve all card zones.
 9. Only when both hand and draw are empty does the entire discard pile return to draw, shuffle, and deal up to 4 cards. Graveyard cards are permanently removed from circulation.
 10. Returning Light enters Brother Orren's graveyard after its first use. Tactical Purge moves one chosen ally's no-effect common to that ally's graveyard and enters Ione Mire's graveyard after its third use.
