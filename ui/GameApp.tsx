@@ -235,9 +235,10 @@ export default function GameApp() {
   const passiveDiceBonus = localPlayer && activeCard && localState ? getPassiveDiceBonus(localPlayer, activeCard, localState) : 0;
   const outcome = game?.outcome ?? null;
   const outcomeKey = outcome ? `${game?.turnStartedAt ?? 0}-${outcome.label}` : "";
-  const activeLifeEvent = outcome?.lifeEvents?.find((event) => !dismissedLifeEventIds.includes(event.id));
-  const showLifeEvent = Boolean(activeLifeEvent);
-  const showRunComplete = Boolean(runComplete && !showLifeEvent && battleResultKey !== dismissedBattleResultKey);
+  const pendingLifeEvents = outcome?.lifeEvents?.filter((event) => !dismissedLifeEventIds.includes(event.id)) ?? [];
+  const activeLifeEvent = pendingLifeEvents.find((event) => event.kind === "defeat") ?? pendingLifeEvents.find((event) => event.kind === "revive");
+  const showRunComplete = Boolean(runComplete && battleResultKey !== dismissedBattleResultKey);
+  const showLifeEvent = Boolean(activeLifeEvent && !showRunComplete);
   const isLocalCardOutcome = Boolean(outcome?.kind === "card" && outcome.actorName === localPlayer?.displayName);
   const showOutcome = Boolean(isLocalCardOutcome && outcomeKey !== dismissedOutcomeKey && !runComplete);
   const showTurnSummary = Boolean(outcome?.actorName && !isLocalCardOutcome && outcomeKey !== dismissedSummaryKey && !runComplete);
