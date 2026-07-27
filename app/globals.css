@@ -4434,14 +4434,13 @@ button:focus-visible {
 }
 
 .lobby-team-board {
-  height: clamp(240px, calc(100vh - 420px), 420px);
+  height: auto;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   gap: 12px;
-  padding-right: 4px;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
+  padding-right: 0;
+  overflow: visible;
 }
 
 .lobby-team-column {
@@ -4500,7 +4499,8 @@ button:focus-visible {
 
 .team-slot-player {
   width: 100%;
-  height: 100px;
+  height: 118px;
+  min-height: 118px;
   min-width: 0;
   overflow: hidden;
 }
@@ -4551,8 +4551,8 @@ button:focus-visible {
 
 .empty-team-slot {
   width: 100%;
-  height: 100px;
-  min-height: 100px;
+  height: 118px;
+  min-height: 118px;
   padding: 9px 12px;
   display: flex;
   align-items: center;
@@ -4627,7 +4627,7 @@ button:focus-visible {
 
 /* Keep character details and the complete personal deck side by side when space allows. */
 .lobby-grid {
-  grid-template-columns: minmax(560px, .8fr) minmax(760px, 1.2fr);
+  grid-template-columns: minmax(680px, .95fr) minmax(720px, 1.05fr);
 }
 
 .character-review-layout {
@@ -4654,7 +4654,7 @@ button:focus-visible {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-@media (max-width: 1380px) {
+@media (max-width: 1450px) {
   .lobby-grid { grid-template-columns: 1fr; }
 }
 
