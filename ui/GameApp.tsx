@@ -45,19 +45,15 @@ function DetailedGuide({ onClose }: { onClose: () => void }) {
   return <div className="guide-update-backdrop" onClick={onClose}>
     <section className="guide-update-panel" onClick={(event) => event.stopPropagation()}>
       <button className="modal-close icon-button" onClick={onClose}><X size={18}/></button>
-      <span className="eyebrow">COMPLETE UPDATED GUIDE</span>
+      <span className="eyebrow">QUICK GUIDE</span>
       <h2>How to play Shattered Oath</h2>
       <div className="guide-update-grid">
-        <article><strong>1 · Choose a warrior and team slot</strong><p>Choose a character, enter your name, then join through one of five slots on either team. Before pressing Ready, click an empty slot on the other team to switch sides. A battle starts only when every player is ready and both teams contain at least one warrior.</p></article>
-        <article><strong>2 · Understand the 10-card deck</strong><p>Every public deck has 3 character specials, 2 common attacks, 1 common shield, 1 common heal, and 3 no-effect commons. Hands, draw piles, discard piles, graveyards, and their order remain private to their owner.</p></article>
-        <article><strong>3 · Speed and phases</strong><p>Living players act from highest Speed to lowest. One phase finishes only after every living player has played, discarded, skipped, timed out, or had a turn cancelled. The order then resets by Speed, and the match lasts 30 phases.</p></article>
-        <article><strong>4 · Select, roll, use pity, discard, or skip</strong><p>Every active turn starts with no card selected. Click a card to select it, or click it again to unselect it; inactive hands cannot be selected. Roll, Pity Roll, and Discard require a selected card, while Skip does not. A normal failed d20 grants 1 cumulative pity point. Every card shows its pity cost at the top right; spend that cost with Pity Roll to guarantee success. No-effect cards cost 0 and always succeed on a normal roll. Every buff and debuff expires at the end of its target's next turn, including a pity, discarded, skipped, cancelled, or timed-out turn. Skip and Discard require confirmation.</p></article>
-        <article><strong>5 · Replacement draws</strong><p>While draw contains cards, each played or discarded hand card receives one random replacement in the same slot. Once draw is empty, no early reshuffle occurs: the hand shrinks and remaining cards keep their normal four-slot size.</p></article>
-        <article><strong>6 · Start a new card cycle</strong><p>Only when both hand and draw are empty does the entire discard pile move to draw, shuffle, and deal up to 4 random cards. This repeats throughout battle. Graveyard cards never join a refill, draw, hand, or discard again.</p></article>
-        <article><strong>7 · Permanent cards and Tactical Purge</strong><p>Returning Light moves to Brother Orren&apos;s graveyard after its first use. Tactical Purge chooses a living ally and moves one of that ally&apos;s no-effect commons to their graveyard; after Ione uses Tactical Purge three times, it also enters Ione&apos;s graveyard.</p></article>
-        <article><strong>8 · Rolls, success, and failure</strong><p>Each turn receives a fresh target from 8 to 16. Only Focus Order, Gravity Hex, Dark Omen, and Ione's Commanding Voice modify the d20 total. A total equal to or greater than the target succeeds. Failed common cards have no additional penalty; failed special cards apply their printed backlash and still complete their card cycle.</p></article>
-        <article><strong>9 · Damage, defeat, and revival</strong><p>Shield absorbs damage before HP unless an attack pierces. Normal healing cannot revive. Defeated players are gray and leave turn order. Sable revives herself once at half HP; Returning Light prepares a defeated ally to return after its countdown.</p></article>
-        <article><strong>10 · Events, history, and victory</strong><p>A world event affects every living warrior after each fifth completed phase. Expanded Battle History groups turns beneath their phase. Eliminate the opposing team immediately, or lead on total HP after phase 30; living players, shield, and influence resolve ties.</p></article>
+        <article><strong>1 · Choose your character</strong><p>Choose a character and review their abilities and deck before joining a team.</p></article>
+        <article><strong>2 · Understand HP and Speed</strong><p>HP shows how much damage you can survive, while Speed determines when you act.</p></article>
+        <article><strong>3 · Take your turn</strong><p>Select a card to Roll or Discard it, or choose Skip to pass without changing your cards.</p></article>
+        <article><strong>4 · Dice, success, and failure</strong><p>Your modified d20 succeeds when it meets or beats the target; otherwise it fails with the card's listed result.</p></article>
+        <article><strong>5 · Use pity</strong><p>Each failed normal roll earns 1 pity point that you can spend at a card's shown cost to guarantee success.</p></article>
+        <article><strong>6 · Win the battle</strong><p>Eliminate the opposing team, or have more total HP after phase 30, to win.</p></article>
       </div>
     </section>
   </div>;
