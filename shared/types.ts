@@ -74,6 +74,7 @@ export type PlayerSession = {
   displayName: string;
   ready: boolean;
   joinedAt: number;
+  randomHero?: boolean;
   hero: Hero;
   skillDeck: ActionCard[];
 };

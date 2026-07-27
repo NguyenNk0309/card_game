@@ -13,7 +13,7 @@ function player(id, displayName, team) {
     ready: false,
     joinedAt: Date.now(),
     hero: { id: `hero-${id}`, name: `${displayName} Hero`, title: "Test Oath", role: "Scout", classId: "ranger", className: "Ranger", passiveName: "Deadeye", passiveText: "Single-target attacks deal 1 additional damage.", skill: "Test Skill", skillText: "Test", summary: "Test hero", strength: "Attack", weakness: "Defense", impact: "Polling test", hp: 8, maxHp: 8, team, color: "#a78bfa", initials: displayName.slice(0, 2).toUpperCase() },
-    skillDeck: [{ id: `card-${id}`, name: "Test Skill", type: "Wit", description: "Test", bonus: 4, effect: "damage", target: "enemy", value: 2, unique: true }]
+    skillDeck: Array.from({ length: 10 }, (_, index) => ({ id: index === 0 ? `card-${id}` : `card-${id}-${index}`, name: index === 0 ? "Test Skill" : `Test Skill ${index + 1}`, type: "Wit", description: "Test", bonus: 4, effect: "damage", target: "enemy", value: 2, unique: index < 3 }))
   };
 }
 
@@ -48,7 +48,9 @@ async function waitForRoom(predicate, timeoutMs = 5000) {
 }
 
 try {
-  await command(firstId, { type: "join", player: player(firstId, `First ${runId}`, "veil") });
+  const pendingRandomPlayer = { ...player(firstId, `First ${runId}`, "veil"), randomHero: true };
+  const randomJoined = await command(firstId, { type: "join", player: pendingRandomPlayer });
+  assert.equal(randomJoined.players.find((item) => item.id === firstId).randomHero, true, "a pending random character can join a team slot before assignment");
   const joined = await command(secondId, { type: "join", player: player(secondId, `Second ${runId}`, "veil") });
   assert(joined.players.some((item) => item.id === firstId));
   assert(joined.players.some((item) => item.id === secondId));
@@ -100,8 +102,11 @@ try {
   const splitTeams = await command(secondId, { type: "team", team: "ember" });
   assert.equal(splitTeams.players.find((item) => item.id === secondId).hero.team, "ember");
   await command(secondId, { type: "ready", ready: true });
-  const started = await command(secondId, { type: "start", game });
+  const startingPlayers = (await readRoom()).players.map((item) => item.id === firstId ? { ...item, randomHero: false, hero: { ...item.hero, name: `Randomized ${runId}` } } : item);
+  const started = await command(secondId, { type: "start", players: startingPlayers, game });
   assert.equal(started.phase, "game");
+  assert.equal(started.players.find((item) => item.id === firstId).hero.name, `Randomized ${runId}`, "a pending random character resolves only when battle starts");
+  assert.equal(started.players.find((item) => item.id === firstId).randomHero, false, "the pending random marker clears at battle start");
   assert.deepEqual(started.game.playerStates[secondId].hand, [`card-${secondId}`], "a polling client receives its own hand");
   assert.deepEqual(started.game.playerStates[firstId].hand, [], "a polling client cannot receive another player's hand");
   assert.deepEqual(started.game.playerStates[firstId].graveyard, [], "a polling client cannot receive another player's graveyard");

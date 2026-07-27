@@ -4624,3 +4624,51 @@ button:focus-visible {
   .modal-card { padding: 28px 18px; }
   .expanded-panel-content h2 { font-size: clamp(25px, 9vw, 34px); }
 }
+
+/* Keep character details and the complete personal deck side by side when space allows. */
+.lobby-grid {
+  grid-template-columns: minmax(560px, .8fr) minmax(760px, 1.2fr);
+}
+
+.character-review-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, .8fr) minmax(430px, 1.2fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.character-info-column,
+.character-deck-column {
+  min-width: 0;
+}
+
+.character-deck-column {
+  max-height: min(720px, calc(100vh - 260px));
+  padding-left: 18px;
+  overflow-y: auto;
+  border-left: 1px solid var(--line);
+  scrollbar-gutter: stable;
+}
+
+.character-deck-column .lobby-skill-deck {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1380px) {
+  .lobby-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 900px) {
+  .character-review-layout { grid-template-columns: 1fr; }
+  .character-deck-column {
+    max-height: none;
+    padding: 18px 0 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+  .character-deck-column .lobby-skill-deck { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 720px) {
+  .character-deck-column .lobby-skill-deck { grid-template-columns: 1fr; }
+}

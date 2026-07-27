@@ -31,7 +31,7 @@ function player(id, displayName, team) {
       color: "#a78bfa",
       initials: displayName.slice(0, 2).toUpperCase()
     },
-    skillDeck: [{ id: `card-${id}`, name: "Test Skill", type: "Wit", description: "Test", bonus: 4, effect: "damage", target: "enemy", value: 2, unique: true }]
+    skillDeck: Array.from({ length: 10 }, (_, index) => ({ id: index === 0 ? `card-${id}` : `card-${id}-${index}`, name: index === 0 ? "Test Skill" : `Test Skill ${index + 1}`, type: "Wit", description: "Test", bonus: 4, effect: "damage", target: "enemy", value: 2, unique: index < 3 }))
   };
 }
 
@@ -103,8 +103,9 @@ const third = connect(thirdId);
 
 try {
   await Promise.all([first.opened, second.opened, third.opened]);
-  first.send({ type: "join", player: player(firstId, `First ${runId}`, "veil") });
-  await first.waitFor((state) => state.players.some((item) => item.id === firstId));
+  first.send({ type: "join", player: { ...player(firstId, `First ${runId}`, "veil"), randomHero: true } });
+  const randomJoined = await first.waitFor((state) => state.players.some((item) => item.id === firstId));
+  assert.equal(randomJoined.players.find((item) => item.id === firstId).randomHero, true, "a pending random character can join a realtime team slot");
 
   second.send({ type: "join", player: player(secondId, `Second ${runId}`, "ember") });
   const [firstView, secondView] = await Promise.all([
@@ -132,7 +133,7 @@ try {
   first.send({ type: "ready", sessionId: firstId, ready: true });
   second.send({ type: "ready", sessionId: secondId, ready: true });
   third.send({ type: "ready", sessionId: thirdId, ready: true });
-  await Promise.all([
+  const [readyState] = await Promise.all([
     first.waitFor((state) => state.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).length === 3 && state.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).every((item) => item.ready)),
     second.waitFor((state) => state.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).length === 3 && state.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).every((item) => item.ready))
   ]);
@@ -161,7 +162,8 @@ try {
     history: [],
     worldEvent: null
   };
-  second.send({ type: "start", game });
+  const startingPlayers = readyState.players.map((item) => item.id === firstId ? { ...item, randomHero: false, hero: { ...item.hero, name: `Randomized ${runId}` } } : item);
+  second.send({ type: "start", players: startingPlayers, game });
   const [firstStarted, secondStarted] = await Promise.all([
     first.waitFor((state) => state.phase === "game"),
     second.waitFor((state) => state.phase === "game")
@@ -172,6 +174,8 @@ try {
   assert.deepEqual(secondStarted.game.playerStates[secondId].hand, [`card-${secondId}`], "each WebSocket view is personalized");
   assert.deepEqual(secondStarted.game.playerStates[firstId].hand, [], "other draw and hand data stays private");
   assert.deepEqual(secondStarted.game.playerStates[firstId].graveyard, [], "another player's graveyard remains private");
+  assert.equal(firstStarted.players.find((item) => item.id === firstId).hero.name, `Randomized ${runId}`, "a realtime random character resolves at battle start");
+  assert.equal(firstStarted.players.find((item) => item.id === firstId).randomHero, false, "the realtime random marker clears at battle start");
   assert.equal(firstStarted.viewerSessionId, firstId, "WebSocket snapshots identify the session whose private zones they contain");
   assert.equal(firstStarted.game.turnSeconds, 60, "the room overrides every client timer with a constant 60 seconds");
   assert(firstStarted.game.turnDeadline - firstStarted.game.turnStartedAt === 60_000, "every battle turn receives exactly 60 seconds");

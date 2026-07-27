@@ -655,6 +655,18 @@ function handleMessage(socket, rawMessage) {
     }
     if (!room.players.every((player) => player.ready)) return reject(socket, 'Every joined player must be ready.');
     if (!message.game?.adventure) return reject(socket, 'The adventure state is missing.');
+    if (room.players.some((player) => player.randomHero)) {
+      if (!Array.isArray(message.players) || message.players.length !== room.players.length) return reject(socket, 'Random characters must be assigned when the battle starts.');
+      const resolvedPlayers = room.players.map((current) => message.players.find((candidate) => candidate?.id === current.id));
+      const invalidResolution = resolvedPlayers.some((resolved, index) => {
+        const current = room.players[index];
+        return !resolved?.hero || !Array.isArray(resolved.skillDeck) || resolved.skillDeck.length !== 10
+          || resolved.displayName !== current.displayName || resolved.hero.team !== current.hero.team
+          || resolved.randomHero || (!current.randomHero && resolved.hero.name !== current.hero.name);
+      });
+      if (invalidResolution) return reject(socket, 'The random character assignment is invalid.');
+      room.players = resolvedPlayers.map((player, index) => ({ ...player, ready: room.players[index].ready, joinedAt: room.players[index].joinedAt, randomHero: false }));
+    }
     room.phase = 'game';
     room.game = message.game;
     room.game.adventure.target = randomDiceTarget();
