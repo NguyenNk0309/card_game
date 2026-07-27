@@ -835,6 +835,12 @@ button:focus-visible {
   filter: drop-shadow(0 0 10px rgba(212, 181, 110, 0.25));
 }
 
+.d20 span {
+  font-size: 22px !important;
+  font-weight: 900;
+  line-height: 1;
+}
+
 .d20.rolling {
   animation: tumble 400ms linear infinite;
 }
@@ -1719,16 +1725,6 @@ button:focus-visible {
   background: var(--hero-color);
   border-radius: 50%;
   font: 800 10px Georgia, "Times New Roman", serif;
-}
-
-.hero-picker-grid .random-character-option > span {
-  --hero-color: #d4b56e;
-  color: #172025;
-  box-shadow: 0 0 16px rgba(212, 181, 110, .35);
-}
-
-.random-character-preview strong {
-  color: var(--gold);
 }
 
 .hero-picker-grid strong {
@@ -3767,7 +3763,7 @@ button:focus-visible {
 .player-name-highlight,
 .hero-name > strong,
 .joined-name > strong,
-.current-turn-card strong { color: #71d3ff; text-shadow: 0 0 10px rgba(86, 188, 232, .2); }
+.current-turn-card strong { color: #71d3ff; text-shadow: none; }
 .history-player-name { display: block; margin-top: 5px; color: #f0cc72; font-size: 11px; letter-spacing: .03em; }
 .history-player-name.veil { color: #86c8e8; }
 .history-player-name.ember { color: #f0a17f; }
@@ -3974,16 +3970,15 @@ button:focus-visible {
   .action-hand .hand-card-refilling { animation-duration: .2s; animation-delay: 0s; }
 }
 
-/* One consistent colored glow for player names across every interface surface. */
+/* One consistent color treatment for player names across every interface surface. */
 .player-name-highlight,
 .inline-player-name,
 .history-player-name {
   --player-name-color: #78d8ff;
-  --player-name-glow: rgba(120, 216, 255, .52);
   color: var(--player-name-color) !important;
   font-size: inherit !important;
   font-weight: 900 !important;
-  text-shadow: 0 0 4px var(--player-name-glow), 0 0 11px var(--player-name-glow) !important;
+  text-shadow: none !important;
 }
 
 .inline-player-name {
@@ -3996,9 +3991,9 @@ button:focus-visible {
 }
 
 .inline-player-name.ember,
-.history-player-name.ember { --player-name-color: #ffae87; --player-name-glow: rgba(255, 174, 135, .52); }
+.history-player-name.ember { --player-name-color: #ffae87; }
 .inline-player-name.veil,
-.history-player-name.veil { --player-name-color: #88ddff; --player-name-glow: rgba(136, 221, 255, .52); }
+.history-player-name.veil { --player-name-color: #88ddff; }
 .history-player-name { width: fit-content; max-width: 100%; padding: 0 2px; overflow-wrap: anywhere; }
 .history-entry .inline-player-name { font-size: inherit !important; line-height: inherit; letter-spacing: normal; text-transform: none; }
 .history-player-link,
@@ -4028,7 +4023,7 @@ button:focus-visible {
   background: rgba(71, 168, 219, .1);
   border-bottom: 1px solid rgba(113, 211, 255, .58);
   font-weight: 900;
-  text-shadow: 0 0 10px rgba(86, 188, 232, .22);
+  text-shadow: none;
 }
 
 .history-card-link:hover,
@@ -4087,11 +4082,11 @@ button:focus-visible {
 /* Player names are colored from the local player's perspective everywhere. */
 .player-name-highlight.ally,
 .inline-player-name.ally,
-.history-player-name.ally { --player-name-color: #79e39c; --player-name-glow: rgba(121, 227, 156, .52); }
+.history-player-name.ally { --player-name-color: #79e39c; }
 
 .player-name-highlight.enemy,
 .inline-player-name.enemy,
-.history-player-name.enemy { --player-name-color: #ff3b30; --player-name-glow: rgba(255, 59, 48, .72); }
+.history-player-name.enemy { --player-name-color: #ff3b30; }
 
 .turn-queue-item,
 .expanded-turn-list .turn-queue-item {

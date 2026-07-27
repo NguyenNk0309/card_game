@@ -7,7 +7,7 @@ import { describeCardFailure, describeCardSuccess, getCardPityCost, getCardTarge
 import type { ActionCard, GameHistoryEntry, PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
 import { DiceRoller } from "./components/DiceRoller";
 import { EffectText } from "./components/EffectText";
-import { Lobby, RANDOM_CHARACTER_SELECTION } from "./components/Lobby";
+import { Lobby } from "./components/Lobby";
 import { PartyRail } from "./components/PartyRail";
 import { CardEffectIcon } from "./components/CardEffectIcon";
 import { PityCostBadge, PityIcon } from "./components/PityCost";
@@ -48,7 +48,7 @@ function DetailedGuide({ onClose }: { onClose: () => void }) {
       <span className="eyebrow">QUICK GUIDE</span>
       <h2>How to play Shattered Oath</h2>
       <div className="guide-update-grid">
-        <article><strong>1 · Choose your character</strong><p>Choose a character and review their abilities and deck before joining a team.</p></article>
+        <article><strong>1 · Choose your character</strong><p>Choose and review a character, or join without one to receive a random character when battle starts.</p></article>
         <article><strong>2 · Understand HP and Speed</strong><p>HP shows how much damage you can survive, while Speed determines when you act.</p></article>
         <article><strong>3 · Take your turn</strong><p>Select a card to Roll or Discard it, or choose Skip to pass without changing your cards.</p></article>
         <article><strong>4 · Dice, success, and failure</strong><p>Your modified d20 succeeds when it meets or beats the target; otherwise it fails with the card's listed result.</p></article>
@@ -215,7 +215,7 @@ export default function GameApp() {
   const { musicOn, volume, setVolume, toggleMusic, playEffect, playBattleResult, stopBattleResult } = useGameAudio();
   const characterOptions = useMemo(() => getCharacterOptions(), []);
   const [playerName, setPlayerName] = useState("");
-  const [selectedHeroName, setSelectedHeroName] = useState(RANDOM_CHARACTER_SELECTION);
+  const [selectedHeroName, setSelectedHeroName] = useState("");
   const [lobbyError, setLobbyError] = useState("");
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [lobbyAdventure] = useState(() => createAdventure("ARENA"));
@@ -422,7 +422,7 @@ export default function GameApp() {
     if (!name) return setLobbyError("Enter a name before choosing a team slot.");
     if (players.some((player) => player.displayName.toLowerCase() === name.toLowerCase())) return setLobbyError("That name is already in use. Choose another name.");
     if (players.filter((player) => player.hero.team === team).length >= 5) return setLobbyError(`${team === "veil" ? "Veilbound" : "Embercourt"} already has five players.`);
-    const pendingRandomHero = selectedHeroName === RANDOM_CHARACTER_SELECTION;
+    const pendingRandomHero = !selectedHeroName;
     const placeholderHeroName = pendingRandomHero ? characterOptions[0]?.hero.name : selectedHeroName;
     if (!placeholderHeroName) return setLobbyError("No character is available. Please try again.");
     const session = { ...createPlayerSession(name, team === "veil" ? 0 : 1, placeholderHeroName, sessionId), randomHero: pendingRandomHero };
@@ -440,7 +440,7 @@ export default function GameApp() {
     if (players.filter((player) => player.hero.team === team).length >= 5) return setLobbyError(`${team === "veil" ? "Veilbound" : "Embercourt"} already has five players.`);
     if (send({ type: "team", sessionId, team })) setLobbyError("");
   };
-  const leaveLobby = (id: string) => { send({ type: "leave", sessionId: id }); setSelectedPlayerId(null); setLobbyError(""); };
+  const leaveLobby = (id: string) => { send({ type: "leave", sessionId: id }); setSelectedPlayerId(null); setSelectedHeroName(""); setLobbyError(""); };
   const enterGame = () => {
     if (players.length < 2 || !players.every((player) => player.ready)) return setLobbyError("Every joined player must be ready before the battle starts.");
     if (!players.some((player) => player.hero.team === "veil") || !players.some((player) => player.hero.team === "ember")) return setLobbyError("At least one player must join each team before the battle starts.");

@@ -7,8 +7,6 @@ import { CardEffectIcon } from "./CardEffectIcon";
 import { EffectText } from "./EffectText";
 import { PityCostBadge } from "./PityCost";
 
-export const RANDOM_CHARACTER_SELECTION = "__random-character__";
-
 type Props = {
   players: PlayerSession[]; playerName: string; error: string; selectedPlayerId: string | null;
   localSessionId: string; connectionStatus: string; characterOptions: CharacterOption[]; selectedHeroName: string;
@@ -23,7 +21,7 @@ export function Lobby({ players, playerName, error, selectedPlayerId, localSessi
   const localPlayer = players.find((player) => player.id === localSessionId);
   const selected = localPlayer ? players.find((player) => player.id === selectedPlayerId) ?? localPlayer : undefined;
   const selectedOption = characterOptions.find((option) => option.hero.name === selectedHeroName);
-  const randomPending = selected?.randomHero ?? (!localPlayer && selectedHeroName === RANDOM_CHARACTER_SELECTION);
+  const randomPending = selected?.randomHero ?? (!localPlayer && !selectedHeroName);
   const shownHero = randomPending ? undefined : selected?.hero ?? selectedOption?.hero;
   const shownDeck = randomPending ? [] : selected?.skillDeck ?? selectedOption?.skillDeck ?? [];
   const readyCount = players.filter((player) => player.ready).length;
@@ -45,7 +43,7 @@ export function Lobby({ players, playerName, error, selectedPlayerId, localSessi
         {members.map((player, index) => <article className={`joined-player team-slot-player ${selected?.id === player.id ? "selected" : ""}`} key={player.id}>
           <button className="joined-main" onClick={() => onSelectPlayer(player.id)}>
             <div className="portrait" style={{ "--hero-color": player.randomHero ? "#d4b56e" : player.hero.color } as React.CSSProperties}>{player.randomHero ? "?" : player.hero.initials}</div>
-            <div><div className="joined-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{player.displayName}</strong>{player.id === localSessionId && <span>Your session</span>}</div><p>{player.randomHero ? "Random character · Assigned when battle starts" : `${player.hero.name} · ${player.hero.className}`}</p></div>
+            <div><div className="joined-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{player.displayName}</strong>{player.id === localSessionId && <span>Your session</span>}</div><p>{player.randomHero ? "Character pending · Random at battle start" : `${player.hero.name} · ${player.hero.className}`}</p></div>
             <div className="lobby-player-status"><span>Slot {index + 1}</span><span className={`ready-badge ${player.ready ? "is-ready" : ""}`}>{player.ready && <Check size={13}/>} {player.ready ? "Ready" : "Not ready"}</span></div>
           </button>
           <div className="joined-actions"><button onClick={() => onSelectPlayer(player.id)}><Eye size={14}/> Review deck</button>{player.id === localSessionId ? <><button className={player.ready ? "unready-button" : "ready-button"} onClick={() => onToggleReady(player.id)}>{player.ready ? "Cancel ready" : "Ready"}</button><button className="leave-button" onClick={() => onLeave(player.id)} aria-label={`Leave room as ${player.displayName}`} title="Leave room"><UserMinus size={15}/></button></> : localPlayer ? <button className="remove-player-button" onClick={() => onRemovePlayer(player.id)}><UserMinus size={14}/> Remove</button> : <span className="remote-player-label">Another browser</span>}</div>
@@ -58,7 +56,7 @@ export function Lobby({ players, playerName, error, selectedPlayerId, localSessi
   };
 
   return <section className="lobby-stage">
-    <div className="lobby-intro"><span className="eyebrow">THE ARENA AWAITS</span><h1>Join the battle.</h1><p>Choose a character, enter your name, then claim an empty team slot. Review your deck and ready up.</p></div>
+    <div className="lobby-intro"><span className="eyebrow">THE ARENA AWAITS</span><h1>Join the battle.</h1><p>Choose a character or leave it to fate, enter your name, then claim an empty team slot and ready up.</p></div>
     <div className="lobby-grid">
       <section className="join-panel">
         <div className="lobby-panel-heading"><div><span className="eyebrow">SHARED GAME ROOM</span><h2>{localPlayer ? <><span className={`player-name-highlight ${relationClass(localPlayer)}`}>{localPlayer.displayName}</span> joined {localPlayer.hero.team === "veil" ? "Veilbound" : "Embercourt"}</> : "Enter your name and choose a slot"}</h2></div><div className="lobby-heading-status"><span className={`connection-pill ${connectionStatus}`}>{statusText[connectionStatus] ?? connectionStatus}</span><div className={players.length >= 10 ? "capacity full" : "capacity"}><Users size={16} /> {players.length}/10</div></div></div>
@@ -69,7 +67,7 @@ export function Lobby({ players, playerName, error, selectedPlayerId, localSessi
         <div className={`ready-gate ${canStart ? "all-ready" : ""}`}>{canStart ? <Check size={19}/> : <Shield size={19}/>}<div><strong>{canStart ? "Everyone is ready" : players.length < 2 ? "Waiting for another player" : !hasBothTeams ? "Both teams need a player" : "Waiting for all players"}</strong><span>{canStart ? "Any joined player may start the battle." : !hasBothTeams && players.length >= 2 ? "At least one player must join a slot on each team." : "Every joined player must press Ready before the battle can start."}</span></div><button className="enter-game-button" onClick={onEnterGame} disabled={!canStart || connectionStatus !== "connected"}><Swords size={17}/> Enter the battle</button></div>
       </section>
       <aside className="character-panel">
-        {!localPlayer && <div className="hero-picker"><div className="deck-heading"><div><span className="eyebrow">CHOOSE YOUR CHARACTER</span><strong>Review before you ready up</strong></div><Users size={18}/></div><div className="hero-picker-grid"><button className={`random-character-option ${selectedHeroName === RANDOM_CHARACTER_SELECTION ? "selected" : ""}`} onClick={() => onHeroSelect(RANDOM_CHARACTER_SELECTION)} title="Receive a random character when the battle starts"><span><Sparkles size={20}/></span><strong>Random character</strong><small>Chosen at battle start</small></button>{characterOptions.map((option) => <button key={option.hero.name} className={selectedHeroName === option.hero.name ? "selected" : ""} onClick={() => onHeroSelect(option.hero.name)} title={option.hero.summary}><span style={{ "--hero-color": option.hero.color } as React.CSSProperties}>{option.hero.initials}</span><strong>{option.hero.name}</strong><small>{option.hero.className}</small></button>)}</div></div>}
+        {!localPlayer && <div className="hero-picker"><div className="deck-heading"><div><span className="eyebrow">CHOOSE YOUR CHARACTER</span><strong>Optional · Review before you ready up</strong></div><Users size={18}/></div><div className="hero-picker-grid">{characterOptions.map((option) => <button key={option.hero.name} className={selectedHeroName === option.hero.name ? "selected" : ""} onClick={() => onHeroSelect(option.hero.name)} title={option.hero.summary}><span style={{ "--hero-color": option.hero.color } as React.CSSProperties}>{option.hero.initials}</span><strong>{option.hero.name}</strong><small>{option.hero.className}</small></button>)}</div></div>}
         {shownHero ? <div className="character-review-layout">
           <section className="character-info-column">
             <div className="character-banner"><div className="large-portrait" style={{ "--hero-color": shownHero.color } as React.CSSProperties}>{shownHero.initials}</div><div><span className="eyebrow">{selected ? <><b className={`player-name-highlight ${relationClass(selected)}`}>{selected.displayName}</b>&apos;S CHARACTER</> : "YOUR CHARACTER PICK"}</span><h2>{shownHero.name}</h2><p>{shownHero.title} · {shownHero.className}</p></div>{selected && <div className={`team-chip ${shownHero.team}`}>{shownHero.team === "veil" ? <Eye size={15}/> : <Flame size={15}/>} {shownHero.team === "veil" ? "Veilbound" : "Embercourt"}</div>}</div>
@@ -80,7 +78,7 @@ export function Lobby({ players, playerName, error, selectedPlayerId, localSessi
             <div className="deck-heading"><div><span className="eyebrow">PERSONAL SKILL DECK</span></div><Sparkles size={18}/></div>
             <div className="lobby-skill-deck">{shownDeck.map((card) => <article className={`skill-card effect-${card.effect} ${card.unique ? "hero-unique-card" : "common-skill-card"} ${card.effect === "none" ? "no-effect-card" : ""}`} key={card.id} style={{ "--hero-color": shownHero.color } as React.CSSProperties}><PityCostBadge card={card}/>{card.unique && <div className="unique-card-banner"><Crown size={13}/> SPECIAL · {shownHero.name}</div>}<div className={`card-sigil effect-${card.effect}`}><CardEffectIcon card={card}/></div><span className="skill-kind">{card.unique ? "Class skill" : card.effect === "none" ? "No-effect common card" : "Common action card"}</span><strong>{card.name}</strong><p><EffectText text={card.description} card={card}/></p><div className="card-outcome-lines"><p className="card-success-line"><Check size={13}/><span><b>SUCCESS</b><EffectText text={describeCardSuccess(card)} card={card}/></span></p><p className="card-failure-line"><X size={13}/><span><b>FAILURE</b><EffectText text={describeCardFailure(card)} card={card}/></span></p></div></article>)}</div>
           </section>
-        </div> : randomPending ? <div className="no-character random-character-preview"><Sparkles size={32}/><h2>Random character pending</h2><p>Fate will assign a real character only when the battle starts.</p><strong>Your chosen team and ready status are preserved.</strong></div> : <div className="no-character"><Sparkles size={28}/><h2>Your character awaits</h2><p>Choose a character to review their special skills.</p></div>}</aside>
+        </div> : randomPending ? <div className="no-character"><Sparkles size={32}/><h2>No character selected</h2><p>You can join, switch teams, and ready up now. A random character will be assigned when the battle starts.</p></div> : <div className="no-character"><Sparkles size={28}/><h2>Your character awaits</h2><p>Choose a character to review their special skills.</p></div>}</aside>
     </div>
   </section>;
 }
