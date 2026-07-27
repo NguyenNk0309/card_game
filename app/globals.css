@@ -892,6 +892,19 @@ button:focus-visible {
   cursor: wait;
 }
 
+.waiting-hourglass {
+  animation: waiting-hourglass-turn 2.8s linear infinite;
+  transform-origin: center;
+}
+
+@keyframes waiting-hourglass-turn {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .waiting-hourglass { animation: none; }
+}
+
 .hand-zone {
   background: rgba(8, 13, 15, 0.75);
   border-top: 1px solid var(--line);
@@ -1706,6 +1719,16 @@ button:focus-visible {
   background: var(--hero-color);
   border-radius: 50%;
   font: 800 10px Georgia, "Times New Roman", serif;
+}
+
+.hero-picker-grid .random-character-option > span {
+  --hero-color: #d4b56e;
+  color: #172025;
+  box-shadow: 0 0 16px rgba(212, 181, 110, .35);
+}
+
+.random-character-preview strong {
+  color: var(--gold);
 }
 
 .hero-picker-grid strong {

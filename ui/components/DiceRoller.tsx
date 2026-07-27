@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Dices, SkipForward, Sparkles, Trash2, X } from "lucide-react";
+import { Check, Dices, Hourglass, SkipForward, Sparkles, Trash2, X } from "lucide-react";
 import { PityIcon } from "./PityCost";
 
 type ConfirmAction = "skip" | "discard" | null;
@@ -41,7 +41,7 @@ export function DiceRoller({ roll, rolling, target, passiveBonus = 0, diceBuff =
   return <section className="dice-panel">
     <div className={`d20 ${rolling ? "rolling" : ""}`}><span>{roll ?? "20"}</span></div>
     <div className="dice-copy"><span className="eyebrow">ACTION CHECK</span><strong>Target {target}</strong><small>d20{passiveBonus ? ` + ${passiveBonus} Commanding Voice` : ""}{diceBuff ? ` + ${diceBuff} Focus Order` : ""}{dicePenalty ? ` - ${dicePenalty} omen/hex` : ""}</small><em>Total modifier: {modifier >= 0 ? "+" : ""}{modifier}</em></div>
-    <button className="roll-button" onClick={onRoll} disabled={rolling || disabled || !hasSelectedCard}>{rolling ? <Sparkles size={17}/> : <Dices size={18}/>}<span>{rolling ? "Rolling..." : disabled ? disabledLabel : !hasSelectedCard ? "Select a card" : "Roll the die"}</span></button>
+    <button className="roll-button" onClick={onRoll} disabled={rolling || disabled || !hasSelectedCard}>{rolling ? <Sparkles size={17}/> : disabled ? <Hourglass className="waiting-hourglass" size={18}/> : <Dices size={18}/>}<span>{rolling ? "Rolling..." : disabled ? disabledLabel : !hasSelectedCard ? "Select a card" : "Roll the die"}</span></button>
     <button className="pity-button" onClick={onPity} disabled={rolling || disabled || !hasSelectedCard || pityPoints < pityCost} title={!hasSelectedCard ? "Select a card first" : pityPoints < pityCost ? `Need ${pityCost - pityPoints} more pity point${pityCost - pityPoints === 1 ? "" : "s"}` : `Spend ${pityCost} pity point${pityCost === 1 ? "" : "s"} for guaranteed success`}><PityIcon size={18}/><span>Pity roll<small>{pityPoints} available · cost {pityCost}</small></span></button>
     <div className="turn-action-buttons" ref={confirmationRef}>
       <div className="turn-action-control">

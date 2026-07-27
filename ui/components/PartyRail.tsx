@@ -2,6 +2,7 @@
 
 import { Check, Heart, Shield, Sparkles, Swords, UserMinus } from "lucide-react";
 import type { PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
+import { playerDisplayName, playerPossessiveName } from "../playerDisplay";
 
 const teamMeta: Record<TeamId, { name: string; icon: typeof Shield }> = {
   veil: { name: "Veilbound", icon: Shield },
@@ -39,12 +40,12 @@ export function PartyRail({ players, game, localSessionId, onRemovePlayer, onIns
           if (state?.reviveIn) buffs.push({ label: "Revives in", value: `${state.reviveIn} turns` });
           if (state?.borrowedCards?.length) buffs.push({ label: "Borrowed cards", value: String(state.borrowedCards.length) });
           return <article className={`hero-row ${dead ? "is-dead" : ""} ${player.id === localSessionId ? "is-you" : ""}`} key={player.id}>
-            <button className="portrait-button" onClick={() => onInspectPlayer?.(player.id)} aria-label={`View ${player.displayName}'s character`}><div className="portrait" style={{ "--hero-color": hero.color } as React.CSSProperties}>{hero.initials}</div></button>
+            <button className="portrait-button" onClick={() => onInspectPlayer?.(player.id)} aria-label={`View ${playerPossessiveName(player, localSessionId).toLowerCase()} character`}><div className="portrait" style={{ "--hero-color": hero.color } as React.CSSProperties}>{hero.initials}</div></button>
             <div className="hero-copy">
-              <div className="hero-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{player.displayName}</strong><span className="hero-name-actions">{dead ? <em>DEFEATED</em> : null}{localSessionId && player.id !== localSessionId && onRemovePlayer && <button className="rail-remove-player" onClick={() => onRemovePlayer(player.id)} aria-label={`Remove ${player.displayName}`}><UserMinus size={12}/></button>}</span></div>
+              <div className="hero-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{playerDisplayName(player, localSessionId)}</strong><span className="hero-name-actions">{dead ? <em>DEFEATED</em> : null}{localSessionId && player.id !== localSessionId && onRemovePlayer && <button className="rail-remove-player" onClick={() => onRemovePlayer(player.id)} aria-label={`Remove ${player.displayName}`}><UserMinus size={12}/></button>}</span></div>
               <span>{hero.name} · {hero.className}</span>
-              <div className="hp-line"><Heart size={11} fill="currentColor"/><div className="hp-meter" role="progressbar" aria-label={`${player.displayName} health`} aria-valuemin={0} aria-valuemax={maxHp} aria-valuenow={hp}><i style={{ width: `${Math.max(0, hp / maxHp) * 100}%` }}/><strong>{hp} / {maxHp} HP</strong></div></div>
-              {buffs.length > 0 && <div className="roster-buff-row" aria-label={`${player.displayName} active effects`}>{buffs.map((buff, index) => <span className={`roster-buff-indicator ${buff.negative ? "negative" : ""} ${buff.shield ? "shield" : ""}`} tabIndex={0} aria-label={`${buff.label}: ${buff.value}`} key={`${buff.label}-${index}`}>{buff.shield ? <><Shield size={11}/><b>{buff.value}</b></> : <Sparkles size={12}/>}<span className="roster-buff-tooltip" role="tooltip"><strong>{buff.label}</strong><span className={buff.negative ? "negative" : ""}><em>{buff.value}</em></span></span></span>)}</div>}
+              <div className="hp-line"><Heart size={11} fill="currentColor"/><div className="hp-meter" role="progressbar" aria-label={`${playerDisplayName(player, localSessionId)} health`} aria-valuemin={0} aria-valuemax={maxHp} aria-valuenow={hp}><i style={{ width: `${Math.max(0, hp / maxHp) * 100}%` }}/><strong>{hp} / {maxHp} HP</strong></div></div>
+              {buffs.length > 0 && <div className="roster-buff-row" aria-label={`${playerDisplayName(player, localSessionId)} active effects`}>{buffs.map((buff, index) => <span className={`roster-buff-indicator ${buff.negative ? "negative" : ""} ${buff.shield ? "shield" : ""}`} tabIndex={0} aria-label={`${buff.label}: ${buff.value}`} key={`${buff.label}-${index}`}>{buff.shield ? <><Shield size={11}/><b>{buff.value}</b></> : <Sparkles size={12}/>}<span className="roster-buff-tooltip" role="tooltip"><strong>{buff.label}</strong><span className={buff.negative ? "negative" : ""}><em>{buff.value}</em></span></span></span>)}</div>}
             </div>
           </article>;
         })}
