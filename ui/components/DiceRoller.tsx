@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { Check, Dices, Hourglass, SkipForward, Sparkles, Trash2, X } from "lucide-react";
 import { PityIcon } from "./PityCost";
 
 type ConfirmAction = "skip" | "discard" | null;
 
-export function DiceRoller({ roll, rolling, target, passiveBonus = 0, diceBuff = 0, dicePenalty = 0, pityPoints = 0, pityCost = 0, hasSelectedCard = false, onRoll, onPity, onSkip, onDiscard, disabled = false, disabledLabel = "Waiting for your turn" }: { roll: number | null; rolling: boolean; target: number; passiveBonus?: number; diceBuff?: number; dicePenalty?: number; pityPoints?: number; pityCost?: number; hasSelectedCard?: boolean; onRoll: () => void; onPity: () => void; onSkip: () => void; onDiscard: () => void; disabled?: boolean; disabledLabel?: string; }) {
+export function DiceRoller({ roll, rolling, target, passiveBonus = 0, diceBuff = 0, dicePenalty = 0, pityPoints = 0, pityCost = 0, hasSelectedCard = false, onRoll, onPity, onSkip, onDiscard, disabled = false, disabledLabel = "Waiting for your turn" }: { roll: number | null; rolling: boolean; target: number; passiveBonus?: number; diceBuff?: number; dicePenalty?: number; pityPoints?: number; pityCost?: number; hasSelectedCard?: boolean; onRoll: () => void; onPity: () => void; onSkip: () => void; onDiscard: () => void; disabled?: boolean; disabledLabel?: ReactNode; }) {
   const modifier = passiveBonus + diceBuff - dicePenalty;
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const confirmationRef = useRef<HTMLDivElement>(null);

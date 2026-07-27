@@ -1,5 +1,5 @@
 import { ACTION_CARDS, calculatePityCost, CHARACTER_SKILL_CARDS, EVENTS, HERO_TEMPLATES, REALMS, STORY_BEATS } from "./catalog";
-import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, Hero, PlayerRunState, PlayerSession, SyncedGameState, TeamId, TimedEffectKind, WorldEventOutcome } from "@/shared/types";
+import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, Hero, PlayerLifeEvent, PlayerRunState, PlayerSession, SyncedGameState, TeamId, TimedEffectKind, WorldEventOutcome } from "@/shared/types";
 
 export function randomIntInclusive(minimum: number, maximum: number) {
   const lower = Math.ceil(minimum);
@@ -402,6 +402,9 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     graveyard: [...(state.graveyard ?? [])]
   }]));
   const turn = game.completedTurns + 1;
+  const lifeEventStamp = Date.now();
+  const hpBeforeAction = Object.fromEntries(players.map((player) => [player.id, states[player.id]?.hp ?? 0]));
+  const lifeEvents: PlayerLifeEvent[] = [];
   const actionPhase = Math.min(30, (game.completedPhases ?? Math.max(0, (game.roundNumber ?? 1) - 1)) + 1);
   const revivingAtTurnStart = Object.keys(states).filter((id) => states[id].hp <= 0 && states[id].reviveIn > 0);
   const diceBuff = actorState.diceBuff ?? 0;
@@ -574,6 +577,16 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     detail = `${detail} ${failureDetail}`;
   }
 
+  const cardDefeatedPlayers = players.filter((player) => hpBeforeAction[player.id] > 0 && (states[player.id]?.hp ?? 0) <= 0);
+  for (const player of cardDefeatedPlayers) {
+    const reason = success
+      ? `${player.displayName} was defeated by ${actor.displayName}'s ${card.name}.`
+      : player.id === actor.id
+        ? `${player.displayName} was defeated by failure backlash from ${card.name}.`
+        : `${player.displayName} was defeated by team backlash from ${actor.displayName}'s ${card.name}.`;
+    lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-card-defeat-${player.id}`, kind: "defeat", playerId: player.id, playerName: player.displayName, reason });
+  }
+
   finishPlayedCard(states, actor.id, card.id);
   expireTimedEffectsAtTurnEnd(states[actor.id]);
   returnExpiredBorrowedCards(states, actor.id);
@@ -581,6 +594,10 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   if (revivedIds.length) {
     const revivedNames = revivedIds.map((id) => players.find((player) => player.id === id)?.displayName ?? "An ally");
     detail = `${detail} ${revivedNames.join(", ")} revived with one-third HP.`;
+    for (const id of revivedIds) {
+      const player = players.find((candidate) => candidate.id === id);
+      if (player) lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-returning-light-${id}`, kind: "revive", playerId: id, playerName: player.displayName, reason: `${player.displayName} returned through Returning Light with one-third HP.` });
+    }
   }
   let adventure = { ...game.adventure, target: randomDiceTarget() };
   if (success && (card.effect === "damage" || card.effect === "aoe")) adventure = { ...adventure, veilInfluence: adventure.veilInfluence + (actor.hero.team === "veil" ? amount : 0), emberInfluence: adventure.emberInfluence + (actor.hero.team === "ember" ? amount : 0) };
@@ -598,6 +615,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     detail = `${detail} ${reviveMessage}`;
     actionHistory.message = `${actor.displayName} used ${card.name} (${rollSummary}) — ${detail}`;
     history.push({ id: `sable-revive-${turn}-${Date.now()}`, turn, phase: actionPhase, kind: "system", actorName: "Second Sight", message: reviveMessage, success: true, createdAt: Date.now() });
+    for (const player of passiveRevives) lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-second-sight-${player.id}`, kind: "revive", playerId: player.id, playerName: player.displayName, reason: `${player.displayName} invoked Second Sight and revived with half HP.` });
   }
   let nextTurnOrder = rotateTurnOrder(turnOrder, actor.id, states);
   if (success && card.supportType === "delay-enemy" && selectedEnemy) nextTurnOrder = moveTurnTarget(nextTurnOrder, selectedEnemy.id, "delay");
@@ -618,15 +636,20 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   adventure = { ...adventure, chapter: Math.min(30, completedPhases + 1) };
   let worldEvent: WorldEventOutcome | null = null;
   if (phaseCompleted && completedPhases % 5 === 0) {
+    const hpBeforeWorldEvent = Object.fromEntries(players.map((player) => [player.id, states[player.id]?.hp ?? 0]));
     const result = applyWorldEvent(completedPhases, players, states);
     worldEvent = result.event;
     history.push(result.history);
+    for (const player of players.filter((candidate) => hpBeforeWorldEvent[candidate.id] > 0 && (states[candidate.id]?.hp ?? 0) <= 0)) {
+      lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-world-defeat-${player.id}`, kind: "defeat", playerId: player.id, playerName: player.displayName, reason: `${player.displayName} was defeated by ${worldEvent.title}.` });
+    }
     const eventPassiveRevives = triggerSableRevives(players, states);
     if (eventPassiveRevives.length) {
       const reviveMessage = `${eventPassiveRevives.map((player) => player.displayName).join(", ")} invoked Second Sight and revived with half HP.`;
       worldEvent.description = `${worldEvent.description} ${reviveMessage}`;
       result.history.message = `${result.history.message} ${reviveMessage}`;
       history.push({ id: `sable-event-revive-${turn}-${Date.now()}`, turn, phase: completedPhases, kind: "system", actorName: "Second Sight", message: reviveMessage, success: true, createdAt: Date.now() });
+      for (const player of eventPassiveRevives) lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-world-second-sight-${player.id}`, kind: "revive", playerId: player.id, playerName: player.displayName, reason: `${player.displayName} invoked Second Sight after ${worldEvent.title} and revived with half HP.` });
     }
   }
   history = history.slice(-80);
@@ -639,7 +662,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const now = Date.now();
   const veilTotal = totals(players, states, "veil").hp;
   const emberTotal = totals(players, states, "ember").hp;
-  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, completedPhases, maxPhases: 30, roll: usePity ? null : roll, outcome: { kind: "card", success, total: usePity ? game.adventure.target : total, target: game.adventure.target, label: `${actor.displayName} used ${card.name}`, detail, actorName: actor.displayName, cardId: card.id, cardName: card.name, cardType: card.type, effect: card.effect, supportType: card.supportType, targetIds: targets.map((target) => target.id), targetName: targets.map((target) => target.displayName).join(", "), roll: usePity ? undefined : roll, bonus: usePity ? undefined : totalBonus, diceBuff: usePity ? undefined : diceBuff, dicePenalty: usePity ? undefined : dicePenalty, resolution: usePity ? "pity" : "roll", pityCost: usePity || automaticSuccess ? pityCost : undefined, pityBefore, pityAfter: states[actor.id].pityPoints, amount, defeated, nextTarget: adventure.target, failureDetail }, playerStates: states, history, worldEvent, turnStartedAt: now, turnDeadline: ended ? 0 : now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} wins. Total HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder, roundNumber, roundOrder, actedThisRound };
+  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, completedPhases, maxPhases: 30, roll: usePity ? null : roll, outcome: { kind: "card", success, total: usePity ? game.adventure.target : total, target: game.adventure.target, label: `${actor.displayName} used ${card.name}`, detail, actorName: actor.displayName, cardId: card.id, cardName: card.name, cardType: card.type, effect: card.effect, supportType: card.supportType, targetIds: targets.map((target) => target.id), targetName: targets.map((target) => target.displayName).join(", "), roll: usePity ? undefined : roll, bonus: usePity ? undefined : totalBonus, diceBuff: usePity ? undefined : diceBuff, dicePenalty: usePity ? undefined : dicePenalty, resolution: usePity ? "pity" : "roll", pityCost: usePity || automaticSuccess ? pityCost : undefined, pityBefore, pityAfter: states[actor.id].pityPoints, amount, defeated, nextTarget: adventure.target, failureDetail, lifeEvents }, playerStates: states, history, worldEvent, turnStartedAt: now, turnDeadline: ended ? 0 : now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} wins. Total HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder, roundNumber, roundOrder, actedThisRound };
 }
 
 export function resolveAction(adventure: Adventure, cardId: string, roll: number, _advanceChapter = true, availableCards: ActionCard[] = ACTION_CARDS) {

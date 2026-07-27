@@ -79,6 +79,14 @@ export type PlayerSession = {
   skillDeck: ActionCard[];
 };
 
+export type PlayerLifeEvent = {
+  id: string;
+  kind: "defeat" | "revive";
+  playerId: string;
+  playerName: string;
+  reason: string;
+};
+
 export type GameOutcome = {
   success: boolean;
   total: number;
@@ -108,6 +116,7 @@ export type GameOutcome = {
   failureDetail?: string;
   supportType?: SupportType;
   targetIds?: string[];
+  lifeEvents?: PlayerLifeEvent[];
 };
 
 export type GameHistoryEntry = {

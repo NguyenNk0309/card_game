@@ -219,7 +219,7 @@ function tickPendingRevives(game) {
     state.reviveIn -= 1;
     if (state.reviveIn === 0) {
       state.hp = Math.max(1, Math.ceil(state.maxHp / 3));
-      revived.push(player.displayName);
+      revived.push(player);
     }
   }
   return revived;
@@ -320,6 +320,8 @@ function applyWorldEvent(game, turn, now) {
   const living = (filterTeam) => room.players.filter((player) => (!filterTeam || player.hero.team === filterTeam) && (game.playerStates[player.id]?.hp || 0) > 0);
   const titles = ['Chaos Convergence', 'Fractured Fate', 'Crimson World Pulse', 'Unstable Arena Surge'];
   const title = titles[Math.floor(Math.random() * titles.length)];
+  const eventId = `world-${turn}-${now}`;
+  const hpBeforeEvent = Object.fromEntries(room.players.map((player) => [player.id, game.playerStates[player.id]?.hp || 0]));
   const reports = [];
   for (const player of living()) {
     const kind = Math.floor(Math.random() * 5);
@@ -353,11 +355,17 @@ function applyWorldEvent(game, turn, now) {
       }
     }
   }
+  const defeatedPlayers = room.players.filter((player) => hpBeforeEvent[player.id] > 0 && (game.playerStates[player.id]?.hp || 0) <= 0);
   const passiveRevives = triggerSableRevives(game);
   for (const player of passiveRevives) reports.push(`${player.displayName} invoked Second Sight and revived with half HP`);
   const description = `Both teams are affected with a separate random result for every living player: ${reports.join('; ')}.`;
-  const event = { id: `world-${turn}-${now}`, turn, level, title, description };
+  const event = { id: eventId, turn, level, title, description };
   game.worldEvent = event;
+  game.outcome.lifeEvents = [
+    ...(game.outcome.lifeEvents || []),
+    ...defeatedPlayers.map((player) => ({ id: `life-${turn}-${now}-world-defeat-${player.id}`, kind: 'defeat', playerId: player.id, playerName: player.displayName, reason: `${player.displayName} was defeated by ${title}.` })),
+    ...passiveRevives.map((player) => ({ id: `life-${turn}-${now}-world-second-sight-${player.id}`, kind: 'revive', playerId: player.id, playerName: player.displayName, reason: `${player.displayName} invoked Second Sight after ${title} and revived with half HP.` }))
+  ];
   game.history.push({ id: `${event.id}-history`, turn, phase: turn, kind: 'world', actorName: 'World Event', message: `World Event · Level ${level} — ${title}: ${description}`, success: true, createdAt: now });
 }
 
@@ -447,10 +455,10 @@ async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '') {
   const discarded = kind === 'discard';
   game.completedTurns = completedTurns;
   game.adventure = { ...game.adventure, target: randomDiceTarget() };
-  game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered the discard pile and advanced the full-deck cycle. Expiring effects ended normally.` : forced ? 'A support effect cancelled this turn. Cards were preserved; expiring effects ended normally.' : timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled; expiring effects ended normally.' : 'The turn was skipped. No cards were discarded or shuffled; expiring effects ended normally.', actorName: playerName, cardName: discardedCardName || undefined };
+  game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered the discard pile and advanced the full-deck cycle. Expiring effects ended normally.` : forced ? 'A support effect cancelled this turn. Cards were preserved; expiring effects ended normally.' : timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled; expiring effects ended normally.' : 'The turn was skipped. No cards were discarded or shuffled; expiring effects ended normally.', actorName: playerName, cardName: discardedCardName || undefined, lifeEvents: revived.map((player) => ({ id: `life-${completedTurns}-${now}-returning-light-${player.id}`, kind: 'revive', playerId: player.id, playerName: player.displayName, reason: `${player.displayName} returned through Returning Light with one-third HP.` })) };
   game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} manually discarded ${discardedCardName} and advanced their full-deck cycle. Expiring effects ended normally.` : forced ? `${playerName}'s turn was cancelled by an enemy support effect. Their hand was preserved; expiring effects ended normally.` : timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved; expiring effects ended normally.` : `${playerName} manually skipped the turn. Their hand was preserved; expiring effects ended normally.`, success: false, createdAt: now }];
   game.worldEvent = null;
-  if (revived.length) game.history.push({ id: `revive-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind: 'system', actorName: 'Returning Light', message: `${revived.join(', ')} revived with one-third HP.`, success: true, createdAt: now });
+  if (revived.length) game.history.push({ id: `revive-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind: 'system', actorName: 'Returning Light', message: `${revived.map((player) => player.displayName).join(', ')} revived with one-third HP.`, success: true, createdAt: now });
   game.roll = null;
   let phaseCompleted = false;
   if (passingPlayer) {

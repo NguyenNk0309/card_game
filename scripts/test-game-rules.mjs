@@ -150,6 +150,14 @@ assert.equal(attacked.history[0].diceTarget, firstTarget);
 assert.equal(attacked.history[0].diceTotal, 20 + engine.getPassiveDiceBonus(first, attack, game.playerStates[first.id]));
 assert.match(attacked.history[0].message, /An.*Binh|Binh.*HP/);
 
+const defeatNoticeGame = engine.createInitialGame([first, second], engine.createAdventure("DEFEAT-NOTICE"), 30);
+defeatNoticeGame.turnOrder = [first.id, second.id];
+defeatNoticeGame.playerStates[first.id].hand = [attack.id];
+defeatNoticeGame.playerStates[second.id].hp = 1;
+const defeatNotice = engine.resolveCardTurn(defeatNoticeGame, [first, second], attack.id, second.id, 20);
+assert.deepEqual(defeatNotice.outcome.lifeEvents.map((event) => [event.kind, event.playerId]), [["defeat", second.id]], "a defeat creates one synchronized player-life event");
+assert.match(defeatNotice.outcome.lifeEvents[0].reason, /Binh.*An.*Slash/, "the defeat panel explains who and which card caused the defeat");
+
 const exactTargetGame = engine.createInitialGame([first, second], engine.createAdventure("EXACT-TARGET"), 30);
 exactTargetGame.turnOrder = [first.id, second.id];
 exactTargetGame.adventure.target = 12;
@@ -273,6 +281,8 @@ sableReviveGame.playerStates[cursedEnemy.id].hand = [cursedAttack.id];
 const sableRevived = engine.resolveCardTurn(sableReviveGame, curseParty, cursedAttack.id, oracle.id, 20);
 assert.equal(sableRevived.playerStates[oracle.id].hp, Math.ceil(oracle.hero.maxHp / 2), "Sable revives with half max HP");
 assert.equal(sableRevived.playerStates[oracle.id].passiveReviveUsed, true, "Sable's passive revive is consumed once");
+assert.deepEqual(sableRevived.outcome.lifeEvents.map((event) => event.kind), ["defeat", "revive"], "Second Sight queues the defeat panel before the revival panel");
+assert.match(sableRevived.outcome.lifeEvents[1].reason, /Second Sight.*half HP/, "the revival panel explains Sable's passive");
 sableRevived.playerStates[oracle.id].hp = 1;
 sableRevived.turnOrder = [cursedEnemy.id, oracle.id, oracleAlly.id];
 sableRevived.activePlayerIndex = 1;
@@ -330,6 +340,8 @@ revivalTicked.playerStates[healer.id].hand = [healerCommon.id];
 const revived = engine.resolveCardTurn(revivalTicked, supportParty, healerCommon.id, healer.id, 20);
 assert.equal(revived.playerStates[supportAlly.id].reviveIn, 0);
 assert.equal(revived.playerStates[supportAlly.id].hp, Math.ceil(supportAlly.hero.maxHp / 3), "revived allies return with one-third max HP");
+assert.equal(revived.outcome.lifeEvents.at(-1).kind, "revive", "Returning Light produces a synchronized revival event");
+assert.match(revived.outcome.lifeEvents.at(-1).reason, /Returning Light.*one-third HP/, "the revival panel explains Returning Light");
 
 const noTargetGame = engine.createInitialGame([healer, supportEnemy], engine.createAdventure("NO-TARGET"), 30);
 noTargetGame.turnOrder = [healer.id, supportEnemy.id];
