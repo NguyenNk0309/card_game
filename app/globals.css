@@ -5085,7 +5085,10 @@ button:focus-visible {
 
 .hero-picker { flex: 0 0 auto; }
 .character-review-layout,
-.no-character { flex: 1 1 auto; }
+.no-character {
+  min-height: 0;
+  flex: 1 1 0;
+}
 
 .hero-class-tabs {
   margin: 0 0 9px;
@@ -5147,13 +5150,54 @@ button:focus-visible {
 
 .lobby-skill-deck {
   align-items: stretch;
-  grid-auto-rows: 1fr;
+  grid-auto-rows: max-content;
 }
 
-.character-deck-column .lobby-skill-deck { grid-auto-rows: 1fr; }
+.character-review-layout { align-items: stretch; }
+
+.character-info-column,
+.character-deck-column {
+  height: 100%;
+  min-height: 0;
+}
+
+.character-info-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.character-info-column .character-profile {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.character-info-column .character-stats {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.character-deck-column {
+  max-height: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.character-deck-column .deck-heading { flex: 0 0 auto; }
+
+.character-deck-column .lobby-skill-deck {
+  min-height: 0;
+  max-height: none;
+  flex: 1 1 auto;
+  grid-auto-rows: max-content;
+  align-content: start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 
 .lobby-skill-deck .skill-card {
-  height: 100%;
+  height: auto;
+  min-height: 250px;
   display: flex;
   flex-direction: column;
 }
@@ -5177,7 +5221,11 @@ button:focus-visible {
 .inline-player-name.enemy,
 .history-player-name.enemy { --player-name-color: #ff2929; }
 
-.history-card-link { color: #26cfff; }
+.history-card-link {
+  color: #26cfff;
+  border-bottom: 0;
+  text-decoration: none;
+}
 .history-card-link:hover,
 .history-card-link:focus-visible { color: #7de7ff; }
 
@@ -5185,7 +5233,19 @@ button:focus-visible {
   .hero-class-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-@media (min-width: 1360px) and (max-height: 1100px) {
-  .character-review-layout { height: auto; }
-  .character-deck-column .skill-card { height: 100%; }
+@media (max-width: 900px) {
+  .character-review-layout {
+    height: auto;
+    flex-basis: auto;
+  }
+
+  .character-info-column,
+  .character-deck-column { height: auto; }
+
+  .character-deck-column { overflow: visible; }
+
+  .character-deck-column .lobby-skill-deck {
+    max-height: min(720px, 70vh);
+    flex: 0 1 auto;
+  }
 }
