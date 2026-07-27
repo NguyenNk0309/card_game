@@ -420,6 +420,18 @@ assert.deepEqual(new Set(newCycle.playerStates[first.id].hand), new Set([attack.
 assert.equal(newCycle.playerStates[first.id].drawPile.length, 0, "all four available reusable cards were dealt");
 assert.equal(newCycle.playerStates[first.id].discardPile.length, 0, "discard clears only at the full-cycle boundary");
 
+const fiveCardCycle = engine.createInitialGame([first, second], engine.createAdventure("FIVE-CARD-CYCLE"), 30);
+fiveCardCycle.turnOrder = [first.id, second.id];
+const fiveReusableCards = first.skillDeck.slice(0, 5).map((card) => card.id);
+fiveCardCycle.playerStates[first.id].hand = [fiveReusableCards[4]];
+fiveCardCycle.playerStates[first.id].drawPile = [];
+fiveCardCycle.playerStates[first.id].discardPile = fiveReusableCards.slice(0, 4);
+const fiveCardRefill = engine.resolveCardTurn(fiveCardCycle, [first, second], fiveReusableCards[4], first.id, 20);
+assert.equal(fiveCardRefill.playerStates[first.id].hand.length, 4, "a completed cycle always deals four cards when at least four are reusable");
+assert.equal(fiveCardRefill.playerStates[first.id].drawPile.length, 1, "recycled cards not dealt into the four-card hand remain in draw");
+assert.equal(fiveCardRefill.playerStates[first.id].discardPile.length, 0, "all discarded cards move out of discard at the cycle boundary");
+assert.deepEqual(new Set([...fiveCardRefill.playerStates[first.id].hand, ...fiveCardRefill.playerStates[first.id].drawPile]), new Set(fiveReusableCards), "the refill preserves every reusable card across hand and draw");
+
 const eventGame = engine.createInitialGame([first, second], engine.createAdventure("EVENT"), 30);
 eventGame.turnOrder = [first.id, second.id];
 eventGame.completedTurns = 8;

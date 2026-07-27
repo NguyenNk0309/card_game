@@ -160,14 +160,11 @@ export function getPassiveDiceBonus(player: PlayerSession, card: ActionCard, sta
 function startNewCycleIfEmpty(state: PlayerRunState): PlayerRunState {
   let drawPile = [...state.drawPile];
   let discardPile = [...state.discardPile];
-  const hand = [...state.hand];
-  if (!hand.length && !drawPile.length && discardPile.length) {
+  let hand = [...state.hand];
+  if (hand.length === 0 && drawPile.length === 0 && discardPile.length > 0) {
     drawPile = shuffle(discardPile);
     discardPile = [];
-    while (hand.length < 4 && drawPile.length) {
-      const replacementIndex = Math.floor(Math.random() * drawPile.length);
-      hand.push(drawPile.splice(replacementIndex, 1)[0]);
-    }
+    hand = drawPile.splice(0, 4);
   }
   return { ...state, drawPile, discardPile, hand };
 }

@@ -217,17 +217,23 @@ function removeCardFromZones(state, cardId) {
   state.discardPile = (state.discardPile || []).filter((id) => id !== cardId);
 }
 
+function shuffleCards(cards) {
+  const shuffled = [...cards];
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+  return shuffled;
+}
+
 function startNewCycleIfEmpty(state) {
   state.hand ||= [];
   state.drawPile ||= [];
   state.discardPile ||= [];
-  if (!state.hand.length && !state.drawPile.length && state.discardPile.length) {
-    state.drawPile = [...state.discardPile].sort(() => Math.random() - 0.5);
+  if (state.hand.length === 0 && state.drawPile.length === 0 && state.discardPile.length > 0) {
+    state.drawPile = shuffleCards(state.discardPile);
     state.discardPile = [];
-    while (state.hand.length < 4 && state.drawPile.length) {
-      const replacementIndex = Math.floor(Math.random() * state.drawPile.length);
-      state.hand.push(state.drawPile.splice(replacementIndex, 1)[0]);
-    }
+    state.hand = state.drawPile.splice(0, 4);
   }
 }
 

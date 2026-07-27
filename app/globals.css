@@ -3744,7 +3744,7 @@ button:focus-visible {
   font-weight: 800;
 }
 
-/* Readable battle typography: keep display headings at their established scale. */
+/* Readable battle typography: increase interface copy by one pixel while keeping display headings unchanged. */
 .game-shell p,
 .game-shell small,
 .game-shell label,
@@ -3754,7 +3754,7 @@ button:focus-visible {
 .game-shell option,
 .game-shell b,
 .game-shell span:not(.eyebrow) {
-  font-size: 14px !important;
+  font-size: 15px !important;
   line-height: 1.45;
 }
 
@@ -3765,7 +3765,7 @@ button:focus-visible {
 .game-shell .turn-queue-item strong,
 .game-shell .joined-name > strong,
 .game-shell .hero-name > strong {
-  font-size: 14px !important;
+  font-size: 15px !important;
 }
 
 /* Keep the event library physically anchored between the timeline and timer. */

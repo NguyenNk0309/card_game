@@ -316,7 +316,7 @@ export default function GameApp() {
       if (activeAutoPanel === "outcome") setDismissedOutcomeKey(outcomeKey);
       else if (activeAutoPanel === "summary") setDismissedSummaryKey(outcomeKey);
       else if (game?.worldEvent) setDismissedWorldEventId(game.worldEvent.id);
-    }, 5000);
+    }, 10000);
     return () => window.clearTimeout(timer);
   }, [activeAutoPanel, outcomeKey, game?.worldEvent?.id]);
   useEffect(() => {
