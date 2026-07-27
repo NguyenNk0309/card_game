@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Crown, Eye, Flame, Shield, Sparkles, Swords, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { useState } from "react";
 import { describeCardFailure, describeCardSuccess } from "@/shared/cardRules";
 import type { CharacterOption, PlayerSession, TeamId } from "@/shared/types";
 import { CardEffectIcon } from "./CardEffectIcon";
@@ -17,7 +18,18 @@ type Props = {
 
 const statusText: Record<string, string> = { connecting: "CONNECTING", connected: "CONNECTED", reconnecting: "RECONNECTING", offline: "OFFLINE" };
 
+type CharacterGroup = "attacker" | "guardian" | "healer" | "supporter" | "specialist";
+
+const characterGroups: Array<{ id: CharacterGroup; label: string; roles: string[] }> = [
+  { id: "attacker", label: "Attacker", roles: ["Ranger", "Mage", "Assassin", "Duelist", "Berserker"] },
+  { id: "guardian", label: "Guardian", roles: ["Guardian", "Tank"] },
+  { id: "healer", label: "Healer", roles: ["Healer"] },
+  { id: "supporter", label: "Supporter", roles: ["Support"] },
+  { id: "specialist", label: "Specialist", roles: ["Controller"] }
+];
+
 export function Lobby({ players, playerName, error, selectedPlayerId, localSessionId, connectionStatus, characterOptions, selectedHeroName, onNameChange, onSlotSelect, onSelectPlayer, onToggleReady, onLeave, onRemovePlayer, onEnterGame, onHeroSelect }: Props) {
+  const [activeCharacterGroup, setActiveCharacterGroup] = useState<CharacterGroup>("attacker");
   const localPlayer = players.find((player) => player.id === localSessionId);
   const selected = localPlayer ? players.find((player) => player.id === selectedPlayerId) ?? localPlayer : undefined;
   const selectedOption = characterOptions.find((option) => option.hero.name === selectedHeroName);
@@ -31,6 +43,8 @@ export function Lobby({ players, playerName, error, selectedPlayerId, localSessi
   const relationClass = (player?: PlayerSession) => player && localPlayer ? (player.hero.team === localPlayer.hero.team ? "ally" : "enemy") : "neutral";
   const teamPlayers = (team: TeamId) => players.filter((player) => player.hero.team === team).sort((left, right) => left.joinedAt - right.joinedAt);
   const canJoinSlot = !localPlayer && Boolean(playerName.trim()) && (Boolean(shownHero) || randomPending) && connectionStatus === "connected";
+  const activeGroup = characterGroups.find((group) => group.id === activeCharacterGroup) ?? characterGroups[0];
+  const visibleCharacterOptions = characterOptions.filter((option) => activeGroup.roles.includes(option.hero.role));
   const renderTeam = (team: TeamId) => {
     const members = teamPlayers(team);
     const TeamIcon = team === "veil" ? Eye : Flame;
@@ -67,7 +81,7 @@ export function Lobby({ players, playerName, error, selectedPlayerId, localSessi
         <div className={`ready-gate ${canStart ? "all-ready" : ""}`}>{canStart ? <Check size={19}/> : <Shield size={19}/>}<div><strong>{canStart ? "Everyone is ready" : players.length < 2 ? "Waiting for another player" : !hasBothTeams ? "Both teams need a player" : "Waiting for all players"}</strong><span>{canStart ? "Any joined player may start the battle." : !hasBothTeams && players.length >= 2 ? "At least one player must join a slot on each team." : "Every joined player must press Ready before the battle can start."}</span></div><button className="enter-game-button" onClick={onEnterGame} disabled={!canStart || connectionStatus !== "connected"}><Swords size={17}/> Enter the battle</button></div>
       </section>
       <aside className="character-panel">
-        {!localPlayer && <div className="hero-picker"><div className="deck-heading"><div><span className="eyebrow">CHOOSE YOUR CHARACTER</span><strong>Optional · Review before you ready up</strong></div><Users size={18}/></div><div className="hero-picker-grid">{characterOptions.map((option) => <button key={option.hero.name} className={selectedHeroName === option.hero.name ? "selected" : ""} onClick={() => onHeroSelect(option.hero.name)} title={option.hero.summary}><span style={{ "--hero-color": option.hero.color } as React.CSSProperties}>{option.hero.initials}</span><strong>{option.hero.name}</strong><small>{option.hero.className}</small></button>)}</div></div>}
+        {!localPlayer && <div className="hero-picker"><div className="deck-heading"><div><span className="eyebrow">CHOOSE YOUR CHARACTER</span><strong>Optional · Review before you ready up</strong></div><Users size={18}/></div><div className="hero-class-tabs" role="tablist" aria-label="Character classes">{characterGroups.map((group) => <button type="button" role="tab" aria-selected={activeCharacterGroup === group.id} className={activeCharacterGroup === group.id ? "active" : ""} onClick={() => setActiveCharacterGroup(group.id)} key={group.id}>{group.label}<span>{characterOptions.filter((option) => group.roles.includes(option.hero.role)).length}</span></button>)}</div><div className="hero-picker-grid" role="tabpanel" aria-label={`${activeGroup.label} characters`}>{visibleCharacterOptions.map((option) => <button type="button" key={option.hero.name} className={selectedHeroName === option.hero.name ? "selected" : ""} aria-pressed={selectedHeroName === option.hero.name} onClick={() => onHeroSelect(selectedHeroName === option.hero.name ? "" : option.hero.name)} title={`${option.hero.summary} Click again to unselect.`}><span style={{ "--hero-color": option.hero.color } as React.CSSProperties}>{option.hero.initials}</span><strong>{option.hero.name}</strong><small>{option.hero.className}</small></button>)}{!visibleCharacterOptions.length && <div className="empty-character-group"><Sparkles size={22}/><span>No characters currently match this class.</span></div>}</div></div>}
         {shownHero ? <div className="character-review-layout">
           <section className="character-info-column">
             <div className="character-banner"><div className="large-portrait" style={{ "--hero-color": shownHero.color } as React.CSSProperties}>{shownHero.initials}</div><div><span className="eyebrow">{selected ? <><b className={`player-name-highlight ${relationClass(selected)}`}>{selected.displayName}</b>&apos;S CHARACTER</> : "YOUR CHARACTER PICK"}</span><h2>{shownHero.name}</h2><p>{shownHero.title} · {shownHero.className}</p></div>{selected && <div className={`team-chip ${shownHero.team}`}>{shownHero.team === "veil" ? <Eye size={15}/> : <Flame size={15}/>} {shownHero.team === "veil" ? "Veilbound" : "Embercourt"}</div>}</div>

@@ -5065,3 +5065,127 @@ button:focus-visible {
 
   .private-hand-zone { position: relative; }
 }
+
+/* Ability tabs, balanced lobby panels, and consistently filled card surfaces. */
+.lobby-grid {
+  align-items: stretch;
+  grid-auto-rows: minmax(0, 1fr);
+}
+
+.join-panel,
+.character-panel {
+  height: 100%;
+  min-height: 0;
+}
+
+.character-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-picker { flex: 0 0 auto; }
+.character-review-layout,
+.no-character { flex: 1 1 auto; }
+
+.hero-class-tabs {
+  margin: 0 0 9px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.hero-class-tabs button {
+  min-width: 0;
+  min-height: 35px;
+  padding: 6px 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #c6ceca;
+  background: rgba(255, 255, 255, .025);
+  border: 1px solid var(--line);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  cursor: pointer;
+}
+
+.hero-class-tabs button > span {
+  min-width: 18px;
+  padding: 1px 5px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, .055);
+  border: 1px solid rgba(255, 255, 255, .08);
+  font-size: 9px;
+}
+
+.hero-class-tabs button:hover,
+.hero-class-tabs button.active {
+  color: #ffdc75;
+  background: rgba(212, 181, 110, .1);
+  border-color: rgba(235, 198, 104, .78);
+}
+
+.hero-class-tabs button.active > span {
+  color: #151a19;
+  background: #f0c85f;
+  border-color: #f0c85f;
+}
+
+.empty-character-group {
+  min-height: 92px;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--muted);
+  border: 1px dashed rgba(255, 255, 255, .16);
+}
+
+.lobby-skill-deck {
+  align-items: stretch;
+  grid-auto-rows: 1fr;
+}
+
+.character-deck-column .lobby-skill-deck { grid-auto-rows: 1fr; }
+
+.lobby-skill-deck .skill-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.lobby-skill-deck .skill-card > p { flex: 1 1 auto; }
+.lobby-skill-deck .skill-card > .card-outcome-lines { margin-top: auto; }
+
+/* Keep the existing relationship-based color logic, with stronger pigments. */
+.player-name-highlight,
+.inline-player-name,
+.history-player-name { --player-name-color: #24d4ff; }
+
+.inline-player-name.ember,
+.history-player-name.ember { --player-name-color: #ff7738; }
+.inline-player-name.veil,
+.history-player-name.veil { --player-name-color: #25d5ff; }
+.player-name-highlight.ally,
+.inline-player-name.ally,
+.history-player-name.ally { --player-name-color: #37ef7b; }
+.player-name-highlight.enemy,
+.inline-player-name.enemy,
+.history-player-name.enemy { --player-name-color: #ff2929; }
+
+.history-card-link { color: #26cfff; }
+.history-card-link:hover,
+.history-card-link:focus-visible { color: #7de7ff; }
+
+@media (max-width: 720px) {
+  .hero-class-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1360px) and (max-height: 1100px) {
+  .character-review-layout { height: auto; }
+  .character-deck-column .skill-card { height: 100%; }
+}

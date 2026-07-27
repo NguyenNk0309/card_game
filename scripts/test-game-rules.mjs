@@ -11,12 +11,16 @@ const catalogSource = await readFile(new URL("../backend/game/catalog.ts", impor
 const catalogUrl = `data:text/javascript;base64,${Buffer.from(compile(catalogSource, "catalog.ts")).toString("base64")}`;
 const cardRulesSource = await readFile(new URL("../shared/cardRules.ts", import.meta.url), "utf8");
 const cardRules = await import(`data:text/javascript;base64,${Buffer.from(compile(cardRulesSource, "cardRules.ts")).toString("base64")}`);
+const diceVisibilitySource = await readFile(new URL("../shared/diceVisibility.ts", import.meta.url), "utf8");
+const diceVisibility = await import(`data:text/javascript;base64,${Buffer.from(compile(diceVisibilitySource, "diceVisibility.ts")).toString("base64")}`);
 const engineSource = await readFile(new URL("../backend/game/engine.ts", import.meta.url), "utf8");
 const compiledEngine = compile(engineSource, "engine.ts").replace('from "./catalog"', `from "${catalogUrl}"`);
 const engine = await import(`data:text/javascript;base64,${Buffer.from(compiledEngine).toString("base64")}`);
 
 const sampledTargets = Array.from({ length: 256 }, () => engine.randomDiceTarget());
 const sampledRolls = Array.from({ length: 256 }, () => engine.randomD20Roll());
+assert.equal(diceVisibility.visibleDiceModifier(3, "affected-player", "affected-player"), 3, "the affected player sees their dice modifier");
+assert.equal(diceVisibility.visibleDiceModifier(3, "affected-player", "observer"), 0, "other players see a zero dice modifier");
 assert(sampledTargets.every((value) => Number.isInteger(value) && value >= 8 && value <= 16), "every target must be an independent integer from 8 through 16");
 assert(sampledRolls.every((value) => Number.isInteger(value) && value >= 1 && value <= 20), "every d20 result must be an independent integer from 1 through 20");
 assert(new Set(sampledTargets).size > 1, "target sampling must not return a fixed value");
@@ -242,6 +246,7 @@ diceBuffed.adventure.target = 12;
 diceBuffed.playerStates[diceAlly.id].hand = [allyAttack.id];
 const boostedRoll = engine.resolveCardTurn(diceBuffed, diceParty, allyAttack.id, diceEnemy.id, 10);
 assert.equal(boostedRoll.outcome.total, 10 + engine.getPassiveDiceBonus(diceAlly, allyAttack, diceBuffed.playerStates[diceAlly.id]) + 2);
+assert.doesNotMatch(boostedRoll.history.at(-1).message, /\+ bonus|- penalty/, "shared history prose does not expose a player's dice modifier");
 assert.equal(boostedRoll.playerStates[diceAlly.id].diceBuff, 0, "next-turn d20 bonus is consumed after one roll");
 assert.equal(engine.getPassiveDiceBonus(commander, commander.skillDeck.find((card) => card.effect === "none"), diceBuffed.playerStates[commander.id]), 1, "Ione adds +1 to every d20 result");
 

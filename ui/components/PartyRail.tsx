@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, Heart, Shield, Sparkles, Swords, UserMinus } from "lucide-react";
+import { visibleDiceModifier } from "@/shared/diceVisibility";
 import type { PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
 
 const teamMeta: Record<TeamId, { name: string; icon: typeof Shield }> = {
@@ -33,8 +34,8 @@ export function PartyRail({ players, game, localSessionId, onRemovePlayer, onIns
           const buffs: Array<{ label: string; value: string; negative?: boolean; shield?: boolean }> = [];
           if (state?.shield) buffs.push({ label: "Shield", value: `${state.shield}`, shield: true });
           if (state?.attackBuff) buffs.push({ label: "Next attack", value: `+${state.attackBuff} damage` });
-          if (state?.diceBuff) buffs.push({ label: "Next d20", value: `+${state.diceBuff}` });
-          if (state?.dicePenalty) buffs.push({ label: "Next d20", value: `-${state.dicePenalty}`, negative: true });
+          if (state?.diceBuff) buffs.push({ label: "Next d20", value: `+${visibleDiceModifier(state.diceBuff, player.id, localSessionId)}` });
+          if (state?.dicePenalty) buffs.push({ label: "Next d20", value: `-${visibleDiceModifier(state.dicePenalty, player.id, localSessionId)}`, negative: true });
           if (state?.skipTurns) buffs.push({ label: "Cancelled turns", value: String(state.skipTurns), negative: true });
           if (state?.reviveIn) buffs.push({ label: "Revives in", value: `${state.reviveIn} turns` });
           if (state?.borrowedCards?.length) buffs.push({ label: "Borrowed cards", value: String(state.borrowedCards.length) });

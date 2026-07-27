@@ -605,7 +605,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     ? `spent ${pityCost} pity (${pityBefore} to ${states[actor.id].pityPoints})`
     : automaticSuccess
       ? `d20 ${roll} ignored; zero-pity card always succeeds`
-      : `d20 ${roll} + bonus ${totalBonus}${dicePenalty ? ` - penalty ${dicePenalty}` : ""} = ${total}; target ${game.adventure.target}`;
+      : `rolled d20 against target ${game.adventure.target}`;
   const actionHistory: GameHistoryEntry = { id: `turn-${turn}-${Date.now()}`, turn, phase: actionPhase, kind: card.effect, actorName: actor.displayName, actorTeam: actor.hero.team, targetName: targets.map((target) => target.displayName).join(", "), cardName: card.name, message: `${actor.displayName} used ${card.name} (${rollSummary}) — ${detail}`, success, amount, diceRoll: usePity ? undefined : roll, diceTarget: usePity ? undefined : game.adventure.target, diceBonus: usePity ? undefined : totalBonus, dicePenalty: usePity ? undefined : dicePenalty, diceTotal: usePity ? undefined : total, resolution: usePity ? "pity" : "roll", pityCost: usePity || automaticSuccess ? pityCost : undefined, pityBefore, pityAfter: states[actor.id].pityPoints, createdAt: Date.now() };
   let history = [...(game.history ?? []), actionHistory];
   const passiveRevives = triggerSableRevives(players, states);
