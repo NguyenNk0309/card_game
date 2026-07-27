@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, AudioLines, Check, ChevronLeft, ChevronRight, CircleHelp, Clock3, Crown, Dices, Eye, Flame, Hand, Heart, History, Layers, ListOrdered, LogOut, Octagon, RefreshCw, Shield, Skull, Sparkles, Swords, Target, Users, Volume2, X, Zap } from "lucide-react";
+import { Archive, AudioLines, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, Crown, Dices, Eye, Flame, Hand, Heart, History, Layers, ListOrdered, LogOut, Octagon, RefreshCw, Shield, Skull, Sparkles, Swords, Target, Users, Volume2, X, Zap } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createAdventure, createInitialGame, createPlayerSession, getCharacterOptions, getPassiveDiceBonus, randomD20Roll, resolveCardTurn } from "@/backend/game/engine";
 import { describeCardFailure, describeCardSuccess, getCardPityCost, getCardTargetLabel } from "@/shared/cardRules";
@@ -142,6 +142,37 @@ function TurnOrderList({ players, game, order, localPlayer, expanded = false, on
 function RunStatus({ completedPhases, secondsLeft, eventPhase, onEvents }: { completedPhases: number; secondsLeft: number; eventPhase?: number; onEvents: () => void }) {
   const currentPhase = Math.min(30, completedPhases + 1);
   return <nav className="run-status" aria-label="Battle status"><div><span className="eyebrow">PHASE</span><strong>{currentPhase} <i>/ 30</i></strong></div><div className="chapter-pips" aria-label="Thirty-phase timeline">{Array.from({ length: 30 }).map((_, index) => { const phase = index + 1; const phaseClass = index < completedPhases ? "complete" : index === completedPhases ? "current" : "future"; return <i key={phase} data-turn={phase} title={phase % 5 === 0 ? `Phase ${phase}: World Event` : `Phase ${phase}`} aria-label={phase % 5 === 0 ? `Phase ${phase}, World Event` : `Phase ${phase}`} className={`${phaseClass} ${phase % 5 === 0 ? "world-event-turn" : ""} ${eventPhase === phase ? "event-triggered" : ""}`}/>; })}</div><button className="world-event-library-button" onClick={onEvents}><Zap size={15}/><span>All world events</span></button><div className={`turn-clock ${secondsLeft <= 10 ? "urgent" : ""}`}><Clock3 size={14}/> {secondsLeft} seconds</div></nav>;
+}
+
+function TargetPlayerPicker({ options, selectedId, game, localPlayer, onChange }: { options: PlayerSession[]; selectedId: string; game: SyncedGameState | null; localPlayer?: PlayerSession; onChange: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const selected = options.find((player) => player.id === selectedId) ?? options[0];
+  useEffect(() => {
+    if (!open) return;
+    const closeOutside = (event: PointerEvent) => { if (!pickerRef.current?.contains(event.target as Node)) setOpen(false); };
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false); };
+    window.addEventListener("pointerdown", closeOutside);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("pointerdown", closeOutside);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
+  const playerMeta = (player: PlayerSession) => {
+    const state = game?.playerStates[player.id];
+    return `${player.hero.name} · ${state?.hp ?? player.hero.hp} HP · ${state?.shield ?? 0} shield${(state?.skipTurns ?? 0) > 0 ? " · NEXT TURN CANCELLED" : ""}${(state?.reviveIn ?? 0) > 0 ? " · REVIVING" : ""}`;
+  };
+  return <div className={`target-player-dropdown ${open ? "open" : ""}`} ref={pickerRef}>
+    <button type="button" className="target-dropdown-trigger" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)}>
+      {selected ? <span className="target-option-copy"><strong className={`player-name-highlight ${playerRelationClass(selected, localPlayer)}`}>{selected.displayName}</strong><small>{playerMeta(selected)}</small></span> : <span>No target available</span>}
+      <ChevronDown size={17}/>
+    </button>
+    {open && <div className="target-dropdown-options" role="listbox" aria-label="Choose target player">{options.map((player) => {
+      const isSelected = player.id === selected?.id;
+      return <button type="button" role="option" aria-selected={isSelected} className={`target-dropdown-option ${isSelected ? "selected" : ""}`} onClick={() => { onChange(player.id); setOpen(false); }} key={player.id}><span className="target-option-copy"><strong className={`player-name-highlight ${playerRelationClass(player, localPlayer)}`}>{player.displayName}</strong><small>{playerMeta(player)}</small></span>{isSelected && <Check size={16}/>}</button>;
+    })}</div>}
+  </div>;
 }
 
 type CardSlotRect = { top: number; left: number; width: number; height: number };
@@ -493,7 +524,7 @@ export default function GameApp() {
         <section className="world-stage combat-stage"><div className="realm-meta"><div><span className="eyebrow">TEAM BATTLE ARENA · 30-PHASE MATCH</span><h1>Eliminate the opposing team</h1></div></div>
           <section className="combat-banner"><Swords size={24}/><div><strong>{activePlayer?.displayName ? <><span className={`player-name-highlight ${playerRelationClass(activePlayer, localPlayer)}`}>{activePlayer.displayName}</span>&apos;s turn</> : "Waiting for a player"}</strong><p>Defeat every opponent to win immediately. After phase 30, the team with more total HP wins.</p></div></section>
           <div className="encounter-row"><section className="objective-card"><div className="objective-icon"><Target size={22}/></div><div><span className="eyebrow">THIS TURN'S TARGET</span><strong>Roll d20 plus allowed dice modifiers to reach {adventure.target}</strong><small>The server reveals a new random target for every turn. Previous rolls do not determine it.</small></div></section><DiceRoller roll={rolling ? animatedRoll : game?.roll ?? null} rolling={rolling} target={adventure.target} passiveBonus={passiveDiceBonus} diceBuff={activeState?.diceBuff ?? 0} dicePenalty={activeState?.dicePenalty ?? 0} pityPoints={localState?.pityPoints ?? 0} pityCost={activePityCost} hasSelectedCard={Boolean(activeCard)} onRoll={castDie} onPity={usePityRoll} onSkip={skipTurn} onDiscard={discardCard} disabled={activePlayer?.id !== sessionId || status !== "connected" || runComplete || (localState?.hp ?? 1) <= 0} disabledLabel={(localState?.hp ?? 1) <= 0 ? "You have been defeated" : runComplete ? "The battle has ended" : status !== "connected" ? "Reconnecting..." : activePlayer ? <>Waiting for <span className={`player-name-highlight ${playerRelationClass(activePlayer, localPlayer)}`}>{activePlayer.displayName}</span></> : "Waiting for a player"}/></div>
-          <div className="battle-interaction-space">{activePlayer?.id === sessionId && activeCard && ["enemy", "ally", "defeated-ally", "player"].includes(activeCard.target) ? <section className="interaction-selector" aria-label="Choose interaction target"><label className="target-picker"><Target size={16}/><span>Choose {getCardTargetLabel(activeCard).toLowerCase()}</span>{targetOptions.length ? <select value={targetPlayerId} onChange={(event) => setTargetPlayerId(event.target.value)}>{targetOptions.map((player) => <option value={player.id} key={player.id}>{player.displayName} · {player.hero.name} · {game?.playerStates[player.id]?.hp ?? player.hero.hp} HP · {game?.playerStates[player.id]?.shield ?? 0} shield{(game?.playerStates[player.id]?.skipTurns ?? 0) > 0 ? " · NEXT TURN CANCELLED" : ""}{(game?.playerStates[player.id]?.reviveIn ?? 0) > 0 ? " · REVIVING" : ""}</option>)}</select> : <span className="no-valid-target">No valid target is available. A successful roll will have no effect.</span>}</label></section> : null}</div>
+          <div className="battle-interaction-space">{activePlayer?.id === sessionId && activeCard && ["enemy", "ally", "defeated-ally", "player"].includes(activeCard.target) ? <section className="interaction-selector" aria-label="Choose interaction target"><div className="target-picker"><Target size={16}/><span>Choose {getCardTargetLabel(activeCard).toLowerCase()}</span>{targetOptions.length ? <TargetPlayerPicker options={targetOptions} selectedId={targetPlayerId} game={game} localPlayer={localPlayer} onChange={setTargetPlayerId}/> : <span className="no-valid-target">No valid target is available. A successful roll will have no effect.</span>}</div></section> : null}</div>
           <section className="hand-zone private-hand-zone"><div className="hand-heading"><div><span className="eyebrow">{localPlayer ? "YOUR PRIVATE HAND" : "PRIVATE HAND"}</span><strong>{activePlayer?.id === sessionId ? "Choose a card, select a target when required, then roll the die" : "Plan your next move while the current player acts"}</strong></div>{localPlayer && <div className="pile-review-actions"><span><Hand size={16}/> Hand ({localState?.hand.length ?? 0})</span><button onClick={() => setDeckReview("draw")}><Layers size={16}/> Draw pile ({localState?.drawPile.length ?? 0})</button><button onClick={() => setDeckReview("discard")}><Archive size={16}/> Discard ({localState?.discardPile.length ?? 0})</button><button onClick={() => setDeckReview("graveyard")}><Skull size={16}/> Graveyard ({localState?.graveyard?.length ?? 0})</button></div>}</div>
             {localState && <div className="active-effects-strip"><b>ACTIVE EFFECTS</b>{localState.attackBuff > 0 && <span className="effect-attack">Next attack +{localState.attackBuff}</span>}{localState.diceBuff > 0 && <span className="effect-bonus">Next d20 +{localState.diceBuff}</span>}{localState.dicePenalty > 0 && <span className="effect-penalty">Next d20 -{localState.dicePenalty}</span>}{localState.skipTurns > 0 && <span className="effect-penalty">Next turn cancelled</span>}{localState.reviveIn > 0 && <span className="effect-heal">Revives in {localState.reviveIn} turns</span>}{(localState.borrowedCards?.length ?? 0) > 0 && <span className="effect-support">{(localState.borrowedCards?.length ?? 0)} borrowed card</span>}{!localState.attackBuff && !localState.diceBuff && !localState.dicePenalty && !localState.skipTurns && !localState.reviveIn && !(localState.borrowedCards?.length ?? 0) && <span>No active effects</span>}</div>}
             {localPlayer ? <div className="action-hand four-cards">{localHand.map((card, index) => {
