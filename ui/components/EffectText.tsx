@@ -14,6 +14,7 @@ function numberTone(text: string, index: number, length: number, card?: ActionCa
     return restoresHealth ? "heal" : "damage";
   }
   if (/^\s*(completed )?turn/.test(after) || /^\s*(speed|phase)/.test(after)) return "speed";
+  if (/\bphase\s*$/.test(before)) return "speed";
   if (/(d20|dice|roll|result)/.test(context)) return "dice";
   if (/(restore|heal|revive|healing)/.test(context)) return "heal";
   if (/shield/.test(context)) return "shield";
@@ -27,7 +28,7 @@ function numberTone(text: string, index: number, length: number, card?: ActionCa
 }
 
 export function EffectText({ text, card }: { text: string; card?: ActionCard }) {
-  const matches = [...text.matchAll(/([+-]?\d+(?:\/\d+)?|one-third|half)/gi)]
+  const matches = [...text.matchAll(/(heavy attack card|shield card|heal card|[+-]?\d+(?:\/\d+)?|one-third|half)/gi)]
     .filter((match) => !(match[0] === "20" && text[(match.index ?? 0) - 1]?.toLowerCase() === "d"));
   if (!matches.length) return <>{text}</>;
   const parts: React.ReactNode[] = [];
@@ -35,7 +36,12 @@ export function EffectText({ text, card }: { text: string; card?: ActionCard }) 
   matches.forEach((match, matchIndex) => {
     const index = match.index ?? 0;
     if (index > cursor) parts.push(text.slice(cursor, index));
-    parts.push(<strong className={`effect-number ${numberTone(text, index, match[0].length, card)}`} key={`${index}-${matchIndex}`}>{match[0]}</strong>);
+    const phrase = match[0].toLowerCase();
+    const tone = phrase === "heavy attack card" ? "damage"
+      : phrase === "shield card" ? "shield"
+      : phrase === "heal card" ? "heal"
+      : numberTone(text, index, match[0].length, card);
+    parts.push(<strong className={`effect-number ${tone}`} key={`${index}-${matchIndex}`}>{match[0]}</strong>);
     cursor = index + match[0].length;
   });
   if (cursor < text.length) parts.push(text.slice(cursor));

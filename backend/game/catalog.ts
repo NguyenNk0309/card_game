@@ -1,4 +1,4 @@
-import type { ActionCard, Hero, Realm } from "@/shared/types";
+import type { ActionCard, Hero, PlayerSession, Realm } from "@/shared/types";
 
 export const HERO_TEMPLATES: Omit<Hero, "id" | "team" | "isYou">[] = [
   { name: "Elara Voss", title: "The Undying Lantern", role: "Guardian", classId: "warden", className: "Guardian Warden", passiveName: "United Front", passiveText: "Every Support card Elara plays gains 1 additional point of effect.", skill: "Rallying Aegis", skillText: "Shield the entire allied formation.", summary: "A formation guardian who shields allies and fixes the team's turn order.", strength: "Team shields, rescue turns, and reliable protection.", weakness: "No special attack cards and only moderate personal HP.", impact: "Prevents a damaged formation from collapsing while an attacker prepares the finish.", hp: 11, maxHp: 11, speed: 3, color: "#d5b56b", initials: "EV" },
@@ -82,17 +82,54 @@ export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
   ]
 };
 
+export const PHASE_FIVE_CARD_UPGRADES = {
+  "lost-momentum": "heavy",
+  "broken-plan": "brace",
+  "empty-gesture": "second-wind"
+} as const;
+
 const COMMON_ACTION_CARDS: CardWithoutPity[] = [
   { id: "slash", name: "Slash", type: "Might", description: "Choose one living enemy. Deal 3 damage. Shield absorbs damage before HP.", bonus: 0, effect: "damage", target: "enemy", value: 3, unique: false },
   { id: "heavy", name: "Heavy Blow", type: "Might", description: "Choose one living enemy. Deal 4 damage. Shield absorbs damage before HP.", bonus: 0, effect: "damage", target: "enemy", value: 4, unique: false },
   { id: "brace", name: "Brace", type: "Spirit", description: "Gain 3 shield. Expires at the end of your next turn.", bonus: 0, effect: "guard", target: "self", value: 3, unique: false },
   { id: "second-wind", name: "Second Wind", type: "Spirit", description: "Restore up to 4 HP to yourself. This cannot revive you after defeat.", bonus: 0, effect: "heal", target: "self", value: 4, unique: false },
-  { id: "empty-gesture", name: "Empty Gesture", type: "Spirit", description: "This card has no gameplay effect. Playing it only cycles it out of your hand.", bonus: 0, effect: "none", target: "self", value: 0, unique: false },
-  { id: "broken-plan", name: "Broken Plan", type: "Wit", description: "This card has no gameplay effect. Playing it only cycles it out of your hand.", bonus: 0, effect: "none", target: "self", value: 0, unique: false },
-  { id: "lost-momentum", name: "Lost Momentum", type: "Might", description: "This card has no gameplay effect. Playing it only cycles it out of your hand.", bonus: 0, effect: "none", target: "self", value: 0, unique: false }
+  { id: "empty-gesture", name: "Empty Gesture", type: "Spirit", description: "Currently, this card has no gameplay effect. At the end of phase 5, this card upgrades to a heal card.", bonus: 0, effect: "none", target: "self", value: 0, unique: false },
+  { id: "broken-plan", name: "Broken Plan", type: "Wit", description: "Currently, this card has no gameplay effect. At the end of phase 5, this card upgrades to a shield card.", bonus: 0, effect: "none", target: "self", value: 0, unique: false },
+  { id: "lost-momentum", name: "Lost Momentum", type: "Might", description: "Currently, this card has no gameplay effect. At the end of phase 5, this card upgrades to a heavy attack card.", bonus: 0, effect: "none", target: "self", value: 0, unique: false }
 ];
 
 export const ACTION_CARDS: ActionCard[] = COMMON_ACTION_CARDS.map((card) => ({ ...card, pityCost: calculatePityCost(card) }));
+
+const matchesCommonCardId = (cardId: string, commonId: string) => cardId === commonId || cardId.endsWith(`-common-${commonId}`);
+
+export function upgradeCardsAfterPhaseFive(cards: ActionCard[], completedPhases: number) {
+  if (completedPhases < 5) return cards;
+  let changed = false;
+  const upgraded = cards.map((card) => {
+    const sourceId = (Object.keys(PHASE_FIVE_CARD_UPGRADES) as Array<keyof typeof PHASE_FIVE_CARD_UPGRADES>)
+      .find((candidate) => matchesCommonCardId(card.id, candidate));
+    if (!sourceId || card.effect !== "none") return card;
+    const targetId = PHASE_FIVE_CARD_UPGRADES[sourceId];
+    const target = cards.find((candidate) => matchesCommonCardId(candidate.id, targetId));
+    if (!target) return card;
+    const { id: _targetId, ...targetAbilities } = target;
+    changed = true;
+    return { ...targetAbilities, id: card.id };
+  });
+  return changed ? upgraded : cards;
+}
+
+export function upgradePlayerCardsAfterPhaseFive(players: PlayerSession[], completedPhases: number) {
+  if (completedPhases < 5) return players;
+  let changed = false;
+  const upgraded = players.map((player) => {
+    const skillDeck = upgradeCardsAfterPhaseFive(player.skillDeck, completedPhases);
+    if (skillDeck === player.skillDeck) return player;
+    changed = true;
+    return { ...player, skillDeck };
+  });
+  return changed ? upgraded : players;
+}
 
 export const REALMS: Realm[] = [
   { id: "arena", name: "Oathbound Arena", region: "The final battle line", weather: "No retreat", objective: "Defeat the entire opposing team before or on phase 30.", threat: "The opposing team", accent: "#d4b56e", sceneClass: "scene-arena" }

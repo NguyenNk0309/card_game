@@ -3741,6 +3741,20 @@ button:focus-visible {
   z-index: 1000;
 }
 
+.turn-action-confirm-portal {
+  position: fixed;
+  z-index: 10000;
+  right: auto;
+  bottom: auto;
+}
+
+.turn-action-confirm-portal.below::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: rgba(226, 192, 108, .62);
+}
+
 .top-action-confirm-control {
   position: relative;
   display: flex;
@@ -3748,7 +3762,7 @@ button:focus-visible {
 
 .top-action-confirm-popover {
   position: fixed;
-  z-index: 1001;
+  z-index: 10000;
   right: auto;
   bottom: auto;
 }
@@ -5489,6 +5503,57 @@ button:focus-visible {
   .game-layout {
     grid-template-columns: minmax(190px, .75fr) minmax(0, 2fr) minmax(190px, .75fr);
   }
+}
+
+/* Keep the complete battle action set on one line before the full three-column
+   header has enough room. This prevents readable labels from growing through
+   the fixed-height topbar on common 720p and 1080p desktop viewports. */
+@media (min-width: 1181px) and (max-width: 1280px) {
+  .topbar {
+    grid-template-columns: minmax(170px, 1fr) max-content;
+    gap: 12px;
+  }
+
+  .topbar > .run-status,
+  .topbar > .lobby-top-status { display: none; }
+
+  .top-actions {
+    width: max-content;
+    min-width: max-content;
+    overflow: visible;
+  }
+
+  .top-actions > * { flex: 0 0 auto; }
+
+  .top-actions .text-button {
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+}
+
+@media (min-width: 1281px) and (max-width: 1900px) {
+  .topbar:has(> .run-status) {
+    grid-template-columns: minmax(230px, 1fr) minmax(0, auto) max-content;
+  }
+
+  .topbar:has(> .run-status) > .top-actions {
+    width: max-content;
+    min-width: max-content;
+    overflow: visible;
+  }
+
+  .topbar:has(> .run-status) > .top-actions > * { flex: 0 0 auto; }
+
+  .topbar:has(> .run-status) > .top-actions .text-button {
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+}
+
+@media (min-width: 1281px) and (max-width: 1535px) {
+  .topbar:has(> .run-status) { gap: 12px; }
+  .topbar > .run-status { gap: 8px; }
+  .run-status .chapter-pips { display: none; }
 }
 
 /* When lobby panels stack, the lobby grid becomes the scroll owner instead of shrinking either panel. */

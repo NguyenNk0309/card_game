@@ -6,6 +6,20 @@ const firstId = `poll-first-${runId}`;
 const secondId = `poll-second-${runId}`;
 const thirdId = `poll-third-${runId}`;
 
+function testSkillDeck(id) {
+  const special = Array.from({ length: 3 }, (_, index) => ({ id: index === 0 ? `card-${id}` : `card-${id}-${index}`, name: index === 0 ? "Test Skill" : `Test Skill ${index + 1}`, type: "Wit", description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, unique: true }));
+  const common = [
+    { id: "slash", name: "Slash", type: "Might", description: "Deal 3 damage.", effect: "damage", target: "enemy", value: 3 },
+    { id: "heavy", name: "Heavy Blow", type: "Might", description: "Deal 4 damage.", effect: "damage", target: "enemy", value: 4 },
+    { id: "brace", name: "Brace", type: "Spirit", description: "Gain 3 shield.", effect: "guard", target: "self", value: 3 },
+    { id: "second-wind", name: "Second Wind", type: "Spirit", description: "Restore up to 4 HP.", effect: "heal", target: "self", value: 4 },
+    { id: "empty-gesture", name: "Empty Gesture", type: "Spirit", description: "Upgrades to healing.", effect: "none", target: "self", value: 0 },
+    { id: "broken-plan", name: "Broken Plan", type: "Wit", description: "Upgrades to shielding.", effect: "none", target: "self", value: 0 },
+    { id: "lost-momentum", name: "Lost Momentum", type: "Might", description: "Upgrades to heavy damage.", effect: "none", target: "self", value: 0 }
+  ].map((card) => ({ ...card, id: `${id}-common-${card.id}`, bonus: 0, unique: false }));
+  return [...special, ...common];
+}
+
 function player(id, displayName, team) {
   return {
     id,
@@ -13,7 +27,7 @@ function player(id, displayName, team) {
     ready: false,
     joinedAt: Date.now(),
     hero: { id: `hero-${id}`, name: `${displayName} Hero`, title: "Test Oath", role: "Scout", classId: "ranger", className: "Ranger", passiveName: "Deadeye", passiveText: "Single-target attacks deal 1 additional damage.", skill: "Test Skill", skillText: "Test", summary: "Test hero", strength: "Attack", weakness: "Defense", impact: "Polling test", hp: 8, maxHp: 8, team, color: "#a78bfa", initials: displayName.slice(0, 2).toUpperCase() },
-    skillDeck: Array.from({ length: 10 }, (_, index) => ({ id: index === 0 ? `card-${id}` : `card-${id}-${index}`, name: index === 0 ? "Test Skill" : `Test Skill ${index + 1}`, type: "Wit", description: "Test", bonus: 4, effect: "damage", target: "enemy", value: 2, unique: index < 3 }))
+    skillDeck: testSkillDeck(id)
   };
 }
 
@@ -117,6 +131,21 @@ try {
   assert.equal(firstStarted.viewerSessionId, firstId, "polling snapshots identify the session whose private zones they contain");
   assert.equal(firstStarted.game.turnSeconds, 60, "the polling room enforces a constant 60-second timer");
   assert.equal(firstStarted.game.turnDeadline - firstStarted.game.turnStartedAt, 60_000, "every polling turn receives exactly 60 seconds");
+
+  const upgradeProbe = structuredClone(firstStarted.game);
+  const upgradeZoneIds = ["lost-momentum", "broken-plan", "empty-gesture"].map((suffix) => `${firstId}-common-${suffix}`);
+  upgradeProbe.completedTurns = 1;
+  upgradeProbe.completedPhases = 5;
+  upgradeProbe.roundNumber = 6;
+  upgradeProbe.outcome = { kind: "card", success: true, total: 20, target: upgradeProbe.adventure.target, label: "Phase-5 upgrade probe", detail: "Test Skill resolved.", actorName: firstStarted.players.find((item) => item.id === firstId).displayName, cardId: `card-${firstId}`, cardName: "Test Skill", effect: "damage", resolution: "roll" };
+  upgradeProbe.playerStates[firstId].hand = [upgradeZoneIds[0]];
+  upgradeProbe.playerStates[firstId].drawPile = [upgradeZoneIds[1]];
+  upgradeProbe.playerStates[firstId].discardPile = [];
+  upgradeProbe.playerStates[firstId].graveyard = [upgradeZoneIds[2]];
+  const upgradedState = await command(firstId, { type: "game:update", game: upgradeProbe });
+  const upgradedDeck = upgradedState.players.find((item) => item.id === firstId).skillDeck;
+  assert.deepEqual([upgradedState.game.playerStates[firstId].hand, upgradedState.game.playerStates[firstId].drawPile, upgradedState.game.playerStates[firstId].graveyard], [[upgradeZoneIds[0]], [upgradeZoneIds[1]], [upgradeZoneIds[2]]], "polling phase-5 upgrades preserve card IDs across private zones");
+  assert.deepEqual(upgradeZoneIds.map((id) => upgradedDeck.find((card) => card.id === id).effect).sort(), ["damage", "guard", "heal"], "polling authority upgrades all three cards independently");
   const controlledGame = structuredClone(firstStarted.game);
   controlledGame.completedTurns = 1;
   controlledGame.completedPhases = 0;
@@ -126,14 +155,14 @@ try {
   controlledGame.roundOrder = [firstId, secondId, thirdId];
   controlledGame.actedThisRound = [firstId];
   controlledGame.playerStates[firstId].hand = [];
-  controlledGame.playerStates[firstId].discardPile = [`card-${firstId}`];
+  controlledGame.playerStates[firstId].discardPile = [upgradeZoneIds[0]];
   controlledGame.playerStates[secondId].skipTurns = 1;
   controlledGame.playerStates[secondId].shield = 4;
   controlledGame.playerStates[secondId].attackBuff = 2;
   controlledGame.playerStates[secondId].diceBuff = 2;
   controlledGame.playerStates[secondId].dicePenalty = 1;
   controlledGame.playerStates[thirdId].shield = 3;
-  controlledGame.outcome = { kind: "card", success: true, total: 20, target: 12, label: "Test control", detail: "The next enemy turn will be cancelled.", actorName: firstStarted.players.find((item) => item.id === firstId).displayName, cardName: "Test Skill", targetName: firstStarted.players.find((item) => item.id === secondId).displayName };
+  controlledGame.outcome = { kind: "card", success: true, total: 20, target: 12, label: "Test control", detail: "The next enemy turn will be cancelled.", actorName: firstStarted.players.find((item) => item.id === firstId).displayName, cardId: upgradeZoneIds[0], cardName: "Heavy Blow", effect: "damage", targetName: firstStarted.players.find((item) => item.id === secondId).displayName };
   controlledGame.history = [{ id: `control-${runId}`, turn: 1, kind: "support", actorName: "First", message: "Applied a turn-cancel effect.", success: true, createdAt: Date.now() }];
   const forcedSkipped = await command(firstId, { type: "game:update", game: controlledGame });
   const forcedOwnerView = await readRoom(secondId);
@@ -174,7 +203,33 @@ try {
   assert.match(ended.game.endReason, /Embercourt wins\. Total HP: Veilbound 8 — Embercourt 8\./);
   const left = await command(secondId, { type: "leave-game" });
   assert(!left.players.some((item) => item.id === secondId));
-  console.log("Polling test passed: private hands, 60-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");
+  const resetLobby = await command(firstId, { type: "return:lobby" });
+  const resetDeck = resetLobby.players.find((item) => item.id === firstId).skillDeck;
+  assert.equal(resetDeck.filter((card) => card.effect === "none").length, 3, "returning to the polling lobby restores all three pre-upgrade cards");
+  assert.deepEqual(upgradeZoneIds.map((id) => resetDeck.find((card) => card.id === id).name).sort(), ["Broken Plan", "Empty Gesture", "Lost Momentum"], "the restored polling cards recover their original names and appearance");
+
+  await command(secondId, { type: "join", player: player(secondId, `Second ${runId}`, "ember") });
+  await command(firstId, { type: "ready", ready: true });
+  await command(secondId, { type: "ready", ready: true });
+  const initialPhaseFiveGame = structuredClone(game);
+  delete initialPhaseFiveGame.playerStates[thirdId];
+  initialPhaseFiveGame.completedTurns = 10;
+  initialPhaseFiveGame.completedPhases = 5;
+  initialPhaseFiveGame.roundNumber = 6;
+  initialPhaseFiveGame.turnOrder = [firstId, secondId];
+  initialPhaseFiveGame.roundOrder = [firstId, secondId];
+  initialPhaseFiveGame.actedThisRound = [];
+  initialPhaseFiveGame.outcome = null;
+  initialPhaseFiveGame.history = [];
+  initialPhaseFiveGame.worldEvent = null;
+  const initialPhaseFiveState = await command(secondId, { type: "start", game: initialPhaseFiveGame });
+  const initialPhaseFiveDeck = initialPhaseFiveState.players.find((item) => item.id === firstId).skillDeck;
+  assert.deepEqual(upgradeZoneIds.map((id) => initialPhaseFiveDeck.find((card) => card.id === id).effect).sort(), ["damage", "guard", "heal"], "an initial polling phase-5 snapshot is normalized before a player can act");
+  const hydratedPhaseFiveState = await readRoom(firstId);
+  assert.deepEqual(upgradeZoneIds.map((id) => hydratedPhaseFiveState.players.find((item) => item.id === firstId).skillDeck.find((card) => card.id === id).effect).sort(), ["damage", "guard", "heal"], "a hydrated polling phase-5 snapshot remains normalized");
+  const secondResetLobby = await command(firstId, { type: "return:lobby" });
+  assert.equal(secondResetLobby.players.find((item) => item.id === firstId).skillDeck.filter((card) => card.effect === "none").length, 3, "a normalized polling snapshot also restores cleanly for the next battle");
+  console.log("Polling test passed: private hands, phase-5 card upgrades and resets, initial phase-5 normalization, 60-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");
 } finally {
   await command(firstId, { type: "return:lobby" }).catch(() => {});
   await command(firstId, { type: "leave" }).catch(() => {});

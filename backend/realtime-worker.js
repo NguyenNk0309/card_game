@@ -1,4 +1,4 @@
-const emptyRoom = () => ({ players: [], phase: 'lobby', game: null, revision: 0 });
+const emptyRoom = () => ({ players: [], phase: 'lobby', game: null, revision: 0, phaseFiveOriginalCards: {} });
 let room = emptyRoom();
 const peers = new Map();
 const roomCacheKey = new Request('https://shattered-oath-room.internal/shared-state-v3');
@@ -6,6 +6,7 @@ let durableStorage = null;
 let roomQueue = Promise.resolve();
 
 function publicState(viewerId = '') {
+  if (room.game) upgradePhaseFiveCards(room.game);
   const game = room.game ? {
     ...room.game,
     playerStates: Object.fromEntries(Object.entries(room.game.playerStates || {}).map(([id, state]) => [
@@ -21,12 +22,15 @@ async function hydrateRoom() {
     if (durableStorage) {
       const state = await durableStorage.get('shared-room');
       if (state?.revision >= room.revision && Array.isArray(state.players)) room = state;
+      if (room.game) upgradePhaseFiveCards(room.game);
       return;
     }
     const cached = await caches.default.match(roomCacheKey);
-    if (!cached) return;
-    const state = await cached.json();
-    if (state?.revision >= room.revision && Array.isArray(state.players)) room = state;
+    if (cached) {
+      const state = await cached.json();
+      if (state?.revision >= room.revision && Array.isArray(state.players)) room = state;
+    }
+    if (room.game) upgradePhaseFiveCards(room.game);
   } catch {
     // The in-isolate state still keeps the room usable if the cache is unavailable.
   }
@@ -93,9 +97,57 @@ function decideWinner(game, lastTeam, finalTurn = false) {
   if (veil.hp !== ember.hp) return veil.hp > ember.hp ? 'veil' : 'ember'; if (veil.alive !== ember.alive) return veil.alive > ember.alive ? 'veil' : 'ember'; if (veil.shield !== ember.shield) return veil.shield > ember.shield ? 'veil' : 'ember'; if (game.adventure.veilInfluence !== game.adventure.emberInfluence) return game.adventure.veilInfluence > game.adventure.emberInfluence ? 'veil' : 'ember'; return lastTeam;
 }
 function nextLivingIndex(game, currentIndex) { for (let offset = 1; offset <= room.players.length; offset += 1) { const index = (currentIndex + offset) % room.players.length; if ((game.playerStates[room.players[index]?.id]?.hp || 0) > 0) return index; } return currentIndex; }
+const PHASE_FIVE_CARD_UPGRADES = {
+  'lost-momentum': 'heavy',
+  'broken-plan': 'brace',
+  'empty-gesture': 'second-wind'
+};
+function matchesCommonCardId(cardId, commonId) { return cardId === commonId || cardId.endsWith(`-common-${commonId}`); }
+function phaseFiveSourceCards(skillDeck) {
+  return (skillDeck || []).filter((card) => Object.keys(PHASE_FIVE_CARD_UPGRADES).some((sourceId) => matchesCommonCardId(card.id, sourceId)));
+}
+function preservePhaseFiveOriginalCards() {
+  room.phaseFiveOriginalCards ||= {};
+  for (const player of room.players) {
+    if (!Array.isArray(room.phaseFiveOriginalCards[player.id])) room.phaseFiveOriginalCards[player.id] = structuredClone(phaseFiveSourceCards(player.skillDeck));
+  }
+}
+function restorePhaseFiveOriginalCards() {
+  const originals = room.phaseFiveOriginalCards || {};
+  room.players = room.players.map((player) => {
+    const originalCards = new Map((originals[player.id] || []).map((card) => [card.id, card]));
+    return {
+      ...player,
+      ready: false,
+      skillDeck: (player.skillDeck || []).map((card) => originalCards.has(card.id) ? structuredClone(originalCards.get(card.id)) : card)
+    };
+  });
+  room.phaseFiveOriginalCards = {};
+}
+function upgradePhaseFiveCards(game) {
+  if ((game?.completedPhases || 0) < 5) return false;
+  preservePhaseFiveOriginalCards();
+  let changed = false;
+  room.players = room.players.map((player) => {
+    let playerChanged = false;
+    const skillDeck = (player.skillDeck || []).map((card) => {
+      const upgrade = Object.entries(PHASE_FIVE_CARD_UPGRADES).find(([sourceId]) => matchesCommonCardId(card.id, sourceId));
+      if (!upgrade || card.effect !== 'none') return card;
+      const target = player.skillDeck.find((candidate) => matchesCommonCardId(candidate.id, upgrade[1]));
+      if (!target) return card;
+      const { id: _targetId, ...targetAbilities } = target;
+      playerChanged = true;
+      changed = true;
+      return { ...targetAbilities, id: card.id };
+    });
+    return playerChanged ? { ...player, skillDeck } : player;
+  });
+  return changed;
+}
 function normalizeServerTurnOrder(game) {
   if (!game || !room.players.length) return [];
   if (!Number.isFinite(game.completedPhases)) game.completedPhases = Math.max(0, (game.roundNumber || 1) - 1);
+  upgradePhaseFiveCards(game);
   game.maxPhases = 30;
   for (const state of Object.values(game.playerStates || {})) {
     state.graveyard ||= [];
@@ -465,6 +517,7 @@ async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '') {
     rotateServerTurn(game, passingPlayer.id);
     phaseCompleted = completeRoundTurn(game, passingPlayer.id);
   }
+  if (phaseCompleted) upgradePhaseFiveCards(game);
   game.adventure = { ...game.adventure, chapter: Math.min(30, (game.completedPhases || 0) + 1) };
   if (phaseCompleted && game.completedPhases % 5 === 0) applyWorldEvent(game, game.completedPhases, now);
   game.history = game.history.slice(-80);
@@ -578,6 +631,7 @@ async function applyCommand(ownerId, message) {
       if (invalidResolution) return 'The random character assignment is invalid.';
       room.players = resolvedPlayers.map((player, index) => ({ ...player, ready: room.players[index].ready, joinedAt: room.players[index].joinedAt, randomHero: false }));
     }
+    room.phaseFiveOriginalCards = Object.fromEntries(room.players.map((player) => [player.id, structuredClone(phaseFiveSourceCards(player.skillDeck))]));
     room.phase = 'game';
     room.game = message.game;
     room.game.adventure.target = randomDiceTarget();
@@ -719,7 +773,7 @@ async function applyCommand(ownerId, message) {
   if (message.type === 'return:lobby') {
     room.phase = 'lobby';
     room.game = null;
-    room.players = room.players.map((player) => ({ ...player, ready: false }));
+    restorePhaseFiveOriginalCards();
     await commitRoom();
     return null;
   }

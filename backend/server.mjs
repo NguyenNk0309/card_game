@@ -66,12 +66,14 @@ const room = {
   players: [],
   phase: 'lobby',
   game: null,
-  revision: 0
+  revision: 0,
+  phaseFiveOriginalCards: {}
 };
 
 const peers = new Map();
 
 function publicState(viewerId = '') {
+  if (room.game) upgradePhaseFiveCards(room.game);
   const game = room.game ? {
     ...room.game,
     playerStates: Object.fromEntries(Object.entries(room.game.playerStates || {}).map(([id, state]) => [
@@ -152,9 +154,68 @@ function nextLivingIndex(game, currentIndex) {
   return currentIndex;
 }
 
+const PHASE_FIVE_CARD_UPGRADES = {
+  'lost-momentum': 'heavy',
+  'broken-plan': 'brace',
+  'empty-gesture': 'second-wind'
+};
+
+function matchesCommonCardId(cardId, commonId) {
+  return cardId === commonId || cardId.endsWith(`-common-${commonId}`);
+}
+
+function phaseFiveSourceCards(skillDeck) {
+  return (skillDeck || []).filter((card) => Object.keys(PHASE_FIVE_CARD_UPGRADES).some((sourceId) => matchesCommonCardId(card.id, sourceId)));
+}
+
+function preservePhaseFiveOriginalCards() {
+  room.phaseFiveOriginalCards ||= {};
+  for (const player of room.players) {
+    if (!Array.isArray(room.phaseFiveOriginalCards[player.id])) {
+      room.phaseFiveOriginalCards[player.id] = structuredClone(phaseFiveSourceCards(player.skillDeck));
+    }
+  }
+}
+
+function restorePhaseFiveOriginalCards() {
+  const originals = room.phaseFiveOriginalCards || {};
+  room.players = room.players.map((player) => {
+    const originalCards = new Map((originals[player.id] || []).map((card) => [card.id, card]));
+    return {
+      ...player,
+      ready: false,
+      skillDeck: (player.skillDeck || []).map((card) => originalCards.has(card.id) ? structuredClone(originalCards.get(card.id)) : card)
+    };
+  });
+  room.phaseFiveOriginalCards = {};
+}
+
+function upgradePhaseFiveCards(game) {
+  if ((game?.completedPhases || 0) < 5) return false;
+  preservePhaseFiveOriginalCards();
+  let changed = false;
+  room.players = room.players.map((player) => {
+    let playerChanged = false;
+    const skillDeck = (player.skillDeck || []).map((card) => {
+      const upgrade = Object.entries(PHASE_FIVE_CARD_UPGRADES)
+        .find(([sourceId]) => matchesCommonCardId(card.id, sourceId));
+      if (!upgrade || card.effect !== 'none') return card;
+      const target = player.skillDeck.find((candidate) => matchesCommonCardId(candidate.id, upgrade[1]));
+      if (!target) return card;
+      const { id: _targetId, ...targetAbilities } = target;
+      playerChanged = true;
+      changed = true;
+      return { ...targetAbilities, id: card.id };
+    });
+    return playerChanged ? { ...player, skillDeck } : player;
+  });
+  return changed;
+}
+
 function normalizeServerTurnOrder(game) {
   if (!game || !room.players.length) return [];
   if (!Number.isFinite(game.completedPhases)) game.completedPhases = Math.max(0, (game.roundNumber || 1) - 1);
+  upgradePhaseFiveCards(game);
   game.maxPhases = 30;
   for (const state of Object.values(game.playerStates || {})) {
     state.graveyard ||= [];
@@ -535,6 +596,7 @@ function passCurrentTurn(kind, now = Date.now(), discardedCardName = '') {
     rotateServerTurn(game, passingPlayer.id);
     phaseCompleted = completeRoundTurn(game, passingPlayer.id);
   }
+  if (phaseCompleted) upgradePhaseFiveCards(game);
   game.adventure = { ...game.adventure, chapter: Math.min(30, (game.completedPhases || 0) + 1) };
   if (phaseCompleted && game.completedPhases % 5 === 0) applyWorldEvent(game, game.completedPhases, now);
   game.history = game.history.slice(-80);
@@ -675,6 +737,7 @@ function handleMessage(socket, rawMessage) {
       if (invalidResolution) return reject(socket, 'The random character assignment is invalid.');
       room.players = resolvedPlayers.map((player, index) => ({ ...player, ready: room.players[index].ready, joinedAt: room.players[index].joinedAt, randomHero: false }));
     }
+    room.phaseFiveOriginalCards = Object.fromEntries(room.players.map((player) => [player.id, structuredClone(phaseFiveSourceCards(player.skillDeck))]));
     room.phase = 'game';
     room.game = message.game;
     room.game.adventure.target = randomDiceTarget();
@@ -819,7 +882,7 @@ function handleMessage(socket, rawMessage) {
   if (message.type === 'return:lobby') {
     room.phase = 'lobby';
     room.game = null;
-    room.players = room.players.map((player) => ({ ...player, ready: false }));
+    restorePhaseFiveOriginalCards();
     broadcast();
   }
 }

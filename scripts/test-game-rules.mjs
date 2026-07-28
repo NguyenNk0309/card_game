@@ -9,6 +9,7 @@ const compile = (source, fileName) => ts.transpileModule(source, {
 
 const catalogSource = await readFile(new URL("../backend/game/catalog.ts", import.meta.url), "utf8");
 const catalogUrl = `data:text/javascript;base64,${Buffer.from(compile(catalogSource, "catalog.ts")).toString("base64")}`;
+const catalog = await import(catalogUrl);
 const cardRulesSource = await readFile(new URL("../shared/cardRules.ts", import.meta.url), "utf8");
 const cardRules = await import(`data:text/javascript;base64,${Buffer.from(compile(cardRulesSource, "cardRules.ts")).toString("base64")}`);
 const diceVisibilitySource = await readFile(new URL("../shared/diceVisibility.ts", import.meta.url), "utf8");
@@ -48,6 +49,42 @@ for (const option of options) {
   assert.equal(common.filter((card) => card.effect === "none" && card.value === 0).length, 3, "common deck needs three no-effect cards");
   assert(option.skillDeck.filter((card) => card.target === "all-allies").every((card) => /including yourself/i.test(card.description)), "all-allies descriptions must explicitly include the acting player");
   assert(option.skillDeck.filter((card) => card.target === "ally" && card.supportType !== "advance-ally").every((card) => /including yourself/i.test(card.description)), "one-ally descriptions must explicitly include the acting player");
+}
+const cardWithoutId = ({ id: _id, ...card }) => card;
+for (const option of options) {
+  const phaseFourDeck = catalog.upgradeCardsAfterPhaseFive(option.skillDeck, 4);
+  assert.equal(phaseFourDeck, option.skillDeck, `${option.hero.name}'s cards cannot upgrade before phase 5 ends`);
+  const phaseFiveDeck = catalog.upgradeCardsAfterPhaseFive(option.skillDeck, 5);
+  assert.notEqual(phaseFiveDeck, option.skillDeck, `${option.hero.name}'s upgrade creates a new deck definition`);
+  assert.equal(phaseFiveDeck.filter((card) => card.effect === "none").length, 0, `${option.hero.name}'s three no-effect cards all upgrade independently`);
+  for (const [sourceId, targetId] of Object.entries(catalog.PHASE_FIVE_CARD_UPGRADES)) {
+    const source = option.skillDeck.find((card) => card.id.endsWith(`-common-${sourceId}`));
+    const target = option.skillDeck.find((card) => card.id.endsWith(`-common-${targetId}`));
+    const upgraded = phaseFiveDeck.find((card) => card.id === source.id);
+    assert.deepEqual(cardWithoutId(upgraded), cardWithoutId(target), `${source.name} must gain every ability and appearance field from ${target.name}`);
+  }
+}
+const upgradeDescriptions = Object.values(catalog.PHASE_FIVE_CARD_UPGRADES).map((targetId) => {
+  const sourceId = Object.entries(catalog.PHASE_FIVE_CARD_UPGRADES).find(([, candidate]) => candidate === targetId)[0];
+  return options[0].skillDeck.find((card) => card.id.endsWith(`-common-${sourceId}`)).description;
+});
+assert(upgradeDescriptions.some((description) => /heavy attack card/i.test(description)), "one no-effect card previews its heavy attack upgrade");
+assert(upgradeDescriptions.some((description) => /shield card/i.test(description)), "one no-effect card previews its shield upgrade");
+assert(upgradeDescriptions.some((description) => /heal card/i.test(description)), "one no-effect card previews its heal upgrade");
+
+const zonePlayers = structuredClone(options.slice(0, 2).map((option, index) => engine.createPlayerSession(`Zone ${index}`, index, option.hero.name, `zone-${index}`)));
+const zoneOneSources = Object.keys(catalog.PHASE_FIVE_CARD_UPGRADES).map((sourceId) => zonePlayers[0].skillDeck.find((card) => card.id.endsWith(`-common-${sourceId}`)).id);
+const zoneTwoSources = Object.keys(catalog.PHASE_FIVE_CARD_UPGRADES).map((sourceId) => zonePlayers[1].skillDeck.find((card) => card.id.endsWith(`-common-${sourceId}`)).id);
+const zoneStates = {
+  [zonePlayers[0].id]: { hand: [zoneOneSources[0]], drawPile: [zoneOneSources[1]], discardPile: [zoneOneSources[2]], graveyard: [] },
+  [zonePlayers[1].id]: { hand: [zoneTwoSources[1]], drawPile: [zoneTwoSources[2]], discardPile: [], graveyard: [zoneTwoSources[0]] }
+};
+const preservedZones = structuredClone(zoneStates);
+const upgradedZonePlayers = catalog.upgradePlayerCardsAfterPhaseFive(zonePlayers, 5);
+assert.deepEqual(zoneStates, preservedZones, "phase-5 upgrades preserve every hand, draw, discard, and graveyard ID and position");
+for (const [playerIndex, sourceIds] of [[0, zoneOneSources], [1, zoneTwoSources]]) {
+  const upgradedCards = sourceIds.map((id) => upgradedZonePlayers[playerIndex].skillDeck.find((card) => card.id === id));
+  assert.deepEqual(upgradedCards.map((card) => card.effect).sort(), ["damage", "guard", "heal"], "each upgrade transforms separately without affecting the other two");
 }
 const supportTypes = new Set(options.flatMap((option) => option.skillDeck.filter((card) => card.effect === "support").map((card) => card.supportType)));
 assert.deepEqual([...supportTypes].sort(), ["advance-ally", "attack", "dice", "dispel-enemy", "enemy-dice", "healing", "purge-card", "revive", "shield", "skip-enemy", "steal-card"]);
