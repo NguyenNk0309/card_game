@@ -144,13 +144,25 @@ try {
   second.send({ type: "team", sessionId: secondId, team: "ember" });
   await first.waitFor((state) => state.players.find((item) => item.id === secondId)?.hero.team === "ember");
 
+  const changedSecond = player(secondId, `Second ${runId}`, "ember");
+  changedSecond.hero.name = `Changed Hero ${runId}`;
+  second.send({ type: "character", sessionId: secondId, player: changedSecond });
+  const changedCharacter = await first.waitFor((state) => state.players.find((item) => item.id === secondId)?.hero.name === changedSecond.hero.name);
+  assert.equal(changedCharacter.players.find((item) => item.id === secondId).hero.team, "ember", "changing character preserves the joined team");
+  assert.equal(changedCharacter.players.find((item) => item.id === secondId).skillDeck.length, 10, "changing character replaces the joined player's deck");
+
   first.send({ type: "ready", sessionId: firstId, ready: true });
   second.send({ type: "ready", sessionId: secondId, ready: true });
+  await first.waitFor((state) => state.players.find((item) => item.id === secondId)?.ready === true);
+  const lockedSecond = player(secondId, `Second ${runId}`, "ember");
+  lockedSecond.hero.name = `Locked Hero ${runId}`;
+  second.send({ type: "character", sessionId: secondId, player: lockedSecond });
   third.send({ type: "ready", sessionId: thirdId, ready: true });
   const [readyState] = await Promise.all([
     first.waitFor((state) => state.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).length === 3 && state.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).every((item) => item.ready)),
     second.waitFor((state) => state.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).length === 3 && state.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).every((item) => item.ready))
   ]);
+  assert.equal(readyState.players.find((item) => item.id === secondId).hero.name, changedSecond.hero.name, "Ready locks realtime character changes");
 
   const game = {
     adventure: { seed: "TEST", realm: {}, chapter: 1, maxChapters: 30, story: "Test", event: "Test", target: 12, worldDoom: 0, veilInfluence: 0, emberInfluence: 0 },

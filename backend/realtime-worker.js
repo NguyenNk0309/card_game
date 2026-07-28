@@ -581,6 +581,24 @@ async function applyCommand(ownerId, message) {
     return null;
   }
 
+  if (message.type === 'character') {
+    if (room.phase !== 'lobby') return 'Characters can only change in the lobby.';
+    if (!ownerId || ownerId !== message.sessionId) return 'You can only change your own character.';
+    const player = room.players.find((current) => current.id === message.sessionId);
+    if (!player) return 'Join the lobby before changing characters.';
+    if (player.ready) return 'Cancel Ready before changing characters.';
+    const selection = message.player;
+    if (!selection?.hero || !Array.isArray(selection.skillDeck) || selection.skillDeck.length !== 10
+      || selection.id !== player.id || selection.displayName !== player.displayName || selection.hero.team !== player.hero.team) {
+      return 'The character selection is incomplete.';
+    }
+    player.hero = selection.hero;
+    player.skillDeck = selection.skillDeck;
+    player.randomHero = Boolean(selection.randomHero);
+    await commitRoom();
+    return null;
+  }
+
   if (message.type === 'team') {
     if (room.phase !== 'lobby') return 'Teams can only change in the lobby.';
     if (!ownerId || ownerId !== message.sessionId) return 'You can only move your own player.';

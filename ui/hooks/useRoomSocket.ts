@@ -27,6 +27,8 @@ function localizeRoomError(message: string) {
     ["character has already", "That character has already been chosen."],
     ["Readiness can only", "Ready status can only change in the lobby."],
     ["ready your own", "You can only change your own ready status."],
+    ["change your own character", "You can only change your own character."],
+    ["Cancel Ready before changing characters", "Cancel Ready before changing characters."],
     ["Join the lobby", "Join the lobby first."],
     ["cannot leave during", "You cannot use the lobby leave action during a battle."],
     ["remove your own", "You can only leave your own player session."],

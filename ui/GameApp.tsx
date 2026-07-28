@@ -374,6 +374,10 @@ export default function GameApp() {
     if (!players.some((player) => player.id === selectedPlayerId)) setSelectedPlayerId(localPlayer.id);
   }, [players, selectedPlayerId, localPlayer]);
   useEffect(() => {
+    if (phase !== "lobby" || !localPlayer) return;
+    setSelectedHeroName(localPlayer.randomHero ? "" : localPlayer.hero.name);
+  }, [phase, localPlayer?.id, localPlayer?.hero.name, localPlayer?.randomHero]);
+  useEffect(() => {
     if (!activeAutoPanel) return;
     const timer = window.setTimeout(() => {
       if (activeAutoPanel === "outcome") setDismissedOutcomeKey(outcomeKey);
@@ -462,6 +466,23 @@ export default function GameApp() {
     }
   };
   const toggleReady = (id: string) => send({ type: "ready", sessionId: id, ready: !players.find((player) => player.id === id)?.ready });
+  const selectLobbyHero = (heroName: string) => {
+    if (!localPlayer) {
+      setSelectedHeroName(heroName);
+      setLobbyError("");
+      return;
+    }
+    if (localPlayer.ready) return setLobbyError("Cancel Ready before changing characters.");
+    const randomHero = !heroName;
+    const resolvedHeroName = randomHero ? characterOptions[0]?.hero.name : heroName;
+    if (!resolvedHeroName) return setLobbyError("No character is available. Please try again.");
+    const selection = { ...createPlayerSession(localPlayer.displayName, localPlayer.hero.team === "veil" ? 0 : 1, resolvedHeroName, localPlayer.id), randomHero };
+    if (send({ type: "character", sessionId, player: selection })) {
+      setSelectedHeroName(heroName);
+      setSelectedPlayerId(localPlayer.id);
+      setLobbyError("");
+    }
+  };
   const selectLobbySlot = (team: TeamId) => {
     if (!localPlayer) return joinPlayer(team);
     if (localPlayer.ready) return setLobbyError("Cancel Ready before switching teams.");
@@ -548,7 +569,7 @@ export default function GameApp() {
       {phase === "game" ? <RunStatus completedPhases={game?.completedPhases ?? Math.max(0, (game?.roundNumber ?? 1) - 1)} secondsLeft={secondsLeft} eventPhase={game?.worldEvent?.turn} onEvents={() => setExpandedPanel("events")}/> : <div className="lobby-top-status"><Users size={16}/> {players.length}/10 players · {players.filter((player) => player.ready).length} ready</div>}
       <div className="top-actions"><div className="audio-controls"><button className={`icon-button music-toggle ${musicOn ? "playing" : ""}`} onClick={() => void toggleMusic()} aria-label={musicOn ? "Pause medieval music" : "Play medieval music"} title={musicOn ? "Pause medieval music" : "Play medieval music"}>{musicOn ? <Volume2 size={18}/> : <AudioLines size={18}/>}</button><label className="volume-control" title={`Audio volume ${volume}%`}><input type="range" min="0" max="100" value={volume} style={{ "--audio-volume": `${volume}%` } as React.CSSProperties} onChange={(event) => setVolume(Number(event.target.value))} aria-label="Game audio volume"/><output>{volume}%</output></label></div><button className="text-button" onClick={() => setShowGuide(true)}><CircleHelp size={16}/> How to play</button>{phase === "game" && localPlayer && <ConfirmedTopAction className="leave-game-control" icon={<LogOut size={16}/>} label="Leave battle" title="Leave this battle?" detail="Your player will be removed from the current battle." onConfirm={() => send({ type: "leave-game", sessionId })}/>} {phase === "game" && localPlayer && !runComplete && <ConfirmedTopAction className="end-game-control" icon={<Octagon size={16}/>} label="End battle" title="End this battle?" detail="The current team totals will decide victory and defeat." onConfirm={() => send({ type: "end-game", sessionId })}/>} {runComplete && !showRunComplete && <button className="text-button" onClick={() => setDismissedBattleResultKey("")}><Crown size={16}/> Battle result</button>}{phase === "game" && <button className="icon-button mobile-party-button" onClick={() => setMobileParty(true)} aria-label="Open player list"><Users size={18}/></button>}</div>
     </header>
-    {phase === "lobby" ? <Lobby players={players} playerName={playerName} error={lobbyError || roomError} selectedPlayerId={selectedPlayerId} localSessionId={sessionId} connectionStatus={status} characterOptions={characterOptions} selectedHeroName={selectedHeroName} onNameChange={(name) => { setPlayerName(name); window.localStorage.setItem(PLAYER_NAME_STORAGE_KEY, name); setLobbyError(""); clearError(); }} onSlotSelect={selectLobbySlot} onSelectPlayer={setSelectedPlayerId} onToggleReady={toggleReady} onLeave={leaveLobby} onRemovePlayer={removePlayer} onEnterGame={enterGame} onHeroSelect={(name) => { setSelectedHeroName(name); setLobbyError(""); }}/> :
+    {phase === "lobby" ? <Lobby players={players} playerName={playerName} error={lobbyError || roomError} selectedPlayerId={selectedPlayerId} localSessionId={sessionId} connectionStatus={status} characterOptions={characterOptions} selectedHeroName={selectedHeroName} onNameChange={(name) => { setPlayerName(name); window.localStorage.setItem(PLAYER_NAME_STORAGE_KEY, name); setLobbyError(""); clearError(); }} onSlotSelect={selectLobbySlot} onSelectPlayer={setSelectedPlayerId} onToggleReady={toggleReady} onLeave={leaveLobby} onRemovePlayer={removePlayer} onEnterGame={enterGame} onHeroSelect={selectLobbyHero}/> :
       <div className="game-layout">{mobileParty && <button className="mobile-rail-backdrop" onClick={() => setMobileParty(false)} aria-label="Close player list"/>}<div className={mobileParty ? "mobile-rail open" : "mobile-rail"}><button className="mobile-close icon-button" onClick={() => setMobileParty(false)}><X size={17}/></button><PartyRail players={players} game={game} localSessionId={localPlayer ? sessionId : ""} onRemovePlayer={removePlayer} onInspectPlayer={inspectPlayer}/></div><PartyRail players={players} game={game} localSessionId={localPlayer ? sessionId : ""} onRemovePlayer={removePlayer} onInspectPlayer={inspectPlayer}/>
         <section className="world-stage combat-stage"><div className="realm-meta"><div><span className="eyebrow">TEAM BATTLE ARENA · 30-PHASE MATCH</span><h1>Eliminate the opposing team</h1></div></div>
           <div className="encounter-row"><section className={`objective-card turn-status-banner ${isLocalActiveTurn ? "active" : "waiting"}`}><div className="objective-icon">{isLocalActiveTurn ? <Target size={22}/> : <Hourglass className="waiting-hourglass" size={22}/>}</div><div><strong>{isLocalActiveTurn ? <>Here is <b className="active-turn-word">your</b> turn</> : activePlayer ? <>Waiting for <span className={`player-name-highlight ${playerRelationClass(activePlayer, localPlayer)}`}>{activePlayer.displayName}</span>&apos;s decision&hellip;</> : "Waiting for a player…"}</strong><p>Defeat every opponent to win immediately. After phase 30, the team with more total HP wins.</p></div></section><DiceRoller roll={rolling ? animatedRoll : game?.roll ?? null} rolling={rolling} target={adventure.target} passiveBonus={visibleDiceModifier(passiveDiceBonus, activePlayer?.id, sessionId)} diceBuff={visibleDiceModifier(activeState?.diceBuff, activePlayer?.id, sessionId)} dicePenalty={visibleDiceModifier(activeState?.dicePenalty, activePlayer?.id, sessionId)} pityPoints={localState?.pityPoints ?? 0} pityCost={activePityCost} hasSelectedCard={Boolean(activeCard)} onRoll={castDie} onPity={usePityRoll} onSkip={skipTurn} onDiscard={discardCard} disabled={activePlayer?.id !== sessionId || status !== "connected" || runComplete || (localState?.hp ?? 1) <= 0}/></div>

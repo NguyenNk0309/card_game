@@ -79,12 +79,21 @@ try {
   await command(secondId, { type: "join", player: player(secondId, `Second ${runId}`, "veil") });
   await command(thirdId, { type: "join", player: player(thirdId, `Third ${runId}`, "veil") });
 
+  const changedSecond = player(secondId, `Second ${runId}`, "veil");
+  changedSecond.hero.name = `Changed Hero ${runId}`;
+  const changedCharacter = await command(secondId, { type: "character", player: changedSecond });
+  assert.equal(changedCharacter.players.find((item) => item.id === secondId).hero.name, changedSecond.hero.name, "a joined player can change character before readying");
+  assert.equal(changedCharacter.players.find((item) => item.id === secondId).hero.team, "veil", "changing character preserves the joined team");
+
   await command(firstId, { type: "ready", ready: true });
   await command(secondId, { type: "ready", ready: true });
   const ready = await command(thirdId, { type: "ready", ready: true });
   assert.equal(ready.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).length, 3);
   assert(ready.players.filter((item) => [firstId, secondId, thirdId].includes(item.id)).every((item) => item.ready));
   assert.equal(ready.players.find((item) => item.id === secondId).hero.team, "veil", "ready snapshots expose the selected team to every player");
+  const lockedSecond = player(secondId, `Second ${runId}`, "veil");
+  lockedSecond.hero.name = `Locked Hero ${runId}`;
+  await assert.rejects(command(secondId, { type: "character", player: lockedSecond }), /Cancel Ready before changing characters/, "Ready locks polling character changes");
 
   const game = {
     adventure: { seed: "POLL", realm: {}, chapter: 1, maxChapters: 30, story: "Test", event: "Test", target: 12, worldDoom: 0, veilInfluence: 0, emberInfluence: 0 },
