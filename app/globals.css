@@ -859,7 +859,16 @@ button:focus-visible {
 }
 
 .dice-copy strong {
-  font: 500 14px Georgia, "Times New Roman", serif;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font: 700 17px/1.1 Georgia, "Times New Roman", serif;
+}
+
+.dice-copy strong b {
+  color: #f4d477;
+  font-size: 22px;
+  line-height: 1;
 }
 
 .dice-copy small {
@@ -1569,11 +1578,16 @@ button:focus-visible {
   max-width: none;
   margin-top: 2px;
   color: var(--gold);
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 800;
   font-style: normal;
-  line-height: 1.35;
+  line-height: 1.2;
   white-space: nowrap;
+}
+
+.dice-copy em b {
+  font-size: 17px;
+  font-weight: 900;
 }
 
 .action-card .card-impact,
