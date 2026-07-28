@@ -189,13 +189,17 @@ button:focus-visible {
 
 .chapter-pips {
   display: flex;
+  align-items: center;
   gap: 5px;
 }
 
 .chapter-pips i {
+  position: relative;
   width: 28px;
-  height: 3px;
+  height: 6px;
+  border-radius: 1px;
   background: rgba(255, 255, 255, 0.15);
+  transition: height 140ms ease, background 140ms ease, box-shadow 140ms ease;
 }
 
 .chapter-pips i.complete {
@@ -947,9 +951,23 @@ button:focus-visible {
 }
 
 .action-hand {
+  --hand-card-gap: 8px;
+  --hand-card-width: calc((100% - 24px) / 4);
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: none;
+  grid-template-rows: minmax(0, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: var(--hand-card-width);
+  gap: var(--hand-card-gap);
+  padding: 12px 6px 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: inline proximity;
+}
+
+.action-hand > .action-card {
+  scroll-snap-align: start;
 }
 
 .action-card {
@@ -1520,7 +1538,8 @@ button:focus-visible {
   }
 
   .action-hand {
-    grid-template-columns: repeat(2, 1fr);
+    --hand-card-width: calc((100% - 8px) / 2);
+    grid-template-columns: none;
   }
 
   .action-card p {
@@ -3550,23 +3569,29 @@ button:focus-visible {
 }
 
 .chapter-pips i.world-event-turn {
-  height: 3px;
+  height: 9px;
   margin: 0;
   border: 0;
-  background: #b5352a;
-  box-shadow: 0 0 12px rgba(226, 65, 47, 0.62);
+  background: #812c25;
+  box-shadow: 0 0 8px rgba(226, 65, 47, 0.38);
   transform: none;
+  cursor: help;
 }
 
 .chapter-pips i.world-event-turn.complete,
 .chapter-pips i.world-event-turn.event-triggered {
-  background: linear-gradient(90deg, #a92119, #ef5e49);
-  box-shadow: 0 0 16px rgba(239, 69, 48, 0.9);
+  background: linear-gradient(90deg, #a92720, #e45342);
+  box-shadow: 0 0 13px rgba(239, 69, 48, 0.72);
 }
 
 .chapter-pips i.world-event-turn.current {
-  background: #ef4f3d;
+  background: #ff5d49;
+  box-shadow: 0 0 15px rgba(255, 82, 61, 0.95);
   animation: red-world-event-pulse 0.8s ease-in-out infinite alternate;
+}
+
+.chapter-pips i.current:not(.world-event-turn) {
+  height: 8px;
 }
 
 @keyframes red-world-event-pulse {
@@ -3844,13 +3869,6 @@ button:focus-visible {
 .public-deck-card .card-outcome-lines p,
 .public-deck-card .card-outcome-lines span { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 
-.world-event-library-button { position: fixed; z-index: 65; top: 9px; left: calc(50% + 210px); display: flex; align-items: center; gap: 6px; padding: 7px 10px; color: #ff8b76; border: 1px solid rgba(220, 91, 72, .45); background: rgba(65, 16, 13, .72); font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
-.world-event-library > div { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
-.world-event-library article { display: grid; gap: 6px; padding: 13px; border: 1px solid rgba(220, 91, 72, .28); background: rgba(92, 26, 20, .12); }
-.world-event-library article > span { color: #e98672; font-size: 8px; letter-spacing: .1em; }
-.world-event-library article > strong { color: var(--paper); font: 600 15px Georgia, serif; }
-.world-event-library article p, .world-event-library article small { margin: 0; color: var(--muted); line-height: 1.45; }
-
 .guide-update-backdrop { position: fixed; z-index: 300; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(3, 7, 8, .88); backdrop-filter: blur(8px); }
 .guide-update-panel { position: relative; width: min(920px, 95vw); max-height: 90vh; overflow: auto; padding: 25px; border: 1px solid rgba(212, 181, 110, .4); background: #0b1214; box-shadow: 0 25px 80px rgba(0, 0, 0, .7); }
 .guide-update-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
@@ -3858,15 +3876,11 @@ button:focus-visible {
 .guide-update-grid strong { color: var(--gold); }
 .guide-update-grid p { margin: 7px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
 
-@media (max-width: 900px) {
-  .world-event-library-button { left: auto; right: 118px; }
-}
 @media (max-width: 640px) {
   .dice-panel { flex-wrap: wrap; }
   .turn-action-buttons { width: 100%; margin: 0; }
   .turn-action-buttons button { flex: 1; }
-  .world-event-library-button span { display: none; }
-  .world-event-library > div, .guide-update-grid, .public-character-deck > div:last-child { grid-template-columns: 1fr; }
+  .guide-update-grid, .public-character-deck > div:last-child { grid-template-columns: 1fr; }
   .interaction-selector { position: static; width: 100%; transform: none; filter: none; }
 }
 
@@ -3918,19 +3932,74 @@ button:focus-visible {
   font-size: 15px !important;
 }
 
-/* Keep the event library physically anchored between the timeline and timer. */
-.run-status > .world-event-library-button {
-  position: static;
-  inset: auto;
-  flex: 0 0 auto;
-  min-height: 34px;
-  margin: 0;
-  padding: 7px 10px;
+.chapter-pips i.world-event-turn.future {
+  background: rgba(181, 53, 42, 0.52);
+  box-shadow: 0 0 7px rgba(226, 65, 47, 0.3);
 }
 
-.chapter-pips i.world-event-turn.future {
-  background: rgba(181, 53, 42, 0.2);
-  box-shadow: 0 0 4px rgba(226, 65, 47, 0.14);
+.phase-event-tooltip {
+  position: absolute;
+  z-index: 180;
+  top: calc(100% + 12px);
+  left: 50%;
+  width: min(320px, calc(100vw - 24px));
+  padding: 11px 12px;
+  visibility: hidden;
+  opacity: 0;
+  color: var(--paper);
+  background: rgba(9, 15, 17, 0.98);
+  border: 1px solid rgba(222, 88, 70, 0.58);
+  border-left: 3px solid #d94737;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.62), 0 0 18px rgba(196, 58, 45, 0.13);
+  backdrop-filter: blur(12px);
+  font-style: normal;
+  text-align: left;
+  transform: translate(-50%, -4px);
+  pointer-events: none;
+  transition: opacity 140ms ease, transform 140ms ease, visibility 140ms ease;
+}
+
+.phase-event-tooltip::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 100%;
+  border: 6px solid transparent;
+  border-bottom-color: rgba(222, 88, 70, 0.72);
+  transform: translateX(-50%);
+}
+
+.game-shell .phase-event-tooltip b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ff8f7c;
+  font: 700 12px Georgia, "Times New Roman", serif;
+  font-size: 12px !important;
+}
+
+.phase-event-tooltip small {
+  display: block;
+  margin-top: 6px;
+  color: #bcc7c4;
+  font-size: 10px;
+  line-height: 1.5;
+  white-space: normal;
+}
+
+.chapter-pips i.world-event-turn:hover,
+.chapter-pips i.world-event-turn:focus-visible {
+  z-index: 181;
+  outline: 0;
+  background: #d94737;
+  box-shadow: 0 0 14px rgba(239, 69, 48, 0.78);
+}
+
+.chapter-pips i.world-event-turn:hover .phase-event-tooltip,
+.chapter-pips i.world-event-turn:focus-visible .phase-event-tooltip {
+  visibility: visible;
+  opacity: 1;
+  transform: translate(-50%, 0);
 }
 
 /* Private replacement VFX, shown only after modal panels close. */
@@ -3994,7 +4063,6 @@ button:focus-visible {
 
 @media (max-width: 940px) {
   .run-status { gap: 8px; }
-  .run-status > .world-event-library-button { right: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4795,7 +4863,6 @@ button:focus-visible {
 .joined-actions button,
 .enter-game-button,
 .pile-review-actions button,
-.world-event-library-button,
 .target-dropdown-trigger,
 .target-dropdown-option {
   height: auto;
