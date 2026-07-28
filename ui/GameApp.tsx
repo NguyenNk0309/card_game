@@ -1,7 +1,8 @@
 "use client";
 
-import { Archive, AudioLines, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, Crown, Dices, Eye, Flame, Hand, Heart, History, Layers, ListOrdered, LogOut, Octagon, RefreshCw, Shield, Skull, Sparkles, Swords, Target, Users, Volume2, X, Zap } from "lucide-react";
+import { Archive, AudioLines, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, Crown, Dices, Eye, Flame, Hand, Heart, History, Hourglass, Layers, ListOrdered, LogOut, Octagon, RefreshCw, Shield, Skull, Sparkles, Target, Users, Volume2, X, Zap } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { createAdventure, createInitialGame, createPlayerSession, getCharacterOptions, getPassiveDiceBonus, randomD20Roll, resolveCardTurn } from "@/backend/game/engine";
 import { describeCardFailure, describeCardSuccess, getCardPityCost, getCardTargetLabel } from "@/shared/cardRules";
 import { visibleDiceModifier } from "@/shared/diceVisibility";
@@ -62,11 +63,29 @@ function DetailedGuide({ onClose }: { onClose: () => void }) {
 
 function ConfirmedTopAction({ className, icon, label, title, detail, onConfirm }: { className: string; icon: React.ReactNode; label: string; title: string; detail: string; onConfirm: () => void }) {
   const [open, setOpen] = useState(false);
+  const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 });
   const controlRef = useRef<HTMLDivElement>(null);
+  const confirmationRef = useRef<HTMLDivElement>(null);
+  const placeConfirmation = () => {
+    const rect = controlRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = 210;
+    setPopoverPosition({
+      top: rect.bottom + 9,
+      left: Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8),
+    });
+  };
+  useLayoutEffect(() => {
+    if (!open) return;
+    placeConfirmation();
+    window.addEventListener("resize", placeConfirmation);
+    return () => window.removeEventListener("resize", placeConfirmation);
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const closeOutside = (event: PointerEvent) => {
-      if (!controlRef.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!controlRef.current?.contains(target) && !confirmationRef.current?.contains(target)) setOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
@@ -79,15 +98,15 @@ function ConfirmedTopAction({ className, icon, label, title, detail, onConfirm }
     };
   }, [open]);
   return <div className="top-action-confirm-control" ref={controlRef}>
-    <button className={`text-button ${className}`} onClick={() => setOpen(true)}>{icon} {label}</button>
-    {open && <div className="turn-action-confirm" role="dialog" aria-label={title}>
+    <button className={`text-button ${className}`} onClick={() => { placeConfirmation(); setOpen(true); }}>{icon} {label}</button>
+    {open && createPortal(<div className="turn-action-confirm top-action-confirm-popover" ref={confirmationRef} role="dialog" aria-label={title} style={popoverPosition}>
       <strong>{title}</strong>
       <span>{detail}</span>
       <div>
         <button onClick={() => { setOpen(false); onConfirm(); }}><Check size={13}/> Confirm</button>
         <button onClick={() => setOpen(false)}><X size={13}/> Cancel</button>
       </div>
-    </div>}
+    </div>, document.body)}
   </div>;
 }
 
@@ -527,8 +546,7 @@ export default function GameApp() {
     {phase === "lobby" ? <Lobby players={players} playerName={playerName} error={lobbyError || roomError} selectedPlayerId={selectedPlayerId} localSessionId={sessionId} connectionStatus={status} characterOptions={characterOptions} selectedHeroName={selectedHeroName} onNameChange={(name) => { setPlayerName(name); window.localStorage.setItem(PLAYER_NAME_STORAGE_KEY, name); setLobbyError(""); clearError(); }} onSlotSelect={selectLobbySlot} onSelectPlayer={setSelectedPlayerId} onToggleReady={toggleReady} onLeave={leaveLobby} onRemovePlayer={removePlayer} onEnterGame={enterGame} onHeroSelect={(name) => { setSelectedHeroName(name); setLobbyError(""); }}/> :
       <div className="game-layout">{mobileParty && <button className="mobile-rail-backdrop" onClick={() => setMobileParty(false)} aria-label="Close player list"/>}<div className={mobileParty ? "mobile-rail open" : "mobile-rail"}><button className="mobile-close icon-button" onClick={() => setMobileParty(false)}><X size={17}/></button><PartyRail players={players} game={game} localSessionId={localPlayer ? sessionId : ""} onRemovePlayer={removePlayer} onInspectPlayer={inspectPlayer}/></div><PartyRail players={players} game={game} localSessionId={localPlayer ? sessionId : ""} onRemovePlayer={removePlayer} onInspectPlayer={inspectPlayer}/>
         <section className="world-stage combat-stage"><div className="realm-meta"><div><span className="eyebrow">TEAM BATTLE ARENA · 30-PHASE MATCH</span><h1>Eliminate the opposing team</h1></div></div>
-          <section className="combat-banner"><Swords size={24}/><div><strong>{activePlayer?.displayName ? <><span className={`player-name-highlight ${playerRelationClass(activePlayer, localPlayer)}`}>{activePlayer.displayName}</span>&apos;s turn</> : "Waiting for a player"}</strong><p>Defeat every opponent to win immediately. After phase 30, the team with more total HP wins.</p></div></section>
-          <div className="encounter-row"><section className="objective-card"><div className="objective-icon"><Target size={22}/></div><div><span className="eyebrow">THIS TURN'S TARGET</span><strong>Roll d20 plus allowed dice modifiers to reach {adventure.target}</strong><small>The server reveals a new random target for every turn. Previous rolls do not determine it.</small></div></section><DiceRoller roll={rolling ? animatedRoll : game?.roll ?? null} rolling={rolling} target={adventure.target} passiveBonus={visibleDiceModifier(passiveDiceBonus, activePlayer?.id, sessionId)} diceBuff={visibleDiceModifier(activeState?.diceBuff, activePlayer?.id, sessionId)} dicePenalty={visibleDiceModifier(activeState?.dicePenalty, activePlayer?.id, sessionId)} pityPoints={localState?.pityPoints ?? 0} pityCost={activePityCost} hasSelectedCard={Boolean(activeCard)} onRoll={castDie} onPity={usePityRoll} onSkip={skipTurn} onDiscard={discardCard} disabled={activePlayer?.id !== sessionId || status !== "connected" || runComplete || (localState?.hp ?? 1) <= 0} disabledLabel={(localState?.hp ?? 1) <= 0 ? "You have been defeated" : runComplete ? "The battle has ended" : status !== "connected" ? "Reconnecting..." : activePlayer ? <>Waiting for <span className={`player-name-highlight ${playerRelationClass(activePlayer, localPlayer)}`}>{activePlayer.displayName}</span></> : "Waiting for a player"}/></div>
+          <div className="encounter-row"><section className={`objective-card turn-status-banner ${isLocalActiveTurn ? "active" : "waiting"}`}><div className="objective-icon">{isLocalActiveTurn ? <Target size={22}/> : <Hourglass className="waiting-hourglass" size={22}/>}</div><div><strong>{isLocalActiveTurn ? <>Here is your <b className="active-turn-word">turn</b></> : activePlayer ? <>Waiting for <span className={`player-name-highlight ${playerRelationClass(activePlayer, localPlayer)}`}>{activePlayer.displayName}</span>&apos;s decision&hellip;</> : "Waiting for a player…"}</strong><p>Defeat every opponent to win immediately. After phase 30, the team with more total HP wins.</p></div></section><DiceRoller roll={rolling ? animatedRoll : game?.roll ?? null} rolling={rolling} target={adventure.target} passiveBonus={visibleDiceModifier(passiveDiceBonus, activePlayer?.id, sessionId)} diceBuff={visibleDiceModifier(activeState?.diceBuff, activePlayer?.id, sessionId)} dicePenalty={visibleDiceModifier(activeState?.dicePenalty, activePlayer?.id, sessionId)} pityPoints={localState?.pityPoints ?? 0} pityCost={activePityCost} hasSelectedCard={Boolean(activeCard)} onRoll={castDie} onPity={usePityRoll} onSkip={skipTurn} onDiscard={discardCard} disabled={activePlayer?.id !== sessionId || status !== "connected" || runComplete || (localState?.hp ?? 1) <= 0}/></div>
           <div className="battle-interaction-space">{activePlayer?.id === sessionId && activeCard && ["enemy", "ally", "defeated-ally", "player"].includes(activeCard.target) ? <section className="interaction-selector" aria-label="Choose interaction target"><div className="target-picker"><Target size={16}/><span>Choose {getCardTargetLabel(activeCard).toLowerCase()}</span>{targetOptions.length ? <TargetPlayerPicker options={targetOptions} selectedId={targetPlayerId} game={game} localPlayer={localPlayer} onChange={setTargetPlayerId}/> : <span className="no-valid-target">No valid target is available. A successful roll will have no effect.</span>}</div></section> : null}</div>
           <section className="hand-zone private-hand-zone"><div className="hand-heading"><div><span className="eyebrow">{localPlayer ? "YOUR PRIVATE HAND" : "PRIVATE HAND"}</span><strong>{activePlayer?.id === sessionId ? "Choose a card, select a target when required, then roll the die" : "Plan your next move while the current player acts"}</strong></div>{localPlayer && <div className="pile-review-actions"><span><Hand size={16}/> Hand ({localState?.hand.length ?? 0})</span><button onClick={() => setDeckReview("draw")}><Layers size={16}/> Draw pile ({localState?.drawPile.length ?? 0})</button><button onClick={() => setDeckReview("discard")}><Archive size={16}/> Discard ({localState?.discardPile.length ?? 0})</button><button onClick={() => setDeckReview("graveyard")}><Skull size={16}/> Graveyard ({localState?.graveyard?.length ?? 0})</button></div>}</div>
             {localState && <div className="active-effects-strip"><b>ACTIVE EFFECTS</b>{localState.attackBuff > 0 && <span className="effect-attack">Next attack +{localState.attackBuff}</span>}{localState.diceBuff > 0 && <span className="effect-bonus">Next d20 +{localState.diceBuff}</span>}{localState.dicePenalty > 0 && <span className="effect-penalty">Next d20 -{localState.dicePenalty}</span>}{localState.skipTurns > 0 && <span className="effect-penalty">Next turn cancelled</span>}{localState.reviveIn > 0 && <span className="effect-heal">Revives in {localState.reviveIn} turns</span>}{(localState.borrowedCards?.length ?? 0) > 0 && <span className="effect-support">{(localState.borrowedCards?.length ?? 0)} borrowed card</span>}{!localState.attackBuff && !localState.diceBuff && !localState.dicePenalty && !localState.skipTurns && !localState.reviveIn && !(localState.borrowedCards?.length ?? 0) && <span>No active effects</span>}</div>}
