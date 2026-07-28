@@ -765,9 +765,63 @@ button:focus-visible {
   font-size: 8px;
 }
 
+.game-notice-stack {
+  position: fixed;
+  z-index: 220;
+  top: 84px;
+  right: 18px;
+  width: min(390px, calc(100vw - 36px));
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.game-notice-stack .game-notice {
+  width: 100%;
+  max-width: none;
+  min-height: 58px;
+  margin: 0;
+  padding: 10px 13px;
+  background: rgba(10, 18, 18, 0.97);
+  border-color: rgba(106, 165, 131, 0.55);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.46);
+  backdrop-filter: blur(12px);
+  animation: rise 250ms ease-out, notice-expire 250ms ease-in 4.75s forwards;
+}
+
+.game-notice-stack .game-notice > svg { flex: 0 0 auto; }
+.game-notice-stack .game-notice > div { gap: 3px; }
+.game-notice-stack .game-notice strong { font-size: 14px; }
+.game-notice-stack .game-notice span { font-size: 11px; line-height: 1.35; }
+.game-notice-stack .pity-spent,
+.game-notice-stack .card-transform { color: var(--gold); border-color: rgba(212, 181, 110, 0.58); }
+.game-notice-stack .graveyard { color: #d47c73; border-color: rgba(177, 82, 73, 0.6); }
+.game-notice-stack .deck-reshuffle { color: #80bfd2; border-color: rgba(90, 160, 184, 0.58); }
+
+.discard-summary-content {
+  min-height: 150px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.discard-summary-content h2 { margin: 0; }
+
 @keyframes rise {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes notice-expire {
+  to { opacity: 0; transform: translateY(-5px); }
+}
+
+@media (max-width: 720px) {
+  .game-notice-stack {
+    top: 76px;
+    right: 10px;
+    width: calc(100vw - 20px);
+  }
 }
 
 .encounter-row {

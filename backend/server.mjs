@@ -190,10 +190,66 @@ function restorePhaseFiveOriginalCards() {
   room.phaseFiveOriginalCards = {};
 }
 
+function appendOutcomeNotice(game, notice) {
+  if (!game?.outcome) return;
+  game.outcome.notices ||= [];
+  if (!game.outcome.notices.some((item) => item.id === notice.id)) game.outcome.notices.push(notice);
+}
+
+function gameNoticeScope(game) {
+  return game?.history?.at(-1)?.id || `turn-${game?.completedTurns || 0}-${game?.turnStartedAt || Date.now()}`;
+}
+
+function zoneCardCount(state) {
+  return ['hand', 'drawPile', 'discardPile', 'graveyard']
+    .reduce((total, zone) => total + (state?.[zone]?.length || 0), 0);
+}
+
+function appendZoneTransitionNotices(previousGame, nextGame) {
+  if (!previousGame || !nextGame?.outcome) return;
+  const scope = gameNoticeScope(nextGame);
+  for (const player of room.players) {
+    const before = previousGame.playerStates?.[player.id];
+    const after = nextGame.playerStates?.[player.id];
+    if (!before || !after) continue;
+    const previousGraveyard = new Set(before.graveyard || []);
+    for (const cardId of (after.graveyard || []).filter((id) => !previousGraveyard.has(id))) {
+      const card = (player.skillDeck || []).find((item) => item.id === cardId);
+      appendOutcomeNotice(nextGame, {
+        id: `${scope}-graveyard-${player.id}-${cardId}`,
+        kind: 'graveyard',
+        title: 'Card moved to graveyard',
+        detail: `${card?.name || 'A card'} moved to ${player.displayName}'s graveyard and is out of circulation for this battle.`
+      });
+    }
+    const recycledDiscard = (before.discardPile || []).length > 0
+      && (after.discardPile || []).length === 0
+      && (after.hand || []).length > 0;
+    const actorPlayedLastCard = ['card', 'discard'].includes(nextGame.outcome.kind || '')
+      && nextGame.outcome.actorName === player.displayName
+      && (before.drawPile || []).length === 0
+      && (before.hand || []).length === 1
+      && (before.hand || []).includes(nextGame.outcome.cardId)
+      && (after.discardPile || []).length === 0
+      && (after.hand || []).length > 0
+      && zoneCardCount(before) === zoneCardCount(after);
+    if (recycledDiscard || actorPlayedLastCard) {
+      const handCount = (after.hand || []).length;
+      appendOutcomeNotice(nextGame, {
+        id: `${scope}-deck-reshuffle-${player.id}`,
+        kind: 'deck-reshuffle',
+        title: 'Deck reshuffled',
+        detail: `${player.displayName}'s discard pile moved to the draw pile, was reshuffled, and dealt ${handCount} ${handCount === 1 ? 'card' : 'cards'} to hand.`
+      });
+    }
+  }
+}
+
 function upgradePhaseFiveCards(game) {
   if ((game?.completedPhases || 0) < 5) return false;
   preservePhaseFiveOriginalCards();
   let changed = false;
+  const transformations = new Set();
   room.players = room.players.map((player) => {
     let playerChanged = false;
     const skillDeck = (player.skillDeck || []).map((card) => {
@@ -203,11 +259,19 @@ function upgradePhaseFiveCards(game) {
       const target = player.skillDeck.find((candidate) => matchesCommonCardId(candidate.id, upgrade[1]));
       if (!target) return card;
       const { id: _targetId, ...targetAbilities } = target;
+      const effectLabel = ['damage', 'aoe'].includes(target.effect) ? 'attack' : target.effect === 'guard' ? 'shield' : 'heal';
+      transformations.add(`${card.name} → ${target.name} (${effectLabel})`);
       playerChanged = true;
       changed = true;
       return { ...targetAbilities, id: card.id };
     });
     return playerChanged ? { ...player, skillDeck } : player;
+  });
+  if (changed) appendOutcomeNotice(game, {
+    id: `${gameNoticeScope(game)}-phase-${game.completedPhases}-card-transform`,
+    kind: 'card-transform',
+    title: 'No-effect cards transformed',
+    detail: `${[...transformations].join('; ')}.`
   });
   return changed;
 }
@@ -398,6 +462,18 @@ function reconcilePityPoints(previousGame, incomingGame, actor) {
   }
   outcome.pityBefore = before;
   outcome.pityAfter = incomingState.pityPoints;
+  if (outcome.resolution === 'pity' && cost > 0) appendOutcomeNotice(incomingGame, {
+    id: `${gameNoticeScope(incomingGame)}-pity-spent-${actor.id}`,
+    kind: 'pity-spent',
+    title: 'Pity spent',
+    detail: `${actor.displayName} spent ${cost} pity ${cost === 1 ? 'point' : 'points'} (${before} → ${incomingState.pityPoints}).`
+  });
+  else if (!outcome.success) appendOutcomeNotice(incomingGame, {
+    id: `${gameNoticeScope(incomingGame)}-pity-gained-${actor.id}`,
+    kind: 'pity-gained',
+    title: 'Pity gained',
+    detail: `${actor.displayName} gained 1 pity point (${before} → ${incomingState.pityPoints}).`
+  });
   return '';
 }
 
@@ -570,9 +646,10 @@ function expireTimedEffectsAtTurnEnd(state) {
   state.timedEffects = keeping;
 }
 
-function passCurrentTurn(kind, now = Date.now(), discardedCardName = '') {
+function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', zoneBaseline = null, discardedCardId = '') {
   const game = room.game;
   if (room.phase !== 'game' || !game || game.ended || !room.players.length) return false;
+  const previousGame = zoneBaseline || structuredClone(game);
   const order = normalizeServerTurnOrder(game);
   const passingPlayer = room.players.find((player) => player.id === order[0]) || room.players[game.activePlayerIndex];
   const completedTurns = game.completedTurns + 1;
@@ -586,7 +663,7 @@ function passCurrentTurn(kind, now = Date.now(), discardedCardName = '') {
   const discarded = kind === 'discard';
   game.completedTurns = completedTurns;
   game.adventure = { ...game.adventure, target: randomDiceTarget() };
-  game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered the discard pile and advanced the full-deck cycle. Expiring effects ended normally.` : forced ? 'A support effect cancelled this turn. Cards were preserved; expiring effects ended normally.' : timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled; expiring effects ended normally.' : 'The turn was skipped. No cards were discarded or shuffled; expiring effects ended normally.', actorName: playerName, cardName: discardedCardName || undefined, lifeEvents: revived.map((player) => ({ id: `life-${completedTurns}-${now}-returning-light-${player.id}`, kind: 'revive', playerId: player.id, playerName: player.displayName, reason: `${player.displayName} returned through Returning Light with one-third HP.` })) };
+  game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered the discard pile and advanced the full-deck cycle. Expiring effects ended normally.` : forced ? 'A support effect cancelled this turn. Cards were preserved; expiring effects ended normally.' : timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled; expiring effects ended normally.' : 'The turn was skipped. No cards were discarded or shuffled; expiring effects ended normally.', actorName: playerName, cardId: discardedCardId || undefined, cardName: discardedCardName || undefined, lifeEvents: revived.map((player) => ({ id: `life-${completedTurns}-${now}-returning-light-${player.id}`, kind: 'revive', playerId: player.id, playerName: player.displayName, reason: `${player.displayName} returned through Returning Light with one-third HP.` })) };
   game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} manually discarded ${discardedCardName} and advanced their full-deck cycle. Expiring effects ended normally.` : forced ? `${playerName}'s turn was cancelled by an enemy support effect. Their hand was preserved; expiring effects ended normally.` : timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved; expiring effects ended normally.` : `${playerName} manually skipped the turn. Their hand was preserved; expiring effects ended normally.`, success: false, createdAt: now }];
   game.worldEvent = null;
   if (revived.length) game.history.push({ id: `revive-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind: 'system', actorName: 'Returning Light', message: `${revived.map((player) => player.displayName).join(', ')} revived with one-third HP.`, success: true, createdAt: now });
@@ -608,6 +685,7 @@ function passCurrentTurn(kind, now = Date.now(), discardedCardName = '') {
   game.turnStartedAt = now;
   game.turnSeconds = TURN_SECONDS;
   game.turnDeadline = winner ? 0 : now + TURN_SECONDS * 1000;
+  appendZoneTransitionNotices(previousGame, game);
   broadcast();
   if (kind !== 'forced-skip') advanceForcedSkippedTurns(now + 1);
   return true;
@@ -789,9 +867,11 @@ function handleMessage(socket, rawMessage) {
         message.game.playerStates[id].pityPoints = Math.max(0, Math.floor(Number(state.pityPoints) || 0));
       }
     }
+    if (message.game.outcome) message.game.outcome.notices = [];
     const pityError = reconcilePityPoints(previousGame, message.game, activePlayer);
     if (pityError) return reject(socket, pityError);
     reconcileHiddenCardEffects(previousGame, message.game, activePlayer);
+    appendZoneTransitionNotices(previousGame, message.game);
     message.game.adventure.target = randomDiceTarget();
     if (message.game.outcome?.kind === 'card') message.game.outcome.nextTarget = message.game.adventure.target;
     room.game = message.game;
@@ -824,6 +904,7 @@ function handleMessage(socket, rawMessage) {
     const state = room.game.playerStates[activePlayer.id];
     if (!state || state.hp <= 0) return reject(socket, 'A defeated player cannot discard a card.');
     if (!state.hand.includes(message.cardId)) return reject(socket, 'Choose a card from your hand to discard.');
+    const zoneBaseline = structuredClone(room.game);
     const card = activePlayer.skillDeck.find((item) => item.id === message.cardId);
     const borrowed = (state.borrowedCards || []).find((entry) => entry.cardId === message.cardId);
     const discardedIndex = state.hand.indexOf(message.cardId);
@@ -837,7 +918,7 @@ function handleMessage(socket, rawMessage) {
       }
     } else state.discardPile.push(message.cardId);
     drawOneOrStartNewCycle(state, discardedIndex >= 0 ? discardedIndex : state.hand.length);
-    passCurrentTurn('discard', Date.now(), card?.name || 'a card');
+    passCurrentTurn('discard', Date.now(), card?.name || 'a card', zoneBaseline, message.cardId);
     return;
   }
 

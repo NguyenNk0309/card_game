@@ -87,6 +87,13 @@ export type PlayerLifeEvent = {
   reason: string;
 };
 
+export type GameNotice = {
+  id: string;
+  kind: "pity-gained" | "pity-spent" | "graveyard" | "deck-reshuffle" | "card-transform";
+  title: string;
+  detail: string;
+};
+
 export type GameOutcome = {
   success: boolean;
   total: number;
@@ -117,6 +124,7 @@ export type GameOutcome = {
   supportType?: SupportType;
   targetIds?: string[];
   lifeEvents?: PlayerLifeEvent[];
+  notices?: GameNotice[];
 };
 
 export type GameHistoryEntry = {

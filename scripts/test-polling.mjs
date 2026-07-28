@@ -155,6 +155,8 @@ try {
   const upgradedDeck = upgradedState.players.find((item) => item.id === firstId).skillDeck;
   assert.deepEqual([upgradedState.game.playerStates[firstId].hand, upgradedState.game.playerStates[firstId].drawPile, upgradedState.game.playerStates[firstId].graveyard], [[upgradeZoneIds[0]], [upgradeZoneIds[1]], [upgradeZoneIds[2]]], "polling phase-5 upgrades preserve card IDs across private zones");
   assert.deepEqual(upgradeZoneIds.map((id) => upgradedDeck.find((card) => card.id === id).effect).sort(), ["damage", "guard", "heal"], "polling authority upgrades all three cards independently");
+  assert.equal(upgradedState.game.outcome.notices.filter((notice) => notice.kind === "card-transform").length, 1, "polling phase-5 upgrades emit one grouped transformation notice");
+  assert(upgradedState.game.outcome.notices.some((notice) => notice.kind === "graveyard" && notice.detail.includes("Empty Gesture")), "polling graveyard transitions emit an authoritative card notice");
   const controlledGame = structuredClone(firstStarted.game);
   controlledGame.completedTurns = 1;
   controlledGame.completedPhases = 0;
@@ -236,6 +238,8 @@ try {
   assert.deepEqual(upgradeZoneIds.map((id) => initialPhaseFiveDeck.find((card) => card.id === id).effect).sort(), ["damage", "guard", "heal"], "an initial polling phase-5 snapshot is normalized before a player can act");
   const hydratedPhaseFiveState = await readRoom(firstId);
   assert.deepEqual(upgradeZoneIds.map((id) => hydratedPhaseFiveState.players.find((item) => item.id === firstId).skillDeck.find((card) => card.id === id).effect).sort(), ["damage", "guard", "heal"], "a hydrated polling phase-5 snapshot remains normalized");
+  const reshuffledAfterDiscard = await command(firstId, { type: "discard-card", cardId: `card-${firstId}` });
+  assert(reshuffledAfterDiscard.game.outcome.notices.some((notice) => notice.kind === "deck-reshuffle"), "polling last-card discards emit a deck reshuffle notice");
   const secondResetLobby = await command(firstId, { type: "return:lobby" });
   assert.equal(secondResetLobby.players.find((item) => item.id === firstId).skillDeck.filter((card) => card.effect === "none").length, 3, "a normalized polling snapshot also restores cleanly for the next battle");
   console.log("Polling test passed: private hands, phase-5 card upgrades and resets, initial phase-5 normalization, 60-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");

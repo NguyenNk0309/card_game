@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { createAdventure, createInitialGame, createPlayerSession, getCharacterOptions, getPassiveDiceBonus, randomD20Roll, resolveCardTurn } from "@/backend/game/engine";
 import { describeCardFailure, describeCardSuccess, getCardPityCost, getCardTargetLabel } from "@/shared/cardRules";
 import { visibleDiceModifier } from "@/shared/diceVisibility";
-import type { ActionCard, GameHistoryEntry, PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
+import type { ActionCard, GameHistoryEntry, GameNotice, PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
 import { DiceRoller } from "./components/DiceRoller";
 import { EffectText } from "./components/EffectText";
 import { Lobby } from "./components/Lobby";
@@ -26,6 +26,13 @@ function CardOutcomeLines({ card }: { card: ActionCard }) {
 
 function AutomaticSuccessNotice({ roll }: { roll?: number }) {
   return <div className="automatic-success-notice"><Check size={22}/><span><small>ZERO-PITY CARD</small><strong>Automatic success</strong><b>d20 {roll ?? 0} was ignored</b></span></div>;
+}
+
+function GameNoticeIcon({ kind }: { kind: GameNotice["kind"] }) {
+  if (kind === "pity-gained" || kind === "pity-spent") return <PityIcon size={19}/>;
+  if (kind === "graveyard") return <Archive size={19}/>;
+  if (kind === "deck-reshuffle") return <RefreshCw size={19}/>;
+  return <Sparkles size={19}/>;
 }
 
 function HandCardContents({ card, player }: { card: ActionCard; player: PlayerSession }) {
@@ -263,12 +270,15 @@ export default function GameApp() {
   const [mobileParty, setMobileParty] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [cardZoneMotion, setCardZoneMotion] = useState<CardZoneMotion | null>(null);
+  const [visibleNotices, setVisibleNotices] = useState<GameNotice[]>([]);
   const expirySentRef = useRef(0);
   const previousLocalZonesRef = useRef<{ playerId: string; hand: string[]; drawPile: string[]; discardPile: string[] } | null>(null);
   const pendingCardMotionRef = useRef<{ completedTurns: number; slotIndex: number; slotRect?: CardSlotRect; discarded: ActionCard } | null>(null);
   const outcomeSoundReadyRef = useRef(false);
   const lastOutcomeSoundKeyRef = useRef("");
   const lastBattleResultKeyRef = useRef("");
+  const seenNoticeIdsRef = useRef(new Set<string>());
+  const noticeTimersRef = useRef(new Map<string, number>());
 
   const { players, phase, game } = room;
   const adventure = game?.adventure ?? lobbyAdventure;
@@ -296,8 +306,9 @@ export default function GameApp() {
   const showRunComplete = Boolean(runComplete && battleResultKey !== dismissedBattleResultKey);
   const showLifeEvent = Boolean(activeLifeEvent && !showRunComplete);
   const isLocalCardOutcome = Boolean(outcome?.kind === "card" && outcome.actorName === localPlayer?.displayName);
+  const isLocalDiscardOutcome = Boolean(outcome?.kind === "discard" && outcome.actorName === localPlayer?.displayName);
   const showOutcome = Boolean(isLocalCardOutcome && outcomeKey !== dismissedOutcomeKey && !runComplete);
-  const showTurnSummary = Boolean(outcome?.actorName && !isLocalCardOutcome && outcomeKey !== dismissedSummaryKey && !runComplete);
+  const showTurnSummary = Boolean(outcome?.actorName && !isLocalCardOutcome && !isLocalDiscardOutcome && outcomeKey !== dismissedSummaryKey && !runComplete);
   const vfxCard = outcome?.kind === "card"
     ? [...cardCatalog, ...previewCardCatalog].find((card) => card.id === outcome.cardId && card.name === outcome.cardName)
       ?? previewCardCatalog.find((card) => card.name === outcome.cardName)
@@ -387,6 +398,23 @@ export default function GameApp() {
     }, 10000);
     return () => window.clearTimeout(timer);
   }, [activeAutoPanel, activeLifeEvent?.id, outcomeKey, game?.worldEvent?.id]);
+  useEffect(() => {
+    const freshNotices = (outcome?.notices ?? []).filter((notice) => !seenNoticeIdsRef.current.has(notice.id));
+    if (!freshNotices.length) return;
+    freshNotices.forEach((notice) => seenNoticeIdsRef.current.add(notice.id));
+    setVisibleNotices((current) => [...current, ...freshNotices]);
+    freshNotices.forEach((notice) => {
+      const timer = window.setTimeout(() => {
+        setVisibleNotices((current) => current.filter((item) => item.id !== notice.id));
+        noticeTimersRef.current.delete(notice.id);
+      }, 5000);
+      noticeTimersRef.current.set(notice.id, timer);
+    });
+  }, [outcome?.notices]);
+  useEffect(() => () => {
+    noticeTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    noticeTimersRef.current.clear();
+  }, []);
   useEffect(() => {
     if (!showBattleVfx || !outcomeKey) return;
     const timer = window.setTimeout(() => setDismissedVfxKey(outcomeKey), 1400);
@@ -564,7 +592,7 @@ export default function GameApp() {
     if (showRunComplete) send({ type: "return:lobby" });
   };
 
-  return <main className="game-shell arena-focus"><div className="grain"/>{showBattleVfx && vfxCard && <div className={`battle-card-vfx effect-${vfxCard.effect} ${outcome?.success ? "success" : "failure"}`} aria-hidden="true"><i/><i/><i/><div><CardEffectIcon card={vfxCard}/><strong>{vfxCard.name}</strong></div></div>}{cardZoneMotion && localPlayer && !panelOverlayOpen && <CardZoneVfx key={cardZoneMotion.id} motion={cardZoneMotion} player={localPlayer} playable={activePlayer?.id === sessionId && !runComplete && (localState?.hp ?? 0) > 0}/>} {showGuide && <DetailedGuide onClose={() => setShowGuide(false)}/>}
+  return <main className="game-shell arena-focus"><div className="grain"/>{visibleNotices.length > 0 && <section className="game-notice-stack" aria-live="polite" aria-label="Battle notices">{visibleNotices.map((notice) => <article className={`outcome-toast game-notice ${notice.kind}`} key={notice.id}><GameNoticeIcon kind={notice.kind}/><div><strong>{notice.title}</strong><span><HighlightPlayerNames text={notice.detail} players={players} localPlayer={localPlayer}/></span></div></article>)}</section>}{showBattleVfx && vfxCard && <div className={`battle-card-vfx effect-${vfxCard.effect} ${outcome?.success ? "success" : "failure"}`} aria-hidden="true"><i/><i/><i/><div><CardEffectIcon card={vfxCard}/><strong>{vfxCard.name}</strong></div></div>}{cardZoneMotion && localPlayer && !panelOverlayOpen && <CardZoneVfx key={cardZoneMotion.id} motion={cardZoneMotion} player={localPlayer} playable={activePlayer?.id === sessionId && !runComplete && (localState?.hp ?? 0) > 0}/>} {showGuide && <DetailedGuide onClose={() => setShowGuide(false)}/>}
     <header className="topbar"><div className="brand"><div className="brand-mark"><Crown size={20}/></div><div><strong>SHATTERED OATH</strong><span>Two teams. One victor.</span></div></div>
       {phase === "game" ? <RunStatus completedPhases={game?.completedPhases ?? Math.max(0, (game?.roundNumber ?? 1) - 1)} secondsLeft={secondsLeft} worldEvents={(game?.history ?? []).filter((entry) => entry.kind === "world")}/> : <div className="lobby-top-status"><Users size={16}/> {players.length}/10 players · {players.filter((player) => player.ready).length} ready</div>}
       <div className="top-actions"><div className="audio-controls"><button className={`icon-button music-toggle ${musicOn ? "playing" : ""}`} onClick={() => void toggleMusic()} aria-label={musicOn ? "Pause medieval music" : "Play medieval music"} title={musicOn ? "Pause medieval music" : "Play medieval music"}>{musicOn ? <Volume2 size={18}/> : <AudioLines size={18}/>}</button><label className="volume-control" title={`Audio volume ${volume}%`}><input type="range" min="0" max="100" value={volume} style={{ "--audio-volume": `${volume}%` } as React.CSSProperties} onChange={(event) => setVolume(Number(event.target.value))} aria-label="Game audio volume"/><output>{volume}%</output></label></div><button className="text-button" onClick={() => setShowGuide(true)}><CircleHelp size={16}/> How to play</button>{phase === "game" && localPlayer && <ConfirmedTopAction className="leave-game-control" icon={<LogOut size={16}/>} label="Leave battle" title="Leave this battle?" detail="Your player will be removed from the current battle." onConfirm={() => send({ type: "leave-game", sessionId })}/>} {phase === "game" && localPlayer && !runComplete && <ConfirmedTopAction className="end-game-control" icon={<Octagon size={16}/>} label="End battle" title="End this battle?" detail="The current team totals will decide victory and defeat." onConfirm={() => send({ type: "end-game", sessionId })}/>} {runComplete && !showRunComplete && <button className="text-button" onClick={() => setDismissedBattleResultKey("")}><Crown size={16}/> Battle result</button>}{phase === "game" && <button className="icon-button mobile-party-button" onClick={() => setMobileParty(true)} aria-label="Open player list"><Users size={18}/></button>}</div>
@@ -600,7 +628,7 @@ export default function GameApp() {
       inspectedPlayer ? inspectedView === "deck" ? <div className="character-deck-panel"><button className="deck-back-button" onClick={() => setInspectedView("status")}><ChevronLeft size={17}/> Back to character status</button><PublicDeck player={inspectedPlayer} localPlayer={localPlayer}/></div> : <div className="character-detail-modal"><div className="large-portrait" style={{ "--hero-color": inspectedPlayer.hero.color } as React.CSSProperties}>{inspectedPlayer.hero.initials}</div><span className="eyebrow"><b className={`player-name-highlight ${playerRelationClass(inspectedPlayer, localPlayer)}`}>{inspectedPlayer.displayName}</b> · {teamName[inspectedPlayer.hero.team]}</span><h2>{inspectedPlayer.hero.name}</h2><p className="modal-lead">{inspectedPlayer.hero.title} · {inspectedPlayer.hero.className}</p><p>{inspectedPlayer.hero.summary}</p><div className="character-detail-stats"><div><span>HP</span><strong>{game?.playerStates[inspectedPlayer.id]?.hp ?? inspectedPlayer.hero.hp}/{game?.playerStates[inspectedPlayer.id]?.maxHp ?? inspectedPlayer.hero.maxHp}</strong></div><div><span>Shield</span><strong>{game?.playerStates[inspectedPlayer.id]?.shield ?? 0}</strong></div><div><span>Speed</span><strong>{inspectedPlayer.hero.speed}</strong></div><div><span>Status</span><strong>{(game?.playerStates[inspectedPlayer.id]?.hp ?? inspectedPlayer.hero.hp) > 0 ? "Living" : "Defeated"}</strong></div></div><div className="passive-callout"><Crown size={18}/><div><span>PASSIVE · {inspectedPlayer.hero.passiveName}</span><strong>{inspectedPlayer.hero.passiveText}</strong></div></div><div className="character-impact-grid"><div className="character-trait strength"><span>Strength</span><strong>{inspectedPlayer.hero.strength}</strong></div><div className="character-trait weakness"><span>Weakness</span><strong>{inspectedPlayer.hero.weakness}</strong></div></div><div className="impact-note"><Sparkles size={18}/><div><span>Battle impact</span><p>{inspectedPlayer.hero.impact}</p></div></div><button className="primary-button preview-character-deck-button" onClick={() => setInspectedView("deck")}><Layers size={17}/> Preview full 10-card deck</button></div> :
       inspectedCard ? <div className={`history-card-detail effect-${inspectedCard.effect}`}><span className="eyebrow">{inspectedCard.unique ? "SPECIAL CARD" : inspectedCard.effect === "none" ? "NO-EFFECT CARD" : "COMMON ACTION"}</span><div className={`card-sigil effect-${inspectedCard.effect}`}><CardEffectIcon card={inspectedCard}/></div><PityCostBadge card={inspectedCard}/><h2>{inspectedCard.name}</h2><p className="modal-lead"><EffectText text={inspectedCard.description} card={inspectedCard}/></p><CardOutcomeLines card={inspectedCard}/></div> :
       showOutcome && outcome ? <div className="resolution-content"><div className={`resolution-hero ${outcome.success ? "success" : "failure"}`}>{outcome.success ? <Check size={34}/> : <Skull size={34}/>}</div><span className="eyebrow">YOUR ACTION</span><h2><HighlightPlayerNames text={`${outcome.actorName ?? "Player"} used ${outcome.cardName ?? "a card"}`} players={players} localPlayer={localPlayer}/></h2><div className="resolution-chips">{outcome.effect && <span>{outcome.effect}</span>}{outcome.targetName && <span>Target: <HighlightPlayerNames text={outcome.targetName} players={players} localPlayer={localPlayer}/></span>}</div>{outcome.resolution === "pity" ? <div className="resolution-pity"><PityIcon size={24}/><span><small>Guaranteed pity success</small><strong>{outcome.pityBefore ?? 0} − {outcome.pityCost ?? 0} = {outcome.pityAfter ?? 0} pity</strong></span></div> : outcome.pityCost === 0 ? <AutomaticSuccessNotice roll={outcome.roll}/> : <div className="resolution-equation"><span><small>d20 roll</small><strong>{outcome.roll ?? 0}</strong></span><i>+</i><span><small>total bonus</small><strong>{outcome.bonus ?? 0}</strong></span>{Boolean(outcome.dicePenalty) && <><i>−</i><span className="failure"><small>enemy penalty</small><strong>{outcome.dicePenalty}</strong></span></>}<i>=</i><span className={outcome.success ? "success" : "failure"}><small>your total</small><strong>{outcome.total}</strong></span><i className="compare-word">vs</i><span className="dice-target-result"><small>dice target</small><strong>{outcome.target}</strong></span></div>}<strong className={`resolution-verdict ${outcome.success ? "success" : "failure"}`}>{outcome.success ? "SUCCESS" : "FAILURE"}</strong><p className="modal-lead"><HighlightPlayerNames text={outcome.detail} players={players} localPlayer={localPlayer}/></p>{outcome.failureDetail && <p className="negative-card-effect"><Skull size={16}/> <HighlightPlayerNames text={outcome.failureDetail} players={players} localPlayer={localPlayer}/></p>}<div className="resolution-metrics single-metric"><div><span>Next random target</span><strong>{outcome.nextTarget ?? adventure.target}</strong></div></div><button className="primary-button continue-button" onClick={() => setDismissedOutcomeKey(outcomeKey)}>Continue <ChevronRight size={17}/></button></div> :
-      showTurnSummary && outcome ? <div className="resolution-content"><div className={`resolution-hero ${outcome.success ? "success" : "failure"}`}>{outcome.success ? <Check size={34}/> : <Skull size={34}/>}</div><span className="eyebrow">TURN SUMMARY</span><h2><HighlightPlayerNames text={outcome.label} players={players} localPlayer={localPlayer}/></h2>{outcome.resolution === "roll" && outcome.pityCost === 0 && <AutomaticSuccessNotice roll={outcome.roll}/>}<p className="modal-lead"><HighlightPlayerNames text={outcome.detail} players={players} localPlayer={localPlayer}/></p></div> :
+      showTurnSummary && outcome ? outcome.kind === "discard" ? <div className="resolution-content discard-summary-content"><h2><HighlightPlayerNames text={`${outcome.actorName ?? "Player"} discarded a card`} players={players} localPlayer={localPlayer}/></h2></div> : <div className="resolution-content"><div className={`resolution-hero ${outcome.success ? "success" : "failure"}`}>{outcome.success ? <Check size={34}/> : <Skull size={34}/>}</div><span className="eyebrow">TURN SUMMARY</span><h2><HighlightPlayerNames text={outcome.label} players={players} localPlayer={localPlayer}/></h2>{outcome.resolution === "roll" && outcome.pityCost === 0 && <AutomaticSuccessNotice roll={outcome.roll}/>}<p className="modal-lead"><HighlightPlayerNames text={outcome.detail} players={players} localPlayer={localPlayer}/></p></div> :
       showWorldEvent && game?.worldEvent ? <div className="resolution-content world-event-resolution"><div className="resolution-hero world"><Zap size={34}/></div><span className="eyebrow">WORLD EVENT · LEVEL {game.worldEvent.level}</span><h2>{game.worldEvent.title}</h2><p className="modal-lead"><HighlightPlayerNames text={game.worldEvent.description} players={players} localPlayer={localPlayer}/></p><div className="resolution-metrics"><div><span>Occurred on phase</span><strong>{game.worldEvent.turn}</strong></div><div><span>Next event</span><strong>{game.worldEvent.turn < 30 ? game.worldEvent.turn + 5 : "None"}</strong></div></div><button className="primary-button continue-button" onClick={() => setDismissedWorldEventId(game.worldEvent!.id)}>Continue <ChevronRight size={17}/></button></div> :
       showLifeEvent && activeLifeEvent ? <div className={`resolution-content life-event-content ${activeLifeEvent.kind}`}><div className={`resolution-hero ${activeLifeEvent.kind === "revive" ? "success" : "failure"}`}>{activeLifeEvent.kind === "revive" ? <Heart size={34}/> : <Skull size={34}/>}</div><span className="eyebrow">PLAYER {activeLifeEvent.kind === "revive" ? "REVIVED" : "DEFEATED"}</span><h2><HighlightPlayerNames text={activeLifeEvent.playerName} players={players} localPlayer={localPlayer}/></h2><p className="modal-lead"><HighlightPlayerNames text={activeLifeEvent.reason} players={players} localPlayer={localPlayer}/></p><button className="primary-button continue-button" onClick={() => setDismissedLifeEventIds((current) => [...current, activeLifeEvent.id])}>Continue <ChevronRight size={17}/></button></div> :
       showRunComplete ? <div className={`resolution-content battle-result-content ${localBattleVerdict}`}><div className={`resolution-hero ${localBattleVerdict === "victory" ? "success" : localBattleVerdict === "defeat" ? "failure" : "world"}`}>{localBattleVerdict === "defeat" ? <Skull size={34}/> : <Crown size={34}/>}</div><span className="eyebrow">BATTLE COMPLETE</span><h2>{localBattleVerdict === "victory" ? "Victory" : localBattleVerdict === "defeat" ? "Defeat" : game?.winnerTeam ? `${teamName[game.winnerTeam]} wins!` : "The battle was ended."}</h2><p className="modal-lead"><HighlightPlayerNames text={localBattleVerdict === "victory" && localPlayer ? `${teamName[localPlayer.hero.team]} won the battle. ${game?.endReason ?? ""}` : localBattleVerdict === "defeat" && localPlayer && game?.winnerTeam ? `${teamName[game.winnerTeam]} defeated ${teamName[localPlayer.hero.team]}. ${game?.endReason ?? ""}` : game?.endReason ?? undefined} players={players} localPlayer={localPlayer}/></p><div className="resolution-metrics"><div><span>Veilbound</span><strong>{veil.hp} HP</strong></div><div><span>Embercourt</span><strong>{ember.hp} HP</strong></div></div><button className="primary-button" onClick={() => send({ type: "return:lobby" })}><RefreshCw size={17}/> Return to lobby</button></div> : null}
