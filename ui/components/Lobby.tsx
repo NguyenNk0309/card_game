@@ -18,14 +18,13 @@ type Props = {
 
 const statusText: Record<string, string> = { connecting: "CONNECTING", connected: "CONNECTED", reconnecting: "RECONNECTING", offline: "OFFLINE" };
 
-type CharacterGroup = "attacker" | "guardian" | "healer" | "supporter" | "specialist";
+type CharacterGroup = "attacker" | "guardian" | "healer" | "supporter";
 
 const characterGroups: Array<{ id: CharacterGroup; label: string; roles: string[] }> = [
   { id: "attacker", label: "Attacker", roles: ["Ranger", "Mage", "Assassin", "Duelist", "Berserker"] },
   { id: "guardian", label: "Guardian", roles: ["Guardian", "Tank"] },
   { id: "healer", label: "Healer", roles: ["Healer"] },
-  { id: "supporter", label: "Supporter", roles: ["Support"] },
-  { id: "specialist", label: "Specialist", roles: ["Controller"] }
+  { id: "supporter", label: "Supporter", roles: ["Support", "Controller"] }
 ];
 
 export function Lobby({ players, playerName, error, selectedPlayerId, localSessionId, connectionStatus, characterOptions, selectedHeroName, onNameChange, onSlotSelect, onSelectPlayer, onToggleReady, onLeave, onRemovePlayer, onEnterGame, onHeroSelect }: Props) {
