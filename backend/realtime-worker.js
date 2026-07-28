@@ -1,3 +1,17 @@
+import {
+  normalizeWorldEventState,
+  initializeNewBattleWorldEvents,
+  captureAuthoritativeWorldEventState,
+  restoreAuthoritativeWorldEventState,
+  sanitizeWorldEventGame,
+  triggerWorldEventAfterPhase,
+  submitWorldEventChoice,
+  resolvePendingWorldEventTimeout,
+  removeWorldEventParticipant,
+  isWorldEventBlocking,
+  getActiveBattleDeadline
+} from './world-event-engine.mjs';
+
 const emptyRoom = () => ({ players: [], phase: 'lobby', game: null, revision: 0, phaseFiveOriginalCards: {} });
 let room = emptyRoom();
 const peers = new Map();
@@ -6,14 +20,18 @@ let durableStorage = null;
 let roomQueue = Promise.resolve();
 
 function publicState(viewerId = '') {
-  if (room.game) upgradePhaseFiveCards(room.game);
-  const game = room.game ? {
+  if (room.game) {
+    normalizeWorldEventState(room.game);
+    upgradePhaseFiveCards(room.game);
+  }
+  const personalizedGame = room.game ? {
     ...room.game,
     playerStates: Object.fromEntries(Object.entries(room.game.playerStates || {}).map(([id, state]) => [
       id,
       id === viewerId ? state : { ...state, hand: [], drawPile: [], discardPile: [], graveyard: [], borrowedCards: [], purgedCards: [], cardUses: {} }
     ]))
   } : null;
+  const game = personalizedGame ? sanitizeWorldEventGame(personalizedGame, viewerId) : null;
   return { players: room.players, phase: room.phase, game, revision: room.revision, serverNow: Date.now(), viewerSessionId: viewerId };
 }
 
@@ -22,7 +40,10 @@ async function hydrateRoom() {
     if (durableStorage) {
       const state = await durableStorage.get('shared-room');
       if (state?.revision >= room.revision && Array.isArray(state.players)) room = state;
-      if (room.game) upgradePhaseFiveCards(room.game);
+      if (room.game) {
+        normalizeWorldEventState(room.game);
+        upgradePhaseFiveCards(room.game);
+      }
       return;
     }
     const cached = await caches.default.match(roomCacheKey);
@@ -30,7 +51,10 @@ async function hydrateRoom() {
       const state = await cached.json();
       if (state?.revision >= room.revision && Array.isArray(state.players)) room = state;
     }
-    if (room.game) upgradePhaseFiveCards(room.game);
+    if (room.game) {
+      normalizeWorldEventState(room.game);
+      upgradePhaseFiveCards(room.game);
+    }
   } catch {
     // The in-isolate state still keeps the room usable if the cache is unavailable.
   }
@@ -40,8 +64,9 @@ async function persistRoom() {
   try {
     if (durableStorage) {
       await durableStorage.put('shared-room', room);
-      if (room.phase === 'game' && room.game?.turnDeadline && !room.game.ended) {
-        await durableStorage.setAlarm(room.game.turnDeadline);
+      const activeDeadline = getActiveBattleDeadline(room.game);
+      if (room.phase === 'game' && activeDeadline && !room.game?.ended) {
+        await durableStorage.setAlarm(activeDeadline);
       } else {
         await durableStorage.deleteAlarm();
       }
@@ -86,7 +111,6 @@ const secureRandomInt = (minimum, maximum) => {
   return minimum + (values[0] % span);
 };
 const randomDiceTarget = () => secureRandomInt(8, 16);
-const randomAmount = (minimum, maximum) => minimum + Math.floor(Math.random() * (maximum - minimum + 1));
 const TURN_SECONDS = 60;
 function teamTotals(game, team) { const members = room.players.filter((player) => player.hero.team === team); return { hp: members.reduce((sum, player) => sum + (game.playerStates[player.id]?.hp || 0), 0), alive: members.filter((player) => (game.playerStates[player.id]?.hp || 0) > 0).length, shield: members.reduce((sum, player) => sum + (game.playerStates[player.id]?.shield || 0), 0) }; }
 function decideWinner(game, lastTeam, finalTurn = false) {
@@ -217,6 +241,7 @@ function upgradePhaseFiveCards(game) {
 }
 function normalizeServerTurnOrder(game) {
   if (!game || !room.players.length) return [];
+  normalizeWorldEventState(game);
   if (!Number.isFinite(game.completedPhases)) game.completedPhases = Math.max(0, (game.roundNumber || 1) - 1);
   upgradePhaseFiveCards(game);
   game.maxPhases = 30;
@@ -272,6 +297,25 @@ function completeRoundTurn(game, actorId) {
   }
   game.actedThisRound = acted;
   return phaseCompleted;
+}
+function deriveAuthoritativePlayedPhase(previousGame, incomingGame, actor) {
+  const livingIds = speedOrder(incomingGame);
+  let actedThisRound = [...new Set([...(previousGame.actedThisRound || []), actor.id])]
+    .filter((id) => livingIds.includes(id));
+  const outcome = incomingGame.outcome;
+  const card = room.players.flatMap((player) => player.skillDeck || []).find((item) => item.id === outcome?.cardId)
+    || room.players.flatMap((player) => player.skillDeck || []).find((item) => item.name === outcome?.cardName);
+  const immediateReviveId = outcome?.success && card?.supportType === 'revive' ? String(outcome.targetIds?.[0] || '') : '';
+  if (immediateReviveId) actedThisRound = actedThisRound.filter((id) => id !== immediateReviveId);
+  const phaseCompleted = livingIds.length > 0 && livingIds.every((id) => actedThisRound.includes(id));
+  const previousCompletedPhases = Number(previousGame.completedPhases || 0);
+  const completedPhases = previousCompletedPhases + (phaseCompleted ? 1 : 0);
+  return {
+    phaseCompleted,
+    completedPhases,
+    roundNumber: completedPhases + 1,
+    actedThisRound: phaseCompleted ? [] : actedThisRound
+  };
 }
 function rotateServerTurn(game, actorId) {
   const order = normalizeServerTurnOrder(game).filter((id) => id !== actorId);
@@ -515,65 +559,12 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
     if (entry?.kind !== 'world') entry.message = `${actor.displayName} used ${card.name} — ${replacementDetail}`;
   }
 }
-function applyWorldEvent(game, turn, now) {
-  const level = Math.ceil(turn / 5);
-  const living = (filterTeam) => room.players.filter((player) => (!filterTeam || player.hero.team === filterTeam) && (game.playerStates[player.id]?.hp || 0) > 0);
-  const titles = ['Chaos Convergence', 'Fractured Fate', 'Crimson World Pulse', 'Unstable Arena Surge'];
-  const title = titles[Math.floor(Math.random() * titles.length)];
-  const eventId = `world-${turn}-${now}`;
-  const hpBeforeEvent = Object.fromEntries(room.players.map((player) => [player.id, game.playerStates[player.id]?.hp || 0]));
-  const reports = [];
-  for (const player of living()) {
-    const kind = Math.floor(Math.random() * 5);
-    const state = game.playerStates[player.id];
-    if (kind === 0) {
-      const damage = randomAmount(1, level + 1);
-      state.hp = Math.max(0, state.hp - damage);
-      reports.push(`${player.displayName} -${damage} HP`);
-    } else if (kind === 1) {
-      const before = state.hp;
-      state.hp = Math.min(state.maxHp, state.hp + randomAmount(1, level + 1));
-      reports.push(`${player.displayName} +${state.hp - before} HP`);
-    } else if (kind === 2) {
-      const lost = Math.min(state.shield || 0, randomAmount(1, level * 2));
-      state.shield -= lost;
-      reports.push(`${player.displayName} -${lost} shield`);
-    } else if (kind === 3) {
-      const bonus = randomAmount(1, level);
-      state.attackBuff = (state.attackBuff || 0) + bonus;
-      reports.push(`${player.displayName} +${bonus} next-attack damage`);
-    } else {
-      const amount = randomAmount(1, level + 1);
-      if (Math.random() < 0.5) {
-        const damage = amount;
-        state.hp = Math.max(0, state.hp - damage);
-        reports.push(`${player.displayName} -${damage} HP`);
-      } else {
-        const before = state.hp;
-        state.hp = Math.min(state.maxHp, state.hp + amount);
-        reports.push(`${player.displayName} +${state.hp - before} HP`);
-      }
-    }
-  }
-  const defeatedPlayers = room.players.filter((player) => hpBeforeEvent[player.id] > 0 && (game.playerStates[player.id]?.hp || 0) <= 0);
-  const passiveRevives = triggerSableRevives(game);
-  for (const player of passiveRevives) reports.push(`${player.displayName} invoked Second Sight and revived with half HP`);
-  const description = `Both teams are affected with a separate random result for every living player: ${reports.join('; ')}.`;
-  const event = { id: eventId, turn, level, title, description };
-  game.worldEvent = event;
-  game.outcome.lifeEvents = [
-    ...(game.outcome.lifeEvents || []),
-    ...defeatedPlayers.map((player) => ({ id: `life-${turn}-${now}-world-defeat-${player.id}`, kind: 'defeat', playerId: player.id, playerName: player.displayName, reason: `${player.displayName} was defeated by ${title}.` })),
-    ...passiveRevives.map((player) => ({ id: `life-${turn}-${now}-world-second-sight-${player.id}`, kind: 'revive', playerId: player.id, playerName: player.displayName, reason: `${player.displayName} invoked Second Sight after ${title} and revived with half HP.` }))
-  ];
-  game.history.push({ id: `${event.id}-history`, turn, phase: turn, kind: 'world', actorName: 'World Event', message: `World Event · Level ${level} — ${title}: ${description}`, success: true, createdAt: now });
-}
-
 function removePlayerFromRoom(targetId, removedBy) {
   const removingIndex = room.players.findIndex((player) => player.id === targetId);
   if (removingIndex < 0) return null;
   const removedPlayer = room.players[removingIndex];
   const wasActive = room.phase === 'game' && room.game && removingIndex === room.game.activePlayerIndex;
+  const worldEventWasBlocking = room.phase === 'game' && isWorldEventBlocking(room.game);
   room.players.splice(removingIndex, 1);
 
   if (room.phase === 'game' && room.game) {
@@ -585,10 +576,12 @@ function removePlayerFromRoom(targetId, removedBy) {
       room.phase = 'lobby';
       room.game = null;
     } else {
+      const now = Date.now();
+      const fallbackTeam = room.players[0]?.hero.team || removedPlayer.hero.team;
       if (removingIndex < room.game.activePlayerIndex) room.game.activePlayerIndex -= 1;
       else if (wasActive) room.game.activePlayerIndex = Math.min(removingIndex, room.players.length - 1);
-      if (wasActive && !room.game.ended) {
-        const now = Date.now();
+      removeWorldEventParticipant(room.game, room.players, targetId, { now, lastTeam: fallbackTeam });
+      if (wasActive && !room.game.ended && !worldEventWasBlocking) {
         room.game.turnStartedAt = now;
         room.game.turnDeadline = now + TURN_SECONDS * 1000;
         room.game.outcome = {
@@ -600,9 +593,8 @@ function removePlayerFromRoom(targetId, removedBy) {
           detail: `${removedBy} removed this player. The next turn begins now.`,
           actorName: removedBy
         };
-        room.game.history = [...(room.game.history || []), { id: `remove-${Date.now()}`, turn: room.game.completedTurns, phase: Math.min(30, (room.game.completedPhases || 0) + 1), kind: 'system', actorName: removedBy, message: `${removedBy} removed ${removedPlayer.displayName} from the battle.`, success: true, createdAt: Date.now() }].slice(-80);
+        room.game.history = [...(room.game.history || []), { id: `remove-${now}`, turn: room.game.completedTurns, phase: Math.min(30, (room.game.completedPhases || 0) + 1), kind: 'system', actorName: removedBy, message: `${removedBy} removed ${removedPlayer.displayName} from the battle.`, success: true, createdAt: now }].slice(-80);
       }
-      const fallbackTeam = room.players[0]?.hero.team || removedPlayer.hero.team;
       const winner = decideWinner(room.game, fallbackTeam, false);
       if (room.players.length < 2 || winner) {
         room.game.ended = true;
@@ -614,6 +606,7 @@ function removePlayerFromRoom(targetId, removedBy) {
       } else {
         normalizeServerTurnOrder(room.game);
       }
+      if (room.game.ended) room.game.pendingWorldEvent = null;
     }
   }
 
@@ -642,8 +635,9 @@ function expireTimedEffectsAtTurnEnd(state) {
 
 async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', zoneBaseline = null, discardedCardId = '') {
   const game = room.game;
-  if (room.phase !== 'game' || !game || game.ended || !room.players.length) return false;
+  if (room.phase !== 'game' || !game || game.ended || !room.players.length || isWorldEventBlocking(game)) return false;
   const previousGame = zoneBaseline || structuredClone(game);
+  const previousCompletedPhases = Number(game.completedPhases || 0);
   const order = normalizeServerTurnOrder(game);
   const passingPlayer = room.players.find((player) => player.id === order[0]) || room.players[game.activePlayerIndex];
   const completedTurns = game.completedTurns + 1;
@@ -659,7 +653,6 @@ async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', z
   game.adventure = { ...game.adventure, target: randomDiceTarget() };
   game.outcome = { kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered the discard pile and advanced the full-deck cycle. Expiring effects ended normally.` : forced ? 'A support effect cancelled this turn. Cards were preserved; expiring effects ended normally.' : timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled; expiring effects ended normally.' : 'The turn was skipped. No cards were discarded or shuffled; expiring effects ended normally.', actorName: playerName, cardId: discardedCardId || undefined, cardName: discardedCardName || undefined, lifeEvents: revived.map((player) => ({ id: `life-${completedTurns}-${now}-returning-light-${player.id}`, kind: 'revive', playerId: player.id, playerName: player.displayName, reason: `${player.displayName} returned through Returning Light with one-third HP.` })) };
   game.history = [...(game.history || []), { id: `${kind}-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} manually discarded ${discardedCardName} and advanced their full-deck cycle. Expiring effects ended normally.` : forced ? `${playerName}'s turn was cancelled by an enemy support effect. Their hand was preserved; expiring effects ended normally.` : timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved; expiring effects ended normally.` : `${playerName} manually skipped the turn. Their hand was preserved; expiring effects ended normally.`, success: false, createdAt: now }];
-  game.worldEvent = null;
   if (revived.length) game.history.push({ id: `revive-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind: 'system', actorName: 'Returning Light', message: `${revived.map((player) => player.displayName).join(', ')} revived with one-third HP.`, success: true, createdAt: now });
   game.roll = null;
   let phaseCompleted = false;
@@ -672,8 +665,12 @@ async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', z
     upgradePhaseFiveCards(game);
   }
   game.adventure = { ...game.adventure, chapter: Math.min(30, (game.completedPhases || 0) + 1) };
-  if (phaseCompleted && game.completedPhases % 5 === 0) applyWorldEvent(game, game.completedPhases, now);
   if (phaseCompleted) resetPhaseTurnOrder(game);
+  appendZoneTransitionNotices(previousGame, game);
+  if (phaseCompleted) triggerWorldEventAfterPhase(game, room.players, previousCompletedPhases, game.completedPhases, {
+    now,
+    lastTeam: passingPlayer?.hero.team || 'veil'
+  });
   game.history = game.history.slice(-80);
   const winner = decideWinner(game, passingPlayer?.hero.team || 'veil', (game.completedPhases || 0) >= 30);
   game.ended = Boolean(winner); game.winnerTeam = winner;
@@ -681,8 +678,7 @@ async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', z
   game.endReason = winner ? `${teamLabel(winner)} wins. Total HP: Veilbound ${veil.hp} — Embercourt ${ember.hp}.` : null;
   game.turnStartedAt = now;
   game.turnSeconds = TURN_SECONDS;
-  game.turnDeadline = winner ? 0 : now + TURN_SECONDS * 1000;
-  appendZoneTransitionNotices(previousGame, game);
+  game.turnDeadline = winner || isWorldEventBlocking(game) ? 0 : now + TURN_SECONDS * 1000;
   await commitRoom();
   if (kind !== 'forced-skip') await advanceForcedSkippedTurns(now + 1);
   return true;
@@ -690,15 +686,25 @@ async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', z
 
 async function advanceTimedOutTurn(now = Date.now()) {
   const game = room.game;
-  if (room.phase !== 'game' || !game || game.ended || !game.turnDeadline || now < game.turnDeadline || !room.players.length) return false;
+  if (room.phase !== 'game' || !game || game.ended || isWorldEventBlocking(game) || !game.turnDeadline || now < game.turnDeadline || !room.players.length) return false;
   return passCurrentTurn('timeout', now);
+}
+
+async function advanceActiveDeadline(now = Date.now()) {
+  const game = room.game;
+  if (room.phase !== 'game' || !game || game.ended || !room.players.length) return false;
+  if (!isWorldEventBlocking(game)) return advanceTimedOutTurn(now);
+  const result = resolvePendingWorldEventTimeout(game, room.players, { now });
+  if (!result.resolved) return false;
+  await commitRoom();
+  return true;
 }
 
 async function advanceForcedSkippedTurns(now = Date.now()) {
   let advanced = false;
   for (let count = 0; count < room.players.length; count += 1) {
     const game = room.game;
-    if (room.phase !== 'game' || !game || game.ended) break;
+    if (room.phase !== 'game' || !game || game.ended || isWorldEventBlocking(game)) break;
     const order = normalizeServerTurnOrder(game);
     const player = room.players.find((candidate) => candidate.id === order[0]);
     const state = player && game.playerStates[player.id];
@@ -710,7 +716,7 @@ async function advanceForcedSkippedTurns(now = Date.now()) {
   return advanced;
 }
 
-async function applyCommand(ownerId, message) {
+async function applyCommand(ownerId, message, deadlineAdvanced = false) {
   if (message.type === 'join') {
     const player = message.player;
     if (room.phase !== 'lobby') return 'The adventure has already started.';
@@ -807,6 +813,7 @@ async function applyCommand(ownerId, message) {
     room.phaseFiveOriginalCards = Object.fromEntries(room.players.map((player) => [player.id, structuredClone(phaseFiveSourceCards(player.skillDeck))]));
     room.phase = 'game';
     room.game = message.game;
+    initializeNewBattleWorldEvents(room.game);
     room.game.adventure.target = randomDiceTarget();
     room.game.turnSeconds = TURN_SECONDS;
     room.game.turnStartedAt = Date.now();
@@ -816,16 +823,54 @@ async function applyCommand(ownerId, message) {
     return null;
   }
 
-  if (message.type === 'game:update') {
-    await advanceTimedOutTurn();
+  if (message.type === 'world-event:choose') {
+    if (deadlineAdvanced) return 'The battle state advanced at the deadline. Refresh the room before taking another action.';
     if (room.phase !== 'game' || !room.game) return 'There is no active adventure.';
+    if (room.game.ended) return 'The battle has already ended.';
+    if (!ownerId || ownerId !== message.sessionId) return 'You can only submit your own World Event choice.';
+    const player = room.players.find((candidate) => candidate.id === ownerId);
+    if (!player) return 'Join the battle before submitting a World Event choice.';
+    const now = Date.now();
+    const result = submitWorldEventChoice(room.game, room.players, ownerId, message.eventId, message.cardIds, {
+      now,
+      lastTeam: player.hero.team
+    });
+    if (!result.ok) return result.error;
+    await commitRoom();
+    if (result.finalized) await advanceForcedSkippedTurns(now + 1);
+    return null;
+  }
+
+  if (message.type === 'game:update') {
+    if (deadlineAdvanced) return 'The battle state advanced at the deadline. Refresh the room before taking another action.';
+    if (room.phase !== 'game' || !room.game) return 'There is no active adventure.';
+    if (room.game.ended) return 'The battle has already ended.';
+    if (isWorldEventBlocking(room.game)) return 'The pending World Event must be resolved before normal battle actions can continue.';
     const order = normalizeServerTurnOrder(room.game);
     const activePlayer = room.players.find((player) => player.id === order[0]) || room.players[room.game.activePlayerIndex];
     if (!activePlayer || ownerId !== activePlayer.id) return 'Only the current player can resolve this turn.';
     if (!message.game?.adventure) return 'The turn update is incomplete.';
     if ((room.game.playerStates[activePlayer.id]?.hp || 0) <= 0) return 'A defeated player cannot play a card.';
     const previousGame = room.game;
-    const phaseAdvanced = Number(message.game.completedPhases) === Number(previousGame.completedPhases || 0) + 1;
+    const acknowledgedWorldEventId = message.game.worldEvent?.id || null;
+    const authoritativeWorldEventId = previousGame.worldEvent?.id || null;
+    if (acknowledgedWorldEventId !== authoritativeWorldEventId) {
+      return 'The World Event state changed. Refresh the room before taking another action.';
+    }
+    const previousCompletedPhases = Number(previousGame.completedPhases || 0);
+    const incomingCompletedPhases = Number(message.game.completedPhases);
+    const authoritativePhase = deriveAuthoritativePlayedPhase(previousGame, message.game, activePlayer);
+    if (!Number.isInteger(incomingCompletedPhases)
+      || incomingCompletedPhases !== authoritativePhase.completedPhases) {
+      return 'The turn update contains an impossible phase jump.';
+    }
+    const phaseAdvanced = authoritativePhase.phaseCompleted;
+    const authoritativeWorldEvents = captureAuthoritativeWorldEventState(previousGame);
+    restoreAuthoritativeWorldEventState(message.game, authoritativeWorldEvents);
+    message.game.completedPhases = authoritativePhase.completedPhases;
+    message.game.roundNumber = authoritativePhase.roundNumber;
+    message.game.actedThisRound = authoritativePhase.actedThisRound;
+    message.game.adventure = { ...message.game.adventure, chapter: Math.min(30, authoritativePhase.completedPhases + 1) };
     for (const [id, state] of Object.entries(room.game.playerStates || {})) {
       const incomingState = message.game.playerStates?.[id];
       if (!incomingState) continue;
@@ -851,18 +896,31 @@ async function applyCommand(ownerId, message) {
     if (message.game.outcome?.kind === 'card') message.game.outcome.nextTarget = message.game.adventure.target;
     room.game = message.game;
     room.game.turnSeconds = TURN_SECONDS;
-    room.game.turnStartedAt = Date.now();
-    room.game.turnDeadline = room.game.ended ? 0 : room.game.turnStartedAt + TURN_SECONDS * 1000;
+    const actionWinner = decideWinner(room.game, activePlayer.hero.team, (room.game.completedPhases || 0) >= 30);
+    room.game.ended = Boolean(actionWinner);
+    room.game.winnerTeam = actionWinner;
+    const veil = teamTotals(room.game, 'veil');
+    const ember = teamTotals(room.game, 'ember');
+    room.game.endReason = actionWinner ? `${teamLabel(actionWinner)} wins. Total HP: Veilbound ${veil.hp} â€” Embercourt ${ember.hp}.` : null;
+    const now = Date.now();
+    room.game.turnStartedAt = now;
     normalizeServerTurnOrder(room.game);
     if (phaseAdvanced) resetPhaseTurnOrder(room.game);
+    if (phaseAdvanced && !actionWinner) triggerWorldEventAfterPhase(room.game, room.players, previousCompletedPhases, incomingCompletedPhases, {
+      now,
+      lastTeam: activePlayer.hero.team
+    });
+    room.game.turnDeadline = room.game.ended || isWorldEventBlocking(room.game) ? 0 : now + TURN_SECONDS * 1000;
     await commitRoom();
     await advanceForcedSkippedTurns();
     return null;
   }
 
   if (message.type === 'skip-turn') {
-    await advanceTimedOutTurn();
+    if (deadlineAdvanced) return 'The battle state advanced at the deadline. Refresh the room before taking another action.';
     if (room.phase !== 'game' || !room.game) return 'There is no active adventure.';
+    if (room.game.ended) return 'The battle has already ended.';
+    if (isWorldEventBlocking(room.game)) return 'The pending World Event must be resolved before normal battle actions can continue.';
     const order = normalizeServerTurnOrder(room.game);
     const activePlayer = room.players.find((player) => player.id === order[0]) || room.players[room.game.activePlayerIndex];
     if (!activePlayer || ownerId !== activePlayer.id || ownerId !== message.sessionId) return 'Only the current player can skip this turn.';
@@ -872,8 +930,10 @@ async function applyCommand(ownerId, message) {
   }
 
   if (message.type === 'discard-card') {
-    await advanceTimedOutTurn();
+    if (deadlineAdvanced) return 'The battle state advanced at the deadline. Refresh the room before taking another action.';
     if (room.phase !== 'game' || !room.game) return 'There is no active adventure.';
+    if (room.game.ended) return 'The battle has already ended.';
+    if (isWorldEventBlocking(room.game)) return 'The pending World Event must be resolved before normal battle actions can continue.';
     const order = normalizeServerTurnOrder(room.game);
     const activePlayer = room.players.find((player) => player.id === order[0]) || room.players[room.game.activePlayerIndex];
     if (!activePlayer || ownerId !== activePlayer.id || ownerId !== message.sessionId) return 'Only the current player can discard a card.';
@@ -898,7 +958,7 @@ async function applyCommand(ownerId, message) {
   }
 
   if (message.type === 'expire-turn') {
-    await advanceTimedOutTurn();
+    if (isWorldEventBlocking(room.game)) return 'The pending World Event must be resolved before normal battle actions can continue.';
     return null;
   }
 
@@ -912,6 +972,7 @@ async function applyCommand(ownerId, message) {
     room.game.ended = true;
     room.game.winnerTeam = winner;
     room.game.endReason = `${teamLabel(winner)} wins. Total HP: Veilbound ${veil.hp} — Embercourt ${ember.hp}. Battle ended by ${player?.displayName || 'a player'}.`;
+    room.game.pendingWorldEvent = null;
     room.game.turnDeadline = 0;
     await commitRoom();
     return null;
@@ -923,6 +984,7 @@ async function applyCommand(ownerId, message) {
     const leavingIndex = room.players.findIndex((player) => player.id === ownerId);
     if (leavingIndex < 0) return 'That player is not in the adventure.';
     const wasActive = leavingIndex === room.game.activePlayerIndex;
+    const worldEventWasBlocking = isWorldEventBlocking(room.game);
     room.players.splice(leavingIndex, 1);
     delete room.game.playerStates[ownerId];
     room.game.turnOrder = (room.game.turnOrder || []).filter((id) => id !== ownerId);
@@ -935,18 +997,23 @@ async function applyCommand(ownerId, message) {
       if (leavingIndex < room.game.activePlayerIndex) room.game.activePlayerIndex -= 1;
       else if (wasActive) room.game.activePlayerIndex = Math.min(leavingIndex, room.players.length - 1);
       const now = Date.now();
-      room.game.turnStartedAt = now;
-      room.game.turnDeadline = room.game.ended ? 0 : now + TURN_SECONDS * 1000;
+      const fallbackTeam = room.players[0]?.hero.team || null;
+      removeWorldEventParticipant(room.game, room.players, ownerId, { now, lastTeam: fallbackTeam });
+      if (!worldEventWasBlocking && !room.game.ended) {
+        room.game.turnStartedAt = now;
+        room.game.turnDeadline = now + TURN_SECONDS * 1000;
+      }
       if (room.players.length < 2) {
         room.game.ended = true;
         room.game.winnerTeam = room.players[0]?.hero.team || null;
         room.game.endReason = room.game.winnerTeam ? `${teamLabel(room.game.winnerTeam)} wins because the opposing team has no warriors left.` : 'The battle has ended.';
         room.game.turnDeadline = 0;
       } else if (!room.game.ended) {
-        const winner = decideWinner(room.game, room.players[0].hero.team, false);
+        const winner = decideWinner(room.game, fallbackTeam, false);
         if (winner) { room.game.ended = true; room.game.winnerTeam = winner; room.game.endReason = `${teamLabel(winner)} wins because the opposing team has no warriors left.`; room.game.turnDeadline = 0; }
         else normalizeServerTurnOrder(room.game);
       }
+      if (room.game.ended) room.game.pendingWorldEvent = null;
     }
     await commitRoom();
     return null;
@@ -977,8 +1044,8 @@ async function handleSocketMessage(socket, text) {
     return;
   }
   await hydrateRoom();
-  await advanceTimedOutTurn();
-  const error = await applyCommand(peers.get(socket), message);
+  const deadlineAdvanced = await advanceActiveDeadline();
+  const error = await applyCommand(peers.get(socket), message, deadlineAdvanced);
   if (error) send(socket, { type: 'error', message: error });
   else send(socket, { type: 'state', state: publicState(peers.get(socket) || '') });
 }
@@ -1017,7 +1084,7 @@ function withAssetHeaders(response, pathname) {
 
 async function handleRoomApi(request) {
   await hydrateRoom();
-  await advanceTimedOutTurn();
+  const deadlineAdvanced = await advanceActiveDeadline();
   const requestUrl = new URL(request.url);
   const viewerId = requestUrl.searchParams.get('sessionId') || '';
   if (request.method === 'GET') return json({ state: publicState(viewerId) });
@@ -1030,7 +1097,7 @@ async function handleRoomApi(request) {
     return json({ error: 'The room received an invalid message.', state: publicState(viewerId) }, 400);
   }
   const requesterId = String(message.sessionId || '');
-  const error = await applyCommand(requesterId, message);
+  const error = await applyCommand(requesterId, message, deadlineAdvanced);
   return json({ state: publicState(requesterId), error: error || null }, error ? 400 : 200);
 }
 
@@ -1056,7 +1123,10 @@ export class GameRoom {
     durableStorage = state.storage;
     this.ready = state.blockConcurrencyWhile(async () => {
       const stored = await durableStorage.get('shared-room');
-      if (stored && Array.isArray(stored.players)) room = stored;
+      if (stored && Array.isArray(stored.players)) {
+        room = stored;
+        if (room.game) normalizeWorldEventState(room.game);
+      }
     });
   }
 
@@ -1069,7 +1139,7 @@ export class GameRoom {
     await this.ready;
     await serialized(async () => {
       await hydrateRoom();
-      await advanceTimedOutTurn();
+      await advanceActiveDeadline();
     });
   }
 }

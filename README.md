@@ -28,21 +28,37 @@ Open `http://localhost:3000`.
 1. Each browser chooses any character (duplicates are allowed), enters a saved player name, and clicks one of five slots on Veilbound or Embercourt to join.
 2. Every character has a public 10-card deck: 3 character specials, 2 common attacks, 1 common shield, 1 common heal, and 3 no-effect cards. Private card-zone contents and order remain visible only to their owner.
 3. Before pressing Ready, a player may switch teams by clicking an empty slot on the other side. Ready locks the player’s team. The battle can start only when every player is ready and each team has at least one player.
-4. Living players act from highest Speed to lowest. After every living player resolves a turn, the next phase begins. The match lasts 30 phases and world events occur after every fifth completed phase.
+4. Living players act from highest Speed to lowest. After every living player resolves a turn, the next phase begins. The match lasts 30 phases. Server-authoritative World Events resolve before phases 3, 7, 12, 17, 22, and 27.
 5. Every active turn starts with no card selected. Click a card to select it, click it again to unselect it, then choose a target when required. Inactive hands cannot select cards.
 6. Roll against the fresh random target for that turn. A modified total equal to or above the target succeeds. Each failed normal roll immediately grants 1 cumulative pity point.
 7. Every card shows a pity cost. **Pity Roll** spends that cost to guarantee the selected card succeeds; no-effect cards cost 0. Every buff and debuff expires at the end of its target's next turn, including a pity, discarded, skipped, cancelled, or timed-out turn.
 8. Playing or manually discarding a card moves it to discard and ends the turn. A random replacement is drawn into the same hand slot while draw has cards. Manual Skip and timeout preserve all card zones.
-9. Only when both hand and draw are empty does the entire discard pile return to draw, shuffle, and deal up to 4 cards. Graveyard cards are permanently removed from circulation unless Tactical Purge temporarily placed them there.
+9. Only when both hand and draw are empty does the entire discard pile return to draw, shuffle, and deal up to 4 cards. Graveyard cards are permanently removed from circulation unless Tactical Purge temporarily placed them there. The common no-effect cards upgrade after phase 5 as a separate mechanic from World Events.
 10. Returning Light immediately revives one defeated ally with one-third HP, gives that ally the next turn after Brother Orren in the current phase, and then enters Brother Orren's graveyard after its first use. Tactical Purge moves one random card from a living enemy's hand to their graveyard for 2 phases, then returns it to their discard pile; after its third use, Tactical Purge enters Ione Mire's graveyard.
 11. Pilfered Chance steals one random card from a living enemy's hand, preferring a special card when available, and returns it to that enemy's discard pile when Nyx's next turn ends.
 12. Favorable Omen gives one living ally, including Sable Fen, a 0-pity card on their next turn. The omen expires if that turn ends without a card being played, and Favorable Omen enters Sable Fen's graveyard after its third use.
-13. Eliminate the opposing team to win immediately. Otherwise, after phase 30, the team with more total HP wins, with living players, shield, and influence used for ties.
+13. Before phase 3, Shattered Tribute pauses normal turns for up to 60 seconds while every living player privately chooses two eligible owned hand cards to move permanently to their graveyard; borrowed cards cannot be chosen. Missing choices are resolved by the server, and replacements are drawn when possible.
+14. Later World Events randomly select one phase-specific event from a three-event pool. Their intensity rises from Minor at phase 7 to Catastrophic at phase 27. Hidden-card mutations and random selection are resolved only by the authoritative server and sanitized separately for each viewer.
+15. Eliminate the opposing team to win immediately. Otherwise, after phase 30, the team with more total HP wins, with living players, shield, and influence used for ties.
 
 The shared room is authoritative and in-memory: separate browser sessions see
 the same players, readiness, start event, turns, dice results, and story state in
 real time. Restarting the server or deployment clears the room. `db/schema.sql`
 defines the durable room/player model for a future persistent adapter.
+
+## World Event schedule
+
+- Phase 3 — Level 1, Opening: fixed **Shattered Tribute**.
+- Phase 7 — Level 2, Minor: **Shifting Arsenal**, **First Blood**, or **Unstable Wards**.
+- Phase 12 — Level 3, Moderate: **Broken Formation**, **Arcane Static**, or **Supply Rot**.
+- Phase 17 — Level 4, Strong: **Gravewind**, **Eclipse of Fortune**, or **Shieldquake**.
+- Phase 22 — Level 5, Severe: **Severed Oaths**, **Time Fracture**, or **Crimson Debt**.
+- Phase 27 — Level 6, Catastrophic: **Final Collapse**, **The Last Cards**, or **Sudden Death**.
+
+Events resolve after the preceding phase finishes and before the first player acts
+in the listed phase. Selection, hidden-card mutations, timeouts, defeat handling,
+and private result sanitization are shared by the Node and Cloudflare authorities.
+The phase-5 common-card upgrade remains independent of this schedule.
 
 To exercise the multi-client protocol while the development server is running,
 point `ROOM_URL` or `ROOM_HTTP_URL` at its port and run `npm run test:realtime`

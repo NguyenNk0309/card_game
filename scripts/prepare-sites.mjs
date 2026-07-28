@@ -1,6 +1,7 @@
 import { cpSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 
 mkdirSync('dist/server', { recursive: true });
+mkdirSync('dist/shared', { recursive: true });
 mkdirSync('dist/.openai', { recursive: true });
 mkdirSync('dist/assets', { recursive: true });
 
@@ -24,6 +25,8 @@ if (!sitesWorker.includes('env.REALTIME_ORIGIN') || sitesWorker.includes('return
   throw new Error('Sites worker must proxy every room request to the authoritative realtime backend.');
 }
 writeFileSync('dist/server/index.js', sitesWorker);
+cpSync('backend/world-event-engine.mjs', 'dist/server/world-event-engine.mjs');
+cpSync('shared/worldEvents.mjs', 'dist/shared/worldEvents.mjs');
 
 cpSync('.openai/hosting.json', 'dist/.openai/hosting.json');
 console.log('Prepared Sites artifact: Worker entrypoint and static assets');

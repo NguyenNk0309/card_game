@@ -1,5 +1,5 @@
 import { ACTION_CARDS, calculatePityCost, CHARACTER_SKILL_CARDS, EVENTS, HERO_TEMPLATES, REALMS, STORY_BEATS } from "./catalog";
-import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, Hero, PlayerLifeEvent, PlayerRunState, PlayerSession, SyncedGameState, TeamId, TimedEffectKind, WorldEventOutcome } from "@/shared/types";
+import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, Hero, PlayerLifeEvent, PlayerRunState, PlayerSession, SyncedGameState, TeamId, TimedEffectKind } from "@/shared/types";
 
 export function randomIntInclusive(minimum: number, maximum: number) {
   const lower = Math.ceil(minimum);
@@ -19,8 +19,6 @@ export const BATTLE_TURN_SECONDS = 60;
 export function randomDiceTarget() {
   return randomIntInclusive(8, 16);
 }
-
-const randomAmount = (minimum: number, maximum: number) => minimum + Math.floor(Math.random() * (maximum - minimum + 1));
 
 export function randomD20Roll() {
   return randomIntInclusive(1, 20);
@@ -145,7 +143,7 @@ export function createInitialGame(players: PlayerSession[], adventure = createAd
   const now = Date.now();
   const playerStates = Object.fromEntries(players.map((player) => [player.id, createRunState(player)]));
   const turnOrder = speedOrder(players, playerStates);
-  return { adventure: { ...adventure, maxChapters: 30, target: randomDiceTarget() }, activePlayerIndex: Math.max(0, players.findIndex((player) => player.id === turnOrder[0])), completedTurns: 0, completedPhases: 0, roll: null, outcome: null, playerStates, turnStartedAt: now, turnDeadline: now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, maxTurns: 30, maxPhases: 30, ended: false, endReason: null, winnerTeam: null, history: [], worldEvent: null, turnOrder, roundNumber: 1, roundOrder: turnOrder, actedThisRound: [] };
+  return { adventure: { ...adventure, maxChapters: 30, target: randomDiceTarget() }, activePlayerIndex: Math.max(0, players.findIndex((player) => player.id === turnOrder[0])), completedTurns: 0, completedPhases: 0, roll: null, outcome: null, playerStates, turnStartedAt: now, turnDeadline: now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, maxTurns: 30, maxPhases: 30, ended: false, endReason: null, winnerTeam: null, history: [], worldEvent: null, worldEventHistory: [], pendingWorldEvent: null, turnOrder, roundNumber: 1, roundOrder: turnOrder, actedThisRound: [] };
 }
 
 export function nextStory(adventure: Adventure): Adventure {
@@ -354,47 +352,6 @@ function decideWinner(players: PlayerSession[], states: Record<string, PlayerRun
   return lastTeam;
 }
 
-function applyWorldEvent(phase: number, players: PlayerSession[], states: Record<string, PlayerRunState>): { event: WorldEventOutcome; history: GameHistoryEntry } {
-  const level = Math.ceil(phase / 5);
-  const title = pick(["Chaos Convergence", "Fractured Fate", "Crimson World Pulse", "Unstable Arena Surge"]);
-  const reports: string[] = [];
-  for (const player of living(players, states)) {
-    const kind = Math.floor(Math.random() * 5);
-    if (kind === 0) {
-      const damage = randomAmount(1, level + 1);
-      states[player.id].hp = Math.max(0, states[player.id].hp - damage);
-      reports.push(`${player.displayName} -${damage} HP`);
-    } else if (kind === 1) {
-      const healing = randomAmount(1, level + 1);
-      const before = states[player.id].hp;
-      states[player.id].hp = Math.min(states[player.id].maxHp, states[player.id].hp + healing);
-      reports.push(`${player.displayName} +${states[player.id].hp - before} HP`);
-    } else if (kind === 2) {
-      const lost = Math.min(states[player.id].shield, randomAmount(1, level * 2));
-      removeTimedEffectAmount(states[player.id], "shield", lost);
-      reports.push(`${player.displayName} -${lost} shield`);
-    } else if (kind === 3) {
-      const bonus = randomAmount(1, level);
-      addTimedEffect(states[player.id], "attackBuff", bonus, false);
-      reports.push(`${player.displayName} +${bonus} next-attack damage`);
-    } else {
-      const amount = randomAmount(1, level + 1);
-      if (Math.random() < 0.5) {
-        const damage = amount;
-        states[player.id].hp = Math.max(0, states[player.id].hp - damage);
-        reports.push(`${player.displayName} -${damage} HP`);
-      } else {
-        const before = states[player.id].hp;
-        states[player.id].hp = Math.min(states[player.id].maxHp, states[player.id].hp + amount);
-        reports.push(`${player.displayName} +${states[player.id].hp - before} HP`);
-      }
-    }
-  }
-  const description = `Both teams are affected with a separate random result for every living player: ${reports.join("; ")}.`;
-  const event = { id: `world-${phase}-${Date.now()}`, turn: phase, level, title, description };
-  return { event, history: { id: `${event.id}-history`, turn: phase, phase, kind: "world", actorName: "World Event", message: `World Event · Level ${level} — ${title}: ${description}`, success: true, createdAt: Date.now() } };
-}
-
 export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[], cardId: string, targetId: string | undefined, roll: number, usePity = false): SyncedGameState {
   let turnOrder = normalizeTurnOrder(game, players);
   const actor = players.find((player) => player.id === turnOrder[0]) ?? players[game.activePlayerIndex];
@@ -403,7 +360,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const card = players.flatMap((player) => player.skillDeck).find((item) => item.id === cardId);
   const pityCost = card ? (hasFavorableOmen(actorState) ? 0 : calculatePityCost(card)) : 0;
   const pityBefore = actorState?.pityPoints ?? 0;
-  if (!actor || !actorState || actorState.hp <= 0 || !card || !actorState.hand.includes(card.id) || game.ended || (usePity && pityBefore < pityCost)) return game;
+  if (!actor || !actorState || actorState.hp <= 0 || !card || !actorState.hand.includes(card.id) || game.ended || game.pendingWorldEvent || (usePity && pityBefore < pityCost)) return game;
 
   const states = Object.fromEntries(Object.entries(game.playerStates).map(([id, state]) => [id, {
     ...state,
@@ -675,24 +632,6 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   }
   if (phaseCompleted) returnExpiredPurgedCards(states, completedPhases);
   adventure = { ...adventure, chapter: Math.min(30, completedPhases + 1) };
-  let worldEvent: WorldEventOutcome | null = null;
-  if (phaseCompleted && completedPhases % 5 === 0) {
-    const hpBeforeWorldEvent = Object.fromEntries(players.map((player) => [player.id, states[player.id]?.hp ?? 0]));
-    const result = applyWorldEvent(completedPhases, players, states);
-    worldEvent = result.event;
-    history.push(result.history);
-    for (const player of players.filter((candidate) => hpBeforeWorldEvent[candidate.id] > 0 && (states[candidate.id]?.hp ?? 0) <= 0)) {
-      lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-world-defeat-${player.id}`, kind: "defeat", playerId: player.id, playerName: player.displayName, reason: `${player.displayName} was defeated by ${worldEvent.title}.` });
-    }
-    const eventPassiveRevives = triggerSableRevives(players, states);
-    if (eventPassiveRevives.length) {
-      const reviveMessage = `${eventPassiveRevives.map((player) => player.displayName).join(", ")} invoked Second Sight and revived with half HP.`;
-      worldEvent.description = `${worldEvent.description} ${reviveMessage}`;
-      result.history.message = `${result.history.message} ${reviveMessage}`;
-      history.push({ id: `sable-event-revive-${turn}-${Date.now()}`, turn, phase: completedPhases, kind: "system", actorName: "Second Sight", message: reviveMessage, success: true, createdAt: Date.now() });
-      for (const player of eventPassiveRevives) lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-world-second-sight-${player.id}`, kind: "revive", playerId: player.id, playerName: player.displayName, reason: `${player.displayName} invoked Second Sight after ${worldEvent.title} and revived with half HP.` });
-    }
-  }
   if (phaseCompleted) {
     const nextPhaseSpeedOrder = speedOrder(players, states);
     roundOrder = nextPhaseSpeedOrder;
@@ -708,7 +647,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const now = Date.now();
   const veilTotal = totals(players, states, "veil").hp;
   const emberTotal = totals(players, states, "ember").hp;
-  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, completedPhases, maxPhases: 30, roll: usePity ? null : roll, outcome: { kind: "card", success, total: usePity ? game.adventure.target : total, target: game.adventure.target, label: `${actor.displayName} used ${card.name}`, detail, actorName: actor.displayName, cardId: card.id, cardName: card.name, cardType: card.type, effect: card.effect, supportType: card.supportType, targetIds: targets.map((target) => target.id), targetName: targets.map((target) => target.displayName).join(", "), roll: usePity ? undefined : roll, bonus: usePity ? undefined : totalBonus, diceBuff: usePity ? undefined : diceBuff, dicePenalty: usePity ? undefined : dicePenalty, resolution: usePity ? "pity" : "roll", pityCost: usePity || automaticSuccess ? pityCost : undefined, pityBefore, pityAfter: states[actor.id].pityPoints, amount, defeated, nextTarget: adventure.target, failureDetail, lifeEvents }, playerStates: states, history, worldEvent, turnStartedAt: now, turnDeadline: ended ? 0 : now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} wins. Total HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder, roundNumber, roundOrder, actedThisRound };
+  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, completedPhases, maxPhases: 30, roll: usePity ? null : roll, outcome: { kind: "card", success, total: usePity ? game.adventure.target : total, target: game.adventure.target, label: `${actor.displayName} used ${card.name}`, detail, actorName: actor.displayName, cardId: card.id, cardName: card.name, cardType: card.type, effect: card.effect, supportType: card.supportType, targetIds: targets.map((target) => target.id), targetName: targets.map((target) => target.displayName).join(", "), roll: usePity ? undefined : roll, bonus: usePity ? undefined : totalBonus, diceBuff: usePity ? undefined : diceBuff, dicePenalty: usePity ? undefined : dicePenalty, resolution: usePity ? "pity" : "roll", pityCost: usePity || automaticSuccess ? pityCost : undefined, pityBefore, pityAfter: states[actor.id].pityPoints, amount, defeated, nextTarget: adventure.target, failureDetail, lifeEvents }, playerStates: states, history, worldEvent: game.worldEvent ?? null, worldEventHistory: game.worldEventHistory ?? [], pendingWorldEvent: game.pendingWorldEvent ?? null, turnStartedAt: now, turnDeadline: ended ? 0 : now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} wins. Total HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder, roundNumber, roundOrder, actedThisRound };
 }
 
 export function resolveAction(adventure: Adventure, cardId: string, roll: number, _advanceChapter = true, availableCards: ActionCard[] = ACTION_CARDS) {

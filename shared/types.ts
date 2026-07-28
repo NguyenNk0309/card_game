@@ -91,6 +91,7 @@ export type PlayerLifeEvent = {
   playerId: string;
   playerName: string;
   reason: string;
+  source?: "card" | "world-event" | "system";
 };
 
 export type GameNotice = {
@@ -157,13 +158,82 @@ export type GameHistoryEntry = {
   createdAt: number;
 };
 
-export type WorldEventOutcome = {
+export type WorldEventKey =
+  | "legacy-world-event"
+  | "shattered-tribute"
+  | "shifting-arsenal"
+  | "first-blood"
+  | "unstable-wards"
+  | "broken-formation"
+  | "arcane-static"
+  | "supply-rot"
+  | "gravewind"
+  | "eclipse-of-fortune"
+  | "shieldquake"
+  | "severed-oaths"
+  | "time-fracture"
+  | "crimson-debt"
+  | "final-collapse"
+  | "the-last-cards"
+  | "sudden-death";
+
+export type WorldEventIntensity = "Opening" | "Minor" | "Moderate" | "Strong" | "Severe" | "Catastrophic";
+
+export type WorldEventPlayerResult = {
+  playerId: string;
+  playerName: string;
+  team: TeamId;
+  publicSummary: string;
+  privateSummary?: string;
+  hpChange: number;
+  shieldChange: number;
+  pityChange: number;
+  attackBonusChange: number;
+  diceBonusChange: number;
+  dicePenaltyChange: number;
+  skipTurnChange: number;
+  destroyedCardCount: number;
+  discardedCardCount: number;
+  redrawnCardCount?: number;
+  privateCardIds?: string[];
+  privateCardNames?: string[];
+  autoResolved?: boolean;
+};
+
+export type PendingWorldEvent = {
   id: string;
+  eventKey: WorldEventKey;
+  phase: number;
   turn: number;
   level: number;
+  intensity: WorldEventIntensity;
   title: string;
   description: string;
-  affectedTeam?: TeamId;
+  fullDescription: string;
+  status: "pending";
+  requiredPlayerIds: string[];
+  submittedPlayerIds: string[];
+  autoResolvedPlayerIds: string[];
+  startedAt: number;
+  deadlineAt: number;
+  results?: WorldEventPlayerResult[];
+};
+
+export type WorldEventOutcome = {
+  id: string;
+  eventKey: WorldEventKey;
+  phase: number;
+  turn: number;
+  level: number;
+  intensity: WorldEventIntensity;
+  title: string;
+  description: string;
+  fullDescription: string;
+  interactive: boolean;
+  startedAt: number;
+  resolvedAt: number;
+  results: WorldEventPlayerResult[];
+  teamSummaries: { team: TeamId; summary: string }[];
 };
 
 export type PlayerRunState = {
@@ -208,6 +278,8 @@ export type SyncedGameState = {
   winnerTeam: TeamId | null;
   history: GameHistoryEntry[];
   worldEvent: WorldEventOutcome | null;
+  worldEventHistory: WorldEventOutcome[];
+  pendingWorldEvent: PendingWorldEvent | null;
   turnOrder?: string[];
   roundNumber?: number;
   roundOrder?: string[];

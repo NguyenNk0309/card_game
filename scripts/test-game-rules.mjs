@@ -601,13 +601,11 @@ eventGame.roundNumber = 5;
 eventGame.actedThisRound = [second.id];
 eventGame.playerStates[first.id].hand = [attack.id];
 const eventTurn = engine.resolveCardTurn(eventGame, [first, second], attack.id, second.id, 20);
-assert.equal(eventTurn.worldEvent?.turn, 5);
 assert.equal(eventTurn.completedPhases, 5);
-assert(eventTurn.history.some((entry) => entry.kind === "world"));
-assert.match(eventTurn.history.find((entry) => entry.kind === "world").message, /World Event · Level 1/);
-assert.match(eventTurn.worldEvent.description, /Both teams are affected/);
-assert.match(eventTurn.worldEvent.description, /An/);
-assert.match(eventTurn.worldEvent.description, /Binh/);
+assert.equal(eventTurn.worldEvent, null, "the client-oriented turn resolver does not select or mutate a World Event");
+assert.deepEqual(eventTurn.worldEventHistory, [], "the ordinary turn resolver cannot manufacture authoritative World Event history");
+assert.equal(eventTurn.pendingWorldEvent, null, "the ordinary turn resolver cannot create an interactive World Event");
+assert(!eventTurn.history.some((entry) => entry.kind === "world"), "World Event public history is created only by the shared authoritative engine");
 
 const finalGame = engine.createInitialGame([first, second], engine.createAdventure("FINAL"), 30);
 finalGame.turnOrder = [first.id, second.id];

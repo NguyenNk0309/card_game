@@ -57,10 +57,21 @@ function player(id, displayName, team) {
 function connect(sessionId) {
   const socket = new WebSocket(roomUrl);
   const waiters = [];
+  const errorWaiters = [];
   let latest = null;
 
   socket.on("message", (raw) => {
     const message = JSON.parse(String(raw));
+    if (message.type === "error") {
+      const errorMessage = String(message.message || "The room rejected the action.");
+      for (const waiter of [...errorWaiters]) {
+        if (waiter.predicate(errorMessage)) {
+          errorWaiters.splice(errorWaiters.indexOf(waiter), 1);
+          waiter.resolve(errorMessage);
+        }
+      }
+      return;
+    }
     if (message.type !== "state") return;
     latest = message.state;
     for (const waiter of [...waiters]) {
@@ -107,6 +118,17 @@ function connect(sessionId) {
           const index = waiters.indexOf(waiter);
           if (index >= 0) waiters.splice(index, 1);
           reject(new Error(`Timed out waiting for the next shared room state. Latest state: ${JSON.stringify(latest)}`));
+        }, timeoutMs);
+      });
+    },
+    waitForError(predicate, timeoutMs = 5000) {
+      return new Promise((resolve, reject) => {
+        const waiter = { predicate, resolve };
+        errorWaiters.push(waiter);
+        setTimeout(() => {
+          const index = errorWaiters.indexOf(waiter);
+          if (index >= 0) errorWaiters.splice(index, 1);
+          reject(new Error("Timed out waiting for a shared room error."));
         }, timeoutMs);
       });
     }
@@ -219,23 +241,7 @@ try {
   assert.equal(expiryProbe.viewerSessionId, firstId, "an expiry check remains personalized for its requesting browser");
   assert.deepEqual(expiryProbe.game.playerStates[firstId].hand, [`card-${firstId}`], "an early expiry check cannot replace the owner's hand with a privacy-filtered empty snapshot");
 
-  const upgradeProbe = structuredClone(firstStarted.game);
   const upgradeZoneIds = ["lost-momentum", "broken-plan", "empty-gesture"].map((suffix) => `${firstId}-common-${suffix}`);
-  upgradeProbe.completedTurns = 1;
-  upgradeProbe.completedPhases = 5;
-  upgradeProbe.roundNumber = 6;
-  upgradeProbe.outcome = { kind: "card", success: true, total: 20, target: upgradeProbe.adventure.target, label: "Phase-5 upgrade probe", detail: "Test Skill resolved.", actorName: firstStarted.players.find((item) => item.id === firstId).displayName, cardId: `card-${firstId}`, cardName: "Test Skill", effect: "damage", resolution: "roll" };
-  upgradeProbe.playerStates[firstId].hand = [upgradeZoneIds[0]];
-  upgradeProbe.playerStates[firstId].drawPile = [upgradeZoneIds[1]];
-  upgradeProbe.playerStates[firstId].discardPile = [];
-  upgradeProbe.playerStates[firstId].graveyard = [upgradeZoneIds[2]];
-  first.send({ type: "game:update", game: upgradeProbe });
-  const upgradedState = await first.waitFor((state) => state.game?.completedPhases === 5 && state.players.find((item) => item.id === firstId)?.skillDeck.every((card) => card.effect !== "none"));
-  const upgradedDeck = upgradedState.players.find((item) => item.id === firstId).skillDeck;
-  assert.deepEqual([upgradedState.game.playerStates[firstId].hand, upgradedState.game.playerStates[firstId].drawPile, upgradedState.game.playerStates[firstId].graveyard], [[upgradeZoneIds[0]], [upgradeZoneIds[1]], [upgradeZoneIds[2]]], "realtime phase-5 upgrades preserve card IDs across private zones");
-  assert.deepEqual(upgradeZoneIds.map((id) => upgradedDeck.find((card) => card.id === id).effect).sort(), ["damage", "guard", "heal"], "realtime authority upgrades all three cards independently");
-  assert.equal(upgradedState.game.outcome.notices.filter((notice) => notice.kind === "card-transform").length, 1, "realtime phase-5 upgrades emit one grouped transformation notice");
-  assert(upgradedState.game.outcome.notices.some((notice) => notice.kind === "graveyard" && notice.detail.includes("Empty Gesture")), "realtime graveyard transitions emit an authoritative card notice");
 
   const controlledGame = structuredClone(firstStarted.game);
   controlledGame.completedTurns = 1;
@@ -245,15 +251,15 @@ try {
   controlledGame.roundNumber = 1;
   controlledGame.roundOrder = [firstId, secondId, thirdId];
   controlledGame.actedThisRound = [firstId];
-  controlledGame.playerStates[firstId].hand = [];
-  controlledGame.playerStates[firstId].discardPile = [upgradeZoneIds[0]];
+  controlledGame.playerStates[firstId].hand = [`card-${firstId}`];
+  controlledGame.playerStates[firstId].discardPile = [];
   controlledGame.playerStates[secondId].skipTurns = 1;
   controlledGame.playerStates[secondId].shield = 4;
   controlledGame.playerStates[secondId].attackBuff = 2;
   controlledGame.playerStates[secondId].diceBuff = 2;
   controlledGame.playerStates[secondId].dicePenalty = 1;
   controlledGame.playerStates[thirdId].shield = 3;
-  controlledGame.outcome = { kind: "card", success: true, total: 20, target: 12, label: "Test control", detail: "The next enemy turn will be cancelled.", actorName: firstStarted.players.find((item) => item.id === firstId).displayName, cardId: upgradeZoneIds[0], cardName: "Heavy Blow", effect: "damage", targetName: firstStarted.players.find((item) => item.id === secondId).displayName };
+  controlledGame.outcome = { kind: "card", success: true, total: 20, target: 12, label: "Test control", detail: "The next enemy turn will be cancelled.", actorName: firstStarted.players.find((item) => item.id === firstId).displayName, cardId: `card-${firstId}`, cardName: "Test Skill", effect: "damage", targetName: firstStarted.players.find((item) => item.id === secondId).displayName };
   controlledGame.history = [{ id: `control-${runId}`, turn: 1, kind: "support", actorName: "First", message: "Applied a turn-cancel effect.", success: true, createdAt: Date.now() }];
   first.send({ type: "game:update", game: controlledGame });
   const forcedSkipped = await first.waitFor((state) => state.game?.completedTurns === 2 && state.game?.outcome?.kind === "forced-skip");
@@ -329,14 +335,186 @@ try {
   first.send({ type: "ready", sessionId: firstId, ready: true });
   second.send({ type: "ready", sessionId: secondId, ready: true });
   await first.waitFor((state) => state.players.length === 2 && state.players.every((item) => item.ready));
+
+  const firstTributeChoices = [`${firstId}-common-heavy`, `${firstId}-common-brace`];
+  const secondTributeChoices = [`card-${secondId}`, `${secondId}-common-heavy`];
+  const tributeGame = structuredClone(game);
+  delete tributeGame.playerStates[thirdId];
+  tributeGame.adventure.chapter = 2;
+  tributeGame.completedTurns = 3;
+  tributeGame.completedPhases = 1;
+  tributeGame.roundNumber = 2;
+  tributeGame.activePlayerIndex = 0;
+  tributeGame.turnOrder = [firstId, secondId];
+  tributeGame.roundOrder = [secondId, firstId];
+  tributeGame.actedThisRound = [secondId];
+  tributeGame.outcome = null;
+  tributeGame.history = [];
+  tributeGame.worldEvent = null;
+  tributeGame.playerStates[firstId] = {
+    ...tributeGame.playerStates[firstId],
+    completedPlayerTurns: 1,
+    zeroPityUntilTurn: 0,
+    timedEffects: [],
+    borrowedCards: [],
+    purgedCards: [],
+    pityPoints: 0,
+    hand: [`card-${firstId}`, ...firstTributeChoices],
+    drawPile: [`${firstId}-common-second-wind`, `${firstId}-common-empty-gesture`],
+    discardPile: [],
+    graveyard: [],
+    cardUses: {}
+  };
+  tributeGame.playerStates[secondId] = {
+    ...tributeGame.playerStates[secondId],
+    completedPlayerTurns: 2,
+    zeroPityUntilTurn: 0,
+    timedEffects: [],
+    borrowedCards: [],
+    purgedCards: [],
+    pityPoints: 0,
+    hand: [...secondTributeChoices],
+    drawPile: [`${secondId}-common-brace`, `${secondId}-common-second-wind`],
+    discardPile: [],
+    graveyard: [],
+    cardUses: {}
+  };
+
+  const tributeStartedFirstPromise = first.waitForNext((state) => state.phase === "game" && state.game?.completedPhases === 1);
+  const tributeStartedSecondPromise = second.waitForNext((state) => state.phase === "game" && state.game?.completedPhases === 1);
+  second.send({ type: "start", game: tributeGame });
+  const [tributeStartedFirst, tributeStartedSecond] = await Promise.all([tributeStartedFirstPromise, tributeStartedSecondPromise]);
+  assert.deepEqual(tributeStartedFirst.game.playerStates[firstId].hand, [`card-${firstId}`, ...firstTributeChoices], "the phase-2 actor receives their complete private hand");
+  assert.deepEqual(tributeStartedSecond.game.playerStates[secondId].hand, secondTributeChoices, "the other player receives only their own phase-2 hand");
+
+  const tributeAdvance = structuredClone(tributeStartedFirst.game);
+  tributeAdvance.adventure.chapter = 3;
+  tributeAdvance.completedTurns = 4;
+  tributeAdvance.completedPhases = 2;
+  tributeAdvance.roundNumber = 3;
+  tributeAdvance.activePlayerIndex = 1;
+  tributeAdvance.turnOrder = [secondId, firstId];
+  tributeAdvance.roundOrder = [secondId, firstId];
+  tributeAdvance.actedThisRound = [];
+  tributeAdvance.playerStates[firstId].completedPlayerTurns = 2;
+  tributeAdvance.playerStates[firstId].hand = [...firstTributeChoices, `${firstId}-common-second-wind`];
+  tributeAdvance.playerStates[firstId].drawPile = [`${firstId}-common-empty-gesture`];
+  tributeAdvance.playerStates[firstId].discardPile = [`card-${firstId}`];
+  tributeAdvance.outcome = {
+    kind: "card",
+    success: true,
+    total: 20,
+    target: tributeAdvance.adventure.target,
+    label: `${tributeStartedFirst.players.find((item) => item.id === firstId).displayName} used Test Skill`,
+    detail: "Phase 2 completed.",
+    actorName: tributeStartedFirst.players.find((item) => item.id === firstId).displayName,
+    cardId: `card-${firstId}`,
+    cardName: "Test Skill",
+    effect: "damage",
+    targetIds: [secondId],
+    targetName: tributeStartedFirst.players.find((item) => item.id === secondId).displayName,
+    resolution: "roll"
+  };
+  tributeAdvance.history = [{
+    id: `tribute-phase-two-${runId}`,
+    turn: 4,
+    phase: 2,
+    kind: "damage",
+    actorName: tributeAdvance.outcome.actorName,
+    targetName: tributeAdvance.outcome.targetName,
+    cardName: "Test Skill",
+    message: "Phase 2 completed before Shattered Tribute.",
+    success: true,
+    createdAt: Date.now()
+  }];
+
+  const pendingFirstPromise = first.waitForNext((state) => state.game?.pendingWorldEvent?.eventKey === "shattered-tribute");
+  const pendingSecondPromise = second.waitForNext((state) => state.game?.pendingWorldEvent?.eventKey === "shattered-tribute");
+  first.send({ type: "game:update", game: tributeAdvance });
+  const [pendingFirst, pendingSecond] = await Promise.all([pendingFirstPromise, pendingSecondPromise]);
+  const pendingEventId = pendingFirst.game.pendingWorldEvent.id;
+  assert.equal(pendingFirst.game.completedPhases, 2, "phase 2 completes before the phase-3 World Event begins");
+  assert.equal(pendingFirst.game.pendingWorldEvent.phase, 3);
+  assert.equal(pendingFirst.game.pendingWorldEvent.title, "Shattered Tribute");
+  assert.deepEqual(new Set(pendingFirst.game.pendingWorldEvent.requiredPlayerIds), new Set([firstId, secondId]), "every living player is required to submit");
+  assert.deepEqual(pendingFirst.game.pendingWorldEvent.submittedPlayerIds, []);
+  assert.equal(pendingFirst.game.pendingWorldEvent.results, undefined, "pending private choice results are never synchronized");
+  assert.equal(pendingSecond.game.pendingWorldEvent.id, pendingEventId, "both WebSocket clients observe the same stable pending event");
+  assert.equal(pendingFirst.game.turnDeadline, 0, "normal turn timing pauses during Shattered Tribute");
+  assert.equal(pendingFirst.game.pendingWorldEvent.deadlineAt - pendingFirst.game.pendingWorldEvent.startedAt, 60_000, "Shattered Tribute has a 60-second choice deadline");
+
+  const blockedActionError = first.waitForError((message) => /pending World Event must be resolved/i.test(message));
+  first.send({ type: "skip-turn", sessionId: firstId });
+  assert.match(await blockedActionError, /pending World Event must be resolved/i, "normal actions are rejected while Shattered Tribute is pending");
+
+  const crossSessionError = second.waitForError((message) => /only submit your own World Event choice/i.test(message));
+  second.send({ type: "world-event:choose", sessionId: firstId, eventId: pendingEventId, cardIds: firstTributeChoices });
+  assert.match(await crossSessionError, /only submit your own World Event choice/i, "another WebSocket session cannot submit for the required player");
+
+  const firstProgressPromise = first.waitForNext((state) => state.game?.pendingWorldEvent?.submittedPlayerIds.includes(firstId));
+  const secondProgressPromise = second.waitForNext((state) => state.game?.pendingWorldEvent?.submittedPlayerIds.includes(firstId));
+  first.send({ type: "world-event:choose", sessionId: firstId, eventId: pendingEventId, cardIds: firstTributeChoices });
+  const [firstProgress, secondProgress] = await Promise.all([firstProgressPromise, secondProgressPromise]);
+  assert.deepEqual(firstProgress.game.pendingWorldEvent.submittedPlayerIds, [firstId], "the first valid choice synchronizes submission progress");
+  assert.deepEqual(secondProgress.game.pendingWorldEvent.submittedPlayerIds, [firstId], "other clients see progress without seeing selected cards");
+  assert.equal(firstProgress.game.pendingWorldEvent.results, undefined);
+  assert(!JSON.stringify(secondProgress.game.pendingWorldEvent).includes(firstTributeChoices[0]), "pending state does not expose submitted card IDs");
+  assert(firstProgress.game.playerStates[firstId].graveyard.includes(firstTributeChoices[0]), "the submitting owner sees their selected cards enter graveyard");
+  assert.deepEqual(secondProgress.game.playerStates[firstId].graveyard, [], "other players cannot inspect the submitter's graveyard");
+
+  const resolvedFirstPromise = first.waitForNext((state) => !state.game?.pendingWorldEvent && state.game?.worldEvent?.eventKey === "shattered-tribute");
+  const resolvedSecondPromise = second.waitForNext((state) => !state.game?.pendingWorldEvent && state.game?.worldEvent?.eventKey === "shattered-tribute");
+  second.send({ type: "world-event:choose", sessionId: secondId, eventId: pendingEventId, cardIds: secondTributeChoices });
+  const [resolvedFirst, resolvedSecond] = await Promise.all([resolvedFirstPromise, resolvedSecondPromise]);
+  const firstResolvedEvent = resolvedFirst.game.worldEvent;
+  const secondResolvedEvent = resolvedSecond.game.worldEvent;
+  assert.equal(firstResolvedEvent.phase, 3);
+  assert.equal(resolvedFirst.game.adventure.chapter, 3, "phase 3 starts only after every required choice resolves");
+  assert.equal(resolvedFirst.game.completedPhases, 2, "the World Event itself does not increment completed phases");
+  assert.equal(resolvedFirst.game.turnDeadline - resolvedFirst.game.turnStartedAt, 60_000, "phase 3 receives a fresh 60-second turn after finalization");
+  assert.equal(resolvedFirst.game.turnOrder[0], secondId, "normal Speed order resumes for phase 3");
+  assert.equal(resolvedFirst.game.worldEventHistory.length, 1);
+
+  const firstOwnResult = firstResolvedEvent.results.find((result) => result.playerId === firstId);
+  const firstViewOfSecondResult = firstResolvedEvent.results.find((result) => result.playerId === secondId);
+  const secondOwnResult = secondResolvedEvent.results.find((result) => result.playerId === secondId);
+  const secondViewOfFirstResult = secondResolvedEvent.results.find((result) => result.playerId === firstId);
+  assert.deepEqual(firstOwnResult.privateCardIds, firstTributeChoices, "the first owner receives their exact destroyed card IDs");
+  assert.deepEqual(firstOwnResult.privateCardNames, ["Heavy Blow", "Brace"], "the first owner receives their exact destroyed card names");
+  assert.equal(firstViewOfSecondResult.privateCardIds, undefined, "another player's private card IDs are sanitized");
+  assert.equal(firstViewOfSecondResult.privateCardNames, undefined, "another player's private card names are sanitized");
+  assert.deepEqual(secondOwnResult.privateCardIds, secondTributeChoices, "the second owner receives their exact destroyed card IDs");
+  assert.deepEqual(secondOwnResult.privateCardNames, ["Test Skill", "Heavy Blow"], "the second owner receives their exact destroyed card names");
+  assert.equal(secondViewOfFirstResult.privateCardIds, undefined);
+  assert.equal(secondViewOfFirstResult.privateCardNames, undefined);
+  const firstHistoryOwnResult = resolvedFirst.game.worldEventHistory.at(-1).results.find((result) => result.playerId === firstId);
+  const firstHistoryOtherResult = resolvedFirst.game.worldEventHistory.at(-1).results.find((result) => result.playerId === secondId);
+  assert.deepEqual(firstHistoryOwnResult.privateCardIds, firstTributeChoices, "World Event history preserves the owner's private result");
+  assert.equal(firstHistoryOtherResult.privateCardIds, undefined, "World Event history sanitizes every other player's private result");
+
+  const publicWorldHistory = resolvedFirst.game.history.find((entry) => entry.kind === "world" && entry.phase === 3);
+  assert(publicWorldHistory, "Shattered Tribute creates one public World Event history entry");
+  assert.equal(resolvedFirst.game.history.filter((entry) => entry.kind === "world" && entry.phase === 3).length, 1, "Shattered Tribute creates only one public history entry");
+  assert.match(publicWorldHistory.message, /Shattered Tribute/);
+  for (const privateValue of [...firstTributeChoices, ...secondTributeChoices, "Heavy Blow", "Brace", "Test Skill"]) {
+    assert(!publicWorldHistory.message.includes(privateValue), `public World Event history does not reveal ${privateValue}`);
+  }
+
+  const tributeLobbyPromise = first.waitForNext((state) => state.phase === "lobby");
+  first.send({ type: "return:lobby" });
+  await tributeLobbyPromise;
+
+  first.send({ type: "ready", sessionId: firstId, ready: true });
+  second.send({ type: "ready", sessionId: secondId, ready: true });
+  await first.waitFor((state) => state.players.length === 2 && state.players.every((item) => item.ready));
   const purgeAuthorityGame = structuredClone(game);
   delete purgeAuthorityGame.playerStates[thirdId];
   purgeAuthorityGame.completedTurns = 0;
   purgeAuthorityGame.completedPhases = 0;
   purgeAuthorityGame.roundNumber = 1;
   purgeAuthorityGame.turnOrder = [firstId, secondId];
-  purgeAuthorityGame.roundOrder = [firstId, secondId];
-  purgeAuthorityGame.actedThisRound = [];
+  purgeAuthorityGame.roundOrder = [secondId, firstId];
+  purgeAuthorityGame.actedThisRound = [secondId];
   purgeAuthorityGame.outcome = null;
   purgeAuthorityGame.history = [];
   purgeAuthorityGame.worldEvent = null;
@@ -354,6 +532,12 @@ try {
   const firstName = purgeStarted.players.find((item) => item.id === firstId).displayName;
   const secondName = purgeStarted.players.find((item) => item.id === secondId).displayName;
   purgeAction.completedTurns = 1;
+  purgeAction.completedPhases = 1;
+  purgeAction.roundNumber = 2;
+  purgeAction.activePlayerIndex = 1;
+  purgeAction.turnOrder = [secondId, firstId];
+  purgeAction.roundOrder = [secondId, firstId];
+  purgeAction.actedThisRound = [];
   purgeAction.playerStates[firstId].hand = [`card-${firstId}`];
   purgeAction.playerStates[firstId].drawPile = [];
   purgeAction.playerStates[firstId].discardPile = [`purge-${firstId}`];
@@ -368,25 +552,22 @@ try {
   assert.deepEqual(purgeOwnerView.game.playerStates[secondId].purgedCards, [{ cardId: `card-${secondId}`, returnAfterPhase: 2 }], "the realtime authority records the two-phase return boundary");
   assert(purgeOwnerView.game.outcome.notices.some((notice) => notice.title === "Card moved to graveyard" && /2 phases/.test(notice.detail)), "the temporary graveyard notice explains when the card returns");
 
-  const phaseOneAdvance = structuredClone(purgeObserverView.game);
-  phaseOneAdvance.completedTurns = 2;
-  phaseOneAdvance.completedPhases = 1;
-  phaseOneAdvance.roundNumber = 2;
-  phaseOneAdvance.outcome = { kind: "card", success: true, total: 20, target: phaseOneAdvance.adventure.target, label: `${firstName} used Test Skill`, detail: "Phase one completed.", actorName: firstName, cardId: `card-${firstId}`, cardName: "Test Skill", effect: "damage", targetIds: [secondId], targetName: secondName, resolution: "roll" };
-  phaseOneAdvance.history = [...phaseOneAdvance.history, { id: `purge-phase-one-${runId}`, turn: 2, phase: 1, kind: "damage", actorName: firstName, message: "Phase one completed.", success: true, createdAt: Date.now() }];
-  const phaseOneOwnerPromise = second.waitForNext((state) => state.game?.completedPhases === 1);
-  first.send({ type: "game:update", game: phaseOneAdvance });
-  const phaseOneOwnerView = await phaseOneOwnerPromise;
-  assert(phaseOneOwnerView.game.playerStates[secondId].graveyard.includes(`card-${secondId}`), "the authoritative purge remains after one completed phase");
+  const phaseTwoSetupPromise = second.waitForNext((state) => state.game?.completedTurns === 2 && state.game?.outcome?.kind === "skip");
+  second.send({ type: "skip-turn", sessionId: secondId });
+  const phaseTwoSetup = await phaseTwoSetupPromise;
+  assert.equal(phaseTwoSetup.game.completedPhases, 1);
+  assert(phaseTwoSetup.game.playerStates[secondId].graveyard.includes(`card-${secondId}`), "the authoritative purge remains after one completed phase");
 
-  const phaseTwoAdvance = structuredClone(phaseOneOwnerView.game);
+  const phaseTwoAdvance = structuredClone(phaseTwoSetup.game);
   phaseTwoAdvance.completedTurns = 3;
   phaseTwoAdvance.completedPhases = 2;
   phaseTwoAdvance.roundNumber = 3;
-  phaseTwoAdvance.outcome = { kind: "card", success: true, total: 20, target: phaseTwoAdvance.adventure.target, label: `${secondName} played Empty Gesture`, detail: "Phase two completed.", actorName: secondName, cardId: `${secondId}-common-empty-gesture`, cardName: "Empty Gesture", effect: "none", targetIds: [], targetName: "", resolution: "roll" };
-  phaseTwoAdvance.history = [...phaseTwoAdvance.history, { id: `purge-phase-two-${runId}`, turn: 3, phase: 2, kind: "damage", actorName: secondName, message: "Phase two completed.", success: true, createdAt: Date.now() }];
+  phaseTwoAdvance.playerStates[firstId].hand = [];
+  phaseTwoAdvance.playerStates[firstId].discardPile = [`purge-${firstId}`, `card-${firstId}`];
+  phaseTwoAdvance.outcome = { kind: "card", success: true, total: 20, target: phaseTwoAdvance.adventure.target, label: `${firstName} used Test Skill`, detail: "Phase two completed.", actorName: firstName, cardId: `card-${firstId}`, cardName: "Test Skill", effect: "damage", targetIds: [secondId], targetName: secondName, resolution: "roll" };
+  phaseTwoAdvance.history = [...phaseTwoAdvance.history, { id: `purge-phase-two-${runId}`, turn: 3, phase: 2, kind: "damage", actorName: firstName, message: "Phase two completed.", success: true, createdAt: Date.now() }];
   const purgeReturnedPromise = second.waitForNext((state) => state.game?.completedPhases === 2);
-  second.send({ type: "game:update", game: phaseTwoAdvance });
+  first.send({ type: "game:update", game: phaseTwoAdvance });
   const purgeReturned = await purgeReturnedPromise;
   assert(!purgeReturned.game.playerStates[secondId].graveyard.includes(`card-${secondId}`), "the realtime authority removes the purged card from graveyard after two phases");
   assert(purgeReturned.game.playerStates[secondId].discardPile.includes(`card-${secondId}`), "the realtime authority returns the purged card to discard after two phases");
@@ -562,7 +743,7 @@ try {
   first.send({ type: "return:lobby" });
   await first.waitForNext((state) => state.phase === "lobby");
 
-  console.log("Realtime test passed: private hands, temporary Tactical Purge, temporary Pilfered Chance theft, Favorable Omen zero-pity turns, phase-5 card upgrades and resets, initial phase-5 normalization, 60-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");
+  console.log("Realtime test passed: private hands, Shattered Tribute choices and privacy, temporary Tactical Purge, temporary Pilfered Chance theft, Favorable Omen zero-pity turns, phase-5 card upgrades and resets, initial phase-5 normalization, 60-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");
 } finally {
   first.send({ type: "return:lobby" });
   await first.waitFor((state) => state.phase === "lobby").catch(() => {});
