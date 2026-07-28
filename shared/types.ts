@@ -23,6 +23,11 @@ export type TimedEffect = {
   expiresAfterTurn: number;
 };
 
+export type PurgedCard = {
+  cardId: string;
+  returnAfterPhase: number;
+};
+
 export type Hero = {
   id: string;
   name: string;
@@ -174,7 +179,8 @@ export type PlayerRunState = {
   skipTurns: number;
   completedPlayerTurns: number;
   timedEffects: TimedEffect[];
-  borrowedCards: { cardId: string; ownerId: string; borrowedAtTurn: number; expiresAfterOwnerTurn?: number }[];
+  borrowedCards: { cardId: string; ownerId: string; borrowedAtTurn: number; expiresAfterBorrowerTurn?: number; expiresAfterOwnerTurn?: number }[];
+  purgedCards: PurgedCard[];
   cardUses: Record<string, number>;
   drawPile: string[];
   hand: string[];

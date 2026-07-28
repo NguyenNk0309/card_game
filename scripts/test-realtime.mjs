@@ -5,7 +5,11 @@ const roomUrl = process.env.ROOM_URL || "ws://127.0.0.1:3102/ws";
 const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 function testSkillDeck(id) {
-  const special = Array.from({ length: 3 }, (_, index) => ({ id: index === 0 ? `card-${id}` : `card-${id}-${index}`, name: index === 0 ? "Test Skill" : `Test Skill ${index + 1}`, type: "Wit", description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, unique: true }));
+  const special = [
+    { id: `card-${id}`, name: "Test Skill", type: "Wit", description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, unique: true },
+    { id: `purge-${id}`, name: "Tactical Purge", type: "Wit", description: "Temporarily purge a random enemy hand card.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "purge-card", unique: true },
+    { id: `pilfer-${id}`, name: "Pilfered Chance", type: "Wit", description: "Steal a random enemy hand card, preferring special cards.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "steal-card", unique: true }
+  ];
   const common = [
     { id: "slash", name: "Slash", type: "Might", description: "Deal 3 damage.", effect: "damage", target: "enemy", value: 3 },
     { id: "heavy", name: "Heavy Blow", type: "Might", description: "Deal 4 damage.", effect: "damage", target: "enemy", value: 4 },
@@ -322,7 +326,151 @@ try {
   const secondResetLobby = await first.waitForNext((state) => state.phase === "lobby");
   assert.equal(secondResetLobby.players.find((item) => item.id === firstId).skillDeck.filter((card) => card.effect === "none").length, 3, "a normalized realtime snapshot also restores cleanly for the next battle");
 
-  console.log("Realtime test passed: private hands, phase-5 card upgrades and resets, initial phase-5 normalization, 60-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");
+  first.send({ type: "ready", sessionId: firstId, ready: true });
+  second.send({ type: "ready", sessionId: secondId, ready: true });
+  await first.waitFor((state) => state.players.length === 2 && state.players.every((item) => item.ready));
+  const purgeAuthorityGame = structuredClone(game);
+  delete purgeAuthorityGame.playerStates[thirdId];
+  purgeAuthorityGame.completedTurns = 0;
+  purgeAuthorityGame.completedPhases = 0;
+  purgeAuthorityGame.roundNumber = 1;
+  purgeAuthorityGame.turnOrder = [firstId, secondId];
+  purgeAuthorityGame.roundOrder = [firstId, secondId];
+  purgeAuthorityGame.actedThisRound = [];
+  purgeAuthorityGame.outcome = null;
+  purgeAuthorityGame.history = [];
+  purgeAuthorityGame.worldEvent = null;
+  purgeAuthorityGame.playerStates[firstId].hand = [`purge-${firstId}`];
+  purgeAuthorityGame.playerStates[firstId].drawPile = [`card-${firstId}`];
+  purgeAuthorityGame.playerStates[firstId].discardPile = [];
+  purgeAuthorityGame.playerStates[firstId].graveyard = [];
+  purgeAuthorityGame.playerStates[secondId].hand = [`card-${secondId}`];
+  purgeAuthorityGame.playerStates[secondId].drawPile = [`${secondId}-common-empty-gesture`];
+  purgeAuthorityGame.playerStates[secondId].discardPile = [];
+  purgeAuthorityGame.playerStates[secondId].graveyard = [];
+  second.send({ type: "start", game: purgeAuthorityGame });
+  const purgeStarted = await first.waitForNext((state) => state.phase === "game" && state.game?.completedTurns === 0);
+  const purgeAction = structuredClone(purgeStarted.game);
+  const firstName = purgeStarted.players.find((item) => item.id === firstId).displayName;
+  const secondName = purgeStarted.players.find((item) => item.id === secondId).displayName;
+  purgeAction.completedTurns = 1;
+  purgeAction.playerStates[firstId].hand = [`card-${firstId}`];
+  purgeAction.playerStates[firstId].drawPile = [];
+  purgeAction.playerStates[firstId].discardPile = [`purge-${firstId}`];
+  purgeAction.outcome = { kind: "card", success: true, total: 20, target: purgeAction.adventure.target, label: `${firstName} used Tactical Purge`, detail: "Tactical Purge resolved.", actorName: firstName, cardId: `purge-${firstId}`, cardName: "Tactical Purge", effect: "support", supportType: "purge-card", targetIds: [secondId], targetName: secondName, resolution: "roll" };
+  purgeAction.history = [{ id: `purge-${runId}`, turn: 1, phase: 1, kind: "support", actorName: firstName, message: `${firstName} used Tactical Purge.`, success: true, createdAt: Date.now() }];
+  const purgeObserverPromise = first.waitForNext((state) => state.game?.outcome?.cardName === "Tactical Purge");
+  const purgeOwnerPromise = second.waitForNext((state) => state.game?.outcome?.cardName === "Tactical Purge");
+  first.send({ type: "game:update", game: purgeAction });
+  const [purgeObserverView, purgeOwnerView] = await Promise.all([purgeObserverPromise, purgeOwnerPromise]);
+  assert.deepEqual(purgeObserverView.game.playerStates[secondId].purgedCards, [], "temporary purge metadata stays private from opponents");
+  assert(purgeOwnerView.game.playerStates[secondId].graveyard.includes(`card-${secondId}`), "the realtime authority moves a random private hand card to its owner's graveyard");
+  assert.deepEqual(purgeOwnerView.game.playerStates[secondId].purgedCards, [{ cardId: `card-${secondId}`, returnAfterPhase: 2 }], "the realtime authority records the two-phase return boundary");
+  assert(purgeOwnerView.game.outcome.notices.some((notice) => notice.title === "Card moved to graveyard" && /2 phases/.test(notice.detail)), "the temporary graveyard notice explains when the card returns");
+
+  const phaseOneAdvance = structuredClone(purgeObserverView.game);
+  phaseOneAdvance.completedTurns = 2;
+  phaseOneAdvance.completedPhases = 1;
+  phaseOneAdvance.roundNumber = 2;
+  phaseOneAdvance.outcome = { kind: "card", success: true, total: 20, target: phaseOneAdvance.adventure.target, label: `${firstName} used Test Skill`, detail: "Phase one completed.", actorName: firstName, cardId: `card-${firstId}`, cardName: "Test Skill", effect: "damage", targetIds: [secondId], targetName: secondName, resolution: "roll" };
+  phaseOneAdvance.history = [...phaseOneAdvance.history, { id: `purge-phase-one-${runId}`, turn: 2, phase: 1, kind: "damage", actorName: firstName, message: "Phase one completed.", success: true, createdAt: Date.now() }];
+  const phaseOneOwnerPromise = second.waitForNext((state) => state.game?.completedPhases === 1);
+  first.send({ type: "game:update", game: phaseOneAdvance });
+  const phaseOneOwnerView = await phaseOneOwnerPromise;
+  assert(phaseOneOwnerView.game.playerStates[secondId].graveyard.includes(`card-${secondId}`), "the authoritative purge remains after one completed phase");
+
+  const phaseTwoAdvance = structuredClone(phaseOneOwnerView.game);
+  phaseTwoAdvance.completedTurns = 3;
+  phaseTwoAdvance.completedPhases = 2;
+  phaseTwoAdvance.roundNumber = 3;
+  phaseTwoAdvance.outcome = { kind: "card", success: true, total: 20, target: phaseTwoAdvance.adventure.target, label: `${secondName} played Empty Gesture`, detail: "Phase two completed.", actorName: secondName, cardId: `${secondId}-common-empty-gesture`, cardName: "Empty Gesture", effect: "none", targetIds: [], targetName: "", resolution: "roll" };
+  phaseTwoAdvance.history = [...phaseTwoAdvance.history, { id: `purge-phase-two-${runId}`, turn: 3, phase: 2, kind: "damage", actorName: secondName, message: "Phase two completed.", success: true, createdAt: Date.now() }];
+  const purgeReturnedPromise = second.waitForNext((state) => state.game?.completedPhases === 2);
+  second.send({ type: "game:update", game: phaseTwoAdvance });
+  const purgeReturned = await purgeReturnedPromise;
+  assert(!purgeReturned.game.playerStates[secondId].graveyard.includes(`card-${secondId}`), "the realtime authority removes the purged card from graveyard after two phases");
+  assert(purgeReturned.game.playerStates[secondId].discardPile.includes(`card-${secondId}`), "the realtime authority returns the purged card to discard after two phases");
+  assert.equal(purgeReturned.game.playerStates[secondId].purgedCards.length, 0);
+  assert(purgeReturned.game.outcome.notices.some((notice) => notice.title === "Purged card returned"), "the authoritative return emits a synchronized notice");
+  first.send({ type: "return:lobby" });
+  await first.waitForNext((state) => state.phase === "lobby");
+
+  first.send({ type: "ready", sessionId: firstId, ready: true });
+  second.send({ type: "ready", sessionId: secondId, ready: true });
+  await first.waitFor((state) => state.players.length === 2 && state.players.every((item) => item.ready));
+  const pilferAuthorityGame = structuredClone(game);
+  delete pilferAuthorityGame.playerStates[thirdId];
+  pilferAuthorityGame.completedTurns = 0;
+  pilferAuthorityGame.completedPhases = 0;
+  pilferAuthorityGame.roundNumber = 1;
+  pilferAuthorityGame.activePlayerIndex = 0;
+  pilferAuthorityGame.turnOrder = [firstId, secondId];
+  pilferAuthorityGame.roundOrder = [secondId, firstId];
+  pilferAuthorityGame.actedThisRound = [secondId];
+  pilferAuthorityGame.outcome = null;
+  pilferAuthorityGame.history = [];
+  pilferAuthorityGame.worldEvent = null;
+  pilferAuthorityGame.playerStates[firstId].completedPlayerTurns = 0;
+  pilferAuthorityGame.playerStates[firstId].timedEffects = [];
+  pilferAuthorityGame.playerStates[firstId].borrowedCards = [];
+  pilferAuthorityGame.playerStates[firstId].purgedCards = [];
+  pilferAuthorityGame.playerStates[firstId].hand = [`pilfer-${firstId}`];
+  pilferAuthorityGame.playerStates[firstId].drawPile = [`${firstId}-common-slash`];
+  pilferAuthorityGame.playerStates[firstId].discardPile = [];
+  pilferAuthorityGame.playerStates[firstId].graveyard = [];
+  pilferAuthorityGame.playerStates[secondId].completedPlayerTurns = 1;
+  pilferAuthorityGame.playerStates[secondId].timedEffects = [];
+  pilferAuthorityGame.playerStates[secondId].borrowedCards = [];
+  pilferAuthorityGame.playerStates[secondId].purgedCards = [];
+  pilferAuthorityGame.playerStates[secondId].hand = [`card-${secondId}`, `${secondId}-common-empty-gesture`];
+  pilferAuthorityGame.playerStates[secondId].drawPile = [];
+  pilferAuthorityGame.playerStates[secondId].discardPile = [];
+  pilferAuthorityGame.playerStates[secondId].graveyard = [];
+  second.send({ type: "start", game: pilferAuthorityGame });
+  const pilferStarted = await first.waitForNext((state) => state.phase === "game" && state.game?.completedTurns === 0);
+  const pilferAction = structuredClone(pilferStarted.game);
+  pilferAction.completedTurns = 1;
+  pilferAction.completedPhases = 1;
+  pilferAction.roundNumber = 2;
+  pilferAction.activePlayerIndex = 1;
+  pilferAction.turnOrder = [secondId, firstId];
+  pilferAction.roundOrder = [secondId, firstId];
+  pilferAction.actedThisRound = [];
+  pilferAction.playerStates[firstId].completedPlayerTurns = 1;
+  pilferAction.playerStates[firstId].hand = [`${firstId}-common-slash`];
+  pilferAction.playerStates[firstId].drawPile = [];
+  pilferAction.playerStates[firstId].discardPile = [`pilfer-${firstId}`];
+  pilferAction.outcome = { kind: "card", success: true, total: 20, target: pilferAction.adventure.target, label: `${firstName} used Pilfered Chance`, detail: "Pilfered Chance resolved.", actorName: firstName, cardId: `pilfer-${firstId}`, cardName: "Pilfered Chance", effect: "support", supportType: "steal-card", targetIds: [secondId], targetName: secondName, resolution: "roll" };
+  pilferAction.history = [{ id: `pilfer-${runId}`, turn: 1, phase: 1, kind: "support", actorName: firstName, message: `${firstName} used Pilfered Chance.`, success: true, createdAt: Date.now() }];
+  const pilferActorPromise = first.waitForNext((state) => state.game?.outcome?.cardName === "Pilfered Chance");
+  const pilferTargetPromise = second.waitForNext((state) => state.game?.outcome?.cardName === "Pilfered Chance");
+  first.send({ type: "game:update", game: pilferAction });
+  const [pilferActorView, pilferTargetView] = await Promise.all([pilferActorPromise, pilferTargetPromise]);
+  assert(pilferActorView.game.playerStates[firstId].hand.includes(`card-${secondId}`), "Pilfered Chance prefers a special card from the target's private hand");
+  assert.deepEqual(pilferActorView.game.playerStates[firstId].borrowedCards, [{ cardId: `card-${secondId}`, ownerId: secondId, borrowedAtTurn: 1, expiresAfterBorrowerTurn: 2 }], "the realtime authority binds the stolen card to the end of Nyx's next turn");
+  assert(!pilferTargetView.game.playerStates[secondId].hand.includes(`card-${secondId}`), "the stolen special card leaves the target's hand");
+  assert(pilferTargetView.game.playerStates[secondId].hand.includes(`${secondId}-common-empty-gesture`), "a special card is preferred over an available common card");
+  assert.match(pilferActorView.game.outcome.detail, /random special card/);
+  assert.match(pilferActorView.game.outcome.detail, /next turn ends/);
+
+  const afterTargetTurnPromise = first.waitForNext((state) => state.game?.completedTurns === 2 && state.game?.outcome?.kind === "skip");
+  second.send({ type: "skip-turn", sessionId: secondId });
+  const afterTargetTurn = await afterTargetTurnPromise;
+  assert(afterTargetTurn.game.playerStates[firstId].hand.includes(`card-${secondId}`), "the stolen card does not return when the target's turn ends");
+  assert.equal(afterTargetTurn.game.playerStates[firstId].borrowedCards.length, 1);
+
+  const pilferReturnedActorPromise = first.waitForNext((state) => state.game?.completedTurns === 3 && state.game?.outcome?.kind === "skip");
+  const pilferReturnedTargetPromise = second.waitForNext((state) => state.game?.completedTurns === 3 && state.game?.outcome?.kind === "skip");
+  first.send({ type: "skip-turn", sessionId: firstId });
+  const [pilferReturnedActor, pilferReturnedTarget] = await Promise.all([pilferReturnedActorPromise, pilferReturnedTargetPromise]);
+  assert(!pilferReturnedActor.game.playerStates[firstId].hand.includes(`card-${secondId}`), "the unplayed stolen card leaves Nyx's hand when Nyx's next turn ends");
+  assert.equal(pilferReturnedActor.game.playerStates[firstId].borrowedCards.length, 0, "the expired borrowed-card marker is cleared");
+  assert(pilferReturnedTarget.game.playerStates[secondId].discardPile.includes(`card-${secondId}`), "the stolen card returns to its original target's discard pile");
+  assert(!pilferReturnedTarget.game.playerStates[secondId].hand.includes(`card-${secondId}`), "the returned card does not jump back into the target's hand");
+  first.send({ type: "return:lobby" });
+  await first.waitForNext((state) => state.phase === "lobby");
+
+  console.log("Realtime test passed: private hands, temporary Tactical Purge, temporary Pilfered Chance theft, phase-5 card upgrades and resets, initial phase-5 normalization, 60-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");
 } finally {
   first.send({ type: "return:lobby" });
   await first.waitFor((state) => state.phase === "lobby").catch(() => {});

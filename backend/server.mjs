@@ -78,7 +78,7 @@ function publicState(viewerId = '') {
     ...room.game,
     playerStates: Object.fromEntries(Object.entries(room.game.playerStates || {}).map(([id, state]) => [
       id,
-      id === viewerId ? state : { ...state, hand: [], drawPile: [], discardPile: [], graveyard: [], borrowedCards: [], cardUses: {} }
+      id === viewerId ? state : { ...state, hand: [], drawPile: [], discardPile: [], graveyard: [], borrowedCards: [], purgedCards: [], cardUses: {} }
     ]))
   } : null;
   return {
@@ -215,11 +215,23 @@ function appendZoneTransitionNotices(previousGame, nextGame) {
     const previousGraveyard = new Set(before.graveyard || []);
     for (const cardId of (after.graveyard || []).filter((id) => !previousGraveyard.has(id))) {
       const card = (player.skillDeck || []).find((item) => item.id === cardId);
+      const temporaryPurge = (after.purgedCards || []).find((entry) => entry.cardId === cardId);
       appendOutcomeNotice(nextGame, {
         id: `${scope}-graveyard-${player.id}-${cardId}`,
         kind: 'graveyard',
         title: 'Card moved to graveyard',
-        detail: `${card?.name || 'A card'} moved to ${player.displayName}'s graveyard and is out of circulation for this battle.`
+        detail: temporaryPurge
+          ? `A random card from ${player.displayName}'s hand moved to their graveyard for 2 phases and will return to their discard pile after phase ${temporaryPurge.returnAfterPhase}.`
+          : `${card?.name || 'A card'} moved to ${player.displayName}'s graveyard and is out of circulation for this battle.`
+      });
+    }
+    const activePurges = new Set((after.purgedCards || []).map((entry) => entry.cardId));
+    for (const entry of (before.purgedCards || []).filter((candidate) => !activePurges.has(candidate.cardId) && (after.discardPile || []).includes(candidate.cardId))) {
+      appendOutcomeNotice(nextGame, {
+        id: `${scope}-purge-return-${player.id}-${entry.cardId}`,
+        kind: 'graveyard',
+        title: 'Purged card returned',
+        detail: `A card returned from ${player.displayName}'s graveyard to their discard pile after 2 phases.`
       });
     }
     const recycledDiscard = (before.discardPile || []).length > 0
@@ -284,6 +296,10 @@ function normalizeServerTurnOrder(game) {
   for (const state of Object.values(game.playerStates || {})) {
     state.graveyard ||= [];
     state.cardUses ||= {};
+    state.purgedCards ||= [];
+    state.borrowedCards = (state.borrowedCards || []).map((entry) => Number.isFinite(entry.expiresAfterBorrowerTurn)
+      ? entry
+      : { ...entry, expiresAfterBorrowerTurn: (state.completedPlayerTurns || 0) + 1 });
     state.pityPoints = Math.max(0, Math.floor(Number(state.pityPoints) || 0));
   }
   const validIds = new Set(room.players.map((player) => player.id));
@@ -392,26 +408,65 @@ function moveCardToGraveyard(state, cardId) {
   else startNewCycleIfEmpty(state);
 }
 
-function returnBorrowedCards(game, completedOwnerId) {
-  const owner = game.playerStates[completedOwnerId];
-  if (!owner) return [];
+function temporarilyPurgeHandCard(state, cardId, returnAfterPhase) {
+  if (!(state.hand || []).includes(cardId)) return false;
+  moveCardToGraveyard(state, cardId);
+  state.purgedCards = [...(state.purgedCards || []).filter((entry) => entry.cardId !== cardId), { cardId, returnAfterPhase }];
+  return true;
+}
+
+function returnExpiredPurgedCards(game, completedPhases) {
   const returned = [];
-  for (const borrower of Object.values(game.playerStates)) {
-    const returning = (borrower.borrowedCards || []).filter((entry) =>
-      entry.ownerId === completedOwnerId && (entry.expiresAfterOwnerTurn ?? owner.completedPlayerTurns) <= owner.completedPlayerTurns
-    );
+  for (const player of room.players) {
+    const state = game.playerStates?.[player.id];
+    if (!state) continue;
+    const returning = (state.purgedCards || []).filter((entry) => entry.returnAfterPhase <= completedPhases);
     for (const entry of returning) {
-      removeCardFromZones(borrower, entry.cardId);
-      if (!(owner.discardPile || []).includes(entry.cardId)) {
-        owner.discardPile.push(entry.cardId);
-        startNewCycleIfEmpty(owner);
-      }
-      returned.push(entry);
+      removeCardFromZones(state, entry.cardId);
+      state.graveyard = (state.graveyard || []).filter((id) => id !== entry.cardId);
+      state.discardPile ||= [];
+      if (!state.discardPile.includes(entry.cardId)) state.discardPile.push(entry.cardId);
+      returned.push({ playerId: player.id, cardId: entry.cardId });
     }
-    borrower.borrowedCards = (borrower.borrowedCards || []).filter((entry) => !returning.includes(entry));
-    if (returning.length) drawOneOrStartNewCycle(borrower);
+    state.purgedCards = (state.purgedCards || []).filter((entry) => !returning.includes(entry));
   }
   return returned;
+}
+
+function returnBorrowedCards(game, completedBorrowerId) {
+  const borrower = game.playerStates[completedBorrowerId];
+  if (!borrower) return [];
+  const returning = (borrower.borrowedCards || []).filter((entry) =>
+    (entry.expiresAfterBorrowerTurn ?? borrower.completedPlayerTurns + 1) <= borrower.completedPlayerTurns
+  );
+  let removedFromHand = false;
+  for (const entry of returning) {
+    if ((borrower.hand || []).includes(entry.cardId)) removedFromHand = true;
+    removeCardFromZones(borrower, entry.cardId);
+    const owner = game.playerStates[entry.ownerId];
+    if (owner) {
+      owner.discardPile ||= [];
+      if (!owner.discardPile.includes(entry.cardId)) owner.discardPile.push(entry.cardId);
+    }
+  }
+  borrower.borrowedCards = (borrower.borrowedCards || []).filter((entry) => !returning.includes(entry));
+  if (removedFromHand) drawOneOrStartNewCycle(borrower);
+  return returning;
+}
+
+function returnPlayedBorrowedCard(game, borrowerId, cardId) {
+  if (!cardId) return false;
+  const borrower = game.playerStates?.[borrowerId];
+  const borrowed = (borrower?.borrowedCards || []).find((entry) => entry.cardId === cardId);
+  if (!borrower || !borrowed) return false;
+  removeCardFromZones(borrower, cardId);
+  borrower.borrowedCards = borrower.borrowedCards.filter((entry) => entry.cardId !== cardId);
+  const owner = game.playerStates?.[borrowed.ownerId];
+  if (owner) {
+    owner.discardPile ||= [];
+    if (!owner.discardPile.includes(cardId)) owner.discardPile.push(cardId);
+  }
+  return true;
 }
 
 function tickPendingRevives(game) {
@@ -489,46 +544,46 @@ function reconcilePityPoints(previousGame, incomingGame, actor) {
 
 function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
   if (!previousGame || !incomingGame || !actor) return;
-  returnBorrowedCards(incomingGame, actor.id, incomingGame.completedTurns);
   const outcome = incomingGame.outcome;
+  returnPlayedBorrowedCard(incomingGame, actor.id, outcome?.cardId);
+  returnBorrowedCards(incomingGame, actor.id);
   const card = actor.skillDeck.find((item) => item.name === outcome?.cardName);
   if (!outcome?.success || card?.effect !== 'support') return;
   const targetName = String(outcome.targetName || '').split(', ')[0];
   const target = room.players.find((player) => player.id === outcome.targetIds?.[0]) || room.players.find((player) => player.displayName === targetName);
   const targetState = target && incomingGame.playerStates[target.id];
   if (!target || !targetState) return;
-  let serverDetail = '';
-  if (card.supportType === 'purge-card' && target.id !== actor.id && target.hero.team === actor.hero.team && (targetState.hp || 0) > 0) {
-    const zoneIds = [...(targetState.hand || []), ...(targetState.drawPile || []), ...(targetState.discardPile || [])];
-    const candidates = zoneIds.filter((id) => {
-      const candidate = target.skillDeck.find((item) => item.id === id);
-      return candidate && !candidate.unique && candidate.effect === 'none';
-    });
+  let replacementDetail = '';
+  if (card.supportType === 'purge-card' && target.id !== actor.id && target.hero.team !== actor.hero.team && (previousGame.playerStates?.[target.id]?.hp || 0) > 0) {
+    const candidates = (targetState.hand || []).filter((id) => target.skillDeck.some((item) => item.id === id));
     const removedId = candidates[Math.floor(Math.random() * candidates.length)];
     if (removedId) {
-      moveCardToGraveyard(targetState, removedId);
-      const removed = target.skillDeck.find((item) => item.id === removedId);
-      serverDetail = ` ${removed?.name || 'One no-effect common card'} moved to ${target.displayName}'s graveyard for this battle.`;
-    }
+      temporarilyPurgeHandCard(targetState, removedId, Number(previousGame.completedPhases || 0) + 2);
+      replacementDetail = `${target.displayName} had one random hand card moved to their graveyard for 2 phases; it will then return to their discard pile.`;
+    } else replacementDetail = `${target.displayName} had no eligible card in hand, so Tactical Purge had no effect.`;
   }
-  if (card.supportType === 'steal-card') {
-    const candidates = (targetState.hand || []).filter((id) => {
-      const candidate = target.skillDeck.find((item) => item.id === id);
-      return candidate && !candidate.unique;
-    });
-    const stolenId = candidates[Math.floor(Math.random() * candidates.length)];
+  if (card.supportType === 'steal-card' && target.id !== actor.id && target.hero.team !== actor.hero.team && (previousGame.playerStates?.[target.id]?.hp || 0) > 0) {
+    const candidates = (targetState.hand || []).filter((id) => target.skillDeck.some((item) => item.id === id));
+    const specialCandidates = candidates.filter((id) => target.skillDeck.some((item) => item.id === id && item.unique));
+    const preferredCandidates = specialCandidates.length ? specialCandidates : candidates;
+    const stolenId = preferredCandidates[Math.floor(Math.random() * preferredCandidates.length)];
     if (stolenId) {
       targetState.hand = targetState.hand.filter((id) => id !== stolenId);
       const actorState = incomingGame.playerStates[actor.id];
       actorState.hand.push(stolenId);
-      actorState.borrowedCards = [...(actorState.borrowedCards || []), { cardId: stolenId, ownerId: target.id, borrowedAtTurn: incomingGame.completedTurns }];
-      serverDetail = ` ${actor.displayName} temporarily stole one hidden common card from ${target.displayName}.`;
-    }
+      actorState.borrowedCards = [...(actorState.borrowedCards || []), {
+        cardId: stolenId,
+        ownerId: target.id,
+        borrowedAtTurn: incomingGame.completedTurns,
+        expiresAfterBorrowerTurn: (actorState.completedPlayerTurns || 0) + 1
+      }];
+      replacementDetail = `${actor.displayName} stole one random ${specialCandidates.length ? 'special ' : ''}card from ${target.displayName}; it will return to ${target.displayName}'s discard pile when ${actor.displayName}'s next turn ends.`;
+    } else replacementDetail = `${target.displayName} had no eligible card in hand, so Pilfered Chance had no effect.`;
   }
-  if (serverDetail) {
-    incomingGame.outcome.detail = `${incomingGame.outcome.detail || ''}${serverDetail}`.trim();
+  if (replacementDetail) {
+    incomingGame.outcome.detail = `${actor.displayName} used ${card.name}: ${replacementDetail}`;
     const entry = incomingGame.history?.at(-1);
-    if (entry?.kind !== 'world') entry.message = `${entry.message}${serverDetail}`;
+    if (entry?.kind !== 'world') entry.message = `${actor.displayName} used ${card.name} — ${replacementDetail}`;
   }
 }
 
@@ -683,7 +738,10 @@ function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', zoneBas
     rotateServerTurn(game, passingPlayer.id);
     phaseCompleted = completeRoundTurn(game, passingPlayer.id);
   }
-  if (phaseCompleted) upgradePhaseFiveCards(game);
+  if (phaseCompleted) {
+    returnExpiredPurgedCards(game, game.completedPhases);
+    upgradePhaseFiveCards(game);
+  }
   game.adventure = { ...game.adventure, chapter: Math.min(30, (game.completedPhases || 0) + 1) };
   if (phaseCompleted && game.completedPhases % 5 === 0) applyWorldEvent(game, game.completedPhases, now);
   if (phaseCompleted) resetPhaseTurnOrder(game);
@@ -869,20 +927,24 @@ function handleMessage(socket, rawMessage) {
     const previousGame = room.game;
     const phaseAdvanced = Number(message.game.completedPhases) === Number(previousGame.completedPhases || 0) + 1;
     for (const [id, state] of Object.entries(room.game.playerStates || {})) {
-      if (id !== activePlayer.id && message.game.playerStates?.[id]) {
-        message.game.playerStates[id].hand = [...(state.hand || [])];
-        message.game.playerStates[id].drawPile = [...(state.drawPile || [])];
-        message.game.playerStates[id].discardPile = [...(state.discardPile || [])];
-        message.game.playerStates[id].graveyard = [...(state.graveyard || [])];
-        message.game.playerStates[id].borrowedCards = [...(state.borrowedCards || [])];
-        message.game.playerStates[id].cardUses = { ...(state.cardUses || {}) };
-        message.game.playerStates[id].pityPoints = Math.max(0, Math.floor(Number(state.pityPoints) || 0));
+      const incomingState = message.game.playerStates?.[id];
+      if (!incomingState) continue;
+      incomingState.purgedCards = [...(state.purgedCards || [])];
+      incomingState.borrowedCards = [...(state.borrowedCards || [])];
+      if (id !== activePlayer.id) {
+        incomingState.hand = [...(state.hand || [])];
+        incomingState.drawPile = [...(state.drawPile || [])];
+        incomingState.discardPile = [...(state.discardPile || [])];
+        incomingState.graveyard = [...(state.graveyard || [])];
+        incomingState.cardUses = { ...(state.cardUses || {}) };
+        incomingState.pityPoints = Math.max(0, Math.floor(Number(state.pityPoints) || 0));
       }
     }
     if (message.game.outcome) message.game.outcome.notices = [];
     const pityError = reconcilePityPoints(previousGame, message.game, activePlayer);
     if (pityError) return reject(socket, pityError);
     reconcileHiddenCardEffects(previousGame, message.game, activePlayer);
+    if (phaseAdvanced) returnExpiredPurgedCards(message.game, message.game.completedPhases);
     appendZoneTransitionNotices(previousGame, message.game);
     message.game.adventure.target = randomDiceTarget();
     if (message.game.outcome?.kind === 'card') message.game.outcome.nextTarget = message.game.adventure.target;
@@ -927,7 +989,6 @@ function handleMessage(socket, rawMessage) {
       const owner = room.game.playerStates[borrowed.ownerId];
       if (owner && !owner.discardPile.includes(message.cardId)) {
         owner.discardPile.push(message.cardId);
-        startNewCycleIfEmpty(owner);
       }
     } else state.discardPile.push(message.cardId);
     drawOneOrStartNewCycle(state, discardedIndex >= 0 ? discardedIndex : state.hand.length);

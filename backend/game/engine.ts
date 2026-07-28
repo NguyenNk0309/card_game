@@ -76,7 +76,7 @@ export function createPlayerSession(displayName: string, seatIndex: number, hero
 
 function createRunState(player: PlayerSession): PlayerRunState {
   const drawPile = shuffle(player.skillDeck.map((card) => card.id));
-  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, pityPoints: 0, reviveIn: 0, passiveReviveUsed: false, skipTurns: 0, completedPlayerTurns: 0, timedEffects: [], borrowedCards: [], cardUses: {}, hand: drawPile.splice(0, 4), drawPile, discardPile: [], graveyard: [] };
+  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, pityPoints: 0, reviveIn: 0, passiveReviveUsed: false, skipTurns: 0, completedPlayerTurns: 0, timedEffects: [], borrowedCards: [], purgedCards: [], cardUses: {}, hand: drawPile.splice(0, 4), drawPile, discardPile: [], graveyard: [] };
 }
 
 const timedField = (kind: TimedEffectKind) => kind;
@@ -206,6 +206,13 @@ function moveCardToGraveyard(state: PlayerRunState, cardId: string) {
   state.discardPile = cycled.discardPile;
 }
 
+function temporarilyPurgeHandCard(state: PlayerRunState, cardId: string, returnAfterPhase: number) {
+  if (!state.hand.includes(cardId)) return false;
+  moveCardToGraveyard(state, cardId);
+  state.purgedCards = [...(state.purgedCards ?? []).filter((entry) => entry.cardId !== cardId), { cardId, returnAfterPhase }];
+  return true;
+}
+
 function drawWithoutDiscard(state: PlayerRunState, handIndex = state.hand.length) {
   return drawOneOrStartNewCycle(state, handIndex);
 }
@@ -232,22 +239,32 @@ function finishPlayedCard(states: Record<string, PlayerRunState>, actorId: strin
   states[actorId] = drawWithoutDiscard(actorState, playedIndex);
 }
 
-function returnExpiredBorrowedCards(states: Record<string, PlayerRunState>, completedOwnerId: string) {
-  const owner = states[completedOwnerId];
-  if (!owner) return;
-  for (const [borrowerId, borrower] of Object.entries(states)) {
-    const returning = (borrower.borrowedCards ?? []).filter((entry) =>
-      entry.ownerId === completedOwnerId && (entry.expiresAfterOwnerTurn ?? owner.completedPlayerTurns) <= owner.completedPlayerTurns
-    );
+function returnExpiredBorrowedCards(states: Record<string, PlayerRunState>, completedBorrowerId: string) {
+  const borrower = states[completedBorrowerId];
+  if (!borrower) return;
+  const returning = (borrower.borrowedCards ?? []).filter((entry) =>
+    (entry.expiresAfterBorrowerTurn ?? borrower.completedPlayerTurns + 1) <= borrower.completedPlayerTurns
+  );
+  let removedFromHand = false;
+  for (const entry of returning) {
+    if (borrower.hand.includes(entry.cardId)) removedFromHand = true;
+    removeCardFromZones(borrower, entry.cardId);
+    const owner = states[entry.ownerId];
+    if (owner && !owner.discardPile.includes(entry.cardId)) owner.discardPile.push(entry.cardId);
+  }
+  borrower.borrowedCards = (borrower.borrowedCards ?? []).filter((entry) => !returning.includes(entry));
+  if (removedFromHand) states[completedBorrowerId] = drawWithoutDiscard(borrower);
+}
+
+function returnExpiredPurgedCards(states: Record<string, PlayerRunState>, completedPhases: number) {
+  for (const state of Object.values(states)) {
+    const returning = (state.purgedCards ?? []).filter((entry) => entry.returnAfterPhase <= completedPhases);
     for (const entry of returning) {
-      removeCardFromZones(borrower, entry.cardId);
-      if (!owner.discardPile.includes(entry.cardId)) {
-        owner.discardPile.push(entry.cardId);
-        states[completedOwnerId] = startNewCycleIfEmpty(owner);
-      }
+      removeCardFromZones(state, entry.cardId);
+      state.graveyard = state.graveyard.filter((id) => id !== entry.cardId);
+      if (!state.discardPile.includes(entry.cardId)) state.discardPile.push(entry.cardId);
     }
-    borrower.borrowedCards = (borrower.borrowedCards ?? []).filter((entry) => !returning.includes(entry));
-    if (returning.length) states[borrowerId] = drawWithoutDiscard(borrower);
+    state.purgedCards = (state.purgedCards ?? []).filter((entry) => !returning.includes(entry));
   }
 }
 
@@ -394,7 +411,10 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     skipTurns: state.skipTurns ?? 0,
     completedPlayerTurns: state.completedPlayerTurns ?? 0,
     timedEffects: normalizeTimedEffects(state),
-    borrowedCards: [...(state.borrowedCards ?? [])],
+    borrowedCards: (state.borrowedCards ?? []).map((entry) => Number.isFinite(entry.expiresAfterBorrowerTurn)
+      ? { ...entry }
+      : { ...entry, expiresAfterBorrowerTurn: (state.completedPlayerTurns ?? 0) + 1 }),
+    purgedCards: [...(state.purgedCards ?? [])],
     cardUses: { ...(state.cardUses ?? {}) },
     hand: [...state.hand],
     drawPile: [...state.drawPile],
@@ -438,6 +458,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   let amount = 0;
   let defeated = false;
   let detail = `${actor.displayName} used ${card.name} but did not meet target ${game.adventure.target}.`;
+  let immediateReviveId = "";
 
   if (success) {
     if (needsTarget && !targets.length) {
@@ -504,34 +525,35 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       }
       if (card.supportType === "advance-ally" && selectedAlly) turnOrder = moveTurnTarget(turnOrder, selectedAlly.id, "advance");
       if (card.supportType === "revive" && selectedDefeatedAlly) {
-        states[selectedDefeatedAlly.id].reviveIn = Math.max(1, card.value);
-        reports.push(`${selectedDefeatedAlly.displayName} will revive in ${card.value} completed turns`);
+        const revivedState = states[selectedDefeatedAlly.id];
+        revivedState.hp = Math.max(1, Math.ceil(revivedState.maxHp / 3));
+        revivedState.reviveIn = 0;
+        immediateReviveId = selectedDefeatedAlly.id;
+        amount = revivedState.hp;
+        reports.push(`${selectedDefeatedAlly.displayName} revived immediately with one-third HP (${revivedState.hp}/${revivedState.maxHp}) and will take the next turn after ${actor.displayName} in this phase`);
+        lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-returning-light-${selectedDefeatedAlly.id}`, kind: "revive", playerId: selectedDefeatedAlly.id, playerName: selectedDefeatedAlly.displayName, reason: `${selectedDefeatedAlly.displayName} returned immediately through Returning Light with one-third HP and will take the next turn after ${actor.displayName} in this phase.` });
       }
       if (card.supportType === "skip-enemy" && selectedEnemy) {
         states[selectedEnemy.id].skipTurns = (states[selectedEnemy.id].skipTurns ?? 0) + 1;
         reports.push(`${selectedEnemy.displayName}'s next turn will be skipped`);
       }
-      if (card.supportType === "purge-card" && selectedAlly) {
-        const selectedState = states[selectedAlly.id];
-        const zoneIds = [...selectedState.hand, ...selectedState.drawPile, ...selectedState.discardPile];
-        const candidates = zoneIds.filter((id) => {
-          const candidate = selectedAlly.skillDeck.find((item) => item.id === id);
-          return Boolean(candidate && !candidate.unique && candidate.effect === "none");
-        });
+      if (card.supportType === "purge-card" && selectedEnemy) {
+        const selectedState = states[selectedEnemy.id];
+        const candidates = selectedState.hand.filter((id) => selectedEnemy.skillDeck.some((item) => item.id === id));
         const removedId = candidates.length ? pick(candidates) : "";
-        if (removedId) {
-          moveCardToGraveyard(selectedState, removedId);
-          const removedCard = selectedAlly.skillDeck.find((item) => item.id === removedId);
-          reports.push(`${removedCard?.name ?? "one no-effect common card"} moved to ${selectedAlly.displayName}'s graveyard for this battle`);
-        }
+        const returnAfterPhase = (game.completedPhases ?? Math.max(0, (game.roundNumber ?? 1) - 1)) + 2;
+        if (removedId) temporarilyPurgeHandCard(selectedState, removedId, returnAfterPhase);
+        reports.push(`one random card from ${selectedEnemy.displayName}'s hand moved to their graveyard for 2 phases, then will return to their discard pile`);
       }
       if (card.supportType === "steal-card" && selectedEnemy) {
         const enemyState = states[selectedEnemy.id];
         const candidates = enemyState.hand.filter((id) => {
           const candidate = selectedEnemy.skillDeck.find((item) => item.id === id);
-          return Boolean(candidate && !candidate.unique);
+          return Boolean(candidate);
         });
-        const stolenId = candidates.length ? pick(candidates) : "";
+        const specialCandidates = candidates.filter((id) => selectedEnemy.skillDeck.find((item) => item.id === id)?.unique);
+        const preferredCandidates = specialCandidates.length ? specialCandidates : candidates;
+        const stolenId = preferredCandidates.length ? pick(preferredCandidates) : "";
         if (stolenId) {
           enemyState.hand = enemyState.hand.filter((id) => id !== stolenId);
           states[actor.id].hand.push(stolenId);
@@ -539,9 +561,9 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
             cardId: stolenId,
             ownerId: selectedEnemy.id,
             borrowedAtTurn: turn,
-            expiresAfterOwnerTurn: (states[selectedEnemy.id].completedPlayerTurns ?? 0) + 1
+            expiresAfterBorrowerTurn: (states[actor.id].completedPlayerTurns ?? 0) + 2
           });
-          reports.push(`${actor.displayName} borrowed one hidden common card from ${selectedEnemy.displayName}`);
+          reports.push(`${actor.displayName} stole one random ${specialCandidates.length ? "special " : ""}card from ${selectedEnemy.displayName}; it returns to their discard pile when ${actor.displayName}'s next turn ends`);
         }
       }
       if (card.supportType === "healing") detail = `${actor.displayName} healed the team: ${reports.join(", ")}.`;
@@ -619,10 +641,17 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   }
   let nextTurnOrder = rotateTurnOrder(turnOrder, actor.id, states);
   if (success && card.supportType === "delay-enemy" && selectedEnemy) nextTurnOrder = moveTurnTarget(nextTurnOrder, selectedEnemy.id, "delay");
+  if (immediateReviveId) nextTurnOrder = [immediateReviveId, ...nextTurnOrder.filter((id) => id !== immediateReviveId)];
   let actedThisRound = [...new Set([...(game.actedThisRound ?? []), actor.id])].filter((id) => (states[id]?.hp ?? 0) > 0);
+  if (immediateReviveId) actedThisRound = actedThisRound.filter((id) => id !== immediateReviveId);
   let completedPhases = game.completedPhases ?? Math.max(0, (game.roundNumber ?? 1) - 1);
   let roundNumber = game.roundNumber ?? completedPhases + 1;
   let roundOrder = (game.roundOrder?.length ? game.roundOrder : speedOrder(players, states)).filter((id) => (states[id]?.hp ?? 0) > 0);
+  if (immediateReviveId) {
+    roundOrder = roundOrder.filter((id) => id !== immediateReviveId);
+    const actorRoundIndex = roundOrder.indexOf(actor.id);
+    roundOrder.splice(actorRoundIndex >= 0 ? actorRoundIndex + 1 : 0, 0, immediateReviveId);
+  }
   const livingIds = speedOrder(players, states);
   let phaseCompleted = false;
   if (livingIds.length && livingIds.every((id) => actedThisRound.includes(id))) {
@@ -633,6 +662,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     roundOrder = livingIds;
     nextTurnOrder = livingIds;
   }
+  if (phaseCompleted) returnExpiredPurgedCards(states, completedPhases);
   adventure = { ...adventure, chapter: Math.min(30, completedPhases + 1) };
   let worldEvent: WorldEventOutcome | null = null;
   if (phaseCompleted && completedPhases % 5 === 0) {
