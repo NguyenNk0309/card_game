@@ -1563,7 +1563,7 @@ button:focus-visible {
 
 .turn-status-banner strong { font: 500 22px Georgia, serif; }
 .turn-status-banner p { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
-.turn-status-banner .active-turn-word { color: #37ef7b; font-weight: 800; }
+.turn-status-banner .active-turn-word { color: #37ef7b; font-size: inherit !important; font-weight: 800; line-height: inherit; }
 
 .dice-copy em {
   max-width: none;
@@ -3811,7 +3811,7 @@ button:focus-visible {
 .public-deck-card .card-outcome-lines p,
 .public-deck-card .card-outcome-lines span { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 
-.world-event-library-button { position: fixed; z-index: 65; top: 9px; left: calc(50% + 210px); display: flex; align-items: center; gap: 6px; padding: 7px 10px; color: #ff8b76; border: 1px solid rgba(220, 91, 72, .45); background: rgba(65, 16, 13, .72); font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.world-event-library-button { position: fixed; z-index: 65; top: 9px; left: calc(50% + 210px); display: flex; align-items: center; gap: 6px; padding: 7px 10px; color: #ff8b76; border: 1px solid rgba(220, 91, 72, .45); background: rgba(65, 16, 13, .72); font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
 .world-event-library > div { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; }
 .world-event-library article { display: grid; gap: 6px; padding: 13px; border: 1px solid rgba(220, 91, 72, .28); background: rgba(92, 26, 20, .12); }
 .world-event-library article > span { color: #e98672; font-size: 8px; letter-spacing: .1em; }
