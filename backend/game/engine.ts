@@ -421,7 +421,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const selectableAllies = card.supportType === "advance-ally" ? allies.filter((player) => player.id !== actor.id) : allies;
   const selectedAlly = selectableAllies.find((player) => player.id === targetId);
   const selectedDefeatedAlly = defeatedAllies.find((player) => player.id === targetId);
-  const selectedPlayer = players.find((player) => player.id === targetId);
+  const selectedPlayer = living(players, states).find((player) => player.id === targetId);
   const targets = card.target === "all-enemies" ? enemies
     : card.target === "all-allies" ? allies
       : card.target === "self" ? [actor]

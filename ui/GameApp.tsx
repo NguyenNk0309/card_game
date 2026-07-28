@@ -338,12 +338,13 @@ export default function GameApp() {
   const targetOptions = activeCard && localPlayer ? players.filter((player) => {
     const hp = game?.playerStates[player.id]?.hp ?? player.hero.hp;
     if (activeCard.target === "defeated-ally") return player.hero.team === localPlayer.hero.team && hp <= 0 && !(game?.playerStates[player.id]?.reviveIn ?? 0);
-    if (activeCard.target === "player") return true;
     if (hp <= 0) return false;
+    if (activeCard.target === "player") return true;
     if (activeCard.target === "enemy") return player.hero.team !== localPlayer.hero.team;
     if (activeCard.target === "ally") return player.hero.team === localPlayer.hero.team && (activeCard.supportType !== "advance-ally" || player.id !== localPlayer.id);
     return false;
   }) : [];
+  const targetOptionKey = targetOptions.map((player) => player.id).join("|");
 
   const teamTotals = (team: TeamId) => {
     const members = players.filter((player) => player.hero.team === team);
@@ -373,7 +374,7 @@ export default function GameApp() {
     }
     if (activeCard.target === "self" || activeCard.target === "all-allies" || activeCard.target === "all-enemies") setTargetPlayerId(localPlayer.id);
     else setTargetPlayerId(targetOptions[0]?.id ?? "");
-  }, [activeCard?.id, localPlayer?.id, game?.completedTurns]);
+  }, [activeCard?.id, localPlayer?.id, game?.completedTurns, targetOptionKey]);
   useEffect(() => { if (phase !== "game" || game?.ended) return; const timer = window.setInterval(() => setNow(Date.now()), 250); return () => window.clearInterval(timer); }, [phase, game?.ended]);
   useEffect(() => {
     if (phase !== "game" || game?.ended || !game?.turnDeadline || secondsLeft > 0 || expirySentRef.current === game.turnDeadline) return;

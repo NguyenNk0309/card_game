@@ -199,6 +199,16 @@ const defeatNotice = engine.resolveCardTurn(defeatNoticeGame, [first, second], a
 assert.deepEqual(defeatNotice.outcome.lifeEvents.map((event) => [event.kind, event.playerId]), [["defeat", second.id]], "a defeat creates one synchronized player-life event");
 assert.match(defeatNotice.outcome.lifeEvents[0].reason, /Binh.*An.*Slash/, "the defeat panel explains who and which card caused the defeat");
 
+const anyPlayerCard = { ...attack, id: "living-player-target-test", name: "Living Player Target", target: "player" };
+const anyPlayerActor = { ...first, skillDeck: [...first.skillDeck, anyPlayerCard] };
+const defeatedTargetGame = engine.createInitialGame([anyPlayerActor, second], engine.createAdventure("DEFEATED-TARGET"), 30);
+defeatedTargetGame.turnOrder = [anyPlayerActor.id, second.id];
+defeatedTargetGame.playerStates[anyPlayerActor.id].hand = [anyPlayerCard.id];
+defeatedTargetGame.playerStates[second.id].hp = 0;
+const defeatedTargetResult = engine.resolveCardTurn(defeatedTargetGame, [anyPlayerActor, second], anyPlayerCard.id, second.id, 20);
+assert.deepEqual(defeatedTargetResult.outcome.targetIds, [], "generic player-target actions cannot select a defeated ally or enemy");
+assert.match(defeatedTargetResult.outcome.detail, /no valid target/i, "a stale defeated-player target resolves with no effect");
+
 const exactTargetGame = engine.createInitialGame([first, second], engine.createAdventure("EXACT-TARGET"), 30);
 exactTargetGame.turnOrder = [first.id, second.id];
 exactTargetGame.adventure.target = 12;
