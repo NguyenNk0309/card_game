@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Dices, Hand, Heart, Hourglass, Shield, Swords, UserMinus } from "lucide-react";
+import { Check, Clover, Dices, Hand, Heart, Hourglass, Shield, Swords, UserMinus } from "lucide-react";
 import type { ReactNode } from "react";
 import type { PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
 
@@ -36,6 +36,7 @@ export function PartyRail({ players, game, localSessionId, onRemovePlayer, onIns
           if (state?.attackBuff) buffs.push({ label: "Next attack", value: `+${state.attackBuff} damage`, displayValue: `+${state.attackBuff}`, icon: <Swords size={11}/> });
           if (state?.diceBuff) buffs.push({ label: "Next d20", value: `+${state.diceBuff}`, displayValue: `+${state.diceBuff}`, icon: <Dices size={11}/> });
           if (state?.dicePenalty) buffs.push({ label: "Next d20", value: `-${state.dicePenalty}`, displayValue: `-${state.dicePenalty}`, icon: <Dices size={11}/>, negative: true });
+          if ((state?.zeroPityUntilTurn ?? 0) > (state?.completedPlayerTurns ?? 0)) buffs.push({ label: "Next card pity cost", value: "0 pity", displayValue: "0", icon: <Clover size={11}/> });
           if (state?.skipTurns) buffs.push({ label: "Cancelled turns", value: String(state.skipTurns), displayValue: String(state.skipTurns), icon: <Hourglass size={11}/>, negative: true });
           if (state?.reviveIn) buffs.push({ label: "Revives in", value: `${state.reviveIn} turns`, displayValue: String(state.reviveIn), icon: <Heart size={11}/> });
           if (state?.borrowedCards?.length) buffs.push({ label: "Borrowed cards", value: String(state.borrowedCards.length), displayValue: String(state.borrowedCards.length), icon: <Hand size={11}/> });

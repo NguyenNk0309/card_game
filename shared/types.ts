@@ -13,7 +13,8 @@ export type SupportType =
   | "revive"
   | "skip-enemy"
   | "purge-card"
-  | "steal-card";
+  | "steal-card"
+  | "zero-pity";
 export type FailureEffect = "self-damage" | "team-damage" | "lose-shield" | "enemy-shield";
 export type TimedEffectKind = "shield" | "attackBuff" | "diceBuff" | "dicePenalty";
 
@@ -178,6 +179,7 @@ export type PlayerRunState = {
   passiveReviveUsed: boolean;
   skipTurns: number;
   completedPlayerTurns: number;
+  zeroPityUntilTurn: number;
   timedEffects: TimedEffect[];
   borrowedCards: { cardId: string; ownerId: string; borrowedAtTurn: number; expiresAfterBorrowerTurn?: number; expiresAfterOwnerTurn?: number }[];
   purgedCards: PurgedCard[];

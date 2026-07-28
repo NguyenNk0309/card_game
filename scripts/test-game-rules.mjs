@@ -87,11 +87,11 @@ for (const [playerIndex, sourceIds] of [[0, zoneOneSources], [1, zoneTwoSources]
   assert.deepEqual(upgradedCards.map((card) => card.effect).sort(), ["damage", "guard", "heal"], "each upgrade transforms separately without affecting the other two");
 }
 const supportTypes = new Set(options.flatMap((option) => option.skillDeck.filter((card) => card.effect === "support").map((card) => card.supportType)));
-assert.deepEqual([...supportTypes].sort(), ["advance-ally", "attack", "dice", "dispel-enemy", "enemy-dice", "healing", "purge-card", "revive", "shield", "skip-enemy", "steal-card"]);
+assert.deepEqual([...supportTypes].sort(), ["advance-ally", "attack", "dice", "dispel-enemy", "enemy-dice", "healing", "purge-card", "revive", "shield", "skip-enemy", "steal-card", "zero-pity"]);
 const diceModifierCards = options.flatMap((option) => option.skillDeck).filter((card) => card.supportType === "dice" || card.supportType === "enemy-dice");
 assert.deepEqual(diceModifierCards.map((card) => card.name).sort(), ["Dark Omen", "Focus Order", "Gravity Hex"], "only the approved cards can create stored d20 modifiers");
 const durationCards = options.flatMap((option) => option.skillDeck).filter((card) =>
-  card.effect === "guard" || ["attack", "shield", "dice", "enemy-dice", "skip-enemy", "steal-card"].includes(card.supportType)
+  card.effect === "guard" || ["attack", "shield", "dice", "enemy-dice", "skip-enemy", "steal-card", "zero-pity"].includes(card.supportType)
 );
 assert(durationCards.every((card) => /expires at the end|effects expire normally|next turn ends/i.test(card.description)), "every buff and debuff card must state the target-turn expiry rule");
 for (const classId of ["warden", "healer", "tank", "oracle", "support"]) {
@@ -302,14 +302,62 @@ const cursedEnemy = engine.createPlayerSession("Cursed enemy", 1, "Thorne Vale",
 const oracleAlly = engine.createPlayerSession("Oracle ally", 2, "Dagan Flint", "oracle-ally");
 const curseParty = [oracle, cursedEnemy, oracleAlly];
 const favorableOmen = oracle.skillDeck.find((card) => card.id === "sf-favor");
-assert.equal(favorableOmen.supportType, "shield", "Favorable Omen must not modify d20 results");
+assert.equal(favorableOmen.supportType, "zero-pity", "Favorable Omen grants a zero-pity card instead of shield or a d20 modifier");
+assert.equal(favorableOmen.target, "ally", "Favorable Omen chooses one living ally, including Sable Fen");
+assert.match(favorableOmen.description, /living ally.*next card.*next turn.*0 pity.*expires.*third use.*graveyard/i, "Favorable Omen's description explains its complete updated effect");
 const favorableGame = engine.createInitialGame(curseParty, engine.createAdventure("FAVOR"), 30);
 favorableGame.turnOrder = [oracle.id, cursedEnemy.id, oracleAlly.id];
 favorableGame.playerStates[oracle.id].hand = [favorableOmen.id];
-const favorableResult = engine.resolveCardTurn(favorableGame, curseParty, favorableOmen.id, oracle.id, 20);
+const favorableResult = engine.resolveCardTurn(favorableGame, curseParty, favorableOmen.id, oracleAlly.id, 20);
 assert.equal(favorableResult.playerStates[oracle.id].diceBuff, 0, "Favorable Omen cannot create a d20 buff");
 assert.equal(favorableResult.playerStates[oracleAlly.id].diceBuff, 0, "Favorable Omen cannot create allied d20 buffs");
-assert.equal(favorableResult.playerStates[oracle.id].shield, 2, "Favorable Omen now protects allies with shield");
+assert.equal(favorableResult.playerStates[oracle.id].shield, 0, "Favorable Omen no longer creates shield");
+assert.equal(favorableResult.playerStates[oracleAlly.id].zeroPityUntilTurn, 1, "the chosen ally receives a zero-pity card for their next turn");
+const skippedOmenState = structuredClone(favorableResult.playerStates[oracleAlly.id]);
+engine.expireTimedEffectsAtTurnEnd(skippedOmenState);
+assert.equal(skippedOmenState.zeroPityUntilTurn, 0, "Favorable Omen expires if the chosen ally's next turn ends without a card play");
+favorableResult.turnOrder = [oracleAlly.id, cursedEnemy.id, oracle.id];
+favorableResult.activePlayerIndex = curseParty.findIndex((player) => player.id === oracleAlly.id);
+favorableResult.adventure.target = 16;
+const omenAttack = oracleAlly.skillDeck.find((card) => card.effect === "damage" && card.pityCost > 0);
+favorableResult.playerStates[oracleAlly.id].hand = [omenAttack.id];
+const omenPlayed = engine.resolveCardTurn(favorableResult, curseParty, omenAttack.id, cursedEnemy.id, 1);
+assert.equal(omenPlayed.outcome.success, true, "the chosen ally's next played card succeeds automatically at 0 pity cost");
+assert.equal(omenPlayed.outcome.pityCost, 0, "Favorable Omen changes the next played card's effective pity cost to 0");
+assert.equal(omenPlayed.playerStates[oracleAlly.id].pityPoints, 0, "a Favorable Omen card neither spends nor gains pity");
+assert.equal(omenPlayed.playerStates[oracleAlly.id].zeroPityUntilTurn, 0, "Favorable Omen is consumed when the next card is played");
+
+const selfFavorableGame = engine.createInitialGame(curseParty, engine.createAdventure("FAVOR-SELF"), 30);
+selfFavorableGame.turnOrder = [oracle.id, cursedEnemy.id, oracleAlly.id];
+selfFavorableGame.playerStates[oracle.id].hand = [favorableOmen.id];
+const selfFavored = engine.resolveCardTurn(selfFavorableGame, curseParty, favorableOmen.id, oracle.id, 20);
+assert.equal(selfFavored.playerStates[oracle.id].completedPlayerTurns, 1);
+assert.equal(selfFavored.playerStates[oracle.id].zeroPityUntilTurn, 2, "self-targeted Favorable Omen survives its casting turn and applies on Sable's next turn");
+selfFavored.turnOrder = [oracle.id, cursedEnemy.id, oracleAlly.id];
+selfFavored.activePlayerIndex = 0;
+selfFavored.adventure.target = 16;
+const selfOmenCard = oracle.skillDeck.find((card) => card.id === "sf-hex");
+selfFavored.playerStates[oracle.id].hand = [selfOmenCard.id];
+const selfOmenPlayed = engine.resolveCardTurn(selfFavored, curseParty, selfOmenCard.id, cursedEnemy.id, 1);
+assert.equal(selfOmenPlayed.outcome.success, true, "Sable can choose herself for Favorable Omen");
+assert.equal(selfOmenPlayed.outcome.pityCost, 0);
+assert.equal(selfOmenPlayed.playerStates[oracle.id].zeroPityUntilTurn, 0);
+
+let favorableUseGame = engine.createInitialGame(curseParty, engine.createAdventure("FAVOR-USES"), 30);
+const favorableReplacements = oracle.skillDeck.filter((card) => !card.unique).slice(0, 3).map((card) => card.id);
+favorableUseGame.playerStates[oracle.id].drawPile = [...favorableReplacements];
+favorableUseGame.playerStates[oracle.id].discardPile = [];
+favorableUseGame.playerStates[oracle.id].graveyard = [];
+for (let use = 1; use <= 3; use += 1) {
+  favorableUseGame.turnOrder = [oracle.id, cursedEnemy.id, oracleAlly.id];
+  favorableUseGame.activePlayerIndex = 0;
+  favorableUseGame.playerStates[oracle.id].hand = [favorableOmen.id];
+  favorableUseGame.playerStates[oracle.id].discardPile = favorableUseGame.playerStates[oracle.id].discardPile.filter((id) => id !== favorableOmen.id);
+  favorableUseGame = engine.resolveCardTurn(favorableUseGame, curseParty, favorableOmen.id, oracleAlly.id, 20);
+  assert.equal(favorableUseGame.playerStates[oracle.id].cardUses[favorableOmen.id], use);
+  assert.equal(favorableUseGame.playerStates[oracle.id].graveyard.includes(favorableOmen.id), use === 3, `Favorable Omen ${use === 3 ? "enters" : "does not enter"} Sable's graveyard after use ${use}`);
+}
+assert(!favorableUseGame.playerStates[oracle.id].discardPile.includes(favorableOmen.id), "Favorable Omen cannot return to discard after its third use");
 const curseGame = engine.createInitialGame(curseParty, engine.createAdventure("CURSE"), 30);
 curseGame.turnOrder = [oracle.id, cursedEnemy.id, oracleAlly.id];
 const curseCard = oracle.skillDeck.find((card) => card.supportType === "enemy-dice");

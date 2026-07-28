@@ -1,4 +1,4 @@
-import type { ActionCard } from "./types";
+import type { ActionCard, PlayerRunState } from "./types";
 
 export function getCardPityCost(card: Omit<ActionCard, "pityCost"> | ActionCard) {
   const storedCost = Number((card as Partial<ActionCard>).pityCost);
@@ -11,6 +11,14 @@ export function getCardPityCost(card: Omit<ActionCard, "pityCost"> | ActionCard)
   if (["revive", "skip-enemy", "steal-card"].includes(card.supportType ?? "")) return 7;
   if (["purge-card", "advance-ally", "dispel-enemy"].includes(card.supportType ?? "")) return 6;
   return Math.min(6, 3 + card.value);
+}
+
+export function hasFavorableOmen(state?: Pick<PlayerRunState, "completedPlayerTurns" | "zeroPityUntilTurn">) {
+  return Boolean(state && (state.zeroPityUntilTurn ?? 0) > (state.completedPlayerTurns ?? 0));
+}
+
+export function getEffectiveCardPityCost(card: ActionCard, state?: Pick<PlayerRunState, "completedPlayerTurns" | "zeroPityUntilTurn">) {
+  return hasFavorableOmen(state) ? 0 : getCardPityCost(card);
 }
 
 const effectLabels: Record<ActionCard["effect"], string> = {

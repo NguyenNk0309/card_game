@@ -300,6 +300,7 @@ function normalizeServerTurnOrder(game) {
     state.borrowedCards = (state.borrowedCards || []).map((entry) => Number.isFinite(entry.expiresAfterBorrowerTurn)
       ? entry
       : { ...entry, expiresAfterBorrowerTurn: (state.completedPlayerTurns || 0) + 1 });
+    state.zeroPityUntilTurn = Math.max(0, Math.floor(Number(state.zeroPityUntilTurn) || 0));
     state.pityPoints = Math.max(0, Math.floor(Number(state.pityPoints) || 0));
   }
   const validIds = new Set(room.players.map((player) => player.id));
@@ -516,15 +517,19 @@ function reconcilePityPoints(previousGame, incomingGame, actor) {
     || room.players.flatMap((player) => player.skillDeck || []).find((item) => item.name === outcome.cardName);
   if (!card || !(previousState.hand || []).includes(card.id)) return 'The selected card is not in the active hand.';
   const before = Math.max(0, Math.floor(Number(previousState.pityPoints) || 0));
-  const cost = cardPityCost(card);
+  const favorableOmenActive = (previousState.zeroPityUntilTurn || 0) > (previousState.completedPlayerTurns || 0);
+  const cost = favorableOmenActive ? 0 : cardPityCost(card);
   if (outcome.resolution === 'pity') {
     if (before < cost) return 'There are not enough pity points for that card.';
     incomingState.pityPoints = before - cost;
     outcome.success = true;
-    outcome.pityCost = cost;
   } else {
+    if (favorableOmenActive) outcome.success = true;
     incomingState.pityPoints = before + (outcome.success ? 0 : 1);
   }
+  if (outcome.resolution === 'pity' || cost === 0) outcome.pityCost = cost;
+  else delete outcome.pityCost;
+  if (favorableOmenActive) incomingState.zeroPityUntilTurn = 0;
   outcome.pityBefore = before;
   outcome.pityAfter = incomingState.pityPoints;
   if (outcome.resolution === 'pity' && cost > 0) appendOutcomeNotice(incomingGame, {
@@ -547,7 +552,8 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
   const outcome = incomingGame.outcome;
   returnPlayedBorrowedCard(incomingGame, actor.id, outcome?.cardId);
   returnBorrowedCards(incomingGame, actor.id);
-  const card = actor.skillDeck.find((item) => item.name === outcome?.cardName);
+  const card = room.players.flatMap((player) => player.skillDeck || []).find((item) => item.id === outcome?.cardId)
+    || room.players.flatMap((player) => player.skillDeck || []).find((item) => item.name === outcome?.cardName);
   if (!outcome?.success || card?.effect !== 'support') return;
   const targetName = String(outcome.targetName || '').split(', ')[0];
   const target = room.players.find((player) => player.id === outcome.targetIds?.[0]) || room.players.find((player) => player.displayName === targetName);
@@ -579,6 +585,13 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
       }];
       replacementDetail = `${actor.displayName} stole one random ${specialCandidates.length ? 'special ' : ''}card from ${target.displayName}; it will return to ${target.displayName}'s discard pile when ${actor.displayName}'s next turn ends.`;
     } else replacementDetail = `${target.displayName} had no eligible card in hand, so Pilfered Chance had no effect.`;
+  }
+  if (card.supportType === 'zero-pity' && target.hero.team === actor.hero.team && (previousGame.playerStates?.[target.id]?.hp || 0) > 0) {
+    targetState.zeroPityUntilTurn = Math.max(
+      targetState.zeroPityUntilTurn || 0,
+      (targetState.completedPlayerTurns || 0) + 1
+    );
+    replacementDetail = `${target.displayName}'s next played card during their next turn has 0 pity cost. If they do not play a card, the omen expires at the end of that turn.`;
   }
   if (replacementDetail) {
     incomingGame.outcome.detail = `${actor.displayName} used ${card.name}: ${replacementDetail}`;
@@ -708,6 +721,7 @@ function expireTimedEffectsAtTurnEnd(state) {
     } else keeping.push(effect);
   }
   state.completedPlayerTurns = completedPlayerTurns;
+  if ((state.zeroPityUntilTurn || 0) <= completedPlayerTurns) state.zeroPityUntilTurn = 0;
   state.timedEffects = keeping;
 }
 
@@ -931,6 +945,7 @@ function handleMessage(socket, rawMessage) {
       if (!incomingState) continue;
       incomingState.purgedCards = [...(state.purgedCards || [])];
       incomingState.borrowedCards = [...(state.borrowedCards || [])];
+      incomingState.zeroPityUntilTurn = state.zeroPityUntilTurn || 0;
       if (id !== activePlayer.id) {
         incomingState.hand = [...(state.hand || [])];
         incomingState.drawPile = [...(state.drawPile || [])];

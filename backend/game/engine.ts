@@ -76,11 +76,12 @@ export function createPlayerSession(displayName: string, seatIndex: number, hero
 
 function createRunState(player: PlayerSession): PlayerRunState {
   const drawPile = shuffle(player.skillDeck.map((card) => card.id));
-  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, pityPoints: 0, reviveIn: 0, passiveReviveUsed: false, skipTurns: 0, completedPlayerTurns: 0, timedEffects: [], borrowedCards: [], purgedCards: [], cardUses: {}, hand: drawPile.splice(0, 4), drawPile, discardPile: [], graveyard: [] };
+  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, pityPoints: 0, reviveIn: 0, passiveReviveUsed: false, skipTurns: 0, completedPlayerTurns: 0, zeroPityUntilTurn: 0, timedEffects: [], borrowedCards: [], purgedCards: [], cardUses: {}, hand: drawPile.splice(0, 4), drawPile, discardPile: [], graveyard: [] };
 }
 
 const timedField = (kind: TimedEffectKind) => kind;
 const timedEffectKinds: TimedEffectKind[] = ["shield", "attackBuff", "diceBuff", "dicePenalty"];
+const hasFavorableOmen = (state?: PlayerRunState) => Boolean(state && (state.zeroPityUntilTurn ?? 0) > (state.completedPlayerTurns ?? 0));
 
 function normalizeTimedEffects(state: PlayerRunState) {
   const effects = [...(state.timedEffects ?? [])];
@@ -129,6 +130,7 @@ export function expireTimedEffectsAtTurnEnd(state: PlayerRunState) {
     } else keeping.push(effect);
   }
   state.completedPlayerTurns = completedPlayerTurns;
+  if ((state.zeroPityUntilTurn ?? 0) <= completedPlayerTurns) state.zeroPityUntilTurn = 0;
   state.timedEffects = keeping;
 }
 
@@ -223,7 +225,7 @@ function finishPlayedCard(states: Record<string, PlayerRunState>, actorId: strin
   if (!borrowed) {
     const useCount = (actorState.cardUses[cardId] ?? 0) + 1;
     actorState.cardUses[cardId] = useCount;
-    if ((cardId === "bo-return" && useCount >= 1) || (cardId === "im-purge" && useCount >= 3)) {
+    if ((cardId === "bo-return" && useCount >= 1) || (["im-purge", "sf-favor"].includes(cardId) && useCount >= 3)) {
       moveCardToGraveyard(actorState, cardId);
       states[actorId] = actorState;
       return;
@@ -399,7 +401,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const actorIndex = players.findIndex((player) => player.id === actor?.id);
   const actorState = actor && game.playerStates[actor.id];
   const card = players.flatMap((player) => player.skillDeck).find((item) => item.id === cardId);
-  const pityCost = card ? calculatePityCost(card) : 0;
+  const pityCost = card ? (hasFavorableOmen(actorState) ? 0 : calculatePityCost(card)) : 0;
   const pityBefore = actorState?.pityPoints ?? 0;
   if (!actor || !actorState || actorState.hp <= 0 || !card || !actorState.hand.includes(card.id) || game.ended || (usePity && pityBefore < pityCost)) return game;
 
@@ -410,6 +412,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     passiveReviveUsed: state.passiveReviveUsed ?? false,
     skipTurns: state.skipTurns ?? 0,
     completedPlayerTurns: state.completedPlayerTurns ?? 0,
+    zeroPityUntilTurn: state.zeroPityUntilTurn ?? 0,
     timedEffects: normalizeTimedEffects(state),
     borrowedCards: (state.borrowedCards ?? []).map((entry) => Number.isFinite(entry.expiresAfterBorrowerTurn)
       ? { ...entry }
@@ -537,6 +540,14 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         states[selectedEnemy.id].skipTurns = (states[selectedEnemy.id].skipTurns ?? 0) + 1;
         reports.push(`${selectedEnemy.displayName}'s next turn will be skipped`);
       }
+      if (card.supportType === "zero-pity" && selectedAlly) {
+        const selectedState = states[selectedAlly.id];
+        selectedState.zeroPityUntilTurn = Math.max(
+          selectedState.zeroPityUntilTurn ?? 0,
+          (selectedState.completedPlayerTurns ?? 0) + (selectedAlly.id === actor.id ? 2 : 1)
+        );
+        reports.push(`${selectedAlly.displayName}'s next played card during their next turn has 0 pity cost`);
+      }
       if (card.supportType === "purge-card" && selectedEnemy) {
         const selectedState = states[selectedEnemy.id];
         const candidates = selectedState.hand.filter((id) => selectedEnemy.skillDeck.some((item) => item.id === id));
@@ -571,7 +582,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       else if (card.supportType === "delay-enemy") detail = `${actor.displayName} moved ${selectedEnemy?.displayName}'s turn to the end of the queue.`;
       else if (card.supportType === "advance-ally") detail = `${actor.displayName} moved ${selectedAlly?.displayName} to the next position in the turn queue.`;
       else if (card.supportType === "dispel-enemy") detail = `${actor.displayName} dispelled ${selectedEnemy?.displayName}: ${reports.join(", ")}.`;
-      else if (["revive", "skip-enemy", "purge-card", "steal-card"].includes(card.supportType ?? "")) detail = reports.length ? `${actor.displayName} used ${card.name}: ${reports.join(", ")}.` : `${actor.displayName} succeeded with ${card.name}, but no eligible card or character was available. The card had no effect.`;
+      else if (["revive", "skip-enemy", "purge-card", "steal-card", "zero-pity"].includes(card.supportType ?? "")) detail = reports.length ? `${actor.displayName} used ${card.name}: ${reports.join(", ")}.` : `${actor.displayName} succeeded with ${card.name}, but no eligible card or character was available. The card had no effect.`;
       else if (card.target === "all-allies") detail = `${actor.displayName} granted +${amount} ${card.supportType === "attack" ? "next-attack damage" : card.supportType === "shield" ? "shield" : "to the next d20 result"} to every living ally.`;
       else detail = `${actor.displayName} granted ${targets[0]?.displayName ?? "the target"} +${amount} ${card.supportType === "attack" ? "next-attack damage" : card.supportType === "shield" ? "shield" : "to the next d20 result"}.`;
     } else if (card.effect === "none") {

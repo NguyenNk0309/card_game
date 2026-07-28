@@ -8,10 +8,10 @@ function testSkillDeck(id) {
   const special = [
     { id: `card-${id}`, name: "Test Skill", type: "Wit", description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, unique: true },
     { id: `purge-${id}`, name: "Tactical Purge", type: "Wit", description: "Temporarily purge a random enemy hand card.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "purge-card", unique: true },
-    { id: `pilfer-${id}`, name: "Pilfered Chance", type: "Wit", description: "Steal a random enemy hand card, preferring special cards.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "steal-card", unique: true }
+    { id: `pilfer-${id}`, name: "Pilfered Chance", type: "Wit", description: "Steal a random enemy hand card, preferring special cards.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "steal-card", unique: true },
+    { id: `favor-${id}`, name: "Favorable Omen", type: "Spirit", description: "Make one ally's next played card cost 0 pity.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "zero-pity", unique: true }
   ];
   const common = [
-    { id: "slash", name: "Slash", type: "Might", description: "Deal 3 damage.", effect: "damage", target: "enemy", value: 3 },
     { id: "heavy", name: "Heavy Blow", type: "Might", description: "Deal 4 damage.", effect: "damage", target: "enemy", value: 4 },
     { id: "brace", name: "Brace", type: "Spirit", description: "Gain 3 shield.", effect: "guard", target: "self", value: 3 },
     { id: "second-wind", name: "Second Wind", type: "Spirit", description: "Restore up to 4 HP.", effect: "heal", target: "self", value: 4 },
@@ -415,7 +415,7 @@ try {
   pilferAuthorityGame.playerStates[firstId].borrowedCards = [];
   pilferAuthorityGame.playerStates[firstId].purgedCards = [];
   pilferAuthorityGame.playerStates[firstId].hand = [`pilfer-${firstId}`];
-  pilferAuthorityGame.playerStates[firstId].drawPile = [`${firstId}-common-slash`];
+  pilferAuthorityGame.playerStates[firstId].drawPile = [`${firstId}-common-second-wind`];
   pilferAuthorityGame.playerStates[firstId].discardPile = [];
   pilferAuthorityGame.playerStates[firstId].graveyard = [];
   pilferAuthorityGame.playerStates[secondId].completedPlayerTurns = 1;
@@ -437,7 +437,7 @@ try {
   pilferAction.roundOrder = [secondId, firstId];
   pilferAction.actedThisRound = [];
   pilferAction.playerStates[firstId].completedPlayerTurns = 1;
-  pilferAction.playerStates[firstId].hand = [`${firstId}-common-slash`];
+  pilferAction.playerStates[firstId].hand = [`${firstId}-common-second-wind`];
   pilferAction.playerStates[firstId].drawPile = [];
   pilferAction.playerStates[firstId].discardPile = [`pilfer-${firstId}`];
   pilferAction.outcome = { kind: "card", success: true, total: 20, target: pilferAction.adventure.target, label: `${firstName} used Pilfered Chance`, detail: "Pilfered Chance resolved.", actorName: firstName, cardId: `pilfer-${firstId}`, cardName: "Pilfered Chance", effect: "support", supportType: "steal-card", targetIds: [secondId], targetName: secondName, resolution: "roll" };
@@ -470,7 +470,99 @@ try {
   first.send({ type: "return:lobby" });
   await first.waitForNext((state) => state.phase === "lobby");
 
-  console.log("Realtime test passed: private hands, temporary Tactical Purge, temporary Pilfered Chance theft, phase-5 card upgrades and resets, initial phase-5 normalization, 60-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");
+  first.send({ type: "ready", sessionId: firstId, ready: true });
+  second.send({ type: "ready", sessionId: secondId, ready: true });
+  await first.waitFor((state) => state.players.length === 2 && state.players.every((item) => item.ready));
+  const favorableAuthorityGame = structuredClone(game);
+  delete favorableAuthorityGame.playerStates[thirdId];
+  favorableAuthorityGame.completedTurns = 0;
+  favorableAuthorityGame.completedPhases = 0;
+  favorableAuthorityGame.roundNumber = 1;
+  favorableAuthorityGame.activePlayerIndex = 0;
+  favorableAuthorityGame.turnOrder = [firstId, secondId];
+  favorableAuthorityGame.roundOrder = [secondId, firstId];
+  favorableAuthorityGame.actedThisRound = [secondId];
+  favorableAuthorityGame.outcome = null;
+  favorableAuthorityGame.history = [];
+  favorableAuthorityGame.worldEvent = null;
+  favorableAuthorityGame.playerStates[firstId].completedPlayerTurns = 0;
+  favorableAuthorityGame.playerStates[firstId].zeroPityUntilTurn = 0;
+  favorableAuthorityGame.playerStates[firstId].timedEffects = [];
+  favorableAuthorityGame.playerStates[firstId].borrowedCards = [];
+  favorableAuthorityGame.playerStates[firstId].purgedCards = [];
+  favorableAuthorityGame.playerStates[firstId].pityPoints = 3;
+  favorableAuthorityGame.playerStates[firstId].hand = [`favor-${firstId}`];
+  favorableAuthorityGame.playerStates[firstId].drawPile = [`card-${firstId}`];
+  favorableAuthorityGame.playerStates[firstId].discardPile = [];
+  favorableAuthorityGame.playerStates[firstId].graveyard = [];
+  favorableAuthorityGame.playerStates[secondId].completedPlayerTurns = 1;
+  favorableAuthorityGame.playerStates[secondId].zeroPityUntilTurn = 0;
+  favorableAuthorityGame.playerStates[secondId].timedEffects = [];
+  favorableAuthorityGame.playerStates[secondId].borrowedCards = [];
+  favorableAuthorityGame.playerStates[secondId].purgedCards = [];
+  favorableAuthorityGame.playerStates[secondId].hand = [`card-${secondId}`];
+  favorableAuthorityGame.playerStates[secondId].drawPile = [];
+  favorableAuthorityGame.playerStates[secondId].discardPile = [];
+  favorableAuthorityGame.playerStates[secondId].graveyard = [];
+  second.send({ type: "start", game: favorableAuthorityGame });
+  const favorableStarted = await first.waitForNext((state) => state.phase === "game" && state.game?.completedTurns === 0);
+  const favorableAction = structuredClone(favorableStarted.game);
+  favorableAction.completedTurns = 1;
+  favorableAction.completedPhases = 1;
+  favorableAction.roundNumber = 2;
+  favorableAction.activePlayerIndex = 1;
+  favorableAction.turnOrder = [secondId, firstId];
+  favorableAction.roundOrder = [secondId, firstId];
+  favorableAction.actedThisRound = [];
+  favorableAction.playerStates[firstId].completedPlayerTurns = 1;
+  favorableAction.playerStates[firstId].zeroPityUntilTurn = 0;
+  favorableAction.playerStates[firstId].hand = [`card-${firstId}`];
+  favorableAction.playerStates[firstId].drawPile = [];
+  favorableAction.playerStates[firstId].discardPile = [`favor-${firstId}`];
+  favorableAction.playerStates[firstId].cardUses = { [`favor-${firstId}`]: 1 };
+  favorableAction.outcome = { kind: "card", success: true, total: 20, target: favorableAction.adventure.target, label: `${firstName} used Favorable Omen`, detail: "Favorable Omen resolved.", actorName: firstName, cardId: `favor-${firstId}`, cardName: "Favorable Omen", effect: "support", supportType: "zero-pity", targetIds: [firstId], targetName: firstName, resolution: "roll" };
+  favorableAction.history = [{ id: `favor-${runId}`, turn: 1, phase: 1, kind: "support", actorName: firstName, message: `${firstName} used Favorable Omen.`, success: true, createdAt: Date.now() }];
+  const favorableActorPromise = first.waitForNext((state) => state.game?.outcome?.cardName === "Favorable Omen");
+  const favorableObserverPromise = second.waitForNext((state) => state.game?.outcome?.cardName === "Favorable Omen");
+  first.send({ type: "game:update", game: favorableAction });
+  const [favorableActorView, favorableObserverView] = await Promise.all([favorableActorPromise, favorableObserverPromise]);
+  assert.equal(favorableActorView.game.playerStates[firstId].zeroPityUntilTurn, 2, "self-targeted Favorable Omen remains active through its casting turn");
+  assert.equal(favorableObserverView.game.playerStates[firstId].zeroPityUntilTurn, 2, "the realtime authority synchronizes Favorable Omen as a public player effect");
+  assert.match(favorableActorView.game.outcome.detail, /next played card.*0 pity cost/);
+
+  const beforeFavorableTurnPromise = first.waitForNext((state) => state.game?.completedTurns === 2 && state.game?.outcome?.kind === "skip");
+  second.send({ type: "skip-turn", sessionId: secondId });
+  const beforeFavorableTurn = await beforeFavorableTurnPromise;
+  assert.equal(beforeFavorableTurn.game.playerStates[firstId].zeroPityUntilTurn, 2, "another player's turn does not consume Favorable Omen");
+
+  const zeroPityAction = structuredClone(beforeFavorableTurn.game);
+  zeroPityAction.completedTurns = 3;
+  zeroPityAction.completedPhases = 2;
+  zeroPityAction.roundNumber = 3;
+  zeroPityAction.activePlayerIndex = 1;
+  zeroPityAction.turnOrder = [secondId, firstId];
+  zeroPityAction.roundOrder = [secondId, firstId];
+  zeroPityAction.actedThisRound = [];
+  zeroPityAction.playerStates[firstId].completedPlayerTurns = 2;
+  zeroPityAction.playerStates[firstId].zeroPityUntilTurn = 0;
+  zeroPityAction.playerStates[firstId].hand = [];
+  zeroPityAction.playerStates[firstId].drawPile = [];
+  zeroPityAction.playerStates[firstId].discardPile = [`favor-${firstId}`, `card-${firstId}`];
+  zeroPityAction.outcome = { kind: "card", success: true, total: 1, target: zeroPityAction.adventure.target, label: `${firstName} used Test Skill`, detail: "The zero-pity card resolved.", actorName: firstName, cardId: `card-${firstId}`, cardName: "Test Skill", effect: "damage", targetIds: [secondId], targetName: secondName, roll: 1, bonus: 0, resolution: "roll", pityCost: 0, pityBefore: 3, pityAfter: 3 };
+  zeroPityAction.history = [...zeroPityAction.history, { id: `favor-card-${runId}`, turn: 3, phase: 2, kind: "damage", actorName: firstName, targetName: secondName, cardName: "Test Skill", message: `${firstName} used Test Skill with Favorable Omen.`, success: true, diceRoll: 1, diceTarget: zeroPityAction.adventure.target, diceBonus: 0, dicePenalty: 0, diceTotal: 1, resolution: "roll", pityCost: 0, pityBefore: 3, pityAfter: 3, createdAt: Date.now() }];
+  const zeroPityActorPromise = first.waitForNext((state) => state.game?.completedTurns === 3 && state.game?.outcome?.cardName === "Test Skill");
+  const zeroPityObserverPromise = second.waitForNext((state) => state.game?.completedTurns === 3 && state.game?.outcome?.cardName === "Test Skill");
+  first.send({ type: "game:update", game: zeroPityAction });
+  const [zeroPityActorView, zeroPityObserverView] = await Promise.all([zeroPityActorPromise, zeroPityObserverPromise]);
+  assert.equal(zeroPityActorView.game.outcome.success, true, "Favorable Omen makes the next normal card action automatically succeed");
+  assert.equal(zeroPityActorView.game.outcome.pityCost, 0, "the realtime authority reports the affected card's pity cost as 0");
+  assert.equal(zeroPityActorView.game.playerStates[firstId].pityPoints, 3, "the affected card spends and gains no pity");
+  assert.equal(zeroPityActorView.game.playerStates[firstId].zeroPityUntilTurn, 0, "the omen clears after the affected card is played");
+  assert.equal(zeroPityObserverView.game.playerStates[firstId].zeroPityUntilTurn, 0, "the consumed omen clears for every player");
+  first.send({ type: "return:lobby" });
+  await first.waitForNext((state) => state.phase === "lobby");
+
+  console.log("Realtime test passed: private hands, temporary Tactical Purge, temporary Pilfered Chance theft, Favorable Omen zero-pity turns, phase-5 card upgrades and resets, initial phase-5 normalization, 60-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");
 } finally {
   first.send({ type: "return:lobby" });
   await first.waitFor((state) => state.phase === "lobby").catch(() => {});

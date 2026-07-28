@@ -6,7 +6,7 @@ export function PityIcon({ size = 14 }: { size?: number }) {
   return <Clover size={size} strokeWidth={2.4}/>;
 }
 
-export function PityCostBadge({ card }: { card: ActionCard }) {
-  const cost = getCardPityCost(card);
+export function PityCostBadge({ card, costOverride }: { card: ActionCard; costOverride?: number }) {
+  const cost = costOverride ?? getCardPityCost(card);
   return <span className="pity-cost-badge" aria-label={`${cost} pity points required`} title={`${cost} pity points required`}><PityIcon size={12}/><b>{cost}</b></span>;
 }

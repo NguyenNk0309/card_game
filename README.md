@@ -36,7 +36,8 @@ Open `http://localhost:3000`.
 9. Only when both hand and draw are empty does the entire discard pile return to draw, shuffle, and deal up to 4 cards. Graveyard cards are permanently removed from circulation unless Tactical Purge temporarily placed them there.
 10. Returning Light immediately revives one defeated ally with one-third HP, gives that ally the next turn after Brother Orren in the current phase, and then enters Brother Orren's graveyard after its first use. Tactical Purge moves one random card from a living enemy's hand to their graveyard for 2 phases, then returns it to their discard pile; after its third use, Tactical Purge enters Ione Mire's graveyard.
 11. Pilfered Chance steals one random card from a living enemy's hand, preferring a special card when available, and returns it to that enemy's discard pile when Nyx's next turn ends.
-12. Eliminate the opposing team to win immediately. Otherwise, after phase 30, the team with more total HP wins, with living players, shield, and influence used for ties.
+12. Favorable Omen gives one living ally, including Sable Fen, a 0-pity card on their next turn. The omen expires if that turn ends without a card being played, and Favorable Omen enters Sable Fen's graveyard after its third use.
+13. Eliminate the opposing team to win immediately. Otherwise, after phase 30, the team with more total HP wins, with living players, shield, and influence used for ties.
 
 The shared room is authoritative and in-memory: separate browser sessions see
 the same players, readiness, start event, turns, dice results, and story state in
