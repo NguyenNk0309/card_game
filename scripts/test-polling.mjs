@@ -26,7 +26,7 @@ function player(id, displayName, team) {
     displayName,
     ready: false,
     joinedAt: Date.now(),
-    hero: { id: `hero-${id}`, name: `${displayName} Hero`, title: "Test Oath", role: "Scout", classId: "ranger", className: "Ranger", passiveName: "Deadeye", passiveText: "Single-target attacks deal 1 additional damage.", skill: "Test Skill", skillText: "Test", summary: "Test hero", strength: "Attack", weakness: "Defense", impact: "Polling test", hp: 8, maxHp: 8, team, color: "#a78bfa", initials: displayName.slice(0, 2).toUpperCase() },
+    hero: { id: `hero-${id}`, name: `${displayName} Hero`, title: "Test Oath", role: "Scout", classId: "ranger", className: "Ranger", passiveName: "Deadeye", passiveText: "Single-target attacks deal 1 additional damage.", skill: "Test Skill", skillText: "Test", summary: "Test hero", strength: "Attack", weakness: "Defense", impact: "Polling test", hp: 8, maxHp: 8, speed: id.includes("second") ? 10 : 5, team, color: "#a78bfa", initials: displayName.slice(0, 2).toUpperCase() },
     skillDeck: testSkillDeck(id)
   };
 }
@@ -133,6 +133,8 @@ try {
   assert.deepEqual(started.game.playerStates[secondId].hand, [`card-${secondId}`], "a polling client receives its own hand");
   assert.deepEqual(started.game.playerStates[firstId].hand, [], "a polling client cannot receive another player's hand");
   assert.deepEqual(started.game.playerStates[firstId].graveyard, [], "a polling client cannot receive another player's graveyard");
+  assert.equal(started.game.playerStates[firstId].diceBuff, 2, "polling observers receive the same public d20 buff value shown beneath the health bar");
+  assert.equal(started.game.playerStates[firstId].dicePenalty, 2, "polling observers receive the same public d20 penalty value shown beneath the health bar");
   const firstStarted = await readRoom(firstId);
   assert.deepEqual(firstStarted.game.playerStates[firstId].hand, [`card-${firstId}`], "polling responses are personalized by session");
   assert.deepEqual(firstStarted.game.playerStates[firstId].graveyard, ["buried-first"], "polling responses include the owner's graveyard");
@@ -200,7 +202,7 @@ try {
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].drawPile, [], "manual skip preserves the draw pile");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].discardPile, [], "manual skip preserves the discard pile");
   assert.equal(manuallySkipped.game.playerStates[thirdId].shield, 0, "a manual polling skip still expires shield at turn end");
-  assert.equal(manuallySkipped.game.turnOrder[0], firstId);
+  assert.equal(manuallySkipped.game.turnOrder[0], secondId, "a new polling phase resets to the fastest living player");
 
   const removedDuringGame = await command(firstId, { type: "remove-player", targetSessionId: thirdId });
   assert(!removedDuringGame.players.some((item) => item.id === thirdId));

@@ -485,8 +485,9 @@ button:focus-visible {
 }
 
 .roster-buff-indicator {
-  min-width: 20px;
+  min-width: 28px;
   height: 20px;
+  padding: 0 4px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -495,7 +496,7 @@ button:focus-visible {
   color: #83cbea;
   background: rgba(61, 133, 164, .13);
   border: 1px solid rgba(90, 164, 194, .35);
-  border-radius: 50%;
+  border-radius: 10px;
   font-size: 8px;
   font-weight: 900;
 }
@@ -506,6 +507,11 @@ button:focus-visible {
   background: rgba(212, 181, 110, .12);
   border-color: rgba(212, 181, 110, .42);
   cursor: help;
+}
+
+.roster-buff-indicator > b {
+  font-size: 8px;
+  line-height: 1;
 }
 
 .roster-buff-row {

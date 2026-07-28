@@ -41,6 +41,7 @@ function player(id, displayName, team) {
       impact: "Realtime test",
       hp: 8,
       maxHp: 8,
+      speed: id.includes("second") ? 10 : 5,
       team,
       color: "#a78bfa",
       initials: displayName.slice(0, 2).toUpperCase()
@@ -200,6 +201,8 @@ try {
   assert.deepEqual(secondStarted.game.playerStates[secondId].hand, [`card-${secondId}`], "each WebSocket view is personalized");
   assert.deepEqual(secondStarted.game.playerStates[firstId].hand, [], "other draw and hand data stays private");
   assert.deepEqual(secondStarted.game.playerStates[firstId].graveyard, [], "another player's graveyard remains private");
+  assert.equal(secondStarted.game.playerStates[firstId].diceBuff, 2, "realtime observers receive the same public d20 buff value shown beneath the health bar");
+  assert.equal(secondStarted.game.playerStates[firstId].dicePenalty, 2, "realtime observers receive the same public d20 penalty value shown beneath the health bar");
   assert.equal(firstStarted.players.find((item) => item.id === firstId).hero.name, `Randomized ${runId}`, "a realtime random character resolves at battle start");
   assert.equal(firstStarted.players.find((item) => item.id === firstId).randomHero, false, "the realtime random marker clears at battle start");
   assert.equal(firstStarted.viewerSessionId, firstId, "WebSocket snapshots identify the session whose private zones they contain");
@@ -271,7 +274,7 @@ try {
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].hand, [`card-${thirdId}`], "manual skip preserves the hand");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].drawPile, [], "manual skip preserves the draw pile");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].discardPile, [], "manual skip preserves the discard pile");
-  assert.equal(manuallySkipped.game.turnOrder[0], firstId);
+  assert.equal(manuallySkipped.game.turnOrder[0], secondId, "a new realtime phase resets to the fastest living player");
 
   first.send({ type: "remove-player", sessionId: firstId, targetSessionId: thirdId });
   const removedDuringGame = await first.waitFor((state) => !state.players.some((item) => item.id === thirdId));

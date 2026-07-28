@@ -309,6 +309,17 @@ function speedOrder(game) {
     .map((player) => player.id);
 }
 
+function resetPhaseTurnOrder(game) {
+  const order = speedOrder(game);
+  game.roundOrder = order;
+  game.turnOrder = order;
+  if (order.length) {
+    const index = room.players.findIndex((player) => player.id === order[0]);
+    if (index >= 0) game.activePlayerIndex = index;
+  }
+  return order;
+}
+
 function completeRoundTurn(game, actorId) {
   const livingIds = speedOrder(game);
   let acted = [...new Set([...(game.actedThisRound || []), actorId])].filter((id) => livingIds.includes(id));
@@ -322,8 +333,7 @@ function completeRoundTurn(game, actorId) {
     game.completedPhases += 1;
     game.roundNumber += 1;
     acted = [];
-    game.roundOrder = livingIds;
-    game.turnOrder = livingIds;
+    resetPhaseTurnOrder(game);
   }
   game.actedThisRound = acted;
   return phaseCompleted;
@@ -676,6 +686,7 @@ function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', zoneBas
   if (phaseCompleted) upgradePhaseFiveCards(game);
   game.adventure = { ...game.adventure, chapter: Math.min(30, (game.completedPhases || 0) + 1) };
   if (phaseCompleted && game.completedPhases % 5 === 0) applyWorldEvent(game, game.completedPhases, now);
+  if (phaseCompleted) resetPhaseTurnOrder(game);
   game.history = game.history.slice(-80);
   const winner = decideWinner(game, passingPlayer?.hero.team || 'veil', (game.completedPhases || 0) >= 30);
   game.ended = Boolean(winner);
@@ -856,6 +867,7 @@ function handleMessage(socket, rawMessage) {
     if (!message.game?.adventure) return reject(socket, 'The turn update is incomplete.');
     if ((room.game.playerStates[activePlayer.id]?.hp || 0) <= 0) return reject(socket, 'A defeated player cannot play a card.');
     const previousGame = room.game;
+    const phaseAdvanced = Number(message.game.completedPhases) === Number(previousGame.completedPhases || 0) + 1;
     for (const [id, state] of Object.entries(room.game.playerStates || {})) {
       if (id !== activePlayer.id && message.game.playerStates?.[id]) {
         message.game.playerStates[id].hand = [...(state.hand || [])];
@@ -879,6 +891,7 @@ function handleMessage(socket, rawMessage) {
     room.game.turnStartedAt = Date.now();
     room.game.turnDeadline = room.game.ended ? 0 : room.game.turnStartedAt + TURN_SECONDS * 1000;
     normalizeServerTurnOrder(room.game);
+    if (phaseAdvanced) resetPhaseTurnOrder(room.game);
     broadcast();
     advanceForcedSkippedTurns();
     return;

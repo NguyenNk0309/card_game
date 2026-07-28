@@ -652,6 +652,11 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       for (const player of eventPassiveRevives) lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-world-second-sight-${player.id}`, kind: "revive", playerId: player.id, playerName: player.displayName, reason: `${player.displayName} invoked Second Sight after ${worldEvent.title} and revived with half HP.` });
     }
   }
+  if (phaseCompleted) {
+    const nextPhaseSpeedOrder = speedOrder(players, states);
+    roundOrder = nextPhaseSpeedOrder;
+    nextTurnOrder = nextPhaseSpeedOrder;
+  }
   history = history.slice(-80);
 
   const finalPhase = completedPhases >= 30;
