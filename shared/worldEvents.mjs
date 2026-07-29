@@ -7,8 +7,8 @@ const definition = (event) => Object.freeze({
 export const WORLD_EVENT_DEFINITIONS = Object.freeze({
   'shattered-tribute': definition({
     key: 'shattered-tribute', phase: 3, level: 1, intensity: 'Opening', title: 'Shattered Tribute', interactive: true,
-    shortDescription: 'Every living player permanently sacrifices two eligible owned cards and draws replacements when possible.',
-    fullDescription: 'Every living player chooses two owned cards from their current hand. Those cards permanently move to that player\'s graveyard, and replacement cards are drawn into the vacated hand positions when possible. A player with fewer than two eligible cards chooses every eligible card. Borrowed cards cannot be selected.',
+    shortDescription: 'Every living player permanently sacrifices two owned common cards from their hand, draw pile, or discard pile.',
+    fullDescription: 'Every living player chooses two owned common cards from their current hand, draw pile, or discard pile. Those cards permanently move to that player\'s graveyard. Each chosen hand card draws one replacement into its vacated position, using the normal empty-draw discard recycling rule when needed. Draw-pile and discard-pile choices do not add cards to hand. A player with fewer than two eligible cards chooses every eligible card. Special and borrowed cards cannot be selected.',
     metadata: { tone: 'opening', icon: 'tribute', privacy: 'private-choice' }
   }),
   'shifting-arsenal': definition({

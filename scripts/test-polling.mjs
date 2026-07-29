@@ -345,14 +345,14 @@ try {
   assert.equal(pendingTribute.game.history.some((entry) => entry.id === `forged-world-${runId}`), false, "client-forged World Event history is discarded");
 
   const tributeId = pendingTribute.game.pendingWorldEvent.id;
-  const firstChoiceIds = firstEventHand.slice(0, 2);
-  const secondChoiceIds = [`${secondId}-common-empty-gesture`, `${secondId}-common-broken-plan`];
+  const firstChoiceIds = [firstEventHand[1], firstEventDraw[0]];
+  const secondChoiceIds = [`${secondId}-common-empty-gesture`, `${secondId}-common-slash`];
   const firstChoiceNames = firstChoiceIds.map((id) => eventStarted.players.find((item) => item.id === firstId).skillDeck.find((card) => card.id === id).name);
   const secondChoiceNames = secondChoiceIds.map((id) => eventStarted.players.find((item) => item.id === secondId).skillDeck.find((card) => card.id === id).name);
 
   await assert.rejects(
     command(secondId, { type: "world-event:choose", eventId: tributeId, cardIds: firstChoiceIds }),
-    /owned, non-borrowed card/i,
+    /owned, non-borrowed common card/i,
     "one polling session cannot submit another player's private cards"
   );
   await assert.rejects(
@@ -365,6 +365,7 @@ try {
   assert.deepEqual(firstSubmitted.game.pendingWorldEvent.submittedPlayerIds, [firstId]);
   assert.equal("results" in firstSubmitted.game.pendingWorldEvent, false);
   assert(firstChoiceIds.every((id) => firstSubmitted.game.playerStates[firstId].graveyard.includes(id)), "the first polling owner sees sacrificed cards in their graveyard");
+  assert.equal(firstSubmitted.game.playerStates[firstId].hand.length, 3, "polling Tribute replaces the selected hand card but not the selected draw-pile card");
   const firstProgress = await readRoom(firstId);
   const secondProgress = await readRoom(secondId);
   assert.deepEqual(firstProgress.game.pendingWorldEvent.submittedPlayerIds, [firstId]);
@@ -383,6 +384,7 @@ try {
   assert.equal(resolvedTribute.game.adventure.chapter, 3);
   assert.equal(resolvedTribute.game.turnDeadline - resolvedTribute.game.turnStartedAt, 60_000, "phase 3 resumes with a fresh 60-second polling timer");
   assert(secondChoiceIds.every((id) => resolvedTribute.game.playerStates[secondId].graveyard.includes(id)));
+  assert.equal(resolvedTribute.game.playerStates[secondId].hand.length, 3, "polling Tribute refills only the selected hand position after the draw-pile choice is removed");
 
   const secondOwnResult = resolvedTribute.game.worldEvent.results.find((result) => result.playerId === secondId);
   const firstResultForSecond = resolvedTribute.game.worldEvent.results.find((result) => result.playerId === firstId);

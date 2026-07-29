@@ -341,8 +341,8 @@ try {
   second.send({ type: "ready", sessionId: secondId, ready: true });
   await first.waitFor((state) => state.players.length === 2 && state.players.every((item) => item.ready));
 
-  const firstTributeChoices = [`${firstId}-common-heavy`, `${firstId}-common-brace`];
-  const secondTributeChoices = [`card-${secondId}`, `${secondId}-common-heavy`];
+  const firstTributeChoices = [`${firstId}-common-heavy`, `${firstId}-common-empty-gesture`];
+  const secondTributeChoices = [`${secondId}-common-heavy`, `${secondId}-common-brace`];
   const tributeGame = structuredClone(game);
   delete tributeGame.playerStates[thirdId];
   tributeGame.adventure.chapter = 2;
@@ -364,7 +364,7 @@ try {
     borrowedCards: [],
     purgedCards: [],
     pityPoints: 0,
-    hand: [`card-${firstId}`, ...firstTributeChoices],
+    hand: [`card-${firstId}`, `${firstId}-common-heavy`, `${firstId}-common-broken-plan`],
     drawPile: [`${firstId}-common-second-wind`, `${firstId}-common-empty-gesture`],
     discardPile: [],
     graveyard: [],
@@ -378,9 +378,9 @@ try {
     borrowedCards: [],
     purgedCards: [],
     pityPoints: 0,
-    hand: [...secondTributeChoices],
-    drawPile: [`${secondId}-common-brace`, `${secondId}-common-second-wind`],
-    discardPile: [],
+    hand: [`card-${secondId}`, `${secondId}-common-heavy`],
+    drawPile: [`${secondId}-common-second-wind`, `${secondId}-common-empty-gesture`],
+    discardPile: [`${secondId}-common-brace`],
     graveyard: [],
     cardUses: {}
   };
@@ -389,8 +389,8 @@ try {
   const tributeStartedSecondPromise = second.waitForNext((state) => state.phase === "game" && state.game?.completedPhases === 1);
   second.send({ type: "start", game: tributeGame });
   const [tributeStartedFirst, tributeStartedSecond] = await Promise.all([tributeStartedFirstPromise, tributeStartedSecondPromise]);
-  assert.deepEqual(tributeStartedFirst.game.playerStates[firstId].hand, [`card-${firstId}`, ...firstTributeChoices], "the phase-2 actor receives their complete private hand");
-  assert.deepEqual(tributeStartedSecond.game.playerStates[secondId].hand, secondTributeChoices, "the other player receives only their own phase-2 hand");
+  assert.deepEqual(tributeStartedFirst.game.playerStates[firstId].hand, [`card-${firstId}`, `${firstId}-common-heavy`, `${firstId}-common-broken-plan`], "the phase-2 actor receives their complete private hand");
+  assert.deepEqual(tributeStartedSecond.game.playerStates[secondId].hand, [`card-${secondId}`, `${secondId}-common-heavy`], "the other player receives only their own phase-2 hand");
 
   const tributeAdvance = structuredClone(tributeStartedFirst.game);
   tributeAdvance.adventure.chapter = 3;
@@ -402,7 +402,7 @@ try {
   tributeAdvance.roundOrder = [secondId, firstId];
   tributeAdvance.actedThisRound = [];
   tributeAdvance.playerStates[firstId].completedPlayerTurns = 2;
-  tributeAdvance.playerStates[firstId].hand = [...firstTributeChoices, `${firstId}-common-second-wind`];
+  tributeAdvance.playerStates[firstId].hand = [`${firstId}-common-heavy`, `${firstId}-common-second-wind`, `${firstId}-common-broken-plan`];
   tributeAdvance.playerStates[firstId].drawPile = [`${firstId}-common-empty-gesture`];
   tributeAdvance.playerStates[firstId].discardPile = [`card-${firstId}`];
   tributeAdvance.outcome = {
@@ -465,6 +465,7 @@ try {
   assert.equal(firstProgress.game.pendingWorldEvent.results, undefined);
   assert(!JSON.stringify(secondProgress.game.pendingWorldEvent).includes(firstTributeChoices[0]), "pending state does not expose submitted card IDs");
   assert(firstProgress.game.playerStates[firstId].graveyard.includes(firstTributeChoices[0]), "the submitting owner sees their selected cards enter graveyard");
+  assert.equal(firstProgress.game.playerStates[firstId].hand.length, 3, "a selected hand Tribute card is replaced while a selected draw card adds nothing to hand");
   assert.deepEqual(secondProgress.game.playerStates[firstId].graveyard, [], "other players cannot inspect the submitter's graveyard");
 
   const resolvedFirstPromise = first.waitForNext((state) => !state.game?.pendingWorldEvent && state.game?.worldEvent?.eventKey === "shattered-tribute");
@@ -485,11 +486,11 @@ try {
   const secondOwnResult = secondResolvedEvent.results.find((result) => result.playerId === secondId);
   const secondViewOfFirstResult = secondResolvedEvent.results.find((result) => result.playerId === firstId);
   assert.deepEqual(firstOwnResult.privateCardIds, firstTributeChoices, "the first owner receives their exact destroyed card IDs");
-  assert.deepEqual(firstOwnResult.privateCardNames, ["Heavy Blow", "Brace"], "the first owner receives their exact destroyed card names");
+  assert.deepEqual(firstOwnResult.privateCardNames, ["Heavy Blow", "Empty Gesture"], "the first owner receives their exact destroyed card names across hand and draw");
   assert.equal(firstViewOfSecondResult.privateCardIds, undefined, "another player's private card IDs are sanitized");
   assert.equal(firstViewOfSecondResult.privateCardNames, undefined, "another player's private card names are sanitized");
   assert.deepEqual(secondOwnResult.privateCardIds, secondTributeChoices, "the second owner receives their exact destroyed card IDs");
-  assert.deepEqual(secondOwnResult.privateCardNames, ["Test Skill", "Heavy Blow"], "the second owner receives their exact destroyed card names");
+  assert.deepEqual(secondOwnResult.privateCardNames, ["Heavy Blow", "Brace"], "the second owner receives their exact destroyed card names across hand and discard");
   assert.equal(secondViewOfFirstResult.privateCardIds, undefined);
   assert.equal(secondViewOfFirstResult.privateCardNames, undefined);
   const firstHistoryOwnResult = resolvedFirst.game.worldEventHistory.at(-1).results.find((result) => result.playerId === firstId);
@@ -501,7 +502,7 @@ try {
   assert(publicWorldHistory, "Shattered Tribute creates one public World Event history entry");
   assert.equal(resolvedFirst.game.history.filter((entry) => entry.kind === "world" && entry.phase === 3).length, 1, "Shattered Tribute creates only one public history entry");
   assert.match(publicWorldHistory.message, /Shattered Tribute/);
-  for (const privateValue of [...firstTributeChoices, ...secondTributeChoices, "Heavy Blow", "Brace", "Test Skill"]) {
+  for (const privateValue of [...firstTributeChoices, ...secondTributeChoices, "Heavy Blow", "Brace", "Empty Gesture"]) {
     assert(!publicWorldHistory.message.includes(privateValue), `public World Event history does not reveal ${privateValue}`);
   }
 

@@ -54,7 +54,7 @@ function localizeRoomError(message: string) {
     ["already submitted", "Your World Event choice was already submitted."],
     ["Each selected card must be unique", "Choose each Tribute card only once."],
     ["Choose exactly", "Choose the exact required number of eligible cards."],
-    ["owned, non-borrowed", "Shattered Tribute accepts only your owned, non-borrowed hand cards."],
+    ["owned, non-borrowed", "Shattered Tribute accepts only your owned common cards from hand, draw pile, or discard pile."],
     ["submit your own World Event choice", "You can only submit your own World Event choice."],
     ["impossible phase jump", "The server rejected an impossible phase change."],
     ["joined player can end", "Only a joined player can end the battle."],

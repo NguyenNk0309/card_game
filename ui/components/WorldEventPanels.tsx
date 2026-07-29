@@ -124,6 +124,7 @@ type ChoiceCard = {
   id: string;
   slotKey: string;
   card?: ActionCard;
+  zoneLabel: "Hand" | "Draw pile" | "Discard pile";
   borrowed: boolean;
   eligible: boolean;
 };
@@ -174,26 +175,39 @@ export function ShatteredTributeChoicePanel({
     if (!localPlayer || !localState) return [];
     const suppliedCards = new Map(handCards.map((card) => [card.id, card]));
     const ownedCards = new Map(localPlayer.skillDeck.map((card) => [card.id, card]));
+    const zones = [
+      { zone: "hand" as const, zoneLabel: "Hand" as const, cardIds: localState.hand },
+      { zone: "drawPile" as const, zoneLabel: "Draw pile" as const, cardIds: localState.drawPile },
+      { zone: "discardPile" as const, zoneLabel: "Discard pile" as const, cardIds: localState.discardPile },
+    ];
     const borrowedCountById = (localState.borrowedCards ?? []).reduce((counts, entry) => {
       counts.set(entry.cardId, (counts.get(entry.cardId) ?? 0) + 1);
       return counts;
     }, new Map<string, number>());
-    const borrowedSlots = new Set<number>();
-    for (const [cardId, count] of borrowedCountById) {
-      const matchingSlots = localState.hand.flatMap((id, index) => id === cardId ? [index] : []);
-      matchingSlots.slice(-count).forEach((index) => borrowedSlots.add(index));
+    const borrowedSlots = new Set<string>();
+    for (const { zone, cardIds } of zones) {
+      for (let index = cardIds.length - 1; index >= 0; index -= 1) {
+        const cardId = cardIds[index];
+        const remaining = borrowedCountById.get(cardId) ?? 0;
+        if (!remaining) continue;
+        borrowedSlots.add(`${zone}:${index}`);
+        borrowedCountById.set(cardId, remaining - 1);
+      }
     }
-    return localState.hand.map((id, index) => {
-      const owned = ownedCards.has(id);
-      const borrowed = borrowedSlots.has(index) || !owned;
+    return zones.flatMap(({ zone, zoneLabel, cardIds }) => cardIds.map((id, index) => {
+      const ownedCard = ownedCards.get(id);
+      const owned = Boolean(ownedCard);
+      const borrowed = borrowedSlots.has(`${zone}:${index}`) || !owned;
+      const card = borrowed ? suppliedCards.get(id) ?? ownedCard : ownedCard ?? suppliedCards.get(id);
       return {
         id,
-        slotKey: `${id}:${index}`,
-        card: suppliedCards.get(id) ?? ownedCards.get(id),
+        slotKey: `${zone}:${id}:${index}`,
+        card,
+        zoneLabel,
         borrowed,
-        eligible: owned && !borrowed,
+        eligible: owned && !borrowed && !ownedCard?.unique,
       };
-    });
+    }));
   }, [handCards, localPlayer, localState]);
 
   const eligibleCards = choiceCards.filter((entry) => entry.eligible);
@@ -308,18 +322,20 @@ export function ShatteredTributeChoicePanel({
         <div className="world-event-choice-instructions">
           <div>
             <Eye size={17}/>
-            <span><strong>Your private hand</strong><small>Only you can see these card identities.</small></span>
+            <span><strong>Your private reusable cards</strong><small>Choose common cards from hand, draw pile, or discard pile.</small></span>
           </div>
           <b>Selected {selectedIds.length} of {requiredSelectionCount}</b>
         </div>
 
-        <div className="world-event-choice-card-grid" role="group" aria-label={`Choose exactly ${requiredSelectionCount} owned cards`}>
+        <div className="world-event-choice-card-grid" role="group" aria-label={`Choose exactly ${requiredSelectionCount} owned common cards from hand, draw pile, or discard pile`}>
           {choiceCards.map((entry) => {
             const selected = entry.eligible && selectedIds.includes(entry.id);
             const selectionFull = selectedIds.length >= requiredSelectionCount && !selected;
             const cardLabel = entry.borrowed
               ? "Borrowed card, unavailable for Shattered Tribute"
-              : `${entry.card?.name ?? "Owned card"}, ${selected ? "selected" : "not selected"}`;
+              : entry.card?.unique
+                ? `${entry.card.name}, special card unavailable for Shattered Tribute`
+                : `${entry.card?.name ?? "Owned common card"}, ${entry.zoneLabel}, ${selected ? "selected" : "not selected"}`;
             return <button
               type="button"
               className={`world-event-choice-card action-card ${entry.card ? `effect-${entry.card.effect}` : ""} ${entry.card?.unique ? "hero-special-card" : "common-action-card"} ${selected ? "selected" : ""} ${entry.borrowed ? "borrowed" : ""}`.trim()}
@@ -333,7 +349,7 @@ export function ShatteredTributeChoicePanel({
               {entry.card ? <>
                 <PityCostBadge card={entry.card}/>
                 <div className={`card-sigil effect-${entry.card.effect}`}><CardEffectIcon card={entry.card}/></div>
-                <span>{entry.card.unique ? "Special card" : "Common card"}</span>
+                <span>{entry.card.unique ? "Special card" : "Common card"} · {entry.zoneLabel}</span>
                 <strong>{entry.card.name}</strong>
                 <p><EffectText text={entry.card.description} card={entry.card}/></p>
               </> : <>
@@ -341,11 +357,15 @@ export function ShatteredTributeChoicePanel({
                 <strong>Borrowed card</strong>
               </>}
               <span className="world-event-card-selection-state">
-                {entry.borrowed ? <><LockKeyhole size={14}/> Borrowed · cannot sacrifice</> : selected ? <><Check size={14}/> Selected</> : "Available"}
+                {entry.borrowed
+                  ? <><LockKeyhole size={14}/> Borrowed · cannot sacrifice</>
+                  : entry.card?.unique
+                    ? <><LockKeyhole size={14}/> Special · cannot sacrifice</>
+                    : selected ? <><Check size={14}/> Selected</> : `${entry.zoneLabel} · Available`}
               </span>
             </button>;
           })}
-          {!choiceCards.length && <p className="world-event-no-choice-cards">You have no cards in hand to sacrifice.</p>}
+          {!eligibleCards.length && <p className="world-event-no-choice-cards">You have no owned common cards in hand, draw pile, or discard pile to sacrifice.</p>}
         </div>
 
         {connectionError && <p className="world-event-choice-error" role="alert">{connectionError}</p>}

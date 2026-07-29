@@ -294,7 +294,7 @@ function ownedCardOccurrences(player, state) {
 export function getEligibleTributeCardIds(player, state) {
   if (!player || !state) return [];
   return ownedCardOccurrences(player, state)
-    .filter((occurrence) => occurrence.zone === 'hand')
+    .filter((occurrence) => !occurrence.card.unique)
     .map((occurrence) => occurrence.cardId);
 }
 
@@ -794,12 +794,12 @@ function validateTributeChoice(game, players, playerId, eventId, selectedCardIds
   if (!player || !game.playerStates?.[player.id]) return 'The submitting player is not in this battle.';
   if (!pending.requiredPlayerIds.includes(player.id)) return 'This player is not required to submit a World Event choice.';
   if (pending.submittedPlayerIds.includes(player.id)) return 'This World Event choice was already submitted.';
-  if (!Array.isArray(selectedCardIds)) return 'Choose cards from your current hand.';
+  if (!Array.isArray(selectedCardIds)) return 'Choose common cards from your hand, draw pile, or discard pile.';
   if (new Set(selectedCardIds).size !== selectedCardIds.length) return 'Each selected card must be unique.';
   const eligible = getEligibleTributeCardIds(player, game.playerStates[player.id]);
   const requiredCount = Math.min(2, eligible.length);
   if (selectedCardIds.length !== requiredCount) return `Choose exactly ${requiredCount} eligible ${requiredCount === 1 ? 'card' : 'cards'}.`;
-  if (selectedCardIds.some((cardId) => !eligible.includes(cardId))) return 'Every selected card must be an owned, non-borrowed card in your current hand.';
+  if (selectedCardIds.some((cardId) => !eligible.includes(cardId))) return 'Every selected card must be an owned, non-borrowed common card in your hand, draw pile, or discard pile.';
   return '';
 }
 
