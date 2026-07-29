@@ -5,7 +5,6 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   WORLD_EVENT_SCHEDULE,
-  getNextWorldEventPhase,
   getWorldEventDefinition,
   getWorldEventsForPhase,
 } from "@/shared/worldEvents.mjs";
@@ -14,17 +13,11 @@ import type {
   PendingWorldEvent,
   PlayerRunState,
   PlayerSession,
-  TeamId,
   WorldEventOutcome,
 } from "@/shared/types";
 import { CardEffectIcon } from "./CardEffectIcon";
 import { EffectText } from "./EffectText";
 import { PityCostBadge } from "./PityCost";
-
-const TEAM_NAMES: Record<TeamId, string> = {
-  veil: "Veilbound",
-  ember: "Embercourt",
-};
 
 const DIALOG_FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -393,7 +386,6 @@ export function ResolvedWorldEventPanel({
   const definition = getWorldEventDefinition(event.eventKey);
   const fullRule = definition?.fullDescription ?? event.fullDescription ?? event.description;
   const localResult = localPlayerId ? event.results.find((result) => result.playerId === localPlayerId) : undefined;
-  const nextPhase = getNextWorldEventPhase(event.phase);
 
   useEffect(() => {
     window.requestAnimationFrame(() => (continueRef.current ?? panelRef.current)?.focus({ preventScroll: true }));
@@ -422,21 +414,6 @@ export function ResolvedWorldEventPanel({
       <strong>{localResult.privateSummary || localResult.publicSummary}</strong>
       {localResult.autoResolved && <small>Automatically resolved when the choice deadline ended.</small>}
     </section>}
-
-    <section className="world-event-team-summaries" aria-label="Public team summaries">
-      <h3>Team impact</h3>
-      <div>
-        {event.teamSummaries.map((teamResult) => <article className={`world-event-team-summary ${teamResult.team}`} key={teamResult.team}>
-          <span>{TEAM_NAMES[teamResult.team]}</span>
-          <p>{teamResult.summary}</p>
-        </article>)}
-      </div>
-    </section>
-
-    <div className="resolution-metrics">
-      <div><span>Occurred before phase</span><strong>{event.phase}</strong></div>
-      <div><span>Next World Event</span><strong>{nextPhase ?? "None"}</strong></div>
-    </div>
 
     <div className="world-event-resolution-actions">
       <button type="button" className="primary-button continue-button" ref={continueRef} onClick={onContinue}>Continue <ChevronRight size={17}/></button>

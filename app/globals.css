@@ -5911,14 +5911,6 @@ button:focus-visible {
 .world-event-private-result > span { display: flex; align-items: center; gap: 6px; color: #87d6ba; font-size: 10px; font-weight: 900; letter-spacing: .14em; }
 .world-event-private-result small { color: var(--muted); }
 
-.world-event-team-summaries { margin: 18px 0; text-align: left; }
-.world-event-team-summaries h3 { margin: 0 0 8px; font-size: 11px; letter-spacing: .13em; text-transform: uppercase; }
-.world-event-team-summaries > div { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-.world-event-team-summary { padding: 11px; border: 1px solid var(--line); background: rgba(255, 255, 255, .025); }
-.world-event-team-summary.veil { border-top-color: #72a9b0; }
-.world-event-team-summary.ember { border-top-color: #c76d4c; }
-.world-event-team-summary span { font-size: 10px; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
-.world-event-team-summary p { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .world-event-resolution-actions { display: flex; justify-content: center; gap: 9px; margin-top: 16px; }
 
 .chapter-pips i.world-event-turn.event-pending {
@@ -5956,7 +5948,6 @@ button:focus-visible {
   .world-event-choice-card { min-height: 290px; }
   .world-event-confirm-choice { width: 100%; justify-self: stretch; }
   .world-event-player-statuses { grid-template-columns: 1fr; }
-  .world-event-team-summaries > div,
   .world-event-library-events { grid-template-columns: 1fr; }
   .world-event-library-event { border-right: 0; border-bottom: 1px solid var(--line); }
   .world-event-library-event:last-child { border-bottom: 0; }
