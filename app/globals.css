@@ -5911,8 +5911,6 @@ button:focus-visible {
 .world-event-private-result > span { display: flex; align-items: center; gap: 6px; color: #87d6ba; font-size: 10px; font-weight: 900; letter-spacing: .14em; }
 .world-event-private-result small { color: var(--muted); }
 
-.world-event-resolution-actions { display: flex; justify-content: center; gap: 9px; margin-top: 16px; }
-
 .chapter-pips i.world-event-turn.event-pending {
   background: #f16752;
   box-shadow: 0 0 18px rgba(242, 79, 59, .95);
@@ -5952,7 +5950,6 @@ button:focus-visible {
   .world-event-library-event { border-right: 0; border-bottom: 1px solid var(--line); }
   .world-event-library-event:last-child { border-bottom: 0; }
   .world-event-library-group > header { align-items: flex-start; flex-direction: column; }
-  .world-event-resolution-actions { align-items: stretch; flex-direction: column; }
 }
 
 @media (prefers-reduced-motion: reduce) {

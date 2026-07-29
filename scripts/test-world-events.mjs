@@ -70,7 +70,7 @@ const EXPECTED_KEYS = [
   assert.match(gameAppSource, /onClose=\{\(\) => dismissPresentation\(\)\}/, "resolved World Events receive the standard close action");
   assert.match(worldEventPanelsSource, /aria-label="Close"><X size=\{18\}\/>/, "resolved World Events render a close button inside their focus trap");
   assert.doesNotMatch(worldEventPanelsSource, /world-event-team-summaries|Team impact|Occurred before phase|Next World Event/, "resolved World Events omit team-impact and phase-metric sections");
-  assert.match(worldEventPanelsSource, /world-event-resolution-actions[\s\S]*?>Continue <ChevronRight[\s\S]*?> View Battle History<\/button>/, "resolved World Events retain Continue and View Battle History actions");
+  assert.doesNotMatch(worldEventPanelsSource, /world-event-resolution-actions|View Battle History|onContinue|onViewHistory/, "resolved World Events omit Continue and View Battle History actions");
 }
 
 const makeCard = (ownerId, suffix, { unique = false, name = suffix } = {}) => ({

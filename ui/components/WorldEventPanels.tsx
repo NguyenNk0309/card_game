@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Check, ChevronRight, Clock3, Eye, History, LockKeyhole, Sparkles, X, Zap } from "lucide-react";
+import { Archive, Check, ChevronRight, Clock3, Eye, LockKeyhole, Sparkles, X, Zap } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
@@ -367,8 +367,6 @@ export type ResolvedWorldEventPanelProps = {
   localPlayerId?: string;
   className?: string;
   onClose: () => void;
-  onContinue: () => void;
-  onViewHistory: () => void;
 };
 
 export function ResolvedWorldEventPanel({
@@ -376,19 +374,16 @@ export function ResolvedWorldEventPanel({
   localPlayerId,
   className = "",
   onClose,
-  onContinue,
-  onViewHistory,
 }: ResolvedWorldEventPanelProps) {
   const titleId = useId();
   const descriptionId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
-  const continueRef = useRef<HTMLButtonElement>(null);
   const definition = getWorldEventDefinition(event.eventKey);
   const fullRule = definition?.fullDescription ?? event.fullDescription ?? event.description;
   const localResult = localPlayerId ? event.results.find((result) => result.playerId === localPlayerId) : undefined;
 
   useEffect(() => {
-    window.requestAnimationFrame(() => (continueRef.current ?? panelRef.current)?.focus({ preventScroll: true }));
+    window.requestAnimationFrame(() => panelRef.current?.focus({ preventScroll: true }));
   }, [event.id]);
 
   return <div
@@ -415,9 +410,5 @@ export function ResolvedWorldEventPanel({
       {localResult.autoResolved && <small>Automatically resolved when the choice deadline ended.</small>}
     </section>}
 
-    <div className="world-event-resolution-actions">
-      <button type="button" className="primary-button continue-button" ref={continueRef} onClick={onContinue}>Continue <ChevronRight size={17}/></button>
-      <button type="button" className="secondary-button world-event-history-button" onClick={onViewHistory}><History size={17}/> View Battle History</button>
-    </div>
   </div>;
 }
