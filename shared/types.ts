@@ -96,7 +96,7 @@ export type PlayerLifeEvent = {
 
 export type GameNotice = {
   id: string;
-  kind: "card-failed" | "card-transform" | "phase-start";
+  kind: "card-transform" | "phase-start";
   title: string;
   detail: string;
 };

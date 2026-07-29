@@ -458,12 +458,6 @@ function reconcilePityPoints(previousGame, incomingGame, actor) {
   if (favorableOmenActive) incomingState.zeroPityUntilTurn = 0;
   outcome.pityBefore = before;
   outcome.pityAfter = incomingState.pityPoints;
-  if (!outcome.success) appendOutcomeNotice(incomingGame, {
-    id: `${gameNoticeScope(incomingGame)}-card-failed-${actor.id}`,
-    kind: 'card-failed',
-    title: 'Card failed',
-    detail: `${actor.displayName}'s ${card.name} failed and gained 1 pity point (${before} → ${incomingState.pityPoints}).`
-  });
   return '';
 }
 

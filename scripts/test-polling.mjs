@@ -343,8 +343,7 @@ try {
   assert.equal(pendingTribute.game.pendingWorldEvent.status, "pending");
   assert.deepEqual(new Set(pendingTribute.game.pendingWorldEvent.requiredPlayerIds), new Set([firstId, secondId]));
   assert.deepEqual(pendingTribute.game.pendingWorldEvent.submittedPlayerIds, []);
-  assert.deepEqual(pendingTribute.game.outcome.notices.map((notice) => notice.kind), ["card-failed"], "a failed polling card emits no phase-3 notice while Tribute is pending");
-  assert.equal(pendingTribute.game.outcome.notices[0].title, "Card failed");
+  assert.deepEqual(pendingTribute.game.outcome.notices, [], "a failed polling card emits no toast while Tribute is pending");
   const phaseTwoOutcomeId = pendingTribute.game.outcome.id;
   assert.equal(pendingTribute.game.outcome.actorId, secondId, "the polling Phase 2 actor receives an authoritative session ID for Your Action");
   assert(phaseTwoOutcomeId, "the polling action before Shattered Tribute receives a stable outcome ID");
@@ -393,7 +392,7 @@ try {
   assert.equal(resolvedTribute.game.completedPhases, 2, "World Event choices do not complete another phase");
   assert.equal(resolvedTribute.game.adventure.chapter, 3);
   assert.equal(resolvedTribute.game.turnDeadline - resolvedTribute.game.turnStartedAt, 60_000, "phase 3 resumes with a fresh 60-second polling timer");
-  assert.deepEqual(new Set(resolvedTribute.game.outcome.notices.map((notice) => notice.kind)), new Set(["card-failed", "phase-start"]), "polling announces phase 3 only after Tribute resolves");
+  assert.deepEqual(resolvedTribute.game.outcome.notices.map((notice) => notice.kind), ["phase-start"], "polling announces phase 3 only after Tribute resolves");
   assert(resolvedTribute.game.outcome.notices.some((notice) => notice.title === "Phase 3 started"));
   assert(secondChoiceIds.every((id) => resolvedTribute.game.playerStates[secondId].graveyard.includes(id)));
   assert.equal(resolvedTribute.game.playerStates[secondId].hand.length, 3, "polling Tribute refills only the selected hand position after the draw-pile choice is removed");

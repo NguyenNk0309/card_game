@@ -453,8 +453,7 @@ try {
   assert.deepEqual(pendingFirst.game.pendingWorldEvent.submittedPlayerIds, []);
   assert.equal(pendingFirst.game.pendingWorldEvent.results, undefined, "pending private choice results are never synchronized");
   assert.equal(pendingSecond.game.pendingWorldEvent.id, pendingEventId, "both WebSocket clients observe the same stable pending event");
-  assert.deepEqual(pendingFirst.game.outcome.notices.map((notice) => notice.kind), ["card-failed"], "a failed card emits the failure toast without announcing phase 3 early");
-  assert.equal(pendingFirst.game.outcome.notices[0].title, "Card failed");
+  assert.deepEqual(pendingFirst.game.outcome.notices, [], "a failed card emits no toast and phase 3 is not announced early");
   const phaseTwoOutcomeId = pendingFirst.game.outcome.id;
   assert.equal(pendingFirst.game.outcome.actorId, firstId, "the Phase 2 actor receives an authoritative session ID for Your Action");
   assert.equal(pendingSecond.game.outcome.actorId, firstId, "observers receive the same actor ID for Turn Summary");
@@ -494,7 +493,7 @@ try {
   assert.equal(resolvedFirst.game.completedPhases, 2, "the World Event itself does not increment completed phases");
   assert.equal(resolvedFirst.game.turnDeadline - resolvedFirst.game.turnStartedAt, 60_000, "phase 3 receives a fresh 60-second turn after finalization");
   assert.equal(resolvedFirst.game.turnOrder[0], secondId, "normal Speed order resumes for phase 3");
-  assert.deepEqual(new Set(resolvedFirst.game.outcome.notices.map((notice) => notice.kind)), new Set(["card-failed", "phase-start"]), "phase 3 is announced only after Shattered Tribute resolves");
+  assert.deepEqual(resolvedFirst.game.outcome.notices.map((notice) => notice.kind), ["phase-start"], "phase 3 is announced only after Shattered Tribute resolves");
   assert(resolvedFirst.game.outcome.notices.some((notice) => notice.title === "Phase 3 started"));
   assert.equal(resolvedFirst.game.worldEventHistory.length, 1);
 

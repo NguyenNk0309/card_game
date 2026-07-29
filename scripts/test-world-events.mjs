@@ -230,7 +230,7 @@ for (const entry of WORLD_EVENT_SCHEDULE.slice(1)) {
   assert.equal(new Set(entry.eventKeys).size, 3, `phase ${entry.phase} event keys are unique`);
 }
 assert.deepEqual(Object.keys(WORLD_EVENT_DEFINITIONS), EXPECTED_KEYS);
-assert.match(WORLD_EVENT_DEFINITIONS["shattered-tribute"].fullDescription, /owned common cards.*current hand, draw pile, or discard pile[\s\S]*Each chosen hand card draws one replacement/i);
+assert.match(WORLD_EVENT_DEFINITIONS["shattered-tribute"].fullDescription, /2 owned common cards from hand, draw, or discard[\s\S]*permanently to graveyard[\s\S]*Replace only cards removed from hand[\s\S]*Special and borrowed cards cannot be chosen/i);
 for (const entry of WORLD_EVENT_SCHEDULE) {
   assert.equal(isWorldEventPhase(entry.phase), true);
   assert.equal(getWorldEventScheduleEntry(entry.phase), entry);
@@ -241,6 +241,8 @@ for (const entry of WORLD_EVENT_SCHEDULE) {
     assert.equal(definition.level, entry.level);
     assert.equal(definition.intensity, entry.intensity);
     assert(definition.fullDescription.length > definition.title.length);
+    assert(definition.shortDescription.length <= 110, `${key} has concise summary copy`);
+    assert(definition.fullDescription.length <= 275, `${key} has concise detail copy`);
   }
 }
 assert.equal(isWorldEventPhase(5), false);

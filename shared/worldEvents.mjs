@@ -7,98 +7,98 @@ const definition = (event) => Object.freeze({
 export const WORLD_EVENT_DEFINITIONS = Object.freeze({
   'shattered-tribute': definition({
     key: 'shattered-tribute', phase: 3, level: 1, intensity: 'Opening', title: 'Shattered Tribute', interactive: true,
-    shortDescription: 'Every living player permanently sacrifices two owned common cards from their hand, draw pile, or discard pile.',
-    fullDescription: 'Every living player chooses two owned common cards from their current hand, draw pile, or discard pile. Those cards permanently move to that player\'s graveyard. Each chosen hand card draws one replacement into its vacated position, using the normal empty-draw discard recycling rule when needed. Draw-pile and discard-pile choices do not add cards to hand. A player with fewer than two eligible cards chooses every eligible card. Special and borrowed cards cannot be selected.',
+    shortDescription: 'Each living player sacrifices 2 owned common cards from hand, draw, or discard.',
+    fullDescription: 'Choose 2 owned common cards from hand, draw, or discard; they move permanently to graveyard. Replace only cards removed from hand, using normal discard recycling if draw is empty. Choose all eligible cards if fewer than 2. Special and borrowed cards cannot be chosen.',
     metadata: { tone: 'opening', icon: 'tribute', privacy: 'private-choice' }
   }),
   'shifting-arsenal': definition({
     key: 'shifting-arsenal', phase: 7, level: 2, intensity: 'Minor', title: 'Shifting Arsenal', interactive: false,
-    shortDescription: 'Every living player reshuffles their owned hand into draw and redraws the same number of owned cards.',
-    fullDescription: 'For every living player, owned cards in hand return to the draw pile. The resulting draw pile is shuffled and the same number of owned cards is redrawn. Borrowed cards remain in hand and retain their ownership.',
+    shortDescription: 'Each living player shuffles their owned hand into draw, then redraws the same number.',
+    fullDescription: 'Owned hand cards return to draw, the pile shuffles, and the same number are redrawn. Borrowed cards stay in hand.',
     metadata: { tone: 'minor', icon: 'shuffle', privacy: 'private-cards' }
   }),
   'first-blood': definition({
     key: 'first-blood', phase: 7, level: 2, intensity: 'Minor', title: 'First Blood', interactive: false,
     shortDescription: 'Every living player loses 1 HP, ignoring shield.',
-    fullDescription: 'Every living player loses 1 HP. Shield is ignored. Defeated players are detected after everyone is affected, then Sable Fen\'s Second Sight passive resolves once where eligible.',
+    fullDescription: 'Each living player loses 1 HP, ignoring shield. Defeats and eligible Sable Fen revives resolve afterward.',
     metadata: { tone: 'minor', icon: 'damage', privacy: 'public' }
   }),
   'unstable-wards': definition({
     key: 'unstable-wards', phase: 7, level: 2, intensity: 'Minor', title: 'Unstable Wards', interactive: false,
-    shortDescription: 'Living players lose up to 2 shield, or gain 1 pity if they have no shield.',
-    fullDescription: 'Every living player with shield loses up to 2 shield and the matching timed shield value. A living player with no shield gains 1 pity point instead. A player never receives both effects.',
+    shortDescription: 'Each living player loses up to 2 shield, or gains 1 pity if they have none.',
+    fullDescription: 'Living players with shield lose up to 2; those with none gain 1 pity instead.',
     metadata: { tone: 'minor', icon: 'shield', privacy: 'public' }
   }),
   'broken-formation': definition({
     key: 'broken-formation', phase: 12, level: 3, intensity: 'Moderate', title: 'Broken Formation', interactive: false,
-    shortDescription: 'The living-player order is randomized for phase 12 only.',
-    fullDescription: 'The server shuffles all living players into a new phase-12 turn order. Character Speed is unchanged, and normal Speed-based order returns when phase 13 begins.',
+    shortDescription: 'Living-player order is randomized for phase 12.',
+    fullDescription: 'Living-player order is shuffled for phase 12. Normal Speed order returns in phase 13.',
     metadata: { tone: 'moderate', icon: 'order', privacy: 'public' }
   }),
   'arcane-static': definition({
     key: 'arcane-static', phase: 12, level: 3, intensity: 'Moderate', title: 'Arcane Static', interactive: false,
-    shortDescription: 'Every living player receives -1 to their next d20 result.',
-    fullDescription: 'Every living player receives a timed penalty of 1 to their next d20 result. It expires after that player\'s next completed turn, including a played card, discard, skip, cancellation, forced skip, or timeout.',
+    shortDescription: 'Each living player gets -1 on their next d20.',
+    fullDescription: 'Each living player gets -1 on their next d20. It expires when that player\'s next turn ends, even by discard, skip, or timeout.',
     metadata: { tone: 'moderate', icon: 'dice', privacy: 'public' }
   }),
   'supply-rot': definition({
     key: 'supply-rot', phase: 12, level: 3, intensity: 'Moderate', title: 'Supply Rot', interactive: false,
-    shortDescription: 'Every living player discards and replaces one random eligible owned hand card.',
-    fullDescription: 'For every living player, one random owned card in hand moves to discard and a replacement is drawn into the same hand position when possible. Common and unique owned cards are eligible; borrowed cards are excluded. Only the owner sees the card identity.',
+    shortDescription: 'Each living player discards and replaces 1 random owned hand card.',
+    fullDescription: 'Each living player discards 1 random owned hand card and draws into the same slot when possible. Borrowed cards are excluded; only the owner sees the card.',
     metadata: { tone: 'moderate', icon: 'discard', privacy: 'private-cards' }
   }),
   gravewind: definition({
     key: 'gravewind', phase: 17, level: 4, intensity: 'Strong', title: 'Gravewind', interactive: false,
-    shortDescription: 'Every living player permanently loses one random common owned card.',
-    fullDescription: 'Every living player permanently loses one random common owned card. The search uses hand first, then draw pile, then discard pile. Unique, borrowed, and already-graveyard cards are excluded. A destroyed hand card is replaced when possible. Only the owner sees its identity.',
+    shortDescription: 'Each living player permanently loses 1 random owned common card.',
+    fullDescription: 'Each living player permanently loses 1 random owned common card, searched hand first, then draw, then discard. Special and borrowed cards are excluded; a removed hand card is replaced when possible. Only its owner sees the card.',
     metadata: { tone: 'strong', icon: 'graveyard', privacy: 'private-cards' }
   }),
   'eclipse-of-fortune': definition({
     key: 'eclipse-of-fortune', phase: 17, level: 4, intensity: 'Strong', title: 'Eclipse of Fortune', interactive: false,
-    shortDescription: 'Every living player must pay 2 pity or lose 1 HP for each unpaid point.',
-    fullDescription: 'Every living player loses up to 2 pity points. For each point they cannot pay, they lose 1 HP ignoring shield. Defeats and Sable Fen\'s passive resolve after every player is affected.',
+    shortDescription: 'Each living player pays up to 2 pity; each missing point costs 1 HP, ignoring shield.',
+    fullDescription: 'Each living player loses up to 2 pity. Each unpaid point costs 1 HP, ignoring shield. Defeats and eligible Sable Fen revives resolve afterward.',
     metadata: { tone: 'strong', icon: 'pity', privacy: 'public' }
   }),
   shieldquake: definition({
     key: 'shieldquake', phase: 17, level: 4, intensity: 'Strong', title: 'Shieldquake', interactive: false,
-    shortDescription: 'Every living player loses all shield and 1 HP.',
-    fullDescription: 'Every living player loses all shield and all matching timed shield effects, then loses 1 HP ignoring shield. Defeats and Sable Fen\'s passive resolve after everyone is affected.',
+    shortDescription: 'Each living player loses all shield and 1 HP.',
+    fullDescription: 'Each living player loses all shield, then loses 1 HP ignoring shield. Defeats and eligible Sable Fen revives resolve afterward.',
     metadata: { tone: 'strong', icon: 'shield-break', privacy: 'public' }
   }),
   'severed-oaths': definition({
     key: 'severed-oaths', phase: 22, level: 5, intensity: 'Severe', title: 'Severed Oaths', interactive: false,
-    shortDescription: 'All existing combat bonuses are cleared and every living player receives -2 to their next d20 result.',
-    fullDescription: 'Every living player loses all shield, attack bonuses, d20 bonuses, and d20 penalties together with their matching timed effects. Each then receives a fresh timed penalty of 2 to their next d20 result.',
+    shortDescription: 'Clear every living player\'s combat modifiers, then give each -2 on their next d20.',
+    fullDescription: 'Each living player loses all shield, attack bonuses, and d20 modifiers, then gets -2 on their next d20.',
     metadata: { tone: 'severe', icon: 'sever', privacy: 'public' }
   }),
   'time-fracture': definition({
     key: 'time-fracture', phase: 22, level: 5, intensity: 'Severe', title: 'Time Fracture', interactive: false,
-    shortDescription: 'Each team\'s fastest survivor is skipped, or a lone survivor receives -3 to their next d20 result.',
-    fullDescription: 'For each team with at least two living players, the fastest player has their next turn skipped; Speed ties use earlier join time. A team with exactly one living player does not skip that player and instead gives them a timed penalty of 3 to their next d20 result.',
+    shortDescription: 'Each team\'s fastest survivor skips their next turn; a lone survivor gets -3 d20 instead.',
+    fullDescription: 'On teams with 2+ survivors, the fastest skips their next turn; Speed ties use join order. A lone survivor gets -3 on their next d20 instead.',
     metadata: { tone: 'severe', icon: 'time', privacy: 'public' }
   }),
   'crimson-debt': definition({
     key: 'crimson-debt', phase: 22, level: 5, intensity: 'Severe', title: 'Crimson Debt', interactive: false,
-    shortDescription: 'Every living player loses 2 HP and up to 2 pity points.',
-    fullDescription: 'Every living player loses 2 HP ignoring shield and loses up to 2 pity points. A player with no pity still loses the full 2 HP. Defeats and Sable Fen\'s passive resolve after everyone is affected.',
+    shortDescription: 'Each living player loses 2 HP, ignoring shield, and up to 2 pity.',
+    fullDescription: 'Each living player loses 2 HP, ignoring shield, and up to 2 pity. The HP loss applies even at 0 pity; defeats and eligible Sable Fen revives resolve afterward.',
     metadata: { tone: 'severe', icon: 'debt', privacy: 'public' }
   }),
   'final-collapse': definition({
     key: 'final-collapse', phase: 27, level: 6, intensity: 'Catastrophic', title: 'Final Collapse', interactive: false,
-    shortDescription: 'Every living player loses all shield and takes at least 2 damage based on maximum HP.',
-    fullDescription: 'Every living player loses all shield, then takes damage equal to 25% of maximum HP rounded upward, with a minimum of 2 damage. Damage ignores shield. Defeats and Sable Fen\'s passive resolve after everyone is affected.',
+    shortDescription: 'Each living player loses all shield, then takes 25% max-HP damage (minimum 2).',
+    fullDescription: 'Each living player loses all shield, then takes 25% max-HP damage rounded up (minimum 2), ignoring shield. Defeats and eligible Sable Fen revives resolve afterward.',
     metadata: { tone: 'catastrophic', icon: 'collapse', privacy: 'public' }
   }),
   'the-last-cards': definition({
     key: 'the-last-cards', phase: 27, level: 6, intensity: 'Catastrophic', title: 'The Last Cards', interactive: false,
-    shortDescription: 'Every living player permanently loses up to two random common owned cards without dropping below four reusable cards.',
-    fullDescription: 'Every living player permanently loses up to two random common owned cards from hand, draw pile, or discard pile. Unique, borrowed, and graveyard cards are excluded. A player is never reduced below four owned reusable cards, and destroyed hand cards are replaced when possible. Only the owner sees card identities.',
+    shortDescription: 'Each living player permanently loses up to 2 random owned common cards, stopping at 4 reusable cards.',
+    fullDescription: 'Each living player permanently loses up to 2 random owned common cards from hand, draw, or discard, but keeps at least 4 reusable cards. Special and borrowed cards are excluded; removed hand cards are replaced when possible. Only the owner sees them.',
     metadata: { tone: 'catastrophic', icon: 'cards', privacy: 'private-cards' }
   }),
   'sudden-death': definition({
     key: 'sudden-death', phase: 27, level: 6, intensity: 'Catastrophic', title: 'Sudden Death', interactive: false,
-    shortDescription: 'Living players are capped at half HP, lose all shield, and gain +2 next-attack damage.',
-    fullDescription: 'Every living player\'s current HP is reduced to no more than half maximum HP rounded upward, without reducing a living player below 1. All shield is removed, and a timed attack bonus of 2 is applied through the existing next-successful-damage behavior.',
+    shortDescription: 'Living players drop to at most half HP, lose all shield, and gain +2 next-attack damage.',
+    fullDescription: 'Living players are capped at half max HP rounded up (minimum 1), lose all shield, and gain +2 damage on their next successful attack.',
     metadata: { tone: 'catastrophic', icon: 'sudden-death', privacy: 'public' }
   })
 });
