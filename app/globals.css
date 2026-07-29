@@ -799,10 +799,9 @@ button:focus-visible {
 .game-notice-stack .game-notice > div { gap: 3px; }
 .game-notice-stack .game-notice strong { font-size: 14px; }
 .game-notice-stack .game-notice span { font-size: 11px; line-height: 1.35; }
-.game-notice-stack .pity-spent,
 .game-notice-stack .card-transform { color: var(--gold); border-color: rgba(212, 181, 110, 0.58); }
-.game-notice-stack .graveyard { color: #d47c73; border-color: rgba(177, 82, 73, 0.6); }
-.game-notice-stack .deck-reshuffle { color: #80bfd2; border-color: rgba(90, 160, 184, 0.58); }
+.game-notice-stack .card-failed { color: #d47c73; border-color: rgba(177, 82, 73, 0.6); }
+.game-notice-stack .phase-start { color: #80bfd2; border-color: rgba(90, 160, 184, 0.58); }
 
 .discard-summary-content {
   min-height: 150px;

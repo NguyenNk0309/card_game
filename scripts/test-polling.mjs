@@ -142,6 +142,8 @@ try {
   assert.equal(firstStarted.viewerSessionId, firstId, "polling snapshots identify the session whose private zones they contain");
   assert.equal(firstStarted.game.turnSeconds, 60, "the polling room enforces a constant 60-second timer");
   assert.equal(firstStarted.game.turnDeadline - firstStarted.game.turnStartedAt, 60_000, "every polling turn receives exactly 60 seconds");
+  assert.deepEqual(firstStarted.game.outcome.notices.map((notice) => notice.kind), ["phase-start"], "a new polling battle emits only the phase-1 start notice");
+  assert.equal(firstStarted.game.outcome.notices[0].title, "Phase 1 started");
 
   const upgradeZoneIds = ["lost-momentum", "broken-plan", "empty-gesture"].map((suffix) => `${firstId}-common-${suffix}`);
   const controlledGame = structuredClone(firstStarted.game);
@@ -195,6 +197,8 @@ try {
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].discardPile, [], "manual skip preserves the discard pile");
   assert.equal(manuallySkipped.game.playerStates[thirdId].shield, 0, "a manual polling skip still expires shield at turn end");
   assert.equal(manuallySkipped.game.turnOrder[0], secondId, "a new polling phase resets to the fastest living player");
+  assert.deepEqual(manuallySkipped.game.outcome.notices.map((notice) => notice.kind), ["phase-start"], "completing a polling phase emits only the next-phase notice");
+  assert.equal(manuallySkipped.game.outcome.notices[0].title, "Phase 2 started");
 
   const removedDuringGame = await command(firstId, { type: "remove-player", targetSessionId: thirdId });
   assert(!removedDuringGame.players.some((item) => item.id === thirdId));
@@ -282,11 +286,11 @@ try {
   phaseTwoUpdate.playerStates[secondId].drawPile = [`${secondId}-common-slash`];
   phaseTwoUpdate.playerStates[secondId].discardPile = [`card-${secondId}`];
   phaseTwoUpdate.playerStates[secondId].completedPlayerTurns = 2;
-  phaseTwoUpdate.roll = 20;
+  phaseTwoUpdate.roll = 1;
   phaseTwoUpdate.outcome = {
     kind: "card",
-    success: true,
-    total: 20,
+    success: false,
+    total: 1,
     target: phaseTwoUpdate.adventure.target,
     label: `${eventStarted.players.find((item) => item.id === secondId).displayName} used Test Skill`,
     detail: "Test Skill resolved and completed phase 2.",
@@ -296,7 +300,7 @@ try {
     effect: "damage",
     targetIds: [firstId],
     targetName: eventStarted.players.find((item) => item.id === firstId).displayName,
-    roll: 20,
+    roll: 1,
     bonus: 0,
     resolution: "roll"
   };
@@ -309,7 +313,7 @@ try {
     targetName: phaseTwoUpdate.outcome.targetName,
     cardName: "Test Skill",
     message: `${phaseTwoUpdate.outcome.actorName} completed phase 2 with Test Skill.`,
-    success: true,
+    success: false,
     createdAt: Date.now()
   }];
   phaseTwoUpdate.history.push({
@@ -339,6 +343,8 @@ try {
   assert.equal(pendingTribute.game.pendingWorldEvent.status, "pending");
   assert.deepEqual(new Set(pendingTribute.game.pendingWorldEvent.requiredPlayerIds), new Set([firstId, secondId]));
   assert.deepEqual(pendingTribute.game.pendingWorldEvent.submittedPlayerIds, []);
+  assert.deepEqual(pendingTribute.game.outcome.notices.map((notice) => notice.kind), ["card-failed"], "a failed polling card emits no phase-3 notice while Tribute is pending");
+  assert.equal(pendingTribute.game.outcome.notices[0].title, "Card failed");
   const phaseTwoOutcomeId = pendingTribute.game.outcome.id;
   assert.equal(pendingTribute.game.outcome.actorId, secondId, "the polling Phase 2 actor receives an authoritative session ID for Your Action");
   assert(phaseTwoOutcomeId, "the polling action before Shattered Tribute receives a stable outcome ID");
@@ -387,6 +393,8 @@ try {
   assert.equal(resolvedTribute.game.completedPhases, 2, "World Event choices do not complete another phase");
   assert.equal(resolvedTribute.game.adventure.chapter, 3);
   assert.equal(resolvedTribute.game.turnDeadline - resolvedTribute.game.turnStartedAt, 60_000, "phase 3 resumes with a fresh 60-second polling timer");
+  assert.deepEqual(new Set(resolvedTribute.game.outcome.notices.map((notice) => notice.kind)), new Set(["card-failed", "phase-start"]), "polling announces phase 3 only after Tribute resolves");
+  assert(resolvedTribute.game.outcome.notices.some((notice) => notice.title === "Phase 3 started"));
   assert(secondChoiceIds.every((id) => resolvedTribute.game.playerStates[secondId].graveyard.includes(id)));
   assert.equal(resolvedTribute.game.playerStates[secondId].hand.length, 3, "polling Tribute refills only the selected hand position after the draw-pile choice is removed");
 
@@ -445,6 +453,8 @@ try {
   const initialPhaseFiveState = await command(secondId, { type: "start", game: initialPhaseFiveGame });
   const initialPhaseFiveDeck = initialPhaseFiveState.players.find((item) => item.id === firstId).skillDeck;
   assert.deepEqual(upgradeZoneIds.map((id) => initialPhaseFiveDeck.find((card) => card.id === id).effect).sort(), ["damage", "guard", "heal"], "an initial polling phase-5 snapshot is normalized before a player can act");
+  assert.deepEqual(new Set(initialPhaseFiveState.game.outcome.notices.map((notice) => notice.kind)), new Set(["card-transform", "phase-start"]), "polling phase-5 normalization emits only the card-upgrade and phase-start notices");
+  assert(initialPhaseFiveState.game.outcome.notices.some((notice) => notice.title === "No-effect cards upgraded"));
   const initialPhaseFiveOwner = await readRoom(firstId);
   assert.deepEqual(
     [initialPhaseFiveOwner.game.playerStates[firstId].hand, initialPhaseFiveOwner.game.playerStates[firstId].discardPile, initialPhaseFiveOwner.game.playerStates[firstId].graveyard],
@@ -458,7 +468,7 @@ try {
   assert.equal(pollingRefillState.hand.length, 1, "polling empty-draw recycling draws exactly one replacement");
   assert.equal(pollingRefillState.drawPile.length, 1, "polling recycling leaves the other discarded card in draw");
   assert.equal(pollingRefillState.discardPile.length, 0, "polling recycling moves the entire discard pile to draw");
-  assert(reshuffledAfterDiscard.game.outcome.notices.some((notice) => notice.kind === "deck-reshuffle" && /one random card/i.test(notice.detail)), "polling empty-draw recycling emits the one-card reshuffle notice");
+  assert.deepEqual(reshuffledAfterDiscard.game.outcome.notices ?? [], [], "polling empty-draw recycling does not emit a toast");
   const secondResetLobby = await command(firstId, { type: "return:lobby" });
   assert.equal(secondResetLobby.players.find((item) => item.id === firstId).skillDeck.filter((card) => card.effect === "none").length, 3, "a normalized polling snapshot also restores cleanly for the next battle");
 

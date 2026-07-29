@@ -35,9 +35,8 @@ function AutomaticSuccessNotice({ roll }: { roll?: number }) {
 }
 
 function GameNoticeIcon({ kind }: { kind: GameNotice["kind"] }) {
-  if (kind === "pity-gained" || kind === "pity-spent") return <PityIcon size={19}/>;
-  if (kind === "graveyard") return <Archive size={19}/>;
-  if (kind === "deck-reshuffle") return <RefreshCw size={19}/>;
+  if (kind === "card-failed") return <Skull size={19}/>;
+  if (kind === "phase-start") return <Zap size={19}/>;
   return <Sparkles size={19}/>;
 }
 

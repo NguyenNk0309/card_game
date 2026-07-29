@@ -206,7 +206,16 @@ function restorePhaseFiveOriginalCards() {
 }
 
 function appendOutcomeNotice(game, notice) {
-  if (!game?.outcome) return;
+  if (!game) return;
+  game.outcome ||= {
+    id: `notice-${game.completedTurns || 0}-${game.turnStartedAt || Date.now()}`,
+    kind: 'system',
+    success: true,
+    total: 0,
+    target: game.adventure?.target || 0,
+    label: notice.title,
+    detail: notice.detail
+  };
   game.outcome.notices ||= [];
   if (!game.outcome.notices.some((item) => item.id === notice.id)) game.outcome.notices.push(notice);
 }
@@ -215,59 +224,19 @@ function gameNoticeScope(game) {
   return game?.history?.at(-1)?.id || `turn-${game?.completedTurns || 0}-${game?.turnStartedAt || Date.now()}`;
 }
 
-function zoneCardCount(state) {
-  return ['hand', 'drawPile', 'discardPile', 'graveyard']
-    .reduce((total, zone) => total + (state?.[zone]?.length || 0), 0);
-}
-
-function appendZoneTransitionNotices(previousGame, nextGame) {
-  if (!previousGame || !nextGame?.outcome) return;
-  const scope = gameNoticeScope(nextGame);
-  for (const player of room.players) {
-    const before = previousGame.playerStates?.[player.id];
-    const after = nextGame.playerStates?.[player.id];
-    if (!before || !after) continue;
-    const previousGraveyard = new Set(before.graveyard || []);
-    for (const cardId of (after.graveyard || []).filter((id) => !previousGraveyard.has(id))) {
-      const card = (player.skillDeck || []).find((item) => item.id === cardId);
-      const temporaryPurge = (after.purgedCards || []).find((entry) => entry.cardId === cardId);
-      appendOutcomeNotice(nextGame, {
-        id: `${scope}-graveyard-${player.id}-${cardId}`,
-        kind: 'graveyard',
-        title: 'Card moved to graveyard',
-        detail: temporaryPurge
-          ? `A random card from ${player.displayName}'s hand moved to their graveyard for 2 phases and will return to their discard pile after phase ${temporaryPurge.returnAfterPhase}.`
-          : `${card?.name || 'A card'} moved to ${player.displayName}'s graveyard and is out of circulation for this battle.`
-      });
-    }
-    const activePurges = new Set((after.purgedCards || []).map((entry) => entry.cardId));
-    for (const entry of (before.purgedCards || []).filter((candidate) => !activePurges.has(candidate.cardId) && (after.discardPile || []).includes(candidate.cardId))) {
-      appendOutcomeNotice(nextGame, {
-        id: `${scope}-purge-return-${player.id}-${entry.cardId}`,
-        kind: 'graveyard',
-        title: 'Purged card returned',
-        detail: `A card returned from ${player.displayName}'s graveyard to their discard pile after 2 phases.`
-      });
-    }
-    const recycledDiscard = (before.discardPile || []).length > 0
-      && (after.discardPile || []).length === 0
-      && (after.hand || []).length + (after.drawPile || []).length > (before.hand || []).length + (before.drawPile || []).length;
-    const actorRecycledPlayedCard = ['card', 'discard'].includes(nextGame.outcome.kind || '')
-      && nextGame.outcome.actorName === player.displayName
-      && (before.drawPile || []).length === 0
-      && (before.hand || []).includes(nextGame.outcome.cardId)
-      && (after.discardPile || []).length === 0
-      && (after.hand || []).length === (before.hand || []).length
-      && zoneCardCount(before) === zoneCardCount(after);
-    if (recycledDiscard || actorRecycledPlayedCard) {
-      appendOutcomeNotice(nextGame, {
-        id: `${scope}-deck-reshuffle-${player.id}`,
-        kind: 'deck-reshuffle',
-        title: 'Deck reshuffled',
-        detail: `${player.displayName}'s discard pile moved to the empty draw pile, was reshuffled, and one random card was drawn into hand.`
-      });
-    }
-  }
+function appendPhaseStartNotice(game) {
+  if (!game || game.ended || isWorldEventBlocking(game)) return;
+  const phase = Math.min(30, Math.max(1, Number(game.completedPhases || 0) + 1));
+  const activeId = game.turnOrder?.[0] || room.players[game.activePlayerIndex]?.id;
+  const activePlayer = room.players.find((player) => player.id === activeId);
+  appendOutcomeNotice(game, {
+    id: `${gameNoticeScope(game)}-phase-${phase}-start`,
+    kind: 'phase-start',
+    title: `Phase ${phase} started`,
+    detail: activePlayer
+      ? `Phase ${phase} has begun. ${activePlayer.displayName}'s turn is active.`
+      : `Phase ${phase} has begun.`
+  });
 }
 
 function upgradePhaseFiveCards(game) {
@@ -295,7 +264,7 @@ function upgradePhaseFiveCards(game) {
   if (changed) appendOutcomeNotice(game, {
     id: `${gameNoticeScope(game)}-phase-${game.completedPhases}-card-transform`,
     kind: 'card-transform',
-    title: 'No-effect cards transformed',
+    title: 'No-effect cards upgraded',
     detail: `${[...transformations].join('; ')}.`
   });
   return changed;
@@ -563,17 +532,11 @@ function reconcilePityPoints(previousGame, incomingGame, actor) {
   if (favorableOmenActive) incomingState.zeroPityUntilTurn = 0;
   outcome.pityBefore = before;
   outcome.pityAfter = incomingState.pityPoints;
-  if (outcome.resolution === 'pity' && cost > 0) appendOutcomeNotice(incomingGame, {
-    id: `${gameNoticeScope(incomingGame)}-pity-spent-${actor.id}`,
-    kind: 'pity-spent',
-    title: 'Pity spent',
-    detail: `${actor.displayName} spent ${cost} pity ${cost === 1 ? 'point' : 'points'} (${before} → ${incomingState.pityPoints}).`
-  });
-  else if (!outcome.success) appendOutcomeNotice(incomingGame, {
-    id: `${gameNoticeScope(incomingGame)}-pity-gained-${actor.id}`,
-    kind: 'pity-gained',
-    title: 'Pity gained',
-    detail: `${actor.displayName} gained 1 pity point (${before} → ${incomingState.pityPoints}).`
+  if (!outcome.success) appendOutcomeNotice(incomingGame, {
+    id: `${gameNoticeScope(incomingGame)}-card-failed-${actor.id}`,
+    kind: 'card-failed',
+    title: 'Card failed',
+    detail: `${actor.displayName}'s ${card.name} failed and gained 1 pity point (${before} → ${incomingState.pityPoints}).`
   });
   return '';
 }
@@ -648,7 +611,7 @@ function removePlayerFromRoom(targetId, removedBy) {
       room.phase = 'lobby';
       room.game = null;
     } else {
-      removeWorldEventParticipant(room.game, room.players, targetId, {
+      const worldEventResult = removeWorldEventParticipant(room.game, room.players, targetId, {
         now: Date.now(),
         lastTeam: room.players[0]?.hero.team || removedPlayer.hero.team
       });
@@ -685,6 +648,7 @@ function removePlayerFromRoom(targetId, removedBy) {
         normalizeServerTurnOrder(room.game);
       }
       if (room.game.ended) room.game.pendingWorldEvent = null;
+      if (worldEventResult.finalized) appendPhaseStartNotice(room.game);
     }
   }
 
@@ -711,10 +675,9 @@ function expireTimedEffectsAtTurnEnd(state) {
   state.timedEffects = keeping;
 }
 
-function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', zoneBaseline = null, discardedCardId = '') {
+function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', discardedCardId = '') {
   const game = room.game;
   if (room.phase !== 'game' || !game || game.ended || isWorldEventBlocking(game) || !room.players.length) return false;
-  const previousGame = zoneBaseline || structuredClone(game);
   const previousCompletedPhases = game.completedPhases || 0;
   const order = normalizeServerTurnOrder(game);
   const passingPlayer = room.players.find((player) => player.id === order[0]) || room.players[game.activePlayerIndex];
@@ -753,13 +716,13 @@ function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', zoneBas
   game.turnStartedAt = now;
   game.turnSeconds = TURN_SECONDS;
   game.turnDeadline = winner ? 0 : now + TURN_SECONDS * 1000;
-  appendZoneTransitionNotices(previousGame, game);
   if (phaseCompleted && !winner) {
     triggerWorldEventAfterPhase(game, room.players, previousCompletedPhases, game.completedPhases, {
       now,
       lastTeam: passingPlayer?.hero.team || 'veil'
     });
   }
+  if (phaseCompleted) appendPhaseStartNotice(game);
   game.history = game.history.slice(-80);
   broadcast();
   if (kind !== 'forced-skip') advanceForcedSkippedTurns(now + 1);
@@ -775,6 +738,7 @@ function advanceTimedOutTurn(now = Date.now()) {
   if (game.pendingWorldEvent) {
     const result = resolvePendingWorldEventTimeout(game, room.players, { now, lastTeam: room.players[0]?.hero.team || 'veil' });
     if (!result.resolved) return false;
+    appendPhaseStartNotice(game);
     broadcast();
     advanceForcedSkippedTurns(now + 1);
     return true;
@@ -929,6 +893,7 @@ function handleMessage(socket, rawMessage) {
     room.game.turnStartedAt = Date.now();
     room.game.turnDeadline = room.game.turnStartedAt + TURN_SECONDS * 1000;
     normalizeServerTurnOrder(room.game);
+    appendPhaseStartNotice(room.game);
     broadcast();
     return;
   }
@@ -947,6 +912,7 @@ function handleMessage(socket, rawMessage) {
       { now: Date.now(), lastTeam: room.players.find((player) => player.id === message.sessionId)?.hero.team || 'veil' }
     );
     if (!result.ok) return reject(socket, result.error);
+    if (result.finalized) appendPhaseStartNotice(room.game);
     broadcast();
     if (result.finalized) advanceForcedSkippedTurns(Date.now() + 1);
     return;
@@ -1003,7 +969,6 @@ function handleMessage(socket, rawMessage) {
     if (pityError) return reject(socket, pityError);
     reconcileHiddenCardEffects(previousGame, message.game, activePlayer);
     if (phaseAdvanced) returnExpiredPurgedCards(message.game, message.game.completedPhases);
-    appendZoneTransitionNotices(previousGame, message.game);
     message.game.adventure.target = randomDiceTarget();
     if (message.game.outcome?.kind === 'card') message.game.outcome.nextTarget = message.game.adventure.target;
     room.game = message.game;
@@ -1024,6 +989,7 @@ function handleMessage(socket, rawMessage) {
         lastTeam: activePlayer.hero.team
       });
     }
+    if (phaseAdvanced) appendPhaseStartNotice(room.game);
     broadcast();
     advanceForcedSkippedTurns();
     return;
@@ -1053,7 +1019,6 @@ function handleMessage(socket, rawMessage) {
     const state = room.game.playerStates[activePlayer.id];
     if (!state || state.hp <= 0) return reject(socket, 'A defeated player cannot discard a card.');
     if (!state.hand.includes(message.cardId)) return reject(socket, 'Choose a card from your hand to discard.');
-    const zoneBaseline = structuredClone(room.game);
     const card = activePlayer.skillDeck.find((item) => item.id === message.cardId);
     const borrowed = (state.borrowedCards || []).find((entry) => entry.cardId === message.cardId);
     const discardedIndex = state.hand.indexOf(message.cardId);
@@ -1066,7 +1031,7 @@ function handleMessage(socket, rawMessage) {
       }
     } else state.discardPile.push(message.cardId);
     drawOneOrRecycleDiscard(state, discardedIndex >= 0 ? discardedIndex : state.hand.length);
-    passCurrentTurn('discard', Date.now(), card?.name || 'a card', zoneBaseline, message.cardId);
+    passCurrentTurn('discard', Date.now(), card?.name || 'a card', message.cardId);
     return;
   }
 
@@ -1111,7 +1076,7 @@ function handleMessage(socket, rawMessage) {
       room.phase = 'lobby';
       room.game = null;
     } else {
-      removeWorldEventParticipant(room.game, room.players, String(message.sessionId || ''), {
+      const worldEventResult = removeWorldEventParticipant(room.game, room.players, String(message.sessionId || ''), {
         now: Date.now(),
         lastTeam: room.players[0]?.hero.team || leavingPlayer.hero.team
       });
@@ -1136,6 +1101,7 @@ function handleMessage(socket, rawMessage) {
         room.game.turnDeadline = 0;
       }
       if (room.game.ended) room.game.pendingWorldEvent = null;
+      if (worldEventResult.finalized) appendPhaseStartNotice(room.game);
     }
     broadcast();
     return;

@@ -234,6 +234,8 @@ try {
   assert.equal(firstStarted.viewerSessionId, firstId, "WebSocket snapshots identify the session whose private zones they contain");
   assert.equal(firstStarted.game.turnSeconds, 60, "the room overrides every client timer with a constant 60 seconds");
   assert(firstStarted.game.turnDeadline - firstStarted.game.turnStartedAt === 60_000, "every battle turn receives exactly 60 seconds");
+  assert.deepEqual(firstStarted.game.outcome.notices.map((notice) => notice.kind), ["phase-start"], "a new realtime battle emits only the phase-1 start notice");
+  assert.equal(firstStarted.game.outcome.notices[0].title, "Phase 1 started");
 
   const expiryProbePromise = first.waitForNext((state) => state.phase === "game");
   first.send({ type: "expire-turn", sessionId: firstId });
@@ -285,6 +287,8 @@ try {
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].drawPile, [], "manual skip preserves the draw pile");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].discardPile, [], "manual skip preserves the discard pile");
   assert.equal(manuallySkipped.game.turnOrder[0], secondId, "a new realtime phase resets to the fastest living player");
+  assert.deepEqual(manuallySkipped.game.outcome.notices.map((notice) => notice.kind), ["phase-start"], "completing a realtime phase emits only the next-phase notice");
+  assert.equal(manuallySkipped.game.outcome.notices[0].title, "Phase 2 started");
 
   first.send({ type: "remove-player", sessionId: firstId, targetSessionId: thirdId });
   const removedDuringGame = await first.waitFor((state) => !state.players.some((item) => item.id === thirdId));
@@ -326,13 +330,15 @@ try {
   const initialPhaseFiveState = await first.waitForNext((state) => state.phase === "game" && state.game?.completedPhases === 5);
   const initialPhaseFiveDeck = initialPhaseFiveState.players.find((item) => item.id === firstId).skillDeck;
   assert.deepEqual(upgradeZoneIds.map((id) => initialPhaseFiveDeck.find((card) => card.id === id).effect).sort(), ["damage", "guard", "heal"], "an initial realtime phase-5 snapshot is normalized before a player can act");
+  assert.deepEqual(new Set(initialPhaseFiveState.game.outcome.notices.map((notice) => notice.kind)), new Set(["card-transform", "phase-start"]), "phase-5 normalization emits only the card-upgrade and phase-start notices");
+  assert(initialPhaseFiveState.game.outcome.notices.some((notice) => notice.title === "No-effect cards upgraded"));
   first.send({ type: "discard-card", sessionId: firstId, cardId: `card-${firstId}` });
   const reshuffledAfterDiscard = await first.waitForNext((state) => state.game?.outcome?.kind === "discard");
   const realtimeRefillState = reshuffledAfterDiscard.game.playerStates[firstId];
   assert.equal(realtimeRefillState.hand.length, 1, "realtime empty-draw recycling draws exactly one replacement");
   assert.equal(realtimeRefillState.drawPile.length, 1, "realtime recycling leaves other discarded cards in draw");
   assert.equal(realtimeRefillState.discardPile.length, 0, "realtime recycling moves the entire discard pile to draw");
-  assert(reshuffledAfterDiscard.game.outcome.notices.some((notice) => notice.kind === "deck-reshuffle" && /one random card/i.test(notice.detail)), "realtime empty-draw recycling emits the one-card reshuffle notice");
+  assert.deepEqual(reshuffledAfterDiscard.game.outcome.notices ?? [], [], "realtime empty-draw recycling does not emit a toast");
   first.send({ type: "return:lobby" });
   const secondResetLobby = await first.waitForNext((state) => state.phase === "lobby");
   assert.equal(secondResetLobby.players.find((item) => item.id === firstId).skillDeck.filter((card) => card.effect === "none").length, 3, "a normalized realtime snapshot also restores cleanly for the next battle");
@@ -407,8 +413,8 @@ try {
   tributeAdvance.playerStates[firstId].discardPile = [`card-${firstId}`];
   tributeAdvance.outcome = {
     kind: "card",
-    success: true,
-    total: 20,
+    success: false,
+    total: 1,
     target: tributeAdvance.adventure.target,
     label: `${tributeStartedFirst.players.find((item) => item.id === firstId).displayName} used Test Skill`,
     detail: "Phase 2 completed.",
@@ -418,6 +424,8 @@ try {
     effect: "damage",
     targetIds: [secondId],
     targetName: tributeStartedFirst.players.find((item) => item.id === secondId).displayName,
+    roll: 1,
+    bonus: 0,
     resolution: "roll"
   };
   tributeAdvance.history = [{
@@ -429,7 +437,7 @@ try {
     targetName: tributeAdvance.outcome.targetName,
     cardName: "Test Skill",
     message: "Phase 2 completed before Shattered Tribute.",
-    success: true,
+    success: false,
     createdAt: Date.now()
   }];
 
@@ -445,6 +453,8 @@ try {
   assert.deepEqual(pendingFirst.game.pendingWorldEvent.submittedPlayerIds, []);
   assert.equal(pendingFirst.game.pendingWorldEvent.results, undefined, "pending private choice results are never synchronized");
   assert.equal(pendingSecond.game.pendingWorldEvent.id, pendingEventId, "both WebSocket clients observe the same stable pending event");
+  assert.deepEqual(pendingFirst.game.outcome.notices.map((notice) => notice.kind), ["card-failed"], "a failed card emits the failure toast without announcing phase 3 early");
+  assert.equal(pendingFirst.game.outcome.notices[0].title, "Card failed");
   const phaseTwoOutcomeId = pendingFirst.game.outcome.id;
   assert.equal(pendingFirst.game.outcome.actorId, firstId, "the Phase 2 actor receives an authoritative session ID for Your Action");
   assert.equal(pendingSecond.game.outcome.actorId, firstId, "observers receive the same actor ID for Turn Summary");
@@ -484,6 +494,8 @@ try {
   assert.equal(resolvedFirst.game.completedPhases, 2, "the World Event itself does not increment completed phases");
   assert.equal(resolvedFirst.game.turnDeadline - resolvedFirst.game.turnStartedAt, 60_000, "phase 3 receives a fresh 60-second turn after finalization");
   assert.equal(resolvedFirst.game.turnOrder[0], secondId, "normal Speed order resumes for phase 3");
+  assert.deepEqual(new Set(resolvedFirst.game.outcome.notices.map((notice) => notice.kind)), new Set(["card-failed", "phase-start"]), "phase 3 is announced only after Shattered Tribute resolves");
+  assert(resolvedFirst.game.outcome.notices.some((notice) => notice.title === "Phase 3 started"));
   assert.equal(resolvedFirst.game.worldEventHistory.length, 1);
 
   const firstOwnResult = firstResolvedEvent.results.find((result) => result.playerId === firstId);
@@ -561,7 +573,7 @@ try {
   assert.deepEqual(purgeObserverView.game.playerStates[secondId].purgedCards, [], "temporary purge metadata stays private from opponents");
   assert(purgeOwnerView.game.playerStates[secondId].graveyard.includes(`card-${secondId}`), "the realtime authority moves a random private hand card to its owner's graveyard");
   assert.deepEqual(purgeOwnerView.game.playerStates[secondId].purgedCards, [{ cardId: `card-${secondId}`, returnAfterPhase: 2 }], "the realtime authority records the two-phase return boundary");
-  assert(purgeOwnerView.game.outcome.notices.some((notice) => notice.title === "Card moved to graveyard" && /2 phases/.test(notice.detail)), "the temporary graveyard notice explains when the card returns");
+  assert.deepEqual(purgeOwnerView.game.outcome.notices.map((notice) => notice.kind), ["phase-start"], "moving a card to the graveyard adds no toast beyond the valid phase-start notice");
 
   const phaseTwoSetupPromise = second.waitForNext((state) => state.game?.completedTurns === 2 && state.game?.outcome?.kind === "skip");
   second.send({ type: "skip-turn", sessionId: secondId });
@@ -583,7 +595,7 @@ try {
   assert(!purgeReturned.game.playerStates[secondId].graveyard.includes(`card-${secondId}`), "the realtime authority removes the purged card from graveyard after two phases");
   assert(purgeReturned.game.playerStates[secondId].discardPile.includes(`card-${secondId}`), "the realtime authority returns the purged card to discard after two phases");
   assert.equal(purgeReturned.game.playerStates[secondId].purgedCards.length, 0);
-  assert(purgeReturned.game.outcome.notices.some((notice) => notice.title === "Purged card returned"), "the authoritative return emits a synchronized notice");
+  assert.deepEqual(purgeReturned.game.outcome.notices ?? [], [], "returning a purged card does not emit a toast");
   first.send({ type: "return:lobby" });
   await first.waitForNext((state) => state.phase === "lobby");
 
