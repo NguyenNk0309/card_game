@@ -61,12 +61,15 @@ const EXPECTED_KEYS = [
 
   const outcomeLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const showOutcome =")) ?? "";
   const summaryLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const showTurnSummary =")) ?? "";
+  const outcomeKeyLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const outcomeKey =")) ?? "";
   assert(!outcomeLine.includes("runComplete") && !summaryLine.includes("runComplete"), "the final action or summary displays before Battle Complete");
+  assert(outcomeKeyLine.includes("game?.completedTurns") && !outcomeKeyLine.includes("turnStartedAt"), "action presentation identity remains stable when a World Event resets turn timing");
   assert.match(gameAppSource, /outcome\.kind === "card" \|\| outcome\.kind === "discard" \|\| outcome\.kind === "skip"/, "local card, Discard, and manual Skip outcomes use Your Action");
   assert.match(gameAppSource, /outcome\.kind === "discard" \|\| outcome\.kind === "skip" \? <LocalTurnActionPanel/, "local Discard and manual Skip render the non-dice Your Action panel");
   assert.match(gameAppSource, /showPendingWorldEventChoice && pendingWorldEvent && <ShatteredTributeChoicePanel/, "the phase-3 choice waits for higher-priority presentations");
   assert.match(worldEventPanelsSource, /cardIds: localState\.hand[\s\S]*cardIds: localState\.drawPile[\s\S]*cardIds: localState\.discardPile/, "the phase-3 choice panel includes hand, draw-pile, and discard-pile cards");
   assert.match(worldEventPanelsSource, /eligible: owned && !borrowed && !ownedCard\?\.unique/, "the phase-3 choice panel enables only owned common cards");
+  assert.match(worldEventPanelsSource, /\.filter\(\(entry\) => !entry\.card\?\.unique\)/, "the phase-3 choice panel does not render special cards");
   assert.match(gameAppSource, /activeAutoPanel === "life" \|\| activeAutoPanel === "world"/, "resolved World Events auto-close with other timed panels");
   assert.match(gameAppSource, /onClick=\{closeModal\}/, "resolved World Events can close from the modal backdrop");
   assert.match(gameAppSource, /onClose=\{\(\) => dismissPresentation\(\)\}/, "resolved World Events receive the standard close action");

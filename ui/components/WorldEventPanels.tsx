@@ -207,7 +207,7 @@ export function ShatteredTributeChoicePanel({
         borrowed,
         eligible: owned && !borrowed && !ownedCard?.unique,
       };
-    }));
+    })).filter((entry) => !entry.card?.unique);
   }, [handCards, localPlayer, localState]);
 
   const eligibleCards = choiceCards.filter((entry) => entry.eligible);
@@ -333,12 +333,10 @@ export function ShatteredTributeChoicePanel({
             const selectionFull = selectedIds.length >= requiredSelectionCount && !selected;
             const cardLabel = entry.borrowed
               ? "Borrowed card, unavailable for Shattered Tribute"
-              : entry.card?.unique
-                ? `${entry.card.name}, special card unavailable for Shattered Tribute`
-                : `${entry.card?.name ?? "Owned common card"}, ${entry.zoneLabel}, ${selected ? "selected" : "not selected"}`;
+              : `${entry.card?.name ?? "Owned common card"}, ${entry.zoneLabel}, ${selected ? "selected" : "not selected"}`;
             return <button
               type="button"
-              className={`world-event-choice-card action-card ${entry.card ? `effect-${entry.card.effect}` : ""} ${entry.card?.unique ? "hero-special-card" : "common-action-card"} ${selected ? "selected" : ""} ${entry.borrowed ? "borrowed" : ""}`.trim()}
+              className={`world-event-choice-card action-card ${entry.card ? `effect-${entry.card.effect}` : ""} common-action-card ${selected ? "selected" : ""} ${entry.borrowed ? "borrowed" : ""}`.trim()}
               aria-label={cardLabel}
               aria-pressed={entry.eligible ? selected : undefined}
               ref={entry.slotKey === firstEligibleSlotKey ? firstEligibleRef : undefined}
@@ -349,7 +347,7 @@ export function ShatteredTributeChoicePanel({
               {entry.card ? <>
                 <PityCostBadge card={entry.card}/>
                 <div className={`card-sigil effect-${entry.card.effect}`}><CardEffectIcon card={entry.card}/></div>
-                <span>{entry.card.unique ? "Special card" : "Common card"} · {entry.zoneLabel}</span>
+                <span>Common card · {entry.zoneLabel}</span>
                 <strong>{entry.card.name}</strong>
                 <p><EffectText text={entry.card.description} card={entry.card}/></p>
               </> : <>
@@ -359,9 +357,7 @@ export function ShatteredTributeChoicePanel({
               <span className="world-event-card-selection-state">
                 {entry.borrowed
                   ? <><LockKeyhole size={14}/> Borrowed · cannot sacrifice</>
-                  : entry.card?.unique
-                    ? <><LockKeyhole size={14}/> Special · cannot sacrifice</>
-                    : selected ? <><Check size={14}/> Selected</> : `${entry.zoneLabel} · Available`}
+                  : selected ? <><Check size={14}/> Selected</> : `${entry.zoneLabel} · Available`}
               </span>
             </button>;
           })}

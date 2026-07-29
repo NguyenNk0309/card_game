@@ -320,7 +320,7 @@ export default function GameApp() {
   const secondsLeft = game?.turnDeadline ? Math.max(0, Math.ceil((game.turnDeadline - (now + serverTimeOffsetMs)) / 1000)) : 0;
   const passiveDiceBonus = localPlayer && activeCard && localState ? getPassiveDiceBonus(localPlayer, activeCard, localState) : 0;
   const outcome = game?.outcome ?? null;
-  const outcomeKey = outcome ? `${game?.turnStartedAt ?? 0}-${outcome.label}` : "";
+  const outcomeKey = outcome ? `${game?.completedTurns ?? 0}-${outcome.kind}-${outcome.actorName ?? ""}-${outcome.cardId ?? ""}` : "";
   const queuedPresentation = presentationQueue[0];
   const queuedWorldEvent = queuedPresentation?.kind === "world" ? queuedPresentation.event : undefined;
   const activeLifeEvent = queuedPresentation?.kind === "life" ? queuedPresentation.lifeEvent : undefined;
