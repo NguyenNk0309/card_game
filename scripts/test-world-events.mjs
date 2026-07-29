@@ -62,6 +62,8 @@ const EXPECTED_KEYS = [
   const outcomeLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const showOutcome =")) ?? "";
   const summaryLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const showTurnSummary =")) ?? "";
   assert(!outcomeLine.includes("runComplete") && !summaryLine.includes("runComplete"), "the final action or summary displays before Battle Complete");
+  assert.match(gameAppSource, /outcome\.kind === "card" \|\| outcome\.kind === "discard" \|\| outcome\.kind === "skip"/, "local card, Discard, and manual Skip outcomes use Your Action");
+  assert.match(gameAppSource, /outcome\.kind === "discard" \|\| outcome\.kind === "skip" \? <LocalTurnActionPanel/, "local Discard and manual Skip render the non-dice Your Action panel");
   assert.match(gameAppSource, /showPendingWorldEventChoice && pendingWorldEvent && <ShatteredTributeChoicePanel/, "the phase-3 choice waits for higher-priority presentations");
   assert.match(gameAppSource, /activeAutoPanel === "life" \|\| activeAutoPanel === "world"/, "resolved World Events auto-close with other timed panels");
   assert.match(gameAppSource, /onClick=\{closeModal\}/, "resolved World Events can close from the modal backdrop");
