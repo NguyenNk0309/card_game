@@ -102,12 +102,14 @@ export type GameNotice = {
 };
 
 export type GameOutcome = {
+  id?: string;
   success: boolean;
   total: number;
   target: number;
   label: string;
   detail?: string;
   kind?: "card" | "discard" | "skip" | "timeout" | "forced-skip" | "system";
+  actorId?: string;
   actorName?: string;
   cardName?: string;
   cardType?: ActionCard["type"];

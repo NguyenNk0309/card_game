@@ -339,6 +339,9 @@ try {
   assert.equal(pendingTribute.game.pendingWorldEvent.status, "pending");
   assert.deepEqual(new Set(pendingTribute.game.pendingWorldEvent.requiredPlayerIds), new Set([firstId, secondId]));
   assert.deepEqual(pendingTribute.game.pendingWorldEvent.submittedPlayerIds, []);
+  const phaseTwoOutcomeId = pendingTribute.game.outcome.id;
+  assert.equal(pendingTribute.game.outcome.actorId, secondId, "the polling Phase 2 actor receives an authoritative session ID for Your Action");
+  assert(phaseTwoOutcomeId, "the polling action before Shattered Tribute receives a stable outcome ID");
   assert.equal(pendingTribute.game.turnDeadline, 0, "Shattered Tribute pauses the normal polling turn timer");
   assert.equal(pendingTribute.game.pendingWorldEvent.deadlineAt - pendingTribute.game.pendingWorldEvent.startedAt, 60_000);
   assert.equal("results" in pendingTribute.game.pendingWorldEvent, false, "polling pending state never exposes private selected-card results");
@@ -379,6 +382,7 @@ try {
   assert.equal(resolvedTribute.game.worldEvent.eventKey, "shattered-tribute");
   assert.equal(resolvedTribute.game.worldEvent.phase, 3);
   assert.equal(resolvedTribute.game.worldEvent.interactive, true);
+  assert.equal(resolvedTribute.game.outcome.id, phaseTwoOutcomeId, "polling Shattered Tribute finalization preserves the preceding action identity");
   assert.equal(resolvedTribute.game.completedTurns, 3, "World Event choices do not count as player turns");
   assert.equal(resolvedTribute.game.completedPhases, 2, "World Event choices do not complete another phase");
   assert.equal(resolvedTribute.game.adventure.chapter, 3);

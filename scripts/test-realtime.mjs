@@ -445,6 +445,10 @@ try {
   assert.deepEqual(pendingFirst.game.pendingWorldEvent.submittedPlayerIds, []);
   assert.equal(pendingFirst.game.pendingWorldEvent.results, undefined, "pending private choice results are never synchronized");
   assert.equal(pendingSecond.game.pendingWorldEvent.id, pendingEventId, "both WebSocket clients observe the same stable pending event");
+  const phaseTwoOutcomeId = pendingFirst.game.outcome.id;
+  assert.equal(pendingFirst.game.outcome.actorId, firstId, "the Phase 2 actor receives an authoritative session ID for Your Action");
+  assert.equal(pendingSecond.game.outcome.actorId, firstId, "observers receive the same actor ID for Turn Summary");
+  assert(phaseTwoOutcomeId, "the action before Shattered Tribute receives a stable outcome ID");
   assert.equal(pendingFirst.game.turnDeadline, 0, "normal turn timing pauses during Shattered Tribute");
   assert.equal(pendingFirst.game.pendingWorldEvent.deadlineAt - pendingFirst.game.pendingWorldEvent.startedAt, 60_000, "Shattered Tribute has a 60-second choice deadline");
 
@@ -475,6 +479,7 @@ try {
   const firstResolvedEvent = resolvedFirst.game.worldEvent;
   const secondResolvedEvent = resolvedSecond.game.worldEvent;
   assert.equal(firstResolvedEvent.phase, 3);
+  assert.equal(resolvedFirst.game.outcome.id, phaseTwoOutcomeId, "Shattered Tribute finalization cannot re-key and replay the preceding action panel");
   assert.equal(resolvedFirst.game.adventure.chapter, 3, "phase 3 starts only after every required choice resolves");
   assert.equal(resolvedFirst.game.completedPhases, 2, "the World Event itself does not increment completed phases");
   assert.equal(resolvedFirst.game.turnDeadline - resolvedFirst.game.turnStartedAt, 60_000, "phase 3 receives a fresh 60-second turn after finalization");

@@ -186,6 +186,8 @@ const firstTarget = game.adventure.target;
 const attacked = engine.resolveCardTurn(game, [first, second], attack.id, second.id, 20);
 assert(attacked.adventure.target >= 8 && attacked.adventure.target <= 16, "each next target is generated independently of the raw d20");
 assert.equal(attacked.history.length, 1);
+assert.equal(attacked.outcome.id, attacked.history[0].id, "a card outcome keeps the stable identity of its action history entry");
+assert.equal(attacked.outcome.actorId, first.id, "a card outcome identifies its actor by session ID");
 assert.equal(attacked.history[0].diceRoll, 20);
 assert.equal(attacked.history[0].diceTarget, firstTarget);
 assert.equal(attacked.history[0].diceTotal, 20 + engine.getPassiveDiceBonus(first, attack, game.playerStates[first.id]));

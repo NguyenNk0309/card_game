@@ -63,7 +63,9 @@ const EXPECTED_KEYS = [
   const summaryLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const showTurnSummary =")) ?? "";
   const outcomeKeyLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const outcomeKey =")) ?? "";
   assert(!outcomeLine.includes("runComplete") && !summaryLine.includes("runComplete"), "the final action or summary displays before Battle Complete");
-  assert(outcomeKeyLine.includes("game?.completedTurns") && !outcomeKeyLine.includes("turnStartedAt"), "action presentation identity remains stable when a World Event resets turn timing");
+  const localOutcomeLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const isLocalActionOutcome =")) ?? "";
+  assert(outcomeKeyLine.includes("outcome.id ??") && !outcomeKeyLine.includes("turnStartedAt"), "authoritative action identity remains stable when a World Event resets turn timing");
+  assert(localOutcomeLine.includes("outcome.actorId === localPlayer.id"), "Your Action identifies its local actor by stable session ID");
   assert.match(gameAppSource, /outcome\.kind === "card" \|\| outcome\.kind === "discard" \|\| outcome\.kind === "skip"/, "local card, Discard, and manual Skip outcomes use Your Action");
   assert.match(gameAppSource, /outcome\.kind === "discard" \|\| outcome\.kind === "skip" \? <LocalTurnActionPanel/, "local Discard and manual Skip render the non-dice Your Action panel");
   assert.match(gameAppSource, /showPendingWorldEventChoice && pendingWorldEvent && <ShatteredTributeChoicePanel/, "the phase-3 choice waits for higher-priority presentations");

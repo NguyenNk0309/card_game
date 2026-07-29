@@ -320,7 +320,7 @@ export default function GameApp() {
   const secondsLeft = game?.turnDeadline ? Math.max(0, Math.ceil((game.turnDeadline - (now + serverTimeOffsetMs)) / 1000)) : 0;
   const passiveDiceBonus = localPlayer && activeCard && localState ? getPassiveDiceBonus(localPlayer, activeCard, localState) : 0;
   const outcome = game?.outcome ?? null;
-  const outcomeKey = outcome ? `${game?.completedTurns ?? 0}-${outcome.kind}-${outcome.actorName ?? ""}-${outcome.cardId ?? ""}` : "";
+  const outcomeKey = outcome ? outcome.id ?? `${game?.completedTurns ?? 0}-${outcome.kind}-${outcome.actorName ?? ""}-${outcome.cardId ?? ""}` : "";
   const queuedPresentation = presentationQueue[0];
   const queuedWorldEvent = queuedPresentation?.kind === "world" ? queuedPresentation.event : undefined;
   const activeLifeEvent = queuedPresentation?.kind === "life" ? queuedPresentation.lifeEvent : undefined;
@@ -328,7 +328,7 @@ export default function GameApp() {
   const showNonWorldLifeEvent = Boolean(activeLifeEvent && activeLifeEvent.source !== "world-event");
   const showWorldLifeEvent = Boolean(activeLifeEvent?.source === "world-event");
   const showLifeEvent = showNonWorldLifeEvent || showWorldLifeEvent;
-  const isLocalActionOutcome = Boolean(outcome && outcome.actorName === localPlayer?.displayName && (outcome.kind === "card" || outcome.kind === "discard" || outcome.kind === "skip"));
+  const isLocalActionOutcome = Boolean(outcome && localPlayer && (outcome.actorId ? outcome.actorId === localPlayer.id : outcome.actorName === localPlayer.displayName) && (outcome.kind === "card" || outcome.kind === "discard" || outcome.kind === "skip"));
   const showOutcome = Boolean(isLocalActionOutcome && outcomeKey !== dismissedOutcomeKey);
   const showTurnSummary = Boolean(outcome?.actorName && !isLocalActionOutcome && outcomeKey !== dismissedSummaryKey);
   const vfxCard = outcome?.kind === "card"
