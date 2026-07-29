@@ -5921,28 +5921,6 @@ button:focus-visible {
 .world-event-team-summary p { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .world-event-resolution-actions { display: flex; justify-content: center; gap: 9px; margin-top: 16px; }
 
-.world-event-nonblocking-notice {
-  position: fixed;
-  z-index: 190;
-  top: 82px;
-  left: 50%;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 10px;
-  width: min(620px, calc(100vw - 20px));
-  padding: 11px 12px;
-  border: 1px solid rgba(226, 78, 61, .56);
-  background: rgba(16, 22, 23, .97);
-  box-shadow: 0 12px 38px rgba(0, 0, 0, .5);
-  transform: translateX(-50%);
-}
-.world-event-nonblocking-notice > svg { color: #ef6857; }
-.world-event-nonblocking-notice div { display: grid; gap: 1px; }
-.world-event-nonblocking-notice span { color: #ef8d7e; font-size: 9px; font-weight: 900; letter-spacing: .12em; }
-.world-event-nonblocking-notice small { color: var(--muted); }
-.world-event-nonblocking-notice button { border: 1px solid var(--line); background: rgba(255, 255, 255, .04); padding: 7px 9px; cursor: pointer; }
-
 .chapter-pips i.world-event-turn.event-pending {
   background: #f16752;
   box-shadow: 0 0 18px rgba(242, 79, 59, .95);
@@ -5967,17 +5945,6 @@ button:focus-visible {
 .world-event-library-event h3 { margin: 0; font-family: Georgia, serif; font-size: 16px; }
 .world-event-library-event p { margin: 9px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
 
-.world-event-history-archive { display: grid; gap: 10px; margin-top: 22px; }
-.world-event-history-archive > h3 { display: flex; align-items: center; gap: 7px; margin: 0; color: #efc976; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
-.world-event-history-archive > article { padding: 13px; border: 1px solid rgba(210, 91, 70, .28); background: rgba(104, 37, 31, .07); }
-.world-event-history-archive article > header { display: grid; gap: 3px; }
-.world-event-history-archive article > header span { color: #e48d7d; font-size: 9px; font-weight: 900; letter-spacing: .12em; text-transform: uppercase; }
-.world-event-history-archive article > header strong { font-family: Georgia, serif; font-size: 17px; }
-.world-event-history-archive article > p { color: var(--muted); font-size: 12px; line-height: 1.55; }
-.world-event-history-archive article > div { display: grid; gap: 4px; padding: 9px; border-left: 2px solid #65b094; background: rgba(71, 132, 113, .1); font-size: 11px; }
-.world-event-history-archive ul { display: grid; gap: 4px; margin: 10px 0 0; padding: 0; color: var(--muted); font-size: 10px; list-style: none; }
-.world-event-history-archive li b { color: var(--paper); }
-
 @media (max-width: 640px) {
   .world-event-choice-backdrop { padding: 0; place-items: stretch; }
   .world-event-choice-panel { width: 100%; min-height: 100dvh; max-height: none; padding: 13px 10px 24px; }
@@ -5995,14 +5962,11 @@ button:focus-visible {
   .world-event-library-event:last-child { border-bottom: 0; }
   .world-event-library-group > header { align-items: flex-start; flex-direction: column; }
   .world-event-resolution-actions { align-items: stretch; flex-direction: column; }
-  .world-event-nonblocking-notice { top: 66px; grid-template-columns: auto minmax(0, 1fr) auto; }
-  .world-event-nonblocking-notice > button:first-of-type { grid-column: 2 / 4; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .chapter-pips i.world-event-turn,
   .phase-event-tooltip,
   .world-event-choice-card,
-  .world-event-progress-track i,
-  .world-event-nonblocking-notice { animation: none !important; transition: none !important; }
+  .world-event-progress-track i { animation: none !important; transition: none !important; }
 }
