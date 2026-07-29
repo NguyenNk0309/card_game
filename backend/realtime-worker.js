@@ -11,6 +11,7 @@ import {
   isWorldEventBlocking,
   getActiveBattleDeadline
 } from './world-event-engine.mjs';
+import { sanitizeCommunicationGame } from '../shared/viewpoint.mjs';
 
 const emptyRoom = () => ({ players: [], phase: 'lobby', game: null, revision: 0, phaseFiveOriginalCards: {} });
 let room = emptyRoom();
@@ -31,7 +32,7 @@ function publicState(viewerId = '') {
       id === viewerId ? state : { ...state, hand: [], drawPile: [], discardPile: [], graveyard: [], borrowedCards: [], purgedCards: [], cardUses: {} }
     ]))
   } : null;
-  const game = personalizedGame ? sanitizeWorldEventGame(personalizedGame, viewerId) : null;
+  const game = personalizedGame ? sanitizeCommunicationGame(sanitizeWorldEventGame(personalizedGame, viewerId), room.players, viewerId) : null;
   return { players: room.players, phase: room.phase, game, revision: room.revision, serverNow: Date.now(), viewerSessionId: viewerId };
 }
 

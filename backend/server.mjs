@@ -17,6 +17,7 @@ import {
   submitWorldEventChoice,
   triggerWorldEventAfterPhase
 } from './world-event-engine.mjs';
+import { sanitizeCommunicationGame } from '../shared/viewpoint.mjs';
 
 const dev = process.argv.includes('--dev');
 const hostname = process.env.HOSTNAME || '127.0.0.1';
@@ -88,7 +89,7 @@ const peers = new Map();
 function publicState(viewerId = '') {
   if (room.game) upgradePhaseFiveCards(room.game);
   if (room.game) normalizeWorldEventState(room.game);
-  const sanitizedGame = room.game ? sanitizeWorldEventGame(room.game, viewerId) : null;
+  const sanitizedGame = room.game ? sanitizeCommunicationGame(sanitizeWorldEventGame(room.game, viewerId), room.players, viewerId) : null;
   const game = sanitizedGame ? {
     ...sanitizedGame,
     playerStates: Object.fromEntries(Object.entries(room.game.playerStates || {}).map(([id, state]) => [

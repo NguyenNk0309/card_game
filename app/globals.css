@@ -596,6 +596,13 @@ button:focus-visible {
 .roster-buff-tooltip em { color: #8fd9a7; font-weight: 900; }
 .roster-buff-tooltip > span.negative,
 .roster-buff-tooltip > span.negative em { color: #ef9187; }
+.roster-buff-tooltip > p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1.45;
+}
 
 .roster-buff-indicator:hover .roster-buff-tooltip,
 .roster-buff-indicator:focus-visible .roster-buff-tooltip,
@@ -3502,6 +3509,87 @@ button:focus-visible {
   overflow-y: auto;
   padding-right: 4px;
 }
+
+.viewpoint-history {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.history-filter-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.history-filter-control > span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .13em;
+}
+
+.history-filter-control select {
+  min-width: 210px;
+  height: 34px;
+  padding: 0 30px 0 10px;
+  color: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #11191a;
+}
+
+.history-table-scroll {
+  max-height: 65vh;
+  overflow: auto;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, .18);
+}
+
+.history-table {
+  width: 100%;
+  min-width: 1640px;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 11px;
+}
+
+.history-table th {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  padding: 9px 10px;
+  color: var(--gold);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid rgba(212, 181, 110, .35);
+  background: #11191a;
+  font-size: 9px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.history-table td {
+  max-width: 280px;
+  padding: 10px;
+  color: #bec8c4;
+  border-right: 1px solid rgba(255, 255, 255, .06);
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
+  line-height: 1.45;
+  vertical-align: top;
+}
+
+.history-table th:last-child,
+.history-table td:last-child { border-right: 0; }
+.history-table td:last-child { min-width: 330px; }
+.history-table tbody tr:hover { background: rgba(255, 255, 255, .025); }
+.history-result { color: #9ccdaf; }
+.history-result.failure,
+.history-result.turn-skipped,
+.history-result.timed-out { color: #e7988e; }
+.history-result.discarded,
+.history-result.passed { color: #d9bf7a; }
 
 .expanded-history-list {
   max-height: 65vh;

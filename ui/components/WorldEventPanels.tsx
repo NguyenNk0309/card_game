@@ -8,6 +8,7 @@ import {
   getWorldEventDefinition,
   getWorldEventsForPhase,
 } from "@/shared/worldEvents.mjs";
+import { formatViewpointText } from "@/shared/viewpoint.mjs";
 import type {
   ActionCard,
   PendingWorldEvent,
@@ -312,7 +313,7 @@ export function ShatteredTributeChoicePanel({
           const submitted = submittedIds.includes(playerId);
           const status = autoResolved ? "Auto-resolved" : submitted ? "Submitted" : "Waiting";
           return <li className={autoResolved ? "auto-resolved" : submitted ? "submitted" : "waiting"} key={playerId}>
-            <span>{player?.displayName ?? "Player no longer in battle"}</span>
+            <span>{playerId === localPlayer?.id ? "You" : player?.displayName ?? "Player no longer in battle"}</span>
             <strong>{status}</strong>
           </li>;
         })}
@@ -380,6 +381,7 @@ export function ShatteredTributeChoicePanel({
 
 export type ResolvedWorldEventPanelProps = {
   event: WorldEventOutcome;
+  players: PlayerSession[];
   localPlayerId?: string;
   className?: string;
   onClose: () => void;
@@ -387,6 +389,7 @@ export type ResolvedWorldEventPanelProps = {
 
 export function ResolvedWorldEventPanel({
   event,
+  players,
   localPlayerId,
   className = "",
   onClose,
@@ -422,7 +425,7 @@ export function ResolvedWorldEventPanel({
 
     {localResult && <section className="world-event-private-result" aria-label="Your private World Event result">
       <span><LockKeyhole size={15}/> YOUR PRIVATE RESULT</span>
-      <strong>{localResult.privateSummary || localResult.publicSummary}</strong>
+      <strong>{formatViewpointText(localResult.privateSummary || localResult.publicSummary, players, localPlayerId, { involvedPlayerIds: [localResult.playerId] })}</strong>
       {localResult.autoResolved && <small>Automatically resolved when the choice deadline ended.</small>}
     </section>}
 

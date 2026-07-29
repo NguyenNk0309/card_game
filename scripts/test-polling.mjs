@@ -468,6 +468,12 @@ try {
   assert.equal(pollingRefillState.drawPile.length, 1, "polling recycling leaves the other discarded card in draw");
   assert.equal(pollingRefillState.discardPile.length, 0, "polling recycling moves the entire discard pile to draw");
   assert.deepEqual(reshuffledAfterDiscard.game.outcome.notices ?? [], [], "polling empty-draw recycling does not emit a toast");
+  assert.equal(reshuffledAfterDiscard.game.outcome.cardName, "Heavy Blow", "the polling card owner sees their discarded card identity");
+  const pollingDiscardObserver = await readRoom(secondId);
+  assert.equal(pollingDiscardObserver.game.outcome.cardName, undefined, "the polling observer cannot see the discarded card identity");
+  assert.equal(pollingDiscardObserver.game.outcome.cardId, undefined, "the polling observer cannot see the discarded card ID");
+  assert.equal(pollingDiscardObserver.game.history.at(-1).cardName, undefined, "polling history hides discarded card identity from observers");
+  assert(!pollingDiscardObserver.game.history.at(-1).message.includes("Heavy Blow"), "polling history does not leak a discarded card name in its message");
   const secondResetLobby = await command(firstId, { type: "return:lobby" });
   assert.equal(secondResetLobby.players.find((item) => item.id === firstId).skillDeck.filter((card) => card.effect === "none").length, 3, "a normalized polling snapshot also restores cleanly for the next battle");
 
