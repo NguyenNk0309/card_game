@@ -448,7 +448,11 @@ try {
   const hydratedPhaseFiveState = await readRoom(firstId);
   assert.deepEqual(upgradeZoneIds.map((id) => hydratedPhaseFiveState.players.find((item) => item.id === firstId).skillDeck.find((card) => card.id === id).effect).sort(), ["damage", "guard", "heal"], "a hydrated polling phase-5 snapshot remains normalized");
   const reshuffledAfterDiscard = await command(firstId, { type: "discard-card", cardId: upgradeZoneIds[0] });
-  assert(reshuffledAfterDiscard.game.outcome.notices.some((notice) => notice.kind === "deck-reshuffle"), "polling last-card discards emit a deck reshuffle notice");
+  const pollingRefillState = reshuffledAfterDiscard.game.playerStates[firstId];
+  assert.equal(pollingRefillState.hand.length, 1, "polling empty-draw recycling draws exactly one replacement");
+  assert.equal(pollingRefillState.drawPile.length, 1, "polling recycling leaves the other discarded card in draw");
+  assert.equal(pollingRefillState.discardPile.length, 0, "polling recycling moves the entire discard pile to draw");
+  assert(reshuffledAfterDiscard.game.outcome.notices.some((notice) => notice.kind === "deck-reshuffle" && /one random card/i.test(notice.detail)), "polling empty-draw recycling emits the one-card reshuffle notice");
   const secondResetLobby = await command(firstId, { type: "return:lobby" });
   assert.equal(secondResetLobby.players.find((item) => item.id === firstId).skillDeck.filter((card) => card.effect === "none").length, 3, "a normalized polling snapshot also restores cleanly for the next battle");
 

@@ -744,9 +744,10 @@ const fourPlayers = [veilFast, emberFast, veilSlow, emberSlow];
   worldEventEngine.triggerWorldEventAfterPhase(game, players, 1, 2, eventOptions({ now: 170_000, eventId: "cycle-tribute" }));
   const submitted = worldEventEngine.submitWorldEventChoice(game, players, cycleOwner.id, "cycle-tribute", [...state.hand], eventOptions({ now: 171_000, randomInt: minimumRandomInt }));
   assert.equal(submitted.ok, true);
-  assert.equal(state.hand.length, 4, "a Tribute-triggered full-deck cycle deals up to four cards without adding a fifth replacement");
-  assert.equal(state.drawPile.length, 2);
-  assert.equal(game.pendingWorldEvent.results.find((result) => result.playerId === cycleOwner.id).redrawnCardCount, 4);
+  assert.equal(state.hand.length, 2, "Tribute replaces each sacrificed hand card without dealing a four-card refill");
+  assert.equal(state.drawPile.length, 4, "the remaining recycled discard cards stay in draw after two replacements");
+  assert.equal(state.discardPile.length, 0);
+  assert.equal(game.pendingWorldEvent.results.find((result) => result.playerId === cycleOwner.id).redrawnCardCount, 2);
 }
 
 {

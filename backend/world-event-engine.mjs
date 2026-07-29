@@ -243,25 +243,19 @@ function removeTimedEffectAmount(state, kind, value) {
   return removedTotal;
 }
 
-function startCycleWhenEmpty(state, options) {
-  ensureState(state);
-  if (state.hand.length || state.drawPile.length || !state.discardPile.length) return 0;
-  state.drawPile = shuffle(state.discardPile, options);
-  state.discardPile = [];
-  const dealt = state.drawPile.splice(0, 4);
-  state.hand.push(...dealt);
-  return dealt.length;
-}
-
 function drawReplacement(state, handIndex, options) {
   ensureState(state);
+  if (!state.drawPile.length && state.discardPile.length) {
+    state.drawPile = shuffle(state.discardPile, options);
+    state.discardPile = [];
+  }
   if (state.drawPile.length) {
     const index = randomInt(options, 0, state.drawPile.length - 1);
     const cardId = state.drawPile.splice(index, 1)[0];
     state.hand.splice(Math.min(Math.max(0, handIndex), state.hand.length), 0, cardId);
     return 1;
   }
-  return startCycleWhenEmpty(state, options);
+  return 0;
 }
 
 function cardDefinition(player, cardId) {
@@ -330,9 +324,7 @@ function destroyCardsBatch(player, state, cardIds, options) {
   }
   let redrawn = 0;
   for (const entry of handPositions) {
-    const drawn = drawReplacement(state, entry.index, options);
-    redrawn += drawn;
-    if (drawn > 1) break;
+    redrawn += drawReplacement(state, entry.index, options);
   }
   return { ids, names, redrawn };
 }
