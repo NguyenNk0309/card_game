@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Check, ChevronRight, Clock3, Eye, History, LockKeyhole, Sparkles, Zap } from "lucide-react";
+import { Archive, Check, ChevronRight, Clock3, Eye, History, LockKeyhole, Sparkles, X, Zap } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
@@ -373,6 +373,7 @@ export type ResolvedWorldEventPanelProps = {
   event: WorldEventOutcome;
   localPlayerId?: string;
   className?: string;
+  onClose: () => void;
   onContinue: () => void;
   onViewHistory: () => void;
 };
@@ -381,6 +382,7 @@ export function ResolvedWorldEventPanel({
   event,
   localPlayerId,
   className = "",
+  onClose,
   onContinue,
   onViewHistory,
 }: ResolvedWorldEventPanelProps) {
@@ -408,6 +410,7 @@ export function ResolvedWorldEventPanel({
     tabIndex={-1}
     onKeyDown={(keyEvent) => containDialogFocus(keyEvent, panelRef.current)}
   >
+    <button type="button" className="modal-close icon-button" onClick={onClose} aria-label="Close"><X size={18}/></button>
     <div className="resolution-hero world"><Zap size={34}/></div>
     <span className="eyebrow">WORLD EVENT · PHASE {event.phase} · LEVEL {event.level}</span>
     <h2 id={titleId}>{event.title}</h2>

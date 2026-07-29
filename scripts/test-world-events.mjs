@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 import {
   WORLD_EVENT_DEFINITIONS,
@@ -12,6 +13,8 @@ import {
 } from "../shared/worldEvents.mjs";
 import * as worldEventEngine from "../backend/world-event-engine.mjs";
 
+const gameAppSource = await readFile(new URL("../ui/GameApp.tsx", import.meta.url), "utf8");
+const worldEventPanelsSource = await readFile(new URL("../ui/components/WorldEventPanels.tsx", import.meta.url), "utf8");
 const EXPECTED_PHASES = [3, 7, 12, 17, 22, 27];
 const EXPECTED_KEYS = [
   "shattered-tribute",
@@ -21,6 +24,50 @@ const EXPECTED_KEYS = [
   "severed-oaths", "time-fracture", "crimson-debt",
   "final-collapse", "the-last-cards", "sudden-death"
 ];
+
+{
+  const priorityLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const activeAutoPanel =")) ?? "";
+  const priorityTokens = [
+    "showOutcome",
+    "showTurnSummary",
+    "showNonWorldLifeEvent",
+    "worldEventBlocking",
+    "showWorldEvent",
+    "showWorldLifeEvent",
+    "showRunComplete"
+  ];
+  let previousIndex = -1;
+  for (const token of priorityTokens) {
+    const index = priorityLine.indexOf(token);
+    assert(index > previousIndex, `${token} follows the required automatic-panel priority`);
+    previousIndex = index;
+  }
+
+  const queueStart = gameAppSource.indexOf("const lifeEvents = outcome?.lifeEvents ?? [];");
+  const queueEnd = gameAppSource.indexOf("if (freshPresentations.length)", queueStart);
+  const queueSource = gameAppSource.slice(queueStart, queueEnd);
+  const queueTokens = [
+    'event.source !== "world-event"',
+    "game.worldEvent && game.worldEvent.phase !== 3",
+    'event.source === "world-event"',
+    "if (runComplete && battleResultKey)"
+  ];
+  previousIndex = -1;
+  for (const token of queueTokens) {
+    const index = queueSource.indexOf(token);
+    assert(index > previousIndex, `${token} follows the required presentation queue order`);
+    previousIndex = index;
+  }
+
+  const outcomeLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const showOutcome =")) ?? "";
+  const summaryLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const showTurnSummary =")) ?? "";
+  assert(!outcomeLine.includes("runComplete") && !summaryLine.includes("runComplete"), "the final action or summary displays before Battle Complete");
+  assert.match(gameAppSource, /showPendingWorldEventChoice && pendingWorldEvent && <ShatteredTributeChoicePanel/, "the phase-3 choice waits for higher-priority presentations");
+  assert.match(gameAppSource, /activeAutoPanel === "life" \|\| activeAutoPanel === "world"/, "resolved World Events auto-close with other timed panels");
+  assert.match(gameAppSource, /onClick=\{closeModal\}/, "resolved World Events can close from the modal backdrop");
+  assert.match(gameAppSource, /onClose=\{\(\) => dismissPresentation\(\)\}/, "resolved World Events receive the standard close action");
+  assert.match(worldEventPanelsSource, /aria-label="Close"><X size=\{18\}\/>/, "resolved World Events render a close button inside their focus trap");
+}
 
 const makeCard = (ownerId, suffix, { unique = false, name = suffix } = {}) => ({
   id: `${ownerId}-${suffix}`,
