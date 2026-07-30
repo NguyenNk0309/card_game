@@ -93,7 +93,7 @@ assert.deepEqual(
   {
     category: "YOUR ACTION",
     title: "You passed",
-    detail: "You ended your turn without playing a card. Your cards were preserved.",
+    detail: "No card played; cards preserved.",
     involvedPlayerIds: [rowan.id]
   },
   "a voluntary pass is not described as a forced skip"
@@ -190,7 +190,7 @@ const statusState = {
 const ownStatuses = getStatusPresentations(rowan, statusState, players, rowan.id, 6);
 assert.equal(ownStatuses.find((status) => status.kind === "shield").label, "Your shield");
 assert.equal(ownStatuses.find((status) => status.kind === "shield").duration, "2T");
-assert.equal(ownStatuses.find((status) => status.kind === "shield").tooltip, "You have 3 shield for 2 turns or until depleted.");
+assert.equal(ownStatuses.find((status) => status.kind === "shield").tooltip, "3 shield · 2T or until depleted.");
 assert.equal(ownStatuses.find((status) => status.kind === "diceBuff").value, "+2");
 assert.equal(ownStatuses.find((status) => status.kind === "dicePenalty").value, "−1");
 assert.equal(ownStatuses.find((status) => status.kind === "zeroPity").duration, "1T");

@@ -130,7 +130,7 @@ export function formatOutcomePresentation(outcome, players, viewerId = '') {
       category: context.viewerIsActor ? 'YOUR ACTION' : 'TURN SUMMARY',
       title: context.viewerIsActor ? `You discarded ${card}` : `${actorLabel} discarded a card`,
       detail: context.viewerIsActor
-        ? `${outcome.cardName || 'The card'} moved to your discard pile. A random replacement was drawn when available.`
+        ? `${outcome.cardName || 'The card'} entered discard; replacement drawn if available.`
         : `${actorLabel} voluntarily discarded a card.`,
       involvedPlayerIds: context.involvedIds
     };
@@ -140,8 +140,8 @@ export function formatOutcomePresentation(outcome, players, viewerId = '') {
       category: context.viewerIsActor ? 'YOUR ACTION' : 'TURN SUMMARY',
       title: context.viewerIsActor ? 'You passed' : `${actorLabel} passed`,
       detail: context.viewerIsActor
-        ? 'You ended your turn without playing a card. Your cards were preserved.'
-        : `${actorLabel} ended the turn without playing a card.`,
+        ? 'No card played; cards preserved.'
+        : `${actorLabel} played no card.`,
       involvedPlayerIds: context.involvedIds
     };
   }
@@ -150,8 +150,8 @@ export function formatOutcomePresentation(outcome, players, viewerId = '') {
       category: context.viewerIsActor ? 'YOUR ACTION' : 'TURN SUMMARY',
       title: context.viewerIsActor ? 'You ran out of time' : `${actorLabel} ran out of time`,
       detail: context.viewerIsActor
-        ? 'Your turn was automatically passed without playing or discarding a card.'
-        : `${actorLabel}'s turn was automatically passed.`,
+        ? 'Time expired; no card played or discarded.'
+        : `${actorLabel}'s turn timed out.`,
       involvedPlayerIds: context.involvedIds
     };
   }
@@ -160,8 +160,8 @@ export function formatOutcomePresentation(outcome, players, viewerId = '') {
       category: context.viewerIsActor ? 'TURN SKIPPED' : 'TURN SUMMARY',
       title: context.viewerIsActor ? 'Your turn was skipped' : `${actorPossessive} turn was skipped`,
       detail: context.viewerIsActor
-        ? 'An active effect prevented you from acting. Your cards were preserved.'
-        : `An active effect prevented ${playerReference(context.actor, context.viewer, { includeRelation: !context.viewerInvolved })} from acting.`,
+        ? 'An effect skipped your turn; cards preserved.'
+        : `An effect skipped ${playerReference(context.actor, context.viewer, { includeRelation: !context.viewerInvolved })}.`,
       involvedPlayerIds: context.involvedIds
     };
   }
@@ -324,33 +324,33 @@ export function getStatusPresentations(player, state, players, viewerId = '', cu
   const add = (status) => statuses.push(status);
   if (state.shield > 0) {
     const turns = remainingTurns(state, 'shield');
-    add({ kind: 'shield', label: `${owner.possessive} shield`, displayValue: String(state.shield), value: String(state.shield), duration: `${turns}T`, tooltip: `${owner.subject === 'You' ? 'You have' : `${owner.subject} has`} ${state.shield} shield for ${turns} ${turns === 1 ? 'turn' : 'turns'} or until depleted.`, shield: true });
+    add({ kind: 'shield', label: `${owner.possessive} shield`, displayValue: String(state.shield), value: String(state.shield), duration: `${turns}T`, tooltip: `${state.shield} shield · ${turns}T or until depleted.`, shield: true });
   }
   if (state.attackBuff > 0) {
     const turns = remainingTurns(state, 'attackBuff');
-    add({ kind: 'attackBuff', label: `${owner.possessive} attack bonus`, displayValue: `+${state.attackBuff}`, value: `+${state.attackBuff}`, duration: `${turns}T`, tooltip: `${owner.possessive} next successful attack gains +${state.attackBuff} damage within ${turns === 1 ? 'the next turn' : `${turns} turns`}.` });
+    add({ kind: 'attackBuff', label: `${owner.possessive} attack bonus`, displayValue: `+${state.attackBuff}`, value: `+${state.attackBuff}`, duration: `${turns}T`, tooltip: `Next attack: +${state.attackBuff} damage · ${turns}T.` });
   }
   if (state.diceBuff > 0) {
     const turns = remainingTurns(state, 'diceBuff');
-    add({ kind: 'diceBuff', label: `${owner.possessive} roll bonus`, displayValue: `+${state.diceBuff}`, value: `+${state.diceBuff}`, duration: `${turns}T`, tooltip: `${owner.possessive} next d20 gains +${state.diceBuff} within ${turns === 1 ? 'the next turn' : `${turns} turns`}.` });
+    add({ kind: 'diceBuff', label: `${owner.possessive} roll bonus`, displayValue: `+${state.diceBuff}`, value: `+${state.diceBuff}`, duration: `${turns}T`, tooltip: `Next d20: +${state.diceBuff} · ${turns}T.` });
   }
   if (state.dicePenalty > 0) {
     const turns = remainingTurns(state, 'dicePenalty');
-    add({ kind: 'dicePenalty', label: `${owner.possessive} roll penalty`, displayValue: `−${state.dicePenalty}`, value: `−${state.dicePenalty}`, duration: `${turns}T`, tooltip: `${owner.possessive} next d20 suffers −${state.dicePenalty} within ${turns === 1 ? 'the next turn' : `${turns} turns`}.`, negative: true });
+    add({ kind: 'dicePenalty', label: `${owner.possessive} roll penalty`, displayValue: `−${state.dicePenalty}`, value: `−${state.dicePenalty}`, duration: `${turns}T`, tooltip: `Next d20: −${state.dicePenalty} · ${turns}T.`, negative: true });
   }
   const zeroPityTurns = Math.max(0, Number(state.zeroPityUntilTurn || 0) - Number(state.completedPlayerTurns || 0));
-  if (zeroPityTurns > 0) add({ kind: 'zeroPity', label: `${owner.possessive} next-card pity cost`, displayValue: '0', value: '0 pity', duration: `${zeroPityTurns}T`, tooltip: `${owner.possessive} next played card costs 0 pity within ${zeroPityTurns === 1 ? 'the next turn' : `${zeroPityTurns} turns`}.` });
-  if (state.skipTurns > 0) add({ kind: 'skipTurns', label: `${owner.possessive} skipped turns`, displayValue: `${state.skipTurns}T`, value: `${state.skipTurns} ${state.skipTurns === 1 ? 'turn' : 'turns'}`, duration: `${state.skipTurns}T`, tooltip: `${owner.subject} must miss ${state.skipTurns === 1 ? 'the next turn' : `the next ${state.skipTurns} turns`}.`, negative: true });
-  if (state.reviveIn > 0) add({ kind: 'revive', label: `${owner.possessive} revival`, displayValue: `${state.reviveIn}T`, value: `${state.reviveIn} ${state.reviveIn === 1 ? 'turn' : 'turns'}`, duration: `${state.reviveIn}T`, tooltip: `${owner.subject} will return to battle in ${state.reviveIn} ${state.reviveIn === 1 ? 'turn' : 'turns'}.` });
+  if (zeroPityTurns > 0) add({ kind: 'zeroPity', label: `${owner.possessive} next-card pity cost`, displayValue: '0', value: '0 pity', duration: `${zeroPityTurns}T`, tooltip: `Next card costs 0 pity · ${zeroPityTurns}T.` });
+  if (state.skipTurns > 0) add({ kind: 'skipTurns', label: `${owner.possessive} skipped turns`, displayValue: `${state.skipTurns}T`, value: `${state.skipTurns} ${state.skipTurns === 1 ? 'turn' : 'turns'}`, duration: `${state.skipTurns}T`, tooltip: `Miss ${state.skipTurns} ${state.skipTurns === 1 ? 'turn' : 'turns'}.`, negative: true });
+  if (state.reviveIn > 0) add({ kind: 'revive', label: `${owner.possessive} revival`, displayValue: `${state.reviveIn}T`, value: `${state.reviveIn} ${state.reviveIn === 1 ? 'turn' : 'turns'}`, duration: `${state.reviveIn}T`, tooltip: `Revives in ${state.reviveIn}T.` });
   if ((state.borrowedCards || []).length > 0) {
     const count = state.borrowedCards.length;
-    add({ kind: 'borrowedCards', label: `${owner.possessive} borrowed cards`, displayValue: String(count), value: String(count), duration: '', tooltip: `${owner.subject} ${owner.subject === 'You' ? 'hold' : 'holds'} ${count} borrowed ${count === 1 ? 'card' : 'cards'}.` });
+    add({ kind: 'borrowedCards', label: `${owner.possessive} borrowed cards`, displayValue: String(count), value: String(count), duration: '', tooltip: `${count} borrowed ${count === 1 ? 'card' : 'cards'}.` });
   }
   if ((state.purgedCards || []).length > 0) {
     const count = state.purgedCards.length;
     const completedPhases = Math.max(0, Number(currentPhase || 1) - 1);
     const phases = Math.max(1, ...(state.purgedCards || []).map((card) => Number(card.returnAfterPhase || 0) - completedPhases));
-    add({ kind: 'purgedCards', label: `${owner.possessive} purged ${count === 1 ? 'card' : 'cards'}`, displayValue: `${phases}P`, value: `${count}`, duration: `${phases}P`, tooltip: `${count} ${count === 1 ? 'card is' : 'cards are'} unavailable for ${phases} more ${phases === 1 ? 'phase' : 'phases'}.`, negative: true });
+    add({ kind: 'purgedCards', label: `${owner.possessive} purged ${count === 1 ? 'card' : 'cards'}`, displayValue: `${phases}P`, value: `${count}`, duration: `${phases}P`, tooltip: `${count} unavailable · ${phases}P.`, negative: true });
   }
   return statuses;
 }
@@ -365,7 +365,7 @@ export function sanitizeCommunicationGame(game, players, viewerId = '') {
     delete outcome.cardId;
     delete outcome.cardName;
     outcome.label = `${actor?.displayName || outcome.actorName || 'Player'} discarded a card`;
-    outcome.detail = 'A card entered the discard pile and a random replacement was drawn when available.';
+    outcome.detail = 'A card entered discard; replacement drawn if available.';
   }
   if (outcome?.supportType === 'steal-card' && !viewerCanSeeHiddenCard) {
     outcome.detail = String(outcome.detail || '').replace(/one random (?:special )?card/gi, 'a card');
@@ -376,7 +376,7 @@ export function sanitizeCommunicationGame(game, players, viewerId = '') {
       return {
         ...entry,
         cardName: undefined,
-        message: `${entry.actorName} voluntarily discarded a card. A random replacement was drawn when available.`
+        message: `${entry.actorName} discarded a card; replacement drawn if available.`
       };
     }
     const card = players.flatMap((player) => player.skillDeck || []).find((candidate) => candidate.name === entry.cardName);

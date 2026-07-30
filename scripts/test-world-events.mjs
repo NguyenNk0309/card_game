@@ -78,6 +78,12 @@ const EXPECTED_KEYS = [
   assert.match(worldEventPanelsSource, /aria-label="Close"><X size=\{18\}\/>/, "resolved World Events render a close button inside their focus trap");
   assert.doesNotMatch(worldEventPanelsSource, /world-event-team-summaries|Team impact|Occurred before phase|Next World Event/, "resolved World Events omit team-impact and phase-metric sections");
   assert.doesNotMatch(worldEventPanelsSource, /world-event-resolution-actions|View Battle History|onContinue|onViewHistory/, "resolved World Events omit Continue and View Battle History actions");
+  const guideStart = gameAppSource.indexOf("function DetailedGuide");
+  const guideEnd = gameAppSource.indexOf("function ConfirmedTopAction", guideStart);
+  const guideSource = gameAppSource.slice(guideStart, guideEnd);
+  assert.equal((guideSource.match(/<article><strong>/g) || []).length, 6, "the quick guide keeps six concise guidance items");
+  assert.doesNotMatch(guideSource, /<article><strong>[^<]+<\/strong><p>|WorldEventLibrary|World Event system/, "guidance uses one-sentence headers without World Event detail");
+  assert.doesNotMatch(gameAppSource, /guide-world-event-library|tutorial-world-event-library/, "guidance surfaces do not embed the World Event library");
 }
 
 const makeCard = (ownerId, suffix, { unique = false, name = suffix } = {}) => ({
@@ -230,7 +236,7 @@ for (const entry of WORLD_EVENT_SCHEDULE.slice(1)) {
   assert.equal(new Set(entry.eventKeys).size, 3, `phase ${entry.phase} event keys are unique`);
 }
 assert.deepEqual(Object.keys(WORLD_EVENT_DEFINITIONS), EXPECTED_KEYS);
-assert.match(WORLD_EVENT_DEFINITIONS["shattered-tribute"].fullDescription, /2 owned common cards from hand, draw, or discard[\s\S]*permanently to graveyard[\s\S]*Replace only cards removed from hand[\s\S]*Special and borrowed cards cannot be chosen/i);
+assert.match(WORLD_EVENT_DEFINITIONS["shattered-tribute"].fullDescription, /2 owned common cards[\s\S]*enter graveyard[\s\S]*removed hand cards are replaced[\s\S]*Special and borrowed cards are excluded/i);
 for (const entry of WORLD_EVENT_SCHEDULE) {
   assert.equal(isWorldEventPhase(entry.phase), true);
   assert.equal(getWorldEventScheduleEntry(entry.phase), entry);

@@ -90,7 +90,7 @@ export function WorldEventLibrary({ className = "" }: WorldEventLibraryProps) {
     <header className="world-event-library-heading">
       <span className="eyebrow"><Zap size={14}/> WORLD EVENT LIBRARY</span>
       <h2 id={headingId}>Six escalating event phases</h2>
-      <p>World Events occur before phases 3, 7, 12, 17, 22, and 27. Phase 3 is fixed; every later event phase selects one event from its listed pool.</p>
+      <p>Phases 3, 7, 12, 17, 22, and 27; phase 3 is fixed.</p>
     </header>
     <div className="world-event-library-groups">
       {WORLD_EVENT_SCHEDULE.map((schedule) => {
@@ -101,14 +101,14 @@ export function WorldEventLibrary({ className = "" }: WorldEventLibraryProps) {
               <span>Phase {schedule.phase}</span>
               <strong>Level {schedule.level} · {schedule.intensity}</strong>
             </div>
-            <b>{schedule.selection === "fixed" ? "Fixed event" : "Randomly selects one of three"}</b>
+            <b>{schedule.selection === "fixed" ? "Fixed" : "1 of 3"}</b>
           </header>
           <div className="world-event-library-events">
             {events.map((event) => <article className="world-event-library-event" data-event-key={event.key} key={event.key}>
               <div className="world-event-library-event-title">
                 <Sparkles size={16}/>
                 <div>
-                  <span>{event.interactive ? "Required player choice" : "Immediate event"}</span>
+                  <span>{event.interactive ? "Player choice" : "Immediate"}</span>
                   <h3>{event.title}</h3>
                 </div>
               </div>
@@ -323,7 +323,7 @@ export function ShatteredTributeChoicePanel({
         <div className="world-event-choice-instructions">
           <div>
             <Eye size={17}/>
-            <span><strong>Your private reusable cards</strong><small>Choose common cards from hand, draw pile, or discard pile.</small></span>
+            <span><strong>Your private cards</strong><small>Choose owned common cards from hand, draw, or discard.</small></span>
           </div>
           <b>Selected {selectedIds.length} of {requiredSelectionCount}</b>
         </div>
@@ -333,7 +333,7 @@ export function ShatteredTributeChoicePanel({
             const selected = entry.eligible && selectedIds.includes(entry.id);
             const selectionFull = selectedIds.length >= requiredSelectionCount && !selected;
             const cardLabel = entry.borrowed
-              ? "Borrowed card, unavailable for Shattered Tribute"
+              ? "Borrowed card; unavailable"
               : `${entry.card?.name ?? "Owned common card"}, ${entry.zoneLabel}, ${selected ? "selected" : "not selected"}`;
             return <button
               type="button"
@@ -358,12 +358,12 @@ export function ShatteredTributeChoicePanel({
               </>}
               <span className="world-event-card-selection-state">
                 {entry.borrowed
-                  ? <><LockKeyhole size={14}/> Borrowed · cannot sacrifice</>
+                  ? <><LockKeyhole size={14}/> Borrowed · unavailable</>
                   : selected ? <><Check size={14}/> Selected</> : `${entry.zoneLabel} · Available`}
               </span>
             </button>;
           })}
-          {!eligibleCards.length && <p className="world-event-no-choice-cards">You have no owned common cards in hand, draw pile, or discard pile to sacrifice.</p>}
+          {!eligibleCards.length && <p className="world-event-no-choice-cards">No eligible owned common cards.</p>}
         </div>
 
         {connectionError && <p className="world-event-choice-error" role="alert">{connectionError}</p>}
@@ -373,8 +373,8 @@ export function ShatteredTributeChoicePanel({
         </button>
       </div> : <div className="world-event-choice-waiting" ref={waitingRef} role="status" aria-live="polite" tabIndex={-1}>
         {isRequired
-          ? <><Check size={24}/><strong>Your choice is submitted</strong><p>Waiting for the remaining required players. Card identities stay private.</p></>
-          : <><LockKeyhole size={24}/><strong>Waiting for required players</strong><p>You are not required to submit for this event. No selected cards are revealed.</p></>}
+          ? <><Check size={24}/><strong>Choice submitted</strong><p>Waiting for others; choices stay private.</p></>
+          : <><LockKeyhole size={24}/><strong>No choice needed</strong><p>Waiting for required players.</p></>}
       </div>}
     </section>
   </div>;
@@ -427,7 +427,7 @@ export function ResolvedWorldEventPanel({
     {localResult && <section className="world-event-private-result" aria-label="Your private World Event result">
       <span><LockKeyhole size={15}/> YOUR PRIVATE RESULT</span>
       <strong>{formatViewpointText(localResult.privateSummary || localResult.publicSummary, players, localPlayerId, { involvedPlayerIds: [localResult.playerId] })}</strong>
-      {localResult.autoResolved && <small>Automatically resolved when the choice deadline ended.</small>}
+      {localResult.autoResolved && <small>Auto-resolved at the deadline.</small>}
     </section>}
 
   </div>;

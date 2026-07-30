@@ -29,8 +29,8 @@ assert(new Set(sampledRolls).size > 1, "d20 sampling must not return a fixed val
 
 const options = engine.getCharacterOptions();
 assert.equal(options.length, 10);
-assert.equal(cardRules.describeCardFailure(options[0].skillDeck.find((card) => !card.unique)), "Nothing happens.", "common-card failure copy stays concise and grammatical");
-assert.equal(cardRules.describeCardSuccess(options[0].skillDeck.find((card) => card.effect === "none")), "Nothing happens.", "no-effect success copy stays concise and grammatical");
+assert.equal(cardRules.describeCardFailure(options[0].skillDeck.find((card) => !card.unique)), "No effect.", "common-card failure copy stays concise and grammatical");
+assert.equal(cardRules.describeCardSuccess(options[0].skillDeck.find((card) => card.effect === "none")), "No effect.", "no-effect success copy stays concise and grammatical");
 for (const option of options) {
   assert.equal(option.skillDeck.length, 10, `${option.hero.name} must have 10 cards`);
   assert.equal(option.skillDeck.filter((card) => card.unique).length, 3);

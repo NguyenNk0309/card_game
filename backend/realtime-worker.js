@@ -613,7 +613,7 @@ function removePlayerFromRoom(targetId, removedBy) {
           total: 0,
           target: room.game.adventure.target,
           label: `${removedPlayer.displayName} was removed`,
-          detail: `${removedBy} removed this player. The next turn begins now.`,
+          detail: `Removed by ${removedBy}; next turn starts.`,
           actorName: removedBy
         };
         room.game.history = [...(room.game.history || []), { id: `remove-${now}`, turn: room.game.completedTurns, phase: Math.min(30, (room.game.completedPhases || 0) + 1), kind: 'system', actorName: removedBy, message: `${removedBy} removed ${removedPlayer.displayName} from the battle.`, success: true, createdAt: now }].slice(-80);
@@ -675,8 +675,8 @@ async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', d
   const outcomeId = `${kind}-${completedTurns}-${now}`;
   game.completedTurns = completedTurns;
   game.adventure = { ...game.adventure, target: randomDiceTarget() };
-  game.outcome = { id: outcomeId, kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered the discard pile and drew a random replacement when available. Expiring effects ended normally.` : forced ? 'A support effect cancelled this turn. Cards were preserved; expiring effects ended normally.' : timedOut ? 'The turn was automatically passed. No cards were discarded or shuffled; expiring effects ended normally.' : 'The turn was skipped. No cards were discarded or shuffled; expiring effects ended normally.', actorId: passingPlayer?.id, actorName: playerName, cardId: discardedCardId || undefined, cardName: discardedCardName || undefined, lifeEvents: revived.map((player) => ({ id: `life-${completedTurns}-${now}-returning-light-${player.id}`, kind: 'revive', playerId: player.id, playerName: player.displayName, reason: `${player.displayName} returned through Returning Light with one-third HP.` })) };
-  game.history = [...(game.history || []), { id: outcomeId, turn: completedTurns, phase: actionPhase, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} manually discarded ${discardedCardName} and drew a random replacement when available. Expiring effects ended normally.` : forced ? `${playerName}'s turn was cancelled by an enemy support effect. Their hand was preserved; expiring effects ended normally.` : timedOut ? `${playerName} ran out of time and automatically passed. Their hand was preserved; expiring effects ended normally.` : `${playerName} manually skipped the turn. Their hand was preserved; expiring effects ended normally.`, success: false, createdAt: now }];
+  game.outcome = { id: outcomeId, kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered discard; replacement drawn if available. Effects expired.` : forced ? 'A support effect skipped this turn; cards preserved and effects expired.' : timedOut ? 'Time expired; cards preserved and effects expired.' : 'Turn skipped; cards preserved and effects expired.', actorId: passingPlayer?.id, actorName: playerName, cardId: discardedCardId || undefined, cardName: discardedCardName || undefined, lifeEvents: revived.map((player) => ({ id: `life-${completedTurns}-${now}-returning-light-${player.id}`, kind: 'revive', playerId: player.id, playerName: player.displayName, reason: `${player.displayName} returned through Returning Light with one-third HP.` })) };
+  game.history = [...(game.history || []), { id: outcomeId, turn: completedTurns, phase: actionPhase, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} discarded ${discardedCardName}; replacement drawn if available. Effects expired.` : forced ? `A support effect skipped ${playerName}; cards preserved and effects expired.` : timedOut ? `${playerName} timed out; cards preserved and effects expired.` : `${playerName} skipped; cards preserved and effects expired.`, success: false, createdAt: now }];
   if (revived.length) game.history.push({ id: `revive-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind: 'system', actorName: 'Returning Light', message: `${revived.map((player) => player.displayName).join(', ')} revived with one-third HP.`, success: true, createdAt: now });
   game.roll = null;
   let phaseCompleted = false;
@@ -1063,7 +1063,7 @@ async function handleSocketMessage(socket, text) {
   try {
     message = JSON.parse(text);
   } catch {
-    send(socket, { type: 'error', message: 'The room received an invalid message.' });
+    send(socket, { type: 'error', message: 'Invalid message.' });
     return;
   }
   if (message.type === 'hello') {
@@ -1122,7 +1122,7 @@ async function handleRoomApi(request) {
   try {
     message = await request.json();
   } catch {
-    return json({ error: 'The room received an invalid message.', state: publicState(viewerId) }, 400);
+    return json({ error: 'Invalid message.', state: publicState(viewerId) }, 400);
   }
   const requesterId = String(message.sessionId || '');
   const error = await applyCommand(requesterId, message, deadlineAdvanced);

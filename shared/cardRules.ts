@@ -52,16 +52,15 @@ export function getCardTargetLabel(card: ActionCard) {
 }
 
 export function describeCardSuccess(card: ActionCard) {
-  return card.effect === "none" ? "Nothing happens." : "Apply this card's effect.";
+  return card.effect === "none" ? "No effect." : "Effect applies.";
 }
 
 export function describeCardFailure(card: ActionCard) {
-  if (!card.unique) return "Nothing happens.";
-  if (!card.failureEffect || !card.failureValue) return "The card has no effect.";
-  if (card.failureEffect === "self-damage") return `The user takes ${card.failureValue} backlash damage.`;
-  if (card.failureEffect === "team-damage") return `The entire team takes ${card.failureValue} backlash damage.`;
-  if (card.failureEffect === "lose-shield") return `The user loses up to ${card.failureValue} shield.`;
-  return `Every enemy gains ${card.failureValue} shield.`;
+  if (!card.unique || !card.failureEffect || !card.failureValue) return "No effect.";
+  if (card.failureEffect === "self-damage") return `Take ${card.failureValue} backlash damage.`;
+  if (card.failureEffect === "team-damage") return `Team takes ${card.failureValue} backlash damage.`;
+  if (card.failureEffect === "lose-shield") return `Lose up to ${card.failureValue} shield.`;
+  return `Enemies gain ${card.failureValue} shield.`;
 }
 
 export function describeCardImpact(card: ActionCard) {

@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Shattered Oath — Multiplayer Card Arena",
-  description: "A team-versus-team card and dice game for up to ten players.",
+  description: "A team card-and-dice battle for up to ten players.",
   icons: {
     icon: "/icon.svg"
   },

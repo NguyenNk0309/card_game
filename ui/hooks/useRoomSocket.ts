@@ -20,46 +20,46 @@ const MAX_POLL_DELAY_MS = 15000;
 function localizeRoomError(message: string) {
   const rules: Array<[string, string]> = [
     ["already started", "The battle has already started."],
-    ["session is incomplete", "The player session is incomplete."],
-    ["cannot create another", "This browser cannot create another player session."],
+    ["session is incomplete", "Player session incomplete."],
+    ["cannot create another", "This browser already controls a player."],
     ["already has 10 players", "The room already has 10 players."],
-    ["player name is already", "That player name is already in use."],
-    ["character has already", "That character has already been chosen."],
-    ["Readiness can only", "Ready status can only change in the lobby."],
-    ["ready your own", "You can only change your own ready status."],
-    ["change your own character", "You can only change your own character."],
+    ["player name is already", "Name already in use."],
+    ["character has already", "Character already chosen."],
+    ["Readiness can only", "Ready changes only in lobby."],
+    ["ready your own", "Change only your ready status."],
+    ["change your own character", "Change only your character."],
     ["Cancel Ready before changing characters", "Cancel Ready before changing characters."],
     ["Join the lobby", "Join the lobby first."],
-    ["cannot leave during", "You cannot use the lobby leave action during a battle."],
-    ["remove your own", "You can only leave your own player session."],
-    ["joined player can remove", "Only a joined player can remove another player."],
-    ["before removing", "Join the room before removing a player."],
-    ["Use Leave", "Use Leave to remove your own player."],
+    ["cannot leave during", "Use Leave Battle instead."],
+    ["remove your own", "Leave only your own player."],
+    ["joined player can remove", "Join before removing players."],
+    ["before removing", "Join before removing players."],
+    ["Use Leave", "Use Leave for your player."],
     ["no longer in the room", "That player is no longer in the room."],
-    ["At least two players", "At least two players are required."],
-    ["one player must join each team", "At least one player must join each team."],
-    ["choose your own team", "You can only choose your own team."],
-    ["before choosing a team", "Join the lobby before choosing a team."],
+    ["At least two players", "Two players required."],
+    ["one player must join each team", "Each team needs one player."],
+    ["choose your own team", "Choose only your team."],
+    ["before choosing a team", "Join before choosing a team."],
     ["Cancel ready before changing teams", "Cancel ready before changing teams."],
     ["Every joined player", "Every joined player must be ready."],
     ["state is missing", "The battle state is missing."],
     ["no active adventure", "There is no active battle."],
-    ["current player", "Only the current player can perform this action."],
-    ["skip this turn", "Only the current player can skip this turn."],
-    ["cannot skip", "A defeated player cannot skip a turn."],
+    ["current player", "Only the current player can act."],
+    ["skip this turn", "Only the current player can skip."],
+    ["cannot skip", "Defeated players cannot skip."],
     ["update is incomplete", "The turn update is incomplete."],
-    ["pending World Event must be resolved", "The World Event choice must be resolved before normal turns continue."],
-    ["no pending World Event choice", "That World Event choice is no longer active."],
-    ["World Event choice is no longer current", "That World Event choice is no longer current."],
-    ["already submitted", "Your World Event choice was already submitted."],
+    ["pending World Event must be resolved", "Resolve the World Event first."],
+    ["no pending World Event choice", "World Event choice closed."],
+    ["World Event choice is no longer current", "World Event choice expired."],
+    ["already submitted", "Choice already submitted."],
     ["Each selected card must be unique", "Choose each Tribute card only once."],
-    ["Choose exactly", "Choose the exact required number of eligible cards."],
-    ["owned, non-borrowed", "Shattered Tribute accepts only your owned common cards from hand, draw pile, or discard pile."],
-    ["submit your own World Event choice", "You can only submit your own World Event choice."],
-    ["impossible phase jump", "The server rejected an impossible phase change."],
-    ["joined player can end", "Only a joined player can end the battle."],
+    ["Choose exactly", "Choose the required card count."],
+    ["owned, non-borrowed", "Choose owned common cards from hand, draw, or discard."],
+    ["submit your own World Event choice", "Submit only your choice."],
+    ["impossible phase jump", "Invalid phase change."],
+    ["joined player can end", "Join before ending the battle."],
     ["not in the adventure", "That player is no longer in the battle."],
-    ["does not recognize", "The room does not recognize this action."]
+    ["does not recognize", "Unknown room action."]
   ];
   return rules.find(([key]) => message.includes(key))?.[1] ?? message;
 }
@@ -116,7 +116,7 @@ export function useRoomSocket() {
         pollDelayRef.current = Math.min(MAX_POLL_DELAY_MS, Math.max(8000, pollDelayRef.current * 2));
         nextDelay = retryDelay(response, pollDelayRef.current);
         setStatus("reconnecting");
-        setError(`The room is busy. Retrying in ${Math.ceil(nextDelay / 1000)} seconds...`);
+        setError(`Room busy; retrying in ${Math.ceil(nextDelay / 1000)}s.`);
         return;
       }
       if (!response.ok) throw new Error(`Room request failed with status ${response.status}.`);
@@ -133,7 +133,7 @@ export function useRoomSocket() {
         pollDelayRef.current = Math.min(MAX_POLL_DELAY_MS, Math.max(BASE_POLL_DELAY_MS, pollDelayRef.current * 2));
         nextDelay = pollDelayRef.current;
         setStatus("reconnecting");
-        setError(`The room is temporarily unavailable. Retrying in ${Math.ceil(nextDelay / 1000)} seconds...`);
+        setError(`Room unavailable; retrying in ${Math.ceil(nextDelay / 1000)}s.`);
       }
     } finally {
       pollInFlightRef.current = false;
@@ -191,9 +191,9 @@ export function useRoomSocket() {
         try {
           const message = JSON.parse(String(event.data));
           if (message.type === "state" && message.state) acceptResponse({ state: message.state });
-          else if (message.type === "error") setError(localizeRoomError(String(message.message || "The room rejected this action.")));
+          else if (message.type === "error") setError(localizeRoomError(String(message.message || "Action rejected.")));
         } catch {
-          setError("The room returned unreadable data.");
+          setError("Unreadable room data.");
         }
       });
 
@@ -256,20 +256,20 @@ export function useRoomSocket() {
           const delay = retryDelay(response, Math.min(MAX_POLL_DELAY_MS, Math.max(8000, pollDelayRef.current * 2)));
           pollDelayRef.current = delay;
           setStatus("reconnecting");
-          setError(`The room is busy. The action was not sent; retry in ${Math.ceil(delay / 1000)} seconds.`);
+          setError(`Room busy; retry in ${Math.ceil(delay / 1000)}s.`);
           schedulePoll(delay);
           return;
         }
         const result = await response.json();
         acceptResponse(result);
-        if (!response.ok && !result.error) setError("The room rejected this action.");
+        if (!response.ok && !result.error) setError("Action rejected.");
       }).catch(() => {
         setStatus("offline");
-        setError("The room is temporarily unavailable. Please try again shortly.");
+        setError("Room temporarily unavailable.");
       });
       return true;
     }
-    setError("The room is connecting. Please try again shortly.");
+    setError("Room still connecting.");
     return false;
   }, [acceptResponse, schedulePoll]);
 
