@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Check, Clover, Dices, Hand, Heart, Hourglass, Shield, Swords, UserMinus } from "lucide-react";
+import { Archive, Check, Clover, Dices, Hand, Heart, Hourglass, Shield, Swords } from "lucide-react";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
@@ -74,11 +74,10 @@ function RosterEffect({ buff, icon }: { buff: StatusPresentation; icon: React.Re
   </>;
 }
 
-export function PartyRail({ players, game, localSessionId, onRemovePlayer, onInspectPlayer }: {
+export function PartyRail({ players, game, localSessionId, onInspectPlayer }: {
   players: PlayerSession[];
   game?: SyncedGameState | null;
   localSessionId?: string;
-  onRemovePlayer?: (id: string) => void;
   onInspectPlayer?: (id: string) => void;
 }) {
   const localPlayer = players.find((player) => player.id === localSessionId);
@@ -109,8 +108,8 @@ export function PartyRail({ players, game, localSessionId, onRemovePlayer, onIns
           return <article className={`hero-row ${dead ? "is-dead" : ""} ${player.id === localSessionId ? "is-you" : ""}`} key={player.id}>
             <button className="portrait-button" onClick={() => onInspectPlayer?.(player.id)} aria-label={`View ${player.displayName}'s character`}><div className="portrait" style={{ "--hero-color": hero.color } as React.CSSProperties}>{hero.initials}</div></button>
             <div className="hero-copy">
-              <div className="hero-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{player.displayName}</strong><span className="hero-name-actions">{dead ? <em>DEFEATED</em> : null}{localSessionId && player.id !== localSessionId && onRemovePlayer && <button className="rail-remove-player" onClick={() => onRemovePlayer(player.id)} aria-label={`Remove ${player.displayName}`}><UserMinus size={12}/></button>}</span></div>
-              <span>{hero.name} · {hero.className}</span>
+              <div className="hero-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{player.displayName}</strong>{dead ? <em>DEFEATED</em> : null}</div>
+              <span>{hero.name}</span>
               <div className="hp-line"><Heart size={11} fill="currentColor"/><div className="hp-meter" role="progressbar" aria-label={`${player.displayName} health`} aria-valuemin={0} aria-valuemax={maxHp} aria-valuenow={hp}><i style={{ width: `${Math.max(0, hp / maxHp) * 100}%` }}/><strong>{hp} / {maxHp} HP</strong></div></div>
               {buffs.length > 0 && <div className="roster-buff-row" aria-label={`${player.displayName} active effects`}>{buffs.map((buff, index) => <RosterEffect buff={buff} icon={statusIcon(buff.kind)} key={`${buff.kind}-${index}`}/>)}</div>}
             </div>
