@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type GameSoundEffect = "roll" | "play" | "roll-success" | "roll-fail" | "discard" | "skip";
+export type GameSoundEffect = "roll" | "play" | "roll-success" | "roll-fail" | "discard" | "skip" | "team-join";
 
 const BACKGROUND_MUSIC_URL = process.env.NEXT_PUBLIC_BACKGROUND_MUSIC_URL?.trim() || "/audio/bg.mp3";
 const WIN_MUSIC_URL = process.env.NEXT_PUBLIC_WIN_MUSIC_URL?.trim() ?? "";
@@ -178,6 +178,10 @@ export function useGameAudio() {
     } else if (effect === "discard") {
       tone(context, destination, sources, 420, when, 0.46, 0.095, "triangle", 105);
       noise(context, destination, sources, when + 0.05, 0.26, 0.06);
+    } else if (effect === "team-join") {
+      tone(context, destination, sources, 130.81, when, 0.55, 0.055, "sine");
+      [261.63, 329.63, 392].forEach((frequency, index) => tone(context, destination, sources, frequency, when + index * 0.085, 0.58, 0.085, "triangle"));
+      tone(context, destination, sources, 523.25, when + 0.24, 0.42, 0.045, "sine");
     } else {
       tone(context, destination, sources, 246.94, when, 0.22, 0.07, "sine");
       tone(context, destination, sources, 196, when + 0.14, 0.34, 0.065, "sine");

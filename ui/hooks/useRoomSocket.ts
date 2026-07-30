@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { SharedRoomState } from "@/shared/types";
+import type { SharedRoomState, TeamId } from "@/shared/types";
 
 type ConnectionStatus = "connecting" | "connected" | "reconnecting" | "offline";
 
@@ -79,6 +79,7 @@ export function useRoomSocket() {
   const [error, setError] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [serverTimeOffsetMs, setServerTimeOffsetMs] = useState(0);
+  const [teamJoinSoundSequence, setTeamJoinSoundSequence] = useState(0);
   const socketRef = useRef<WebSocket | null>(null);
   const pollingRef = useRef(false);
   const pollTimerRef = useRef<number | null>(null);
@@ -87,12 +88,20 @@ export function useRoomSocket() {
   const pollRoomRef = useRef<() => Promise<void>>(async () => {});
   const sessionIdRef = useRef("");
   const disposedRef = useRef(false);
+  const previousPlayerTeamsRef = useRef<Map<string, TeamId> | null>(null);
 
   const acceptResponse = useCallback((payload: { state?: SharedRoomState; error?: string | null }) => {
     if (payload.state) {
       const expectedViewer = sessionIdRef.current;
       const ownsPlayer = Boolean(expectedViewer && payload.state.players.some((player) => player.id === expectedViewer));
       if (ownsPlayer && payload.state.viewerSessionId !== expectedViewer) return;
+      const playerTeams = new Map(payload.state.players.map((player) => [player.id, player.hero.team] as const));
+      const previousPlayerTeams = previousPlayerTeamsRef.current;
+      if (previousPlayerTeams && payload.state.phase === "lobby") {
+        const joinedTeam = [...playerTeams].some(([playerId, team]) => !previousPlayerTeams.has(playerId) || previousPlayerTeams.get(playerId) !== team);
+        if (joinedTeam) setTeamJoinSoundSequence((sequence) => sequence + 1);
+      }
+      previousPlayerTeamsRef.current = playerTeams;
       setRoom(payload.state);
       if (Number.isFinite(payload.state.serverNow)) setServerTimeOffsetMs(payload.state.serverNow - Date.now());
     }
@@ -279,6 +288,7 @@ export function useRoomSocket() {
     error,
     sessionId,
     serverTimeOffsetMs,
+    teamJoinSoundSequence,
     send,
     clearError: () => setError("")
   };

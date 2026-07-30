@@ -7,6 +7,8 @@ const gameApp = read("ui/GameApp.tsx");
 const lobby = read("ui/components/Lobby.tsx");
 const worldEvents = read("ui/components/WorldEventPanels.tsx");
 const partyRail = read("ui/components/PartyRail.tsx");
+const roomSocket = read("ui/hooks/useRoomSocket.ts");
+const gameAudio = read("ui/hooks/useGameAudio.ts");
 const styles = read("app/globals.css");
 
 const cardSurfaces = [gameApp, lobby, worldEvents].join("\n");
@@ -20,4 +22,10 @@ assert(!/SPECIAL\s*·|SPECIAL CARD|toUpperCase\(\)\}\s*SKILL/.test(cardSurfaces)
 
 assert.match(partyRail, /<em>\{buff\.tooltipValue \?\? buff\.value\}<\/em>\{buff\.durationLabel && <><i aria-hidden="true">-<\/i><b>\{buff\.durationLabel\}<\/b><\/>\}/, "timed status tooltips must show value - full duration");
 
-console.log("Card UI contract passed: shared six-line descriptions, scroll overflow, SPECIAL headers, and normalized status values.");
+assert.match(gameAudio, /GameSoundEffect[\s\S]*"team-join"/, "the audio system must expose the team-join effect");
+assert.match(gameAudio, /effect === "team-join"[\s\S]*261\.63[\s\S]*329\.63[\s\S]*392/, "the team-join effect must use its positive entry chime");
+assert.match(roomSocket, /previousPlayerTeamsRef = useRef<Map<string, TeamId> \| null>\(null\)/, "team-join detection must skip the initial room snapshot");
+assert.match(roomSocket, /payload\.state\.phase === "lobby"[\s\S]*!previousPlayerTeams\.has\(playerId\) \|\| previousPlayerTeams\.get\(playerId\) !== team/, "only new lobby membership or a team switch must trigger the join sound");
+assert.match(gameApp, /teamJoinSoundSequence > 0\) playEffect\("team-join"\)/, "confirmed team joins must play the entry chime");
+
+console.log("Card UI contract passed: shared card sizing, normalized status values, and confirmed team-join audio.");

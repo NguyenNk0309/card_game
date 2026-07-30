@@ -339,7 +339,7 @@ function CardZoneVfx({ motion, player, playable }: { motion: CardZoneMotion; pla
 }
 
 export default function GameApp() {
-  const { room, status, error: roomError, sessionId, serverTimeOffsetMs, send, clearError } = useRoomSocket();
+  const { room, status, error: roomError, sessionId, serverTimeOffsetMs, teamJoinSoundSequence, send, clearError } = useRoomSocket();
   const { musicOn, volume, setVolume, toggleMusic, playEffect, playBattleResult, stopBattleResult } = useGameAudio();
   const characterOptions = useMemo(() => getCharacterOptions(), []);
   const [playerName, setPlayerName] = useState("");
@@ -594,6 +594,9 @@ export default function GameApp() {
     lastOutcomeSoundKeyRef.current = outcomeKey;
     if (outcome?.kind === "card") playEffect(outcome.success ? "roll-success" : "roll-fail");
   }, [outcomeKey, outcome?.kind, outcome?.success, playEffect]);
+  useEffect(() => {
+    if (teamJoinSoundSequence > 0) playEffect("team-join");
+  }, [teamJoinSoundSequence, playEffect]);
   useEffect(() => {
     if (!runComplete || !localPlayer) {
       if (lastBattleResultKeyRef.current) stopBattleResult();
