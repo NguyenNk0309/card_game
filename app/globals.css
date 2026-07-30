@@ -547,7 +547,7 @@ button:focus-visible {
 
 .roster-buff-tooltip {
   position: absolute;
-  z-index: 90;
+  z-index: 1001;
   left: calc(100% + 9px);
   top: 50%;
   width: clamp(240px, 22vw, 300px);
@@ -561,6 +561,11 @@ button:focus-visible {
   pointer-events: none;
   transform: translate(4px, -50%);
   transition: opacity 130ms ease, transform 130ms ease, visibility 130ms;
+}
+
+.party-rail:has(.roster-buff-indicator:hover),
+.party-rail:has(.roster-buff-indicator:focus-within) {
+  z-index: 1000;
 }
 
 .roster-buff-tooltip::before {
@@ -1061,6 +1066,10 @@ button:focus-visible {
   box-shadow: inset 0 0 24px color-mix(in srgb, var(--hero-color) 12%, transparent);
 }
 
+.action-card:has(> .special-skill-banner) {
+  padding-top: 38px;
+}
+
 .action-hand > .action-card.hero-special-card:not(:disabled):hover,
 .action-card.hero-special-card.selected {
   border-color: color-mix(in srgb, var(--hero-color) 55%, #fff1bd);
@@ -1117,7 +1126,7 @@ button:focus-visible {
   letter-spacing: 0.12em;
 }
 
-.action-card.hero-special-card.selected::after { top: 34px; }
+.action-card:has(> .special-skill-banner).selected::after { top: 34px; }
 
 .action-card.no-effect-card,
 .skill-card.no-effect-card {
@@ -1879,6 +1888,10 @@ button:focus-visible {
     linear-gradient(145deg, color-mix(in srgb, var(--hero-color) 20%, transparent), rgba(28, 36, 35, 0.98) 60%);
   border: 2px solid color-mix(in srgb, var(--hero-color) 72%, #f3dfaa);
   box-shadow: inset 0 0 28px color-mix(in srgb, var(--hero-color) 12%, transparent), 0 7px 20px rgba(0, 0, 0, 0.2);
+}
+
+.skill-card.card-with-header {
+  padding-top: 47px;
 }
 
 .unique-card-banner {
@@ -4029,7 +4042,8 @@ button:focus-visible {
 .public-deck-heading > span { padding: 6px 9px; color: var(--gold); border: 1px solid rgba(212, 181, 110, .35); }
 .public-character-deck > div:last-child { display: grid; grid-template-columns: 1fr; gap: 6px; }
 .public-deck-card { min-width: 0; max-width: 100%; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; padding: 8px; overflow: hidden; border: 1px solid var(--line); background: rgba(255, 255, 255, .025); }
-.public-deck-card.public-special-card { position: relative; padding-top: 45px; border: 2px solid color-mix(in srgb, var(--hero-color) 72%, #f3dfaa); background: linear-gradient(145deg, color-mix(in srgb, var(--hero-color) 20%, transparent), rgba(28, 36, 35, .98) 60%); box-shadow: inset 0 0 28px color-mix(in srgb, var(--hero-color) 12%, transparent); }
+.public-deck-card.card-with-header { position: relative; padding-top: 45px; }
+.public-deck-card.public-special-card { border: 2px solid color-mix(in srgb, var(--hero-color) 72%, #f3dfaa); background: linear-gradient(145deg, color-mix(in srgb, var(--hero-color) 20%, transparent), rgba(28, 36, 35, .98) 60%); box-shadow: inset 0 0 28px color-mix(in srgb, var(--hero-color) 12%, transparent); }
 .public-deck-card > .unique-card-banner { min-width: 0; color: #101719; background: var(--hero-color); font-size: 9px; font-weight: 900; white-space: normal; }
 .public-deck-card .card-sigil { width: 32px; height: 32px; }
 .public-deck-card > div:last-child { display: grid; min-width: 0; gap: 2px; }
@@ -4650,9 +4664,9 @@ button:focus-visible {
 
 .pity-cost-badge svg { width: 14px; height: 14px; }
 .pity-cost-badge b { color: inherit; font: inherit; }
-.hero-special-card > .pity-cost-badge { top: 38px; }
-.hero-unique-card > .pity-cost-badge { top: 47px; }
-.public-special-card > .pity-cost-badge { top: 45px; }
+.action-card:has(> .special-skill-banner) > .pity-cost-badge { top: 38px; }
+.skill-card.card-with-header > .pity-cost-badge { top: 47px; }
+.public-deck-card.card-with-header > .pity-cost-badge { top: 45px; }
 .pile-review-card,
 .public-deck-card { position: relative; }
 

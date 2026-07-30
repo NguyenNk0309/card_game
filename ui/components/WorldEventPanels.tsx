@@ -347,6 +347,7 @@ export function ShatteredTributeChoicePanel({
             >
               {entry.card ? <>
                 <PityCostBadge card={entry.card}/>
+                <span className="special-skill-banner common-card-banner">COMMON</span>
                 <div className={`card-sigil effect-${entry.card.effect}`}><CardEffectIcon card={entry.card}/></div>
                 <span>Common card · {entry.zoneLabel}</span>
                 <strong>{entry.card.name}</strong>
