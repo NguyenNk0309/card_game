@@ -60,7 +60,8 @@ function DetailedGuide({ onClose }: { onClose: () => void }) {
         <article><strong>3 · Choose a card to roll or discard, or skip.</strong></article>
         <article><strong>4 · Meet the target with your modified d20 to succeed.</strong></article>
         <article><strong>5 · Failed rolls grant pity; spend the shown cost for guaranteed success.</strong></article>
-        <article><strong>6 · Eliminate the enemy team, or lead in HP after phase 30.</strong></article>
+        <article><strong>6 · World Events occur before phases 3, 7, 12, 17, 22, and 27.</strong></article>
+        <article><strong>7 · Eliminate the enemy team, or lead in HP after phase 30.</strong></article>
       </div>
     </section>
   </div>;

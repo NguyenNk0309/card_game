@@ -49,7 +49,12 @@ export function createSkillDeck(hero: Omit<Hero, "id" | "team" | "isYou">): Acti
   const uniqueCards = CHARACTER_SKILL_CARDS[hero.name];
   if (!uniqueCards || uniqueCards.length !== 3) throw new Error(`${hero.name} must have exactly 3 special cards.`);
   const prefix = hero.initials.toLowerCase();
-  const commonCards = ACTION_CARDS.map(({ failureEffect: _failureEffect, failureValue: _failureValue, ...card }) => ({ ...card, bonus: 0, id: `${prefix}-common-${card.id}` }));
+  const commonCards = ACTION_CARDS.map(({ failureEffect: _failureEffect, failureValue: _failureValue, ...card }) => {
+    const description = hero.classId === "assassin" && (card.effect === "damage" || card.effect === "aoe")
+      ? `${card.description.replace(/\.$/, "")}, ignoring shield.`
+      : card.description;
+    return { ...card, description, bonus: 0, id: `${prefix}-common-${card.id}` };
+  });
   const specialCards = uniqueCards.map((card) => {
     const failureEffect = card.failureEffect ?? (card.target === "all-allies" || card.target === "all-enemies" ? "team-damage" : "self-damage");
     const failureValue = card.failureValue ?? (card.value >= 5 ? 2 : 1);

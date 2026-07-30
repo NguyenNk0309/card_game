@@ -36,12 +36,12 @@ export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
     { id: "ev-command", name: "Rescue Formation", type: "Wit", description: "Move another living ally directly behind Elara in turn order.", bonus: 0, effect: "support", target: "ally", value: 1, supportType: "advance-ally", failureEffect: "self-damage", failureValue: 1 }
   ],
   "Thorne Vale": [
-    { id: "tv-mark", name: "Marked Arrow", type: "Wit", description: "Deal 4 damage to one living enemy (5 with Deadeye); shield applies.", bonus: 0, effect: "damage", target: "enemy", value: 4, failureEffect: "self-damage", failureValue: 1 },
+    { id: "tv-mark", name: "Marked Arrow", type: "Wit", description: "Deal 4 damage to one living enemy (5 with Deadeye).", bonus: 0, effect: "damage", target: "enemy", value: 4, failureEffect: "self-damage", failureValue: 1 },
     { id: "tv-pierce", name: "Piercing Arrow", type: "Wit", description: "Deal 3 damage to one living enemy, ignoring shield (4 with Deadeye).", bonus: 0, effect: "damage", target: "enemy", value: 3, ignoresShield: true, failureEffect: "self-damage", failureValue: 2 },
     { id: "tv-hunt", name: "Hunter's Mark", type: "Spirit", description: "One living ally, including yourself, gains +2 attack damage; expires at the end of the target's next turn.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "attack", failureEffect: "lose-shield", failureValue: 2 }
   ],
   "Mira Ash": [
-    { id: "ma-inferno", name: "Inferno", type: "Might", description: "Deal 2 damage to every living enemy (3 with Spreading Flame); shield applies.", bonus: 0, effect: "aoe", target: "all-enemies", value: 2, failureEffect: "team-damage", failureValue: 1 },
+    { id: "ma-inferno", name: "Inferno", type: "Might", description: "Deal 2 damage to every living enemy (3 with Spreading Flame).", bonus: 0, effect: "aoe", target: "all-enemies", value: 2, failureEffect: "team-damage", failureValue: 1 },
     { id: "ma-comet", name: "Ash Comet", type: "Wit", description: "Deal 2 damage to every living enemy, ignoring shield (3 with Spreading Flame).", bonus: 0, effect: "aoe", target: "all-enemies", value: 2, ignoresShield: true, failureEffect: "self-damage", failureValue: 2 },
     { id: "ma-gravity", name: "Gravity Hex", type: "Wit", description: "One living enemy gets -2 on their next d20; expires at the end of the target's next turn.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "enemy-dice", failureEffect: "team-damage", failureValue: 1 }
   ],
@@ -66,8 +66,8 @@ export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
     { id: "sf-stolen", name: "Stolen Moment", type: "Wit", description: "Cancel one living enemy's next turn. Their effects expire normally when that turn ends.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "skip-enemy", failureEffect: "team-damage", failureValue: 2 }
   ],
   "Kael Rook": [
-    { id: "kr-riposte", name: "Riposte", type: "Might", description: "Deal 5 damage to one living enemy (6 while Kael has no shield); shield applies.", bonus: 0, effect: "damage", target: "enemy", value: 5, failureEffect: "self-damage", failureValue: 2 },
-    { id: "kr-duel", name: "Challenge", type: "Might", description: "Deal 4 damage to one living enemy (5 while Kael has no shield); shield applies.", bonus: 0, effect: "damage", target: "enemy", value: 4, failureEffect: "lose-shield", failureValue: 3 },
+    { id: "kr-riposte", name: "Riposte", type: "Might", description: "Deal 5 damage to one living enemy (6 while Kael has no shield).", bonus: 0, effect: "damage", target: "enemy", value: 5, failureEffect: "self-damage", failureValue: 2 },
+    { id: "kr-duel", name: "Challenge", type: "Might", description: "Deal 4 damage to one living enemy (5 while Kael has no shield).", bonus: 0, effect: "damage", target: "enemy", value: 4, failureEffect: "lose-shield", failureValue: 3 },
     { id: "kr-break", name: "Break Stance", type: "Wit", description: "Remove one living enemy's attack and d20 buffs, then destroy up to 3 shield.", bonus: 0, effect: "support", target: "enemy", value: 3, supportType: "dispel-enemy", failureEffect: "self-damage", failureValue: 1 }
   ],
   "Ione Mire": [
@@ -76,8 +76,8 @@ export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
     { id: "im-purge", name: "Tactical Purge", type: "Wit", description: "Move 1 random card from an enemy hand to graveyard for 2 phases, then to discard pile; after its third use, this card enters Ione's graveyard.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "purge-card", failureEffect: "self-damage", failureValue: 2 }
   ],
   "Dagan Flint": [
-    { id: "df-none", name: "None Left Standing", type: "Might", description: "Deal 3 damage to every living enemy (4 while Dagan is at half HP); shield applies.", bonus: 0, effect: "aoe", target: "all-enemies", value: 3, failureEffect: "self-damage", failureValue: 2 },
-    { id: "df-cleave", name: "Cleave", type: "Might", description: "Deal 5 damage to one living enemy (6 while Dagan is at half HP); shield applies.", bonus: 0, effect: "damage", target: "enemy", value: 5, failureEffect: "self-damage", failureValue: 3 },
+    { id: "df-none", name: "None Left Standing", type: "Might", description: "Deal 3 damage to every living enemy (4 while Dagan is at half HP).", bonus: 0, effect: "aoe", target: "all-enemies", value: 3, failureEffect: "self-damage", failureValue: 2 },
+    { id: "df-cleave", name: "Cleave", type: "Might", description: "Deal 5 damage to one living enemy (6 while Dagan is at half HP).", bonus: 0, effect: "damage", target: "enemy", value: 5, failureEffect: "self-damage", failureValue: 3 },
     { id: "df-frenzy", name: "Blood Frenzy", type: "Spirit", description: "Gain +3 attack damage; expires at the end of your next turn.", bonus: 0, effect: "support", target: "self", value: 3, supportType: "attack", failureEffect: "self-damage", failureValue: 2 }
   ]
 };
@@ -89,8 +89,8 @@ export const PHASE_FIVE_CARD_UPGRADES = {
 } as const;
 
 const COMMON_ACTION_CARDS: CardWithoutPity[] = [
-  { id: "slash", name: "Slash", type: "Might", description: "Deal 3 damage to one living enemy; shield applies.", bonus: 0, effect: "damage", target: "enemy", value: 3, unique: false },
-  { id: "heavy", name: "Heavy Blow", type: "Might", description: "Deal 4 damage to one living enemy; shield applies.", bonus: 0, effect: "damage", target: "enemy", value: 4, unique: false },
+  { id: "slash", name: "Slash", type: "Might", description: "Deal 3 damage to one living enemy.", bonus: 0, effect: "damage", target: "enemy", value: 3, unique: false },
+  { id: "heavy", name: "Heavy Blow", type: "Might", description: "Deal 4 damage to one living enemy.", bonus: 0, effect: "damage", target: "enemy", value: 4, unique: false },
   { id: "brace", name: "Brace", type: "Spirit", description: "Gain 3 shield; expires at the end of your next turn.", bonus: 0, effect: "guard", target: "self", value: 3, unique: false },
   { id: "second-wind", name: "Second Wind", type: "Spirit", description: "Restore 4 HP to yourself; cannot revive.", bonus: 0, effect: "heal", target: "self", value: 4, unique: false },
   { id: "empty-gesture", name: "Empty Gesture", type: "Spirit", description: "No effect; upgrades to a heal card after phase 5.", bonus: 0, effect: "none", target: "self", value: 0, unique: false },

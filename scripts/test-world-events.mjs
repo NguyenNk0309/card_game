@@ -81,7 +81,8 @@ const EXPECTED_KEYS = [
   const guideStart = gameAppSource.indexOf("function DetailedGuide");
   const guideEnd = gameAppSource.indexOf("function ConfirmedTopAction", guideStart);
   const guideSource = gameAppSource.slice(guideStart, guideEnd);
-  assert.equal((guideSource.match(/<article><strong>/g) || []).length, 6, "the quick guide keeps six concise guidance items");
+  assert.equal((guideSource.match(/<article><strong>/g) || []).length, 7, "the quick guide keeps seven concise guidance items");
+  assert.match(guideSource, /6 · World Events occur before phases 3, 7, 12, 17, 22, and 27\.[\s\S]*7 · Eliminate the enemy team, or lead in HP after phase 30\./, "World Events are guidance 6 and victory is guidance 7");
   assert.doesNotMatch(guideSource, /<article><strong>[^<]+<\/strong><p>|WorldEventLibrary|World Event system/, "guidance uses one-sentence headers without World Event detail");
   assert.doesNotMatch(gameAppSource, /guide-world-event-library|tutorial-world-event-library/, "guidance surfaces do not embed the World Event library");
 }

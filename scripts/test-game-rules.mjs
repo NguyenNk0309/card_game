@@ -49,7 +49,11 @@ for (const option of options) {
   assert.equal(common.filter((card) => card.effect === "none" && card.value === 0).length, 3, "common deck needs three no-effect cards");
   assert(option.skillDeck.filter((card) => card.target === "all-allies").every((card) => /including yourself/i.test(card.description)), "all-allies descriptions must explicitly include the acting player");
   assert(option.skillDeck.filter((card) => card.target === "ally" && card.supportType !== "advance-ally").every((card) => /including yourself/i.test(card.description)), "one-ally descriptions must explicitly include the acting player");
+  const damageCards = option.skillDeck.filter((card) => card.effect === "damage" || card.effect === "aoe");
+  const ignoresShield = option.hero.classId === "assassin";
+  assert(damageCards.every((card) => /ignoring shield/i.test(card.description) === Boolean(card.ignoresShield || ignoresShield)), "damage descriptions mention shield only when the attack ignores it");
 }
+assert(options.every((option) => option.skillDeck.every((card) => !/shield applies/i.test(card.description))), "card descriptions omit the default shield rule");
 const cardWithoutId = ({ id: _id, ...card }) => card;
 for (const option of options) {
   const phaseFourDeck = catalog.upgradeCardsAfterPhaseFive(option.skillDeck, 4);
