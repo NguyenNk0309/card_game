@@ -58,6 +58,19 @@ assert.equal(
 );
 assert.equal(formatViewpointText(sentence, players), sentence, "a neutral viewer sees player names without relationship prefixes");
 
+const numericOne = player("numeric-one", "1", "veil");
+const numericTwo = player("numeric-two", "2", "ember");
+assert.equal(
+  formatViewpointText(
+    "2 used Heavy Blow (rolled d20 against target 11) — 1 lost 4 HP.",
+    [numericOne, numericTwo],
+    numericTwo.id,
+    { involvedPlayerIds: [numericOne.id, numericTwo.id] }
+  ),
+  "You used Heavy Blow (rolled d20 against target 11) — 1 lost 4 HP.",
+  "numeric player names are replaced only as standalone references and cannot corrupt d20 or larger numbers"
+);
+
 const voluntaryPass = {
   id: "pass-1",
   kind: "skip",

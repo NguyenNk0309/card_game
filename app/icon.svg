@@ -1,16 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <defs>
-    <linearGradient id="bg" x1="8" y1="6" x2="56" y2="60" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#172326"/>
-      <stop offset="1" stop-color="#080d0f"/>
-    </linearGradient>
-    <linearGradient id="gold" x1="20" y1="13" x2="45" y2="51" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#ffe69b"/>
-      <stop offset="1" stop-color="#b88935"/>
-    </linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
-  <path d="M32 7 52 15v15c0 13.2-7.5 22.2-20 27C19.5 52.2 12 43.2 12 30V15L32 7Z" fill="#101a1d" stroke="url(#gold)" stroke-width="3"/>
-  <path d="m22 19 7 8-4 4-8-7 5-5Zm20 0 5 5-8 7-4-4 7-8ZM27 31l10 10-5 9-5-9 10-10" fill="none" stroke="url(#gold)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="32" cy="31" r="4" fill="#d4b56e"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" shape-rendering="crispEdges">
+  <rect width="64" height="64" fill="#050507"/>
+  <rect x="4" y="4" width="56" height="56" fill="#181319"/>
+  <rect x="8" y="8" width="48" height="48" fill="#0b0a0d"/>
+  <path fill="#6f4f25" d="M20 12h24v4h8v28h-4v8h-8v4H24v-4h-8v-8h-4V16h8z"/>
+  <path fill="#d2a64b" d="M24 12h16v4h8v28h-4v8h-8v4h-8v-4h-8v-8h-4V16h8z"/>
+  <path fill="#171318" d="M24 16h16v4h4v20h-4v8h-4v4h-8v-4h-4v-8h-4V20h4z"/>
+  <path fill="#a83f31" d="M24 24h4v4h8v-4h4v8h-4v4h4v8h-4v-4h-8v4h-4v-8h4v-4h-4z"/>
+  <rect x="28" y="28" width="8" height="8" fill="#f0cb70"/>
+  <rect x="4" y="4" width="8" height="8" fill="#8b6a31"/>
+  <rect x="52" y="4" width="8" height="8" fill="#8b6a31"/>
+  <rect x="4" y="52" width="8" height="8" fill="#8b6a31"/>
+  <rect x="52" y="52" width="8" height="8" fill="#8b6a31"/>
 </svg>

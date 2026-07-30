@@ -76,17 +76,21 @@ function ConfirmedTopAction({ className, icon, label, title, detail, onConfirm }
   const placeConfirmation = () => {
     const rect = controlRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const width = 210;
+    const width = confirmationRef.current?.getBoundingClientRect().width ?? Math.min(210, window.innerWidth - 16);
     setPopoverPosition({
       top: rect.bottom + 9,
-      left: Math.min(Math.max(8, rect.right - width), window.innerWidth - width - 8),
+      left: Math.min(Math.max(8, rect.right - width), Math.max(8, window.innerWidth - width - 8)),
     });
   };
   useLayoutEffect(() => {
     if (!open) return;
     placeConfirmation();
     window.addEventListener("resize", placeConfirmation);
-    return () => window.removeEventListener("resize", placeConfirmation);
+    window.addEventListener("scroll", placeConfirmation, true);
+    return () => {
+      window.removeEventListener("resize", placeConfirmation);
+      window.removeEventListener("scroll", placeConfirmation, true);
+    };
   }, [open]);
   useEffect(() => {
     if (!open) return;
@@ -212,10 +216,25 @@ function HistoryEntries({ entries, players, localPlayer, expanded = false, onIns
   };
   if (!expanded) return <div className="history-list">{!filteredEntries.length && <p className="empty-history">No actions yet.</p>}{[...filteredEntries].reverse().map(renderEntry)}</div>;
   const rows = [...filteredEntries].reverse();
-  return <div className="viewpoint-history"><label className="history-filter-control"><span>VIEW</span><select value={filter} onChange={(event) => setFilter(event.target.value as HistoryFilter)}>{historyFilters.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label><div className="history-table-scroll"><table className="history-table"><thead><tr><th>Phase</th><th>Turn</th><th>Type</th><th>Actor</th><th>Target</th><th>Card or event</th><th>Result</th><th>Changes</th><th>Duration</th><th>Roll</th><th>Time</th><th>Details</th></tr></thead><tbody>{rows.map((entry) => {
+  return <div className="viewpoint-history"><label className="history-filter-control"><span>VIEW</span><select value={filter} onChange={(event) => setFilter(event.target.value as HistoryFilter)}>{historyFilters.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label><div className="history-table-scroll"><table className="history-table"><thead><tr><th>Phase</th><th>Turn</th><th>Type</th><th>Actor</th><th>Target</th><th>Card or event</th><th>Result</th><th>Changes</th><th>Duration</th><th>Roll</th><th>Details</th></tr></thead><tbody>{rows.map((entry) => {
     const presentation = formatHistoryPresentation(entry, players, localPlayer?.id);
-    const roll = entry.resolution === "pity" ? `Pity ${entry.pityBefore ?? 0} → ${entry.pityAfter ?? 0}` : entry.diceRoll != null ? `d20 ${entry.diceRoll} · ${entry.diceTotal ?? "—"}/${entry.diceTarget ?? "—"}` : "—";
-    return <tr className={`${entry.kind} ${entry.success ? "success" : "failure"}`} key={entry.id}><td>{entry.phase ?? "—"}</td><td>{entry.turn}</td><td>{presentation.type}</td><td><HighlightPlayerNames text={presentation.actor} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer}/></td><td><HighlightPlayerNames text={presentation.target} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer}/></td><td>{entry.cardName ? <button type="button" className="history-card-link" onClick={() => onInspectCard(entry.cardName!)}>{presentation.card}</button> : presentation.card}</td><td><b className={`history-result ${presentation.result.toLocaleLowerCase().replace(/\s+/g, "-")}`}>{presentation.result}</b></td><td>{presentation.changes}</td><td>{presentation.duration}</td><td>{roll}</td><td><time dateTime={new Date(entry.createdAt).toISOString()}>{new Date(entry.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</time></td><td><HistoryMessage entry={entry} text={presentation.details} players={players} localPlayer={localPlayer} onInspectPlayer={onInspectPlayer} onInspectCard={onInspectCard}/></td></tr>;
+    const roll = entry.resolution === "pity" ? (
+      <span className="history-roll-summary">
+        <span>result: guaranteed</span>
+        <span>target: —</span>
+      </span>
+    ) : entry.diceRoll != null ? (
+      <span className="history-roll-summary">
+        <span>result: {entry.diceTotal ?? entry.diceRoll}</span>
+        <span>target: {entry.diceTarget ?? "—"}</span>
+      </span>
+    ) : (
+      <span className="history-roll-summary">
+        <span>result: —</span>
+        <span>target: —</span>
+      </span>
+    );
+    return <tr className={`${entry.kind} ${entry.success ? "success" : "failure"}`} key={entry.id}><td>{entry.phase ?? "—"}</td><td>{entry.turn}</td><td>{presentation.type}</td><td><HighlightPlayerNames text={presentation.actor} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer}/></td><td><HighlightPlayerNames text={presentation.target} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer}/></td><td>{entry.cardName ? <button type="button" className="history-card-link" onClick={() => onInspectCard(entry.cardName!)}>{presentation.card}</button> : presentation.card}</td><td><b className={`history-result ${presentation.result.toLocaleLowerCase().replace(/\s+/g, "-")}`}>{presentation.result}</b></td><td>{presentation.changes}</td><td>{presentation.duration}</td><td>{roll}</td><td><HistoryMessage entry={entry} text={presentation.details} players={players} localPlayer={localPlayer} onInspectPlayer={onInspectPlayer} onInspectCard={onInspectCard}/></td></tr>;
   })}</tbody></table>{!rows.length && <p className="empty-history">No events match this view.</p>}</div></div>;
 }
 
@@ -728,7 +747,7 @@ export default function GameApp() {
           <section className="history-panel"><div className="panel-heading"><div><span className="eyebrow">BATTLE HISTORY</span><strong>Actions, rolls, and world events</strong></div><button className="panel-expand-button" onClick={() => setExpandedPanel("history")} aria-label="Expand battle history"><History size={17}/></button></div><HistoryEntries entries={game?.history ?? []} players={players} localPlayer={localPlayer} onInspectPlayer={inspectPlayer} onInspectCard={inspectCard}/></section>
         </aside>
       </div>}
-    {modalOpen && <div className="modal-backdrop" role={showWorldEvent ? undefined : "dialog"} aria-modal={showWorldEvent ? undefined : true} onClick={closeModal}><section className={`modal-card ${showGuide ? "tutorial-modal" : ""} ${deckReview || expandedPanel || inspectedPlayer ? "wide-modal" : ""} ${(showOutcome || showTurnSummary || showLifeEvent || showWorldEvent) && !showGuide && !deckReview && !expandedPanel && !inspectedPlayer && !inspectedCard ? "resolution-card" : ""}`} onClick={(event) => event.stopPropagation()}>{!showWorldEvent && <button className="modal-close icon-button" onClick={closeModal} aria-label="Close"><X size={18}/></button>}
+    {modalOpen && !showGuide && <div className="modal-backdrop" role={activeAutoPanel === "world" ? undefined : "dialog"} aria-modal={activeAutoPanel === "world" ? undefined : true} onClick={closeModal}><section className={`modal-card ${showGuide ? "tutorial-modal" : ""} ${deckReview || expandedPanel || inspectedPlayer ? "wide-modal" : ""} ${(showOutcome || showTurnSummary || showLifeEvent || showWorldEvent) && !showGuide && !deckReview && !expandedPanel && !inspectedPlayer && !inspectedCard ? "resolution-card" : ""}`} onClick={(event) => event.stopPropagation()}>{activeAutoPanel !== "world" && <button className="modal-close icon-button" onClick={closeModal} aria-label="Close"><X size={18}/></button>}
       {showGuide ? <div className="tutorial-scroll"><span className="eyebrow">COMPLETE TUTORIAL</span><h2>How to win Shattered Oath</h2><p className="modal-lead">Two teams alternate cards and d20 rolls. Eliminate the opposing team, or hold more total HP after phase 30.</p><section className="tutorial-section"><h3><Users size={20}/> Setup</h3><div className="tutorial-steps"><article><b>1</b><div><strong>Choose a class</strong><p>Every 10-card deck contains 3 class specials, 2 common attacks, 1 common shield, 1 common heal, and 3 no-effect cards that upgrade separately when phase 5 ends. Special cards cause their printed failure penalty; common-card failures do nothing.</p></div></article><article><b>2</b><div><strong>Your cards are private</strong><p>The server sends each browser only its own hand, draw pile, discard pile, and graveyard. Click any avatar to inspect public character details without revealing private card zones.</p></div></article></div></section><section className="tutorial-section"><h3><Dices size={20}/> Playing a turn</h3><div className="tutorial-steps"><article><b>1</b><div><strong>Choose a highlighted card</strong><p>The played card enters discard and one random replacement fills its hand slot. If draw is empty, the entire discard pile first moves to draw and shuffles; graveyard cards never return.</p></div></article><article><b>2</b><div><strong>Beat the random target</strong><p>The server reveals a fresh target from 8 to 16 every turn. It is independent of every previous roll. Only Focus Order, Gravity Hex, Dark Omen, and Commanding Voice modify the d20.</p></div></article><article><b>3</b><div><strong>Skip without changing cards</strong><p>Manual Skip and automatic timeout preserve the exact hand, draw pile, discard pile, and graveyard. Playing or manually discarding a card advances its normal cycle.</p></div></article></div></section><section className="tutorial-section"><h3><Zap size={20}/> Failure and World Events</h3><p>Special-card failures cause the listed backlash; common-card failures have no effect. Server-authoritative World Events resolve before phases 3, 7, 12, 17, 22, and 27. Phase 3 pauses the battle for private Shattered Tribute choices; later events grow progressively more severe. The phase-5 common-card upgrade is a separate mechanic.</p></section><section className="tutorial-section warning-section"><h3><Clock3 size={20}/> Synchronized turns</h3><p>Every client uses the server clock for the same 60-second deadline. At zero, the server immediately passes the turn without changing cards. Eliminating a team wins immediately; after phase 30, total HP decides the winner.</p></section><WorldEventLibrary className="tutorial-world-event-library"/></div> :
       deckReview ? <div className="expanded-panel-content"><span className="eyebrow">YOUR PRIVATE DECK</span><h2>{deckReview === "draw" ? "Draw pile" : deckReview === "discard" ? "Discard pile" : "Graveyard"}</h2><p className="modal-lead">{deckReview === "draw" ? "These cards remain available for random replacement draws. Their order is shown only to you." : deckReview === "discard" ? "Cycled cards remain here until a replacement is needed with an empty draw pile. Then this whole pile moves to draw, shuffles, and one random card is drawn into hand." : "These cards are permanently out of circulation and cannot return to hand, draw pile, or discard pile during this battle."}</p>{reviewedCards.length ? <div className="pile-card-grid">{reviewedCards.map((card, index) => <article className={`pile-review-card effect-${card.effect} ${card.unique ? "special" : ""}`} key={`${card.id}-${index}`}><PityCostBadge card={card}/><span>{index + 1} · {card.unique ? "Special" : "Common"}</span><div className={`card-sigil effect-${card.effect}`}><CardEffectIcon card={card}/></div><strong>{card.name}</strong><p><EffectText text={card.description} card={card}/></p><CardOutcomeLines card={card}/></article>)}</div> : <div className="private-hand-empty"><Archive size={24}/><strong>This pile is empty.</strong></div>}</div> :
       expandedPanel === "history" ? <div className="expanded-panel-content"><span className="eyebrow">EXPANDED BATTLE HISTORY</span><h2>Every action and World Event</h2><HistoryEntries entries={game?.history ?? []} players={players} localPlayer={localPlayer} expanded onInspectPlayer={inspectPlayer} onInspectCard={inspectCard}/></div> :

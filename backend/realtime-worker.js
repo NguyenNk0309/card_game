@@ -859,7 +859,7 @@ async function applyCommand(ownerId, message, deadlineAdvanced = false) {
     room.game.winnerTeam = actionWinner;
     const veil = teamTotals(room.game, 'veil');
     const ember = teamTotals(room.game, 'ember');
-    room.game.endReason = actionWinner ? `${teamLabel(actionWinner)} wins. Total HP: Veilbound ${veil.hp} â€” Embercourt ${ember.hp}.` : null;
+    room.game.endReason = actionWinner ? `${teamLabel(actionWinner)} wins. Total HP: Veilbound ${veil.hp} — Embercourt ${ember.hp}.` : null;
     const now = Date.now();
     room.game.turnStartedAt = now;
     normalizeServerTurnOrder(room.game);

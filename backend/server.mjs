@@ -973,7 +973,7 @@ function handleMessage(socket, rawMessage) {
     room.game.winnerTeam = actionWinner;
     const veil = teamTotals(room.game, 'veil');
     const ember = teamTotals(room.game, 'ember');
-    room.game.endReason = actionWinner ? `${teamLabel(actionWinner)} wins. Total HP: Veilbound ${veil.hp} â€” Embercourt ${ember.hp}.` : null;
+    room.game.endReason = actionWinner ? `${teamLabel(actionWinner)} wins. Total HP: Veilbound ${veil.hp} — Embercourt ${ember.hp}.` : null;
     room.game.turnStartedAt = Date.now();
     room.game.turnDeadline = room.game.ended ? 0 : room.game.turnStartedAt + TURN_SECONDS * 1000;
     normalizeServerTurnOrder(room.game);

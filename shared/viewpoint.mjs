@@ -43,16 +43,17 @@ export function formatViewpointText(text, players, viewerId = '', options = {}) 
     .sort((left, right) => right.displayName.length - left.displayName.length);
   if (!names.length) return text;
   const escapedNames = names.map((player) => player.displayName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-  const pattern = new RegExp(`(${escapedNames.join('|')})('s)?`, 'gi');
-  let formatted = text.replace(pattern, (match, rawName, possessiveSuffix, offset, source) => {
+  const pattern = new RegExp(`(^|[^\\p{L}\\p{N}_])(${escapedNames.join('|')})('s)?(?=$|[^\\p{L}\\p{N}_])`, 'giu');
+  let formatted = text.replace(pattern, (match, prefix, rawName, possessiveSuffix, offset, source) => {
     const player = names.find((candidate) => candidate.displayName.toLocaleLowerCase() === rawName.toLocaleLowerCase());
     if (!player) return match;
-    const atSentenceStart = offset === 0 || /[.!?]\s*$/.test(source.slice(0, offset));
-    return playerReference(player, viewer, {
+    const nameOffset = offset + prefix.length;
+    const atSentenceStart = nameOffset === 0 || /[.!?]\s*$/.test(source.slice(0, nameOffset));
+    return `${prefix}${playerReference(player, viewer, {
       possessive: Boolean(possessiveSuffix),
       includeRelation: !viewerInvolved && emphasizedIds.has(player.id),
       capitalize: atSentenceStart
-    });
+    })}`;
   });
   if (viewer && options.pronounPlayerId === viewer.id) {
     const viewerPronouns = [
