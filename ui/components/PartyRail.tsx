@@ -48,7 +48,7 @@ function RosterEffect({ buff, icon }: { buff: StatusPresentation; icon: React.Re
       ref={anchorRef}
       className={`roster-buff-indicator ${buff.negative ? "negative" : ""} ${buff.shield ? "shield" : ""}`}
       tabIndex={0}
-      aria-label={`${buff.label}: ${buff.value}${buff.duration ? `, ${buff.duration}` : ""}. ${buff.tooltip}`}
+      aria-label={`${buff.label}: ${buff.tooltipValue ?? buff.value}${buff.durationLabel ? ` - ${buff.durationLabel}` : ""}. ${buff.tooltip}`}
       aria-describedby={open ? tooltipId : undefined}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
@@ -66,7 +66,7 @@ function RosterEffect({ buff, icon }: { buff: StatusPresentation; icon: React.Re
         style={{ left: position.left, top: position.top }}
       >
         <strong>{buff.label}</strong>
-        <span className={buff.negative ? "negative" : ""}><em>{buff.value}</em>{buff.duration && <b>{buff.duration}</b>}</span>
+        <span className={buff.negative ? "negative" : ""}><em>{buff.tooltipValue ?? buff.value}</em>{buff.durationLabel && <><i aria-hidden="true">-</i><b>{buff.durationLabel}</b></>}</span>
         <p>{buff.tooltip}</p>
       </span>,
       portalRoot

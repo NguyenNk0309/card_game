@@ -5,6 +5,7 @@ import { useState } from "react";
 import { describeCardFailure, describeCardSuccess } from "@/shared/cardRules";
 import type { CharacterOption, PlayerSession, TeamId } from "@/shared/types";
 import { CardEffectIcon } from "./CardEffectIcon";
+import { CardDescription } from "./CardDescription";
 import { EffectText } from "./EffectText";
 import { PityCostBadge } from "./PityCost";
 
@@ -91,7 +92,7 @@ export function Lobby({ players, playerName, error, selectedPlayerId, localSessi
           </section>
           <section className="character-deck-column">
             <div className="deck-heading"><div><span className="eyebrow">PERSONAL SKILL DECK</span></div><Sparkles size={18}/></div>
-            <div className="lobby-skill-deck">{shownDeck.map((card) => <article className={`skill-card card-with-header effect-${card.effect} ${card.unique ? "hero-unique-card" : "common-skill-card"} ${card.effect === "none" ? "no-effect-card" : ""}`} key={card.id} style={{ "--hero-color": shownHero.color } as React.CSSProperties}><PityCostBadge card={card}/><div className={`unique-card-banner ${card.unique ? "" : "common-card-banner"}`}>{card.unique ? <><Crown size={13}/> SPECIAL · {shownHero.name}</> : "COMMON"}</div><div className={`card-sigil effect-${card.effect}`}><CardEffectIcon card={card}/></div><span className="skill-kind">{card.unique ? "Class skill" : card.effect === "none" ? "No-effect common card" : "Common action card"}</span><strong>{card.name}</strong><p><EffectText text={card.description} card={card}/></p><div className="card-outcome-lines"><p className="card-success-line"><Check size={13}/><span><b>SUCCESS</b><EffectText text={describeCardSuccess(card)} card={card}/></span></p><p className="card-failure-line"><X size={13}/><span><b>FAILURE</b><EffectText text={describeCardFailure(card)} card={card}/></span></p></div></article>)}</div>
+            <div className="lobby-skill-deck">{shownDeck.map((card) => <article className={`skill-card card-with-header effect-${card.effect} ${card.unique ? "hero-unique-card" : "common-skill-card"} ${card.effect === "none" ? "no-effect-card" : ""}`} key={card.id} style={{ "--hero-color": shownHero.color } as React.CSSProperties}><PityCostBadge card={card}/><div className={`unique-card-banner ${card.unique ? "" : "common-card-banner"}`}>{card.unique ? <><Crown size={13}/> SPECIAL</> : "COMMON"}</div><div className={`card-sigil effect-${card.effect}`}><CardEffectIcon card={card}/></div><span className="skill-kind">{card.unique ? "Class skill" : card.effect === "none" ? "No-effect common card" : "Common action card"}</span><strong>{card.name}</strong><CardDescription card={card}/><div className="card-outcome-lines"><p className="card-success-line"><Check size={13}/><span><b>SUCCESS</b><EffectText text={describeCardSuccess(card)} card={card}/></span></p><p className="card-failure-line"><X size={13}/><span><b>FAILURE</b><EffectText text={describeCardFailure(card)} card={card}/></span></p></div></article>)}</div>
           </section>
         </div> : randomPending ? <div className="no-character"><Sparkles size={32}/><h2>No character selected</h2><p>A random character joins at battle start.</p></div> : <div className="no-character"><Sparkles size={28}/><h2>Your character awaits</h2><p>Choose one to review skills.</p></div>}</aside>
     </div>

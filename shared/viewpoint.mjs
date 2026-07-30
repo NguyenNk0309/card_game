@@ -308,6 +308,14 @@ function remainingTurns(state, kind) {
   return Math.max(1, ...matches.map((effect) => Number(effect.expiresAfterTurn || 0) - completed));
 }
 
+function turnLabel(turns) {
+  return `${turns} ${turns === 1 ? 'Turn' : 'Turns'}`;
+}
+
+function phaseLabel(phases) {
+  return `${phases} ${phases === 1 ? 'Phase' : 'Phases'}`;
+}
+
 function statusOwnerCopy(player, viewer) {
   const relation = viewerRelation(player, viewer);
   if (relation === 'self') return { possessive: 'Your', subject: 'You' };
@@ -324,24 +332,24 @@ export function getStatusPresentations(player, state, players, viewerId = '', cu
   const add = (status) => statuses.push(status);
   if (state.shield > 0) {
     const turns = remainingTurns(state, 'shield');
-    add({ kind: 'shield', label: `${owner.possessive} shield`, displayValue: String(state.shield), value: String(state.shield), duration: `${turns}T`, tooltip: `${state.shield} shield · ${turns}T or until depleted.`, shield: true });
+    add({ kind: 'shield', label: `${owner.possessive} shield`, displayValue: String(state.shield), value: String(state.shield), duration: `${turns}T`, durationLabel: turnLabel(turns), tooltip: `${state.shield} shield · ${turns}T or until depleted.`, shield: true });
   }
   if (state.attackBuff > 0) {
     const turns = remainingTurns(state, 'attackBuff');
-    add({ kind: 'attackBuff', label: `${owner.possessive} attack bonus`, displayValue: `+${state.attackBuff}`, value: `+${state.attackBuff}`, duration: `${turns}T`, tooltip: `Next attack: +${state.attackBuff} damage · ${turns}T.` });
+    add({ kind: 'attackBuff', label: `${owner.possessive} attack bonus`, displayValue: `+${state.attackBuff}`, value: `+${state.attackBuff}`, duration: `${turns}T`, durationLabel: turnLabel(turns), tooltip: `Next attack: +${state.attackBuff} damage · ${turns}T.` });
   }
   if (state.diceBuff > 0) {
     const turns = remainingTurns(state, 'diceBuff');
-    add({ kind: 'diceBuff', label: `${owner.possessive} roll bonus`, displayValue: `+${state.diceBuff}`, value: `+${state.diceBuff}`, duration: `${turns}T`, tooltip: `Next d20: +${state.diceBuff} · ${turns}T.` });
+    add({ kind: 'diceBuff', label: `${owner.possessive} roll bonus`, displayValue: `+${state.diceBuff}`, value: `+${state.diceBuff}`, duration: `${turns}T`, durationLabel: turnLabel(turns), tooltip: `Next d20: +${state.diceBuff} · ${turns}T.` });
   }
   if (state.dicePenalty > 0) {
     const turns = remainingTurns(state, 'dicePenalty');
-    add({ kind: 'dicePenalty', label: `${owner.possessive} roll penalty`, displayValue: `−${state.dicePenalty}`, value: `−${state.dicePenalty}`, duration: `${turns}T`, tooltip: `Next d20: −${state.dicePenalty} · ${turns}T.`, negative: true });
+    add({ kind: 'dicePenalty', label: `${owner.possessive} roll penalty`, displayValue: `−${state.dicePenalty}`, value: `−${state.dicePenalty}`, duration: `${turns}T`, durationLabel: turnLabel(turns), tooltip: `Next d20: −${state.dicePenalty} · ${turns}T.`, negative: true });
   }
   const zeroPityTurns = Math.max(0, Number(state.zeroPityUntilTurn || 0) - Number(state.completedPlayerTurns || 0));
-  if (zeroPityTurns > 0) add({ kind: 'zeroPity', label: `${owner.possessive} next-card pity cost`, displayValue: '0', value: '0 pity', duration: `${zeroPityTurns}T`, tooltip: `Next card costs 0 pity · ${zeroPityTurns}T.` });
-  if (state.skipTurns > 0) add({ kind: 'skipTurns', label: `${owner.possessive} skipped turns`, displayValue: `${state.skipTurns}T`, value: `${state.skipTurns} ${state.skipTurns === 1 ? 'turn' : 'turns'}`, duration: `${state.skipTurns}T`, tooltip: `Miss ${state.skipTurns} ${state.skipTurns === 1 ? 'turn' : 'turns'}.`, negative: true });
-  if (state.reviveIn > 0) add({ kind: 'revive', label: `${owner.possessive} revival`, displayValue: `${state.reviveIn}T`, value: `${state.reviveIn} ${state.reviveIn === 1 ? 'turn' : 'turns'}`, duration: `${state.reviveIn}T`, tooltip: `Revives in ${state.reviveIn}T.` });
+  if (zeroPityTurns > 0) add({ kind: 'zeroPity', label: `${owner.possessive} next-card pity cost`, displayValue: '0', value: '0 pity', duration: `${zeroPityTurns}T`, durationLabel: turnLabel(zeroPityTurns), tooltip: `Next card costs 0 pity · ${zeroPityTurns}T.` });
+  if (state.skipTurns > 0) add({ kind: 'skipTurns', label: `${owner.possessive} skipped turns`, displayValue: `${state.skipTurns}T`, value: `${state.skipTurns} ${state.skipTurns === 1 ? 'turn' : 'turns'}`, tooltipValue: 'Skip', duration: `${state.skipTurns}T`, durationLabel: turnLabel(state.skipTurns), tooltip: `Miss ${state.skipTurns} ${state.skipTurns === 1 ? 'turn' : 'turns'}.`, negative: true });
+  if (state.reviveIn > 0) add({ kind: 'revive', label: `${owner.possessive} revival`, displayValue: `${state.reviveIn}T`, value: `${state.reviveIn} ${state.reviveIn === 1 ? 'turn' : 'turns'}`, tooltipValue: 'Revive', duration: `${state.reviveIn}T`, durationLabel: turnLabel(state.reviveIn), tooltip: `Revives in ${state.reviveIn}T.` });
   if ((state.borrowedCards || []).length > 0) {
     const count = state.borrowedCards.length;
     add({ kind: 'borrowedCards', label: `${owner.possessive} borrowed cards`, displayValue: String(count), value: String(count), duration: '', tooltip: `${count} borrowed ${count === 1 ? 'card' : 'cards'}.` });
@@ -350,7 +358,7 @@ export function getStatusPresentations(player, state, players, viewerId = '', cu
     const count = state.purgedCards.length;
     const completedPhases = Math.max(0, Number(currentPhase || 1) - 1);
     const phases = Math.max(1, ...(state.purgedCards || []).map((card) => Number(card.returnAfterPhase || 0) - completedPhases));
-    add({ kind: 'purgedCards', label: `${owner.possessive} purged ${count === 1 ? 'card' : 'cards'}`, displayValue: `${phases}P`, value: `${count}`, duration: `${phases}P`, tooltip: `${count} unavailable · ${phases}P.`, negative: true });
+    add({ kind: 'purgedCards', label: `${owner.possessive} purged ${count === 1 ? 'card' : 'cards'}`, displayValue: `${phases}P`, value: `${count}`, duration: `${phases}P`, durationLabel: phaseLabel(phases), tooltip: `${count} unavailable · ${phases}P.`, negative: true });
   }
   return statuses;
 }

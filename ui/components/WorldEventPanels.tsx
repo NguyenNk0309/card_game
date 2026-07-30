@@ -17,7 +17,7 @@ import type {
   WorldEventOutcome,
 } from "@/shared/types";
 import { CardEffectIcon } from "./CardEffectIcon";
-import { EffectText } from "./EffectText";
+import { CardDescription } from "./CardDescription";
 import { PityCostBadge } from "./PityCost";
 
 const DIALOG_FOCUSABLE_SELECTOR = [
@@ -351,7 +351,7 @@ export function ShatteredTributeChoicePanel({
                 <div className={`card-sigil effect-${entry.card.effect}`}><CardEffectIcon card={entry.card}/></div>
                 <span>Common card · {entry.zoneLabel}</span>
                 <strong>{entry.card.name}</strong>
-                <p><EffectText text={entry.card.description} card={entry.card}/></p>
+                <CardDescription card={entry.card}/>
               </> : <>
                 <div className="card-sigil"><LockKeyhole size={18}/></div>
                 <strong>Borrowed card</strong>

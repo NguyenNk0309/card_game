@@ -587,6 +587,7 @@ button:focus-visible {
 
 .roster-buff-tooltip b,
 .roster-buff-tooltip em { font: inherit; }
+.roster-buff-tooltip > span > i { color: var(--muted); font: inherit; font-style: normal; }
 .roster-buff-tooltip em { color: #8fd9a7; font-weight: 900; }
 .roster-buff-tooltip > span.negative,
 .roster-buff-tooltip > span.negative em { color: #ef9187; }
@@ -7725,3 +7726,23 @@ button:disabled :where(span, small, strong, b, p),
     padding-right: 46px;
   }
 }
+
+/* Keep every card stable while allowing long rules text to remain available. */
+.game-shell .card-description {
+  display: block;
+  box-sizing: border-box;
+  min-height: 8.7em !important;
+  height: 8.7em;
+  max-height: 8.7em;
+  margin-block: 5px 6px;
+  padding-right: 4px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(212, 181, 110, .65) rgba(255, 255, 255, .06);
+  scrollbar-width: thin;
+}
+
+.game-shell .card-description::-webkit-scrollbar { width: 5px; }
+.game-shell .card-description::-webkit-scrollbar-track { background: rgba(255, 255, 255, .06); }
+.game-shell .card-description::-webkit-scrollbar-thumb { background: rgba(212, 181, 110, .65); }

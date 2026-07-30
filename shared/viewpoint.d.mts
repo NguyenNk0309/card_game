@@ -11,6 +11,8 @@ export type StatusPresentation = {
   displayValue: string;
   value: string;
   duration: string;
+  durationLabel?: string;
+  tooltipValue?: string;
   tooltip: string;
   negative?: boolean;
   shield?: boolean;
