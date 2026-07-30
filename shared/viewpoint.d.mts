@@ -3,7 +3,7 @@ import type { GameHistoryEntry, GameOutcome, PlayerLifeEvent, PlayerRunState, Pl
 export type ViewerRelation = "self" | "ally" | "enemy" | "neutral";
 export type ViewpointTextOptions = { involvedPlayerIds?: string[]; emphasizedPlayerIds?: string[]; pronounPlayerId?: string };
 export type OutcomePresentation = { category: string; title: string; detail: string; involvedPlayerIds: string[] };
-export type HistoryPresentation = { type: string; actor: string; target: string; card: string; result: string; changes: string; duration: string; details: string; involvedPlayerIds: string[] };
+export type HistoryPresentation = { type: string; actor: string; target: string; card: string; result: string; changes: string; penalty: string; duration: string; details: string; involvedPlayerIds: string[] };
 export type LifeEventPresentation = { category: string; title: string; detail: string };
 export type StatusPresentation = {
   kind: "shield" | "attackBuff" | "diceBuff" | "dicePenalty" | "zeroPity" | "skipTurns" | "revive" | "borrowedCards" | "purgedCards";

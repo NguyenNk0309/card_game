@@ -3562,7 +3562,7 @@ button:focus-visible {
 
 .history-table {
   width: 100%;
-  min-width: 1640px;
+  min-width: 1840px;
   border-collapse: collapse;
   text-align: left;
   font-size: 11px;
@@ -3591,6 +3591,11 @@ button:focus-visible {
   border-bottom: 1px solid rgba(255, 255, 255, .07);
   line-height: 1.45;
   vertical-align: top;
+}
+
+.history-penalty-cell {
+  min-width: 210px;
+  color: #e7a39a !important;
 }
 
 .history-roll-summary {

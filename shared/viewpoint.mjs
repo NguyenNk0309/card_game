@@ -222,6 +222,13 @@ function historyChanges(entry) {
   return changes.join(' · ') || '—';
 }
 
+function historyPenalty(entry) {
+  if (entry.failureDetail) return entry.failureDetail;
+  if (entry.success) return '';
+  const sentences = String(entry.message || '').match(/[^.!?]+[.!?]?/g) || [];
+  return sentences.find((sentence) => /backlash damage|guard broke|because the action failed/i.test(sentence))?.trim() || '';
+}
+
 function historyDuration(entry, players) {
   const card = players.flatMap((player) => player.skillDeck || []).find((candidate) => candidate.name === entry.cardName);
   if (card?.supportType === 'purge-card') return '2 phases';
@@ -239,11 +246,13 @@ export function formatHistoryPresentation(entry, players, viewerId = '') {
   const target = entry.targetName
     ? formatViewpointText(entry.targetName, players, viewerId, { involvedPlayerIds: context.involvedIds })
     : '—';
-  const details = formatViewpointText(entry.message, players, viewerId, {
+  const textOptions = {
     involvedPlayerIds: context.involvedIds,
     emphasizedPlayerIds: context.actor ? [context.actor.id] : [],
     pronounPlayerId: context.targets.length === 1 ? context.targets[0]?.id : undefined
-  });
+  };
+  const details = formatViewpointText(entry.message, players, viewerId, textOptions);
+  const penalty = formatViewpointText(historyPenalty(entry), players, viewerId, textOptions);
   const result = entry.kind === 'discard' ? 'Discarded'
     : entry.kind === 'skip' ? 'Passed'
       : entry.kind === 'timeout' ? 'Timed out'
@@ -257,6 +266,7 @@ export function formatHistoryPresentation(entry, players, viewerId = '') {
     card: entry.cardName || (entry.kind === 'discard' ? 'Hidden card' : entry.kind === 'world' ? 'World Event' : '—'),
     result,
     changes: historyChanges(entry),
+    penalty,
     duration: historyDuration(entry, players),
     details,
     involvedPlayerIds: context.involvedIds

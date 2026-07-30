@@ -157,6 +157,7 @@ export type GameHistoryEntry = {
   pityCost?: number;
   pityBefore?: number;
   pityAfter?: number;
+  failureDetail?: string;
   createdAt: number;
 };
 

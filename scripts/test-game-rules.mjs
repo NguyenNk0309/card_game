@@ -540,6 +540,7 @@ failureGame.playerStates[duelist.id].hand = [riskyCard.id];
 const failedStrongCard = engine.resolveCardTurn(failureGame, [duelist, failureEnemy], riskyCard.id, failureEnemy.id, 1);
 assert.equal(failedStrongCard.playerStates[duelist.id].hp, duelist.hero.maxHp - riskyCard.failureValue);
 assert(failedStrongCard.outcome.failureDetail, "strong failed card explains its negative effect");
+assert.equal(failedStrongCard.history.at(-1).failureDetail, failedStrongCard.outcome.failureDetail, "failed-card history preserves the exact penalty description");
 
 const emptyGame = engine.createInitialGame([first, second], engine.createAdventure("EMPTY"), 30);
 emptyGame.turnOrder = [first.id, second.id];
