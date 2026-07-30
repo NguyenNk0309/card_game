@@ -5463,11 +5463,15 @@ button:focus-visible {
 .character-info-column {
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .character-info-column .character-profile {
   min-height: 0;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
 }
 
 .character-info-column .character-stats {
