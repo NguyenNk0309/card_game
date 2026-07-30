@@ -565,7 +565,7 @@ button:focus-visible {
 
 .party-rail:has(.roster-buff-indicator:hover),
 .party-rail:has(.roster-buff-indicator:focus-within) {
-  z-index: 1000;
+  z-index: 9;
 }
 
 .roster-buff-tooltip::before {
