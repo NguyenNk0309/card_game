@@ -2430,6 +2430,11 @@ button:focus-visible {
   font: 500 14px Georgia, "Times New Roman", serif;
 }
 
+.local-session-icon {
+  flex: 0 0 auto;
+  color: var(--gold);
+}
+
 .joined-name span,
 .joined-main p {
   color: var(--muted);
@@ -2525,9 +2530,13 @@ button:focus-visible {
 .joined-actions {
   padding: 7px 9px;
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 1fr;
   gap: 6px;
   border-top: 1px solid var(--line);
+}
+
+.joined-actions.local-player-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .joined-actions button {
@@ -2556,10 +2565,9 @@ button:focus-visible {
   border-color: rgba(212, 181, 110, 0.45);
 }
 
-.joined-actions .leave-button {
-  padding: 0;
-  width: 32px;
+.joined-actions .out-team-button {
   color: #cc8178;
+  border-color: rgba(204, 129, 120, 0.38);
 }
 
 .joined-actions .remove-player-button {
@@ -2567,6 +2575,7 @@ button:focus-visible {
   border-color: rgba(204, 129, 120, 0.38);
 }
 
+.joined-actions .out-team-button:hover,
 .joined-actions .remove-player-button:hover {
   color: #ffe0dc;
   background: rgba(158, 65, 58, 0.2);
@@ -4958,17 +4967,6 @@ button:focus-visible {
   gap: 2px 7px;
 }
 
-.team-slot-player .joined-main:has(.joined-name > span) {
-  grid-template-columns: 36px minmax(0, 1fr);
-}
-
-.team-slot-player .joined-main:has(.joined-name > span) .lobby-player-status {
-  grid-column: 2;
-  grid-row: 2;
-  min-width: 0;
-  justify-items: start;
-}
-
 .team-slot-player .lobby-player-status {
   min-width: 68px;
 }
@@ -4979,7 +4977,6 @@ button:focus-visible {
 }
 
 .team-slot-player .joined-actions {
-  grid-template-columns: minmax(0, 1fr) auto auto;
   padding: 6px 7px;
 }
 
@@ -5133,11 +5130,6 @@ button:focus-visible {
   overflow-wrap: anywhere;
 }
 
-.joined-actions .leave-button {
-  min-width: 34px;
-  padding-inline: 0;
-}
-
 /* A 1080p desktop browser has less vertical room than its monitor resolution.
    Keep the document fixed to that viewport and let only purpose-built panels scroll. */
 @media (min-width: 1360px) and (max-height: 1100px) {
@@ -5250,12 +5242,11 @@ button:focus-visible {
 
   .team-slot-player,
   .empty-team-slot {
-    height: auto;
-    min-height: 0;
+    height: 92px;
+    min-height: 92px;
   }
 
   .team-slot-player {
-    min-height: 92px;
     display: grid;
     grid-template-rows: minmax(0, 1fr) auto;
   }
@@ -5276,10 +5267,7 @@ button:focus-visible {
     padding: 4px 7px;
   }
 
-  .team-slot-player .joined-actions .leave-button { padding-inline: 0; }
-
   .empty-team-slot {
-    min-height: 56px;
     padding: 5px 8px;
     gap: 7px;
   }
@@ -7536,21 +7524,33 @@ button:disabled :where(span, small, strong, b, p),
   display: grid !important;
 }
 
-.team-slot-player .joined-actions:has(.leave-button) {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 34px;
-}
-
-.team-slot-player .joined-actions:not(:has(.leave-button)) {
+.team-slot-player .joined-actions.local-player-actions {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-/* Player cards must size from both their identity and action rows at every
-   supported desktop height. The previous fixed 118px shell clipped those rows
-   at 1280x720 and again above the 1100px compact-layout cutoff. */
+.team-slot-player .joined-actions.remote-player-actions {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Joined players and empty positions remain the same height in each desktop
+   layout so filling a team slot does not shift the board. */
 @media (min-width: 721px) {
+  .team-slot-player,
+  .empty-team-slot {
+    height: 118px;
+    min-height: 118px;
+  }
+
   .team-slot-player {
-    height: auto;
-    grid-template-rows: auto auto;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+}
+
+@media (min-width: 1360px) and (max-height: 1100px) {
+  .team-slot-player,
+  .empty-team-slot {
+    height: 92px;
+    min-height: 92px;
   }
 }
 
@@ -7614,10 +7614,10 @@ button:disabled :where(span, small, strong, b, p),
 }
 
 @media (max-width: 720px) {
-  .team-slot-player {
-    height: auto;
-    min-height: 0;
-    overflow: visible;
+  .team-slot-player,
+  .empty-team-slot {
+    height: 118px;
+    min-height: 118px;
   }
 
   .lobby-intro {

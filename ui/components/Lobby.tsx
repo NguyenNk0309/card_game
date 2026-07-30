@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Crown, Eye, Flame, Shield, Sparkles, Swords, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Check, Crown, Eye, Flame, LogOut, Shield, Sparkles, Swords, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { useState } from "react";
 import { describeCardFailure, describeCardSuccess } from "@/shared/cardRules";
 import type { CharacterOption, PlayerSession, TeamId } from "@/shared/types";
@@ -59,10 +59,10 @@ export function Lobby({ players, playerName, error, selectedPlayerId, localSessi
         {members.map((player, index) => <article className={`joined-player team-slot-player ${selected?.id === player.id ? "selected" : ""}`} key={player.id}>
           <button className="joined-main" onClick={() => onSelectPlayer(player.id)}>
             <div className="portrait" style={{ "--hero-color": player.randomHero ? "#d4b56e" : player.hero.color } as React.CSSProperties}>{player.randomHero ? "?" : player.hero.initials}</div>
-            <div><div className="joined-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{player.displayName}</strong>{player.id === localSessionId && <span>Your session</span>}</div><p>{player.randomHero ? "Character pending · Random at battle start" : `${player.hero.name} · ${player.hero.className}`}</p></div>
+            <div><div className="joined-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{player.displayName}</strong>{player.id === localSessionId && <UserCheck className="local-session-icon" size={14} aria-label="Your session"/>}</div>{!player.randomHero && <p>{player.hero.name} · {player.hero.className}</p>}</div>
             <div className="lobby-player-status"><span>Slot {index + 1}</span><span className={`ready-badge ${player.ready ? "is-ready" : ""}`}>{player.ready && <Check size={13}/>} {player.ready ? "Ready" : "Not ready"}</span></div>
           </button>
-          <div className="joined-actions"><button onClick={() => onSelectPlayer(player.id)}><Eye size={14}/> Review deck</button>{player.id === localSessionId ? <><button className={player.ready ? "unready-button" : "ready-button"} onClick={() => onToggleReady(player.id)}>{player.ready ? "Cancel ready" : "Ready"}</button><button className="leave-button" onClick={() => onLeave(player.id)} aria-label={`Leave room as ${player.displayName}`} title="Leave room"><UserMinus size={15}/></button></> : localPlayer ? <button className="remove-player-button" onClick={() => onRemovePlayer(player.id)}><UserMinus size={14}/> Remove</button> : <span className="remote-player-label">Another browser</span>}</div>
+          {player.id === localSessionId ? <div className="joined-actions local-player-actions"><button className="out-team-button" onClick={() => onLeave(player.id)} aria-label={`Leave team as ${player.displayName}`}><LogOut size={14}/> Out team</button><button className={player.ready ? "unready-button" : "ready-button"} onClick={() => onToggleReady(player.id)}>{player.ready ? "Cancel ready" : "Ready"}</button></div> : <div className="joined-actions remote-player-actions">{localPlayer ? <button className="remove-player-button" onClick={() => onRemovePlayer(player.id)}><UserMinus size={14}/> Remove</button> : <span className="remote-player-label">Another browser</span>}</div>}
         </article>)}
         {Array.from({ length: 5 - members.length }, (_, index) => <button className={`empty-team-slot ${canSwitchToTeam ? "switch-team-slot" : ""}`} type="button" key={`empty-${team}-${index}`} onClick={() => onSlotSelect(team)} disabled={!canUseEmptySlot} aria-label={`${localPlayer ? "Switch to" : "Join"} ${teamLabel} in slot ${members.length + index + 1}`}>
           <UserPlus size={18}/><span><strong>Empty slot</strong><small>{localPlayer ? localPlayer.hero.team === team ? "Your current team" : localPlayer.ready ? "Cancel Ready to switch" : `Switch to ${teamLabel}` : playerName.trim() ? `Join ${teamLabel}` : "Enter your name first"}</small></span>
