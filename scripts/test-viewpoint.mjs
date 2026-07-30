@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   formatHistoryPresentation,
   formatLifeEventPresentation,
@@ -8,6 +9,12 @@ import {
   sanitizeCommunicationGame,
   viewerRelation
 } from "../shared/viewpoint.mjs";
+
+const gameAppSource = readFileSync(new URL("../ui/GameApp.tsx", import.meta.url), "utf8");
+const lobbySource = readFileSync(new URL("../ui/components/Lobby.tsx", import.meta.url), "utf8");
+assert.match(gameAppSource, /if \(!players\.length\) return setSelectedPlayerId\(null\);/, "an empty lobby clears the selected player");
+assert.doesNotMatch(gameAppSource, /!localPlayer\) return setSelectedPlayerId\(null\)/, "spectators keep a valid public player selection");
+assert.match(lobbySource, /const selected = players\.find\(\(player\) => player\.id === selectedPlayerId\) \?\? localPlayer;/, "the lobby can review a selected player's public character without requiring a local seat");
 
 function player(id, displayName, team) {
   return {

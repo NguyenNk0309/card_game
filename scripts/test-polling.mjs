@@ -7,7 +7,7 @@ const secondId = `poll-second-${runId}`;
 const thirdId = `poll-third-${runId}`;
 
 function testSkillDeck(id) {
-  const special = Array.from({ length: 3 }, (_, index) => ({ id: index === 0 ? `card-${id}` : `card-${id}-${index}`, name: index === 0 ? "Test Skill" : `Test Skill ${index + 1}`, type: "Wit", description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, unique: true }));
+  const special = Array.from({ length: 3 }, (_, index) => ({ id: index === 0 ? `card-${id}` : `card-${id}-${index}`, name: index === 0 ? "Test Skill" : `Test Skill ${index + 1}`, type: "Wit", description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, failureEffect: "self-damage", failureValue: 2, unique: true }));
   const common = [
     { id: "slash", name: "Slash", type: "Might", description: "Deal 3 damage.", effect: "damage", target: "enemy", value: 3 },
     { id: "heavy", name: "Heavy Blow", type: "Might", description: "Deal 4 damage.", effect: "damage", target: "enemy", value: 4 },
@@ -337,6 +337,8 @@ try {
 
   const pendingTribute = await command(secondId, { type: "game:update", game: phaseTwoUpdate });
   assert.equal(pendingTribute.game.completedPhases, 2);
+  assert.equal(pendingTribute.game.playerStates[secondId].hp, eventStarted.game.playerStates[secondId].hp - 2, "the polling authority applies printed failure backlash even when the client snapshot leaves HP unchanged");
+  assert.match(pendingTribute.game.outcome.failureDetail, /took 2 backlash damage/, "the polling authority publishes the reconciled failure impact");
   assert.equal(pendingTribute.game.adventure.chapter, 3, "phase 3 becomes the upcoming active phase");
   assert.equal(pendingTribute.game.pendingWorldEvent.eventKey, "shattered-tribute");
   assert.equal(pendingTribute.game.pendingWorldEvent.phase, 3);

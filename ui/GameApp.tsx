@@ -487,8 +487,8 @@ export default function GameApp() {
     send({ type: "expire-turn" });
   }, [phase, game?.ended, game?.turnDeadline, secondsLeft, send, worldEventBlocking]);
   useEffect(() => {
-    if (!players.length || !localPlayer) return setSelectedPlayerId(null);
-    if (!players.some((player) => player.id === selectedPlayerId)) setSelectedPlayerId(localPlayer.id);
+    if (!players.length) return setSelectedPlayerId(null);
+    if (!selectedPlayerId || !players.some((player) => player.id === selectedPlayerId)) setSelectedPlayerId(localPlayer?.id ?? null);
   }, [players, selectedPlayerId, localPlayer]);
   useEffect(() => {
     if (phase !== "lobby" || !localPlayer) return;

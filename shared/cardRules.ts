@@ -52,11 +52,11 @@ export function getCardTargetLabel(card: ActionCard) {
 }
 
 export function describeCardSuccess(card: ActionCard) {
-  return card.effect === "none" ? "Nothing happen" : "Apply this card's effect.";
+  return card.effect === "none" ? "Nothing happens." : "Apply this card's effect.";
 }
 
 export function describeCardFailure(card: ActionCard) {
-  if (!card.unique) return "Nothing happen";
+  if (!card.unique) return "Nothing happens.";
   if (!card.failureEffect || !card.failureValue) return "The card has no effect.";
   if (card.failureEffect === "self-damage") return `The user takes ${card.failureValue} backlash damage.`;
   if (card.failureEffect === "team-damage") return `The entire team takes ${card.failureValue} backlash damage.`;

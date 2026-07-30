@@ -6,7 +6,7 @@ const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 function testSkillDeck(id) {
   const special = [
-    { id: `card-${id}`, name: "Test Skill", type: "Wit", description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, unique: true },
+    { id: `card-${id}`, name: "Test Skill", type: "Wit", description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, failureEffect: "self-damage", failureValue: 2, unique: true },
     { id: `purge-${id}`, name: "Tactical Purge", type: "Wit", description: "Temporarily purge a random enemy hand card.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "purge-card", unique: true },
     { id: `pilfer-${id}`, name: "Pilfered Chance", type: "Wit", description: "Steal a random enemy hand card, preferring special cards.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "steal-card", unique: true },
     { id: `favor-${id}`, name: "Favorable Omen", type: "Spirit", description: "Make one ally's next played card cost 0 pity.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "zero-pity", unique: true }
@@ -454,6 +454,8 @@ try {
   const [pendingFirst, pendingSecond] = await Promise.all([pendingFirstPromise, pendingSecondPromise]);
   const pendingEventId = pendingFirst.game.pendingWorldEvent.id;
   assert.equal(pendingFirst.game.completedPhases, 2, "phase 2 completes before the phase-3 World Event begins");
+  assert.equal(pendingFirst.game.playerStates[firstId].hp, tributeStartedFirst.game.playerStates[firstId].hp - 2, "the realtime authority applies printed failure backlash even when the client snapshot leaves HP unchanged");
+  assert.match(pendingFirst.game.outcome.failureDetail, /took 2 backlash damage/, "the realtime authority publishes the reconciled failure impact");
   assert.equal(pendingFirst.game.pendingWorldEvent.phase, 3);
   assert.equal(pendingFirst.game.pendingWorldEvent.title, "Shattered Tribute");
   assert.deepEqual(new Set(pendingFirst.game.pendingWorldEvent.requiredPlayerIds), new Set([firstId, secondId]), "every living player is required to submit");

@@ -29,8 +29,8 @@ assert(new Set(sampledRolls).size > 1, "d20 sampling must not return a fixed val
 
 const options = engine.getCharacterOptions();
 assert.equal(options.length, 10);
-assert.equal(cardRules.describeCardFailure(options[0].skillDeck.find((card) => !card.unique)), "Nothing happen", "common-card failure copy stays concise");
-assert.equal(cardRules.describeCardSuccess(options[0].skillDeck.find((card) => card.effect === "none")), "Nothing happen", "no-effect success copy stays concise");
+assert.equal(cardRules.describeCardFailure(options[0].skillDeck.find((card) => !card.unique)), "Nothing happens.", "common-card failure copy stays concise and grammatical");
+assert.equal(cardRules.describeCardSuccess(options[0].skillDeck.find((card) => card.effect === "none")), "Nothing happens.", "no-effect success copy stays concise and grammatical");
 for (const option of options) {
   assert.equal(option.skillDeck.length, 10, `${option.hero.name} must have 10 cards`);
   assert.equal(option.skillDeck.filter((card) => card.unique).length, 3);
@@ -541,6 +541,47 @@ const failedStrongCard = engine.resolveCardTurn(failureGame, [duelist, failureEn
 assert.equal(failedStrongCard.playerStates[duelist.id].hp, duelist.hero.maxHp - riskyCard.failureValue);
 assert(failedStrongCard.outcome.failureDetail, "strong failed card explains its negative effect");
 assert.equal(failedStrongCard.history.at(-1).failureDetail, failedStrongCard.outcome.failureDetail, "failed-card history preserves the exact penalty description");
+
+const failureHealer = engine.createPlayerSession("Failure healer", 0, "Brother Orren", "failure-healer");
+const failureHealEnemy = engine.createPlayerSession("Failure heal enemy", 1, "Thorne Vale", "failure-heal-enemy");
+const failureHealAlly = engine.createPlayerSession("Failure heal ally", 2, "Elara Voss", "failure-heal-ally");
+const failedHealCard = failureHealer.skillDeck.find((card) => card.name === "Prayer of Life");
+const failedHealGame = engine.createInitialGame([failureHealer, failureHealEnemy, failureHealAlly], engine.createAdventure("FAILURE-HEAL"), 30);
+failedHealGame.turnOrder = [failureHealer.id, failureHealEnemy.id, failureHealAlly.id];
+failedHealGame.adventure.target = 20;
+failedHealGame.playerStates[failureHealer.id].hp = 5;
+failedHealGame.playerStates[failureHealAlly.id].hp = 2;
+failedHealGame.playerStates[failureHealer.id].hand = [failedHealCard.id];
+const failedHeal = engine.resolveCardTurn(failedHealGame, [failureHealer, failureHealEnemy, failureHealAlly], failedHealCard.id, failureHealAlly.id, 1);
+assert.equal(failedHeal.outcome.success, false, "a low Prayer of Life roll fails");
+assert.equal(failedHeal.playerStates[failureHealer.id].hp, 4, "a failed heal authoritatively damages its user");
+assert.equal(failedHeal.playerStates[failureHealAlly.id].hp, 2, "a failed heal never applies its healing effect");
+
+const teamFailureActor = engine.createPlayerSession("Team failure actor", 0, "Mira Ash", "team-failure-actor");
+const teamFailureEnemy = engine.createPlayerSession("Team failure enemy", 1, "Thorne Vale", "team-failure-enemy");
+const teamFailureAlly = engine.createPlayerSession("Team failure ally", 2, "Elara Voss", "team-failure-ally");
+const teamFailureCard = teamFailureActor.skillDeck.find((card) => card.failureEffect === "team-damage");
+const teamFailureGame = engine.createInitialGame([teamFailureActor, teamFailureEnemy, teamFailureAlly], engine.createAdventure("FAILURE-TEAM"), 30);
+teamFailureGame.turnOrder = [teamFailureActor.id, teamFailureEnemy.id, teamFailureAlly.id];
+teamFailureGame.adventure.target = 20;
+teamFailureGame.playerStates[teamFailureActor.id].hand = [teamFailureCard.id];
+const failedTeamCard = engine.resolveCardTurn(teamFailureGame, [teamFailureActor, teamFailureEnemy, teamFailureAlly], teamFailureCard.id, teamFailureEnemy.id, 1);
+assert.equal(failedTeamCard.playerStates[teamFailureActor.id].hp, teamFailureActor.hero.maxHp - teamFailureCard.failureValue, "team backlash damages the user");
+assert.equal(failedTeamCard.playerStates[teamFailureAlly.id].hp, teamFailureAlly.hero.maxHp - teamFailureCard.failureValue, "team backlash damages every living ally");
+assert.equal(failedTeamCard.playerStates[teamFailureEnemy.id].hp, teamFailureEnemy.hero.maxHp, "team backlash never damages the opposing team");
+
+const shieldFailureActor = engine.createPlayerSession("Shield failure actor", 0, "Bram Coalhand", "shield-failure-actor");
+const shieldFailureEnemy = engine.createPlayerSession("Shield failure enemy", 1, "Thorne Vale", "shield-failure-enemy");
+const shieldFailureCard = shieldFailureActor.skillDeck.find((card) => card.failureEffect === "lose-shield");
+const shieldFailureGame = engine.createInitialGame([shieldFailureActor, shieldFailureEnemy], engine.createAdventure("FAILURE-SHIELD"), 30);
+shieldFailureGame.turnOrder = [shieldFailureActor.id, shieldFailureEnemy.id];
+shieldFailureGame.adventure.target = 20;
+shieldFailureGame.playerStates[shieldFailureActor.id].shield = 5;
+shieldFailureGame.playerStates[shieldFailureActor.id].timedEffects = [{ kind: "shield", value: 5, expiresAfterTurn: 2 }];
+shieldFailureGame.playerStates[shieldFailureActor.id].hand = [shieldFailureCard.id];
+const failedShieldCard = engine.resolveCardTurn(shieldFailureGame, [shieldFailureActor, shieldFailureEnemy], shieldFailureCard.id, shieldFailureActor.id, 1);
+assert.equal(failedShieldCard.playerStates[shieldFailureActor.id].shield, 5 - shieldFailureCard.failureValue, "guard-break failure removes the printed shield amount");
+assert.equal(failedShieldCard.playerStates[shieldFailureActor.id].timedEffects.reduce((sum, effect) => sum + (effect.kind === "shield" ? effect.value : 0), 0), 5 - shieldFailureCard.failureValue, "guard-break failure keeps timed shield bookkeeping synchronized");
 
 const emptyGame = engine.createInitialGame([first, second], engine.createAdventure("EMPTY"), 30);
 emptyGame.turnOrder = [first.id, second.id];

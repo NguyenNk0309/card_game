@@ -462,6 +462,74 @@ function reconcilePityPoints(previousGame, incomingGame, actor) {
   return '';
 }
 
+function removeTimedEffectAmount(state, kind, amount) {
+  let remaining = Math.max(0, amount);
+  state[kind] = Math.max(0, (state[kind] || 0) - remaining);
+  state.timedEffects = (state.timedEffects || []).map((effect) => {
+    if (effect.kind !== kind || remaining <= 0) return effect;
+    const removed = Math.min(effect.value, remaining);
+    remaining -= removed;
+    return { ...effect, value: effect.value - removed };
+  }).filter((effect) => effect.value > 0);
+}
+
+function reconcileFailureImpact(previousGame, incomingGame, actor) {
+  const outcome = incomingGame?.outcome;
+  if (!previousGame || !incomingGame || !actor || outcome?.kind !== 'card' || outcome.success) return;
+  const card = room.players.flatMap((player) => player.skillDeck || []).find((item) => item.id === outcome.cardId)
+    || room.players.flatMap((player) => player.skillDeck || []).find((item) => item.name === outcome.cardName);
+  const penalty = Math.max(0, Number(card?.failureValue) || 0);
+  if (!card?.failureEffect || penalty <= 0) return;
+
+  let failureDetail = '';
+  if (card.failureEffect === 'self-damage' || card.failureEffect === 'team-damage') {
+    const affected = card.failureEffect === 'self-damage'
+      ? [actor]
+      : room.players.filter((player) => player.hero.team === actor.hero.team && (previousGame.playerStates?.[player.id]?.hp || 0) > 0);
+    for (const player of affected) {
+      const previousState = previousGame.playerStates?.[player.id];
+      const incomingState = incomingGame.playerStates?.[player.id];
+      if (!previousState || !incomingState) continue;
+      incomingState.hp = Math.max(0, (previousState.hp || 0) - penalty);
+      if (player.hero.name === 'Sable Fen' && incomingState.hp <= 0 && !previousState.passiveReviveUsed) {
+        incomingState.hp = Math.max(1, Math.ceil((incomingState.maxHp || previousState.maxHp || player.hero.maxHp) / 2));
+        incomingState.passiveReviveUsed = true;
+        incomingState.reviveIn = 0;
+      }
+    }
+    failureDetail = card.failureEffect === 'self-damage'
+      ? `${actor.displayName} took ${penalty} backlash damage.`
+      : `The entire ${teamLabel(actor.hero.team)} team took ${penalty} backlash damage.`;
+  } else if (card.failureEffect === 'lose-shield') {
+    const previousState = previousGame.playerStates?.[actor.id];
+    const incomingState = incomingGame.playerStates?.[actor.id];
+    if (!previousState || !incomingState) return;
+    const lost = Math.min(previousState.shield || 0, penalty);
+    const maximumRemaining = Math.max(0, (previousState.shield || 0) - lost);
+    const incomingShield = Math.max(0, Number(incomingState.shield) || 0);
+    if (incomingShield > maximumRemaining) removeTimedEffectAmount(incomingState, 'shield', incomingShield - maximumRemaining);
+    failureDetail = `${actor.displayName} lost ${lost} shield when their guard broke.`;
+  } else if (card.failureEffect === 'enemy-shield') {
+    const enemies = room.players.filter((player) => player.hero.team !== actor.hero.team && (previousGame.playerStates?.[player.id]?.hp || 0) > 0);
+    for (const enemy of enemies) {
+      const previousState = previousGame.playerStates?.[enemy.id];
+      const incomingState = incomingGame.playerStates?.[enemy.id];
+      if (!previousState || !incomingState) continue;
+      incomingState.shield = Math.max(Number(incomingState.shield) || 0, (previousState.shield || 0) + penalty);
+    }
+    failureDetail = `Every enemy gained ${penalty} shield because the action failed.`;
+  }
+
+  if (!failureDetail) return;
+  outcome.failureDetail = failureDetail;
+  if (!String(outcome.detail || '').includes(failureDetail)) outcome.detail = `${outcome.detail || `${actor.displayName} used ${card.name} but failed.`} ${failureDetail}`;
+  const historyEntry = [...(incomingGame.history || [])].reverse().find((entry) => entry.cardName === card.name && entry.actorName === actor.displayName);
+  if (historyEntry) {
+    historyEntry.failureDetail = failureDetail;
+    if (!String(historyEntry.message || '').includes(failureDetail)) historyEntry.message = `${historyEntry.message || `${actor.displayName} used ${card.name} but failed.`} ${failureDetail}`;
+  }
+}
+
 function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
   if (!previousGame || !incomingGame || !actor) return;
   const outcome = incomingGame.outcome;
@@ -848,6 +916,7 @@ async function applyCommand(ownerId, message, deadlineAdvanced = false) {
     if (message.game.outcome) message.game.outcome.notices = [];
     const pityError = reconcilePityPoints(previousGame, message.game, activePlayer);
     if (pityError) return pityError;
+    reconcileFailureImpact(previousGame, message.game, activePlayer);
     reconcileHiddenCardEffects(previousGame, message.game, activePlayer);
     if (phaseAdvanced) returnExpiredPurgedCards(message.game, message.game.completedPhases);
     message.game.adventure.target = randomDiceTarget();
