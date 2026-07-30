@@ -1,13 +1,78 @@
 "use client";
 
 import { Archive, Check, Clover, Dices, Hand, Heart, Hourglass, Shield, Swords, UserMinus } from "lucide-react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
 import { getStatusPresentations } from "@/shared/viewpoint.mjs";
+import { fitTooltipToViewport } from "./tooltipPosition";
 
 const teamMeta: Record<TeamId, { name: string; icon: typeof Shield }> = {
   veil: { name: "Veilbound", icon: Shield },
   ember: { name: "Embercourt", icon: Swords }
 };
+
+type StatusPresentation = ReturnType<typeof getStatusPresentations>[number];
+
+function RosterEffect({ buff, icon }: { buff: StatusPresentation; icon: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
+  const [position, setPosition] = useState({ left: 12, top: 12 });
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const tooltipRef = useRef<HTMLSpanElement>(null);
+  const tooltipId = useId();
+
+  useLayoutEffect(() => {
+    setPortalRoot(document.querySelector<HTMLElement>(".game-shell"));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open || !portalRoot) return;
+    const placeTooltip = () => {
+      const anchor = anchorRef.current?.getBoundingClientRect();
+      const tooltip = tooltipRef.current?.getBoundingClientRect();
+      if (!anchor || !tooltip) return;
+      setPosition(fitTooltipToViewport(anchor, tooltip, { width: window.innerWidth, height: window.innerHeight }));
+    };
+    placeTooltip();
+    window.addEventListener("resize", placeTooltip);
+    window.addEventListener("scroll", placeTooltip, true);
+    return () => {
+      window.removeEventListener("resize", placeTooltip);
+      window.removeEventListener("scroll", placeTooltip, true);
+    };
+  }, [open, portalRoot]);
+
+  return <>
+    <span
+      ref={anchorRef}
+      className={`roster-buff-indicator ${buff.negative ? "negative" : ""} ${buff.shield ? "shield" : ""}`}
+      tabIndex={0}
+      aria-label={`${buff.label}: ${buff.value}${buff.duration ? `, ${buff.duration}` : ""}. ${buff.tooltip}`}
+      aria-describedby={open ? tooltipId : undefined}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={() => setOpen(false)}
+    >
+      {icon}<b>{buff.displayValue}</b>
+    </span>
+    {open && portalRoot && createPortal(
+      <span
+        ref={tooltipRef}
+        id={tooltipId}
+        className="roster-buff-tooltip is-visible"
+        role="tooltip"
+        style={{ left: position.left, top: position.top }}
+      >
+        <strong>{buff.label}</strong>
+        <span className={buff.negative ? "negative" : ""}><em>{buff.value}</em>{buff.duration && <b>{buff.duration}</b>}</span>
+        <p>{buff.tooltip}</p>
+      </span>,
+      portalRoot
+    )}
+  </>;
+}
 
 export function PartyRail({ players, game, localSessionId, onRemovePlayer, onInspectPlayer }: {
   players: PlayerSession[];
@@ -47,7 +112,7 @@ export function PartyRail({ players, game, localSessionId, onRemovePlayer, onIns
               <div className="hero-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{player.displayName}</strong><span className="hero-name-actions">{dead ? <em>DEFEATED</em> : null}{localSessionId && player.id !== localSessionId && onRemovePlayer && <button className="rail-remove-player" onClick={() => onRemovePlayer(player.id)} aria-label={`Remove ${player.displayName}`}><UserMinus size={12}/></button>}</span></div>
               <span>{hero.name} · {hero.className}</span>
               <div className="hp-line"><Heart size={11} fill="currentColor"/><div className="hp-meter" role="progressbar" aria-label={`${player.displayName} health`} aria-valuemin={0} aria-valuemax={maxHp} aria-valuenow={hp}><i style={{ width: `${Math.max(0, hp / maxHp) * 100}%` }}/><strong>{hp} / {maxHp} HP</strong></div></div>
-              {buffs.length > 0 && <div className="roster-buff-row" aria-label={`${player.displayName} active effects`}>{buffs.map((buff, index) => <span className={`roster-buff-indicator ${buff.negative ? "negative" : ""} ${buff.shield ? "shield" : ""}`} tabIndex={0} aria-label={`${buff.label}: ${buff.value}${buff.duration ? `, ${buff.duration}` : ""}. ${buff.tooltip}`} key={`${buff.kind}-${index}`}>{statusIcon(buff.kind)}<b>{buff.displayValue}</b><span className="roster-buff-tooltip" role="tooltip"><strong>{buff.label}</strong><span className={buff.negative ? "negative" : ""}><em>{buff.value}</em>{buff.duration && <b>{buff.duration}</b>}</span><p>{buff.tooltip}</p></span></span>)}</div>}
+              {buffs.length > 0 && <div className="roster-buff-row" aria-label={`${player.displayName} active effects`}>{buffs.map((buff, index) => <RosterEffect buff={buff} icon={statusIcon(buff.kind)} key={`${buff.kind}-${index}`}/>)}</div>}
             </div>
           </article>;
         })}
