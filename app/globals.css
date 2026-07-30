@@ -553,8 +553,8 @@ button:focus-visible {
 
 .roster-buff-tooltip > span {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: .5em;
   padding: 4px 0;
   color: #a9d9b7;
   border-top: 1px solid rgba(255, 255, 255, .07);
@@ -4964,7 +4964,7 @@ button:focus-visible {
 }
 
 .team-slot-player .joined-actions {
-  padding: 6px 7px;
+  padding: 6px 7px 8px;
 }
 
 .team-slot-player .remote-player-label {
@@ -5245,7 +5245,7 @@ button:focus-visible {
   }
 
   .team-slot-player .joined-actions {
-    padding: 4px 5px;
+    padding: 4px 5px 5px;
     gap: 4px;
   }
 
@@ -7524,6 +7524,7 @@ button:disabled :where(span, small, strong, b, p),
   }
 
   .team-slot-player {
+    display: grid;
     grid-template-rows: minmax(0, 1fr) auto;
   }
 }
