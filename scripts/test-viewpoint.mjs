@@ -177,12 +177,14 @@ const statusState = {
 const ownStatuses = getStatusPresentations(rowan, statusState, players, rowan.id, 6);
 assert.equal(ownStatuses.find((status) => status.kind === "shield").label, "Your shield");
 assert.equal(ownStatuses.find((status) => status.kind === "shield").duration, "2T");
+assert.equal(ownStatuses.find((status) => status.kind === "shield").tooltip, "You have 3 shield for 2 turns or until depleted.");
 assert.equal(ownStatuses.find((status) => status.kind === "diceBuff").value, "+2");
 assert.equal(ownStatuses.find((status) => status.kind === "dicePenalty").value, "−1");
 assert.equal(ownStatuses.find((status) => status.kind === "zeroPity").duration, "1T");
 assert.equal(ownStatuses.find((status) => status.kind === "skipTurns").duration, "1T");
 assert.equal(ownStatuses.find((status) => status.kind === "revive").duration, "2T");
 assert.equal(ownStatuses.find((status) => status.kind === "purgedCards").duration, "3P");
+for (const status of ownStatuses) assert.equal((status.tooltip.match(/[.!?](?:\s|$)/g) || []).length, 1, `${status.kind} tooltip must contain exactly one sentence`);
 assert.equal(getStatusPresentations(rowan, statusState, players, elias.id, 6)[0].label, "Ally Rowan's shield");
 assert.equal(getStatusPresentations(rowan, statusState, players, mira.id, 6)[0].label, "Enemy Rowan's shield");
 

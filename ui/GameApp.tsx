@@ -207,7 +207,7 @@ function matchesHistoryFilter(entry: GameHistoryEntry, filter: HistoryFilter, pl
 
 function HistoryEntries({ entries, players, localPlayer, expanded = false, onInspectPlayer, onInspectCard }: { entries: GameHistoryEntry[]; players: PlayerSession[]; localPlayer?: PlayerSession; expanded?: boolean; onInspectPlayer: (id: string) => void; onInspectCard: (name: string) => void }) {
   const [filter, setFilter] = useState<HistoryFilter>("all");
-  const filteredEntries = expanded ? entries.filter((entry) => matchesHistoryFilter(entry, filter, players, localPlayer)) : entries.slice(-2);
+  const filteredEntries = expanded ? entries.filter((entry) => matchesHistoryFilter(entry, filter, players, localPlayer)) : entries.slice(-1);
   const renderEntry = (entry: GameHistoryEntry) => {
     const presentation = formatHistoryPresentation(entry, players, localPlayer?.id);
     const visibleDiceBonus = visibleDiceModifier(entry.diceBonus, entry.actorName, localPlayer?.displayName);
@@ -216,7 +216,14 @@ function HistoryEntries({ entries, players, localPlayer, expanded = false, onIns
   };
   if (!expanded) return <div className="history-list">{!filteredEntries.length && <p className="empty-history">No actions yet.</p>}{[...filteredEntries].reverse().map(renderEntry)}</div>;
   const rows = [...filteredEntries].reverse();
-  return <div className="viewpoint-history"><label className="history-filter-control"><span>VIEW</span><select value={filter} onChange={(event) => setFilter(event.target.value as HistoryFilter)}>{historyFilters.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label><div className="history-table-scroll"><table className="history-table"><thead><tr><th>Phase</th><th>Turn</th><th>Type</th><th>Actor</th><th>Target</th><th>Card or event</th><th>Result</th><th>Changes</th><th>Duration</th><th>Roll</th><th>Details</th></tr></thead><tbody>{rows.map((entry) => {
+  const phaseGroups: Array<{ phase: number | string; entries: GameHistoryEntry[] }> = [];
+  for (const entry of rows) {
+    const phase = entry.phase ?? "—";
+    const group = phaseGroups.find((candidate) => candidate.phase === phase);
+    if (group) group.entries.push(entry);
+    else phaseGroups.push({ phase, entries: [entry] });
+  }
+  const renderTableRow = (entry: GameHistoryEntry, phase: number | string, phaseRowSpan: number, firstInPhase: boolean) => {
     const presentation = formatHistoryPresentation(entry, players, localPlayer?.id);
     const roll = entry.resolution === "pity" ? (
       <span className="history-roll-summary">
@@ -234,8 +241,9 @@ function HistoryEntries({ entries, players, localPlayer, expanded = false, onIns
         <span>target: —</span>
       </span>
     );
-    return <tr className={`${entry.kind} ${entry.success ? "success" : "failure"}`} key={entry.id}><td>{entry.phase ?? "—"}</td><td>{entry.turn}</td><td>{presentation.type}</td><td><HighlightPlayerNames text={presentation.actor} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer}/></td><td><HighlightPlayerNames text={presentation.target} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer}/></td><td>{entry.cardName ? <button type="button" className="history-card-link" onClick={() => onInspectCard(entry.cardName!)}>{presentation.card}</button> : presentation.card}</td><td><b className={`history-result ${presentation.result.toLocaleLowerCase().replace(/\s+/g, "-")}`}>{presentation.result}</b></td><td>{presentation.changes}</td><td>{presentation.duration}</td><td>{roll}</td><td><HistoryMessage entry={entry} text={presentation.details} players={players} localPlayer={localPlayer} onInspectPlayer={onInspectPlayer} onInspectCard={onInspectCard}/></td></tr>;
-  })}</tbody></table>{!rows.length && <p className="empty-history">No events match this view.</p>}</div></div>;
+    return <tr className={`${entry.kind} ${entry.success ? "success" : "failure"}`} key={entry.id}>{firstInPhase && <th className="history-phase-cell" scope="rowgroup" rowSpan={phaseRowSpan} aria-label={`Phase ${phase}`}>{phase}</th>}<td>{entry.turn}</td><td>{presentation.type}</td><td><HighlightPlayerNames text={presentation.actor} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer}/></td><td><HighlightPlayerNames text={presentation.target} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer}/></td><td>{entry.cardName ? <button type="button" className="history-card-link" onClick={() => onInspectCard(entry.cardName!)}>{presentation.card}</button> : presentation.card}</td><td><b className={`history-result ${presentation.result.toLocaleLowerCase().replace(/\s+/g, "-")}`}>{presentation.result}</b></td><td>{presentation.changes}</td><td>{presentation.duration}</td><td>{roll}</td><td><HistoryMessage entry={entry} text={presentation.details} players={players} localPlayer={localPlayer} onInspectPlayer={onInspectPlayer} onInspectCard={onInspectCard}/></td></tr>;
+  };
+  return <div className="viewpoint-history"><label className="history-filter-control"><span>VIEW</span><select value={filter} onChange={(event) => setFilter(event.target.value as HistoryFilter)}>{historyFilters.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label><div className="history-table-scroll"><table className="history-table"><thead><tr><th>Phase</th><th>Turn</th><th>Type</th><th>Actor</th><th>Target</th><th>Card or event</th><th>Result</th><th>Changes</th><th>Duration</th><th>Roll</th><th>Details</th></tr></thead><tbody>{phaseGroups.flatMap((group) => group.entries.map((entry, index) => renderTableRow(entry, group.phase, group.entries.length, index === 0)))}</tbody></table>{!rows.length && <p className="empty-history">No events match this view.</p>}</div></div>;
 }
 
 function TurnOrderList({ players, game, order, localPlayer, expanded = false, onInspect }: { players: PlayerSession[]; game: SyncedGameState | null; order: PlayerSession[]; localPlayer?: PlayerSession; expanded?: boolean; onInspect: (id: string) => void }) {

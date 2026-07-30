@@ -314,22 +314,22 @@ export function getStatusPresentations(player, state, players, viewerId = '', cu
   const add = (status) => statuses.push(status);
   if (state.shield > 0) {
     const turns = remainingTurns(state, 'shield');
-    add({ kind: 'shield', label: `${owner.possessive} shield`, displayValue: String(state.shield), value: String(state.shield), duration: `${turns}T`, tooltip: `${owner.subject === 'You' ? 'You have' : `${owner.subject} has`} ${state.shield} shield. It expires in ${turns} ${turns === 1 ? 'turn' : 'turns'} or when depleted.`, shield: true });
+    add({ kind: 'shield', label: `${owner.possessive} shield`, displayValue: String(state.shield), value: String(state.shield), duration: `${turns}T`, tooltip: `${owner.subject === 'You' ? 'You have' : `${owner.subject} has`} ${state.shield} shield for ${turns} ${turns === 1 ? 'turn' : 'turns'} or until depleted.`, shield: true });
   }
   if (state.attackBuff > 0) {
     const turns = remainingTurns(state, 'attackBuff');
-    add({ kind: 'attackBuff', label: `${owner.possessive} attack bonus`, displayValue: `+${state.attackBuff}`, value: `+${state.attackBuff}`, duration: `${turns}T`, tooltip: `${owner.possessive} next successful attack gains +${state.attackBuff} damage. Duration: ${turns} ${turns === 1 ? 'turn' : 'turns'}.` });
+    add({ kind: 'attackBuff', label: `${owner.possessive} attack bonus`, displayValue: `+${state.attackBuff}`, value: `+${state.attackBuff}`, duration: `${turns}T`, tooltip: `${owner.possessive} next successful attack gains +${state.attackBuff} damage within ${turns === 1 ? 'the next turn' : `${turns} turns`}.` });
   }
   if (state.diceBuff > 0) {
     const turns = remainingTurns(state, 'diceBuff');
-    add({ kind: 'diceBuff', label: `${owner.possessive} roll bonus`, displayValue: `+${state.diceBuff}`, value: `+${state.diceBuff}`, duration: `${turns}T`, tooltip: `${owner.possessive} next d20 gains +${state.diceBuff}. Duration: ${turns} ${turns === 1 ? 'turn' : 'turns'}.` });
+    add({ kind: 'diceBuff', label: `${owner.possessive} roll bonus`, displayValue: `+${state.diceBuff}`, value: `+${state.diceBuff}`, duration: `${turns}T`, tooltip: `${owner.possessive} next d20 gains +${state.diceBuff} within ${turns === 1 ? 'the next turn' : `${turns} turns`}.` });
   }
   if (state.dicePenalty > 0) {
     const turns = remainingTurns(state, 'dicePenalty');
-    add({ kind: 'dicePenalty', label: `${owner.possessive} roll penalty`, displayValue: `−${state.dicePenalty}`, value: `−${state.dicePenalty}`, duration: `${turns}T`, tooltip: `${owner.possessive} next d20 suffers −${state.dicePenalty}. Duration: ${turns} ${turns === 1 ? 'turn' : 'turns'}.`, negative: true });
+    add({ kind: 'dicePenalty', label: `${owner.possessive} roll penalty`, displayValue: `−${state.dicePenalty}`, value: `−${state.dicePenalty}`, duration: `${turns}T`, tooltip: `${owner.possessive} next d20 suffers −${state.dicePenalty} within ${turns === 1 ? 'the next turn' : `${turns} turns`}.`, negative: true });
   }
   const zeroPityTurns = Math.max(0, Number(state.zeroPityUntilTurn || 0) - Number(state.completedPlayerTurns || 0));
-  if (zeroPityTurns > 0) add({ kind: 'zeroPity', label: `${owner.possessive} next-card pity cost`, displayValue: '0', value: '0 pity', duration: `${zeroPityTurns}T`, tooltip: `${owner.possessive} next played card costs 0 pity. Duration: ${zeroPityTurns} ${zeroPityTurns === 1 ? 'turn' : 'turns'}.` });
+  if (zeroPityTurns > 0) add({ kind: 'zeroPity', label: `${owner.possessive} next-card pity cost`, displayValue: '0', value: '0 pity', duration: `${zeroPityTurns}T`, tooltip: `${owner.possessive} next played card costs 0 pity within ${zeroPityTurns === 1 ? 'the next turn' : `${zeroPityTurns} turns`}.` });
   if (state.skipTurns > 0) add({ kind: 'skipTurns', label: `${owner.possessive} skipped turns`, displayValue: `${state.skipTurns}T`, value: `${state.skipTurns} ${state.skipTurns === 1 ? 'turn' : 'turns'}`, duration: `${state.skipTurns}T`, tooltip: `${owner.subject} must miss ${state.skipTurns === 1 ? 'the next turn' : `the next ${state.skipTurns} turns`}.`, negative: true });
   if (state.reviveIn > 0) add({ kind: 'revive', label: `${owner.possessive} revival`, displayValue: `${state.reviveIn}T`, value: `${state.reviveIn} ${state.reviveIn === 1 ? 'turn' : 'turns'}`, duration: `${state.reviveIn}T`, tooltip: `${owner.subject} will return to battle in ${state.reviveIn} ${state.reviveIn === 1 ? 'turn' : 'turns'}.` });
   if ((state.borrowedCards || []).length > 0) {

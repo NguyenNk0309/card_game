@@ -550,7 +550,7 @@ button:focus-visible {
   z-index: 90;
   left: calc(100% + 9px);
   top: 50%;
-  width: 178px;
+  width: clamp(240px, 22vw, 300px);
   padding: 9px;
   color: var(--paper);
   background: rgba(8, 14, 16, .98);
@@ -4104,6 +4104,59 @@ button:focus-visible {
   font-size: 15px !important;
 }
 
+/* Keep the compact history readable while its existing scroll regions contain longer events. */
+.history-list .history-entry > span {
+  font-size: 16px !important;
+  font-weight: 900;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.history-list .history-entry > p {
+  font-size: 17px !important;
+  font-weight: 800;
+  line-height: 1.5;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+.history-list .history-entry :where(.history-dice, .history-pity) :where(span, strong) {
+  font-weight: 900;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+.history-table {
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.history-table th {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.history-table td,
+.history-table td :where(span, strong, b, button) {
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+
+.history-table tbody .history-phase-cell {
+  position: static;
+  z-index: auto;
+  width: 84px;
+  min-width: 84px;
+  padding: 12px;
+  border-right: 2px solid #8a6833;
+  border-bottom: 2px solid #55452f;
+  background: linear-gradient(180deg, #241d1a, #151217);
+  font-size: 18px;
+  font-weight: 900;
+  text-align: center;
+  vertical-align: middle;
+}
+
 .chapter-pips i.world-event-turn.future {
   background: rgba(181, 53, 42, 0.52);
   box-shadow: 0 0 7px rgba(226, 65, 47, 0.3);
@@ -6732,8 +6785,21 @@ textarea::placeholder { color: #716b61; }
 .action-card.selected,
 .world-event-choice-card.selected {
   outline: 0;
+}
+
+.action-hand > .action-card.selected {
+  transform: translateY(-7px) scale(1.035);
+  border-color: #ffe18a !important;
+  box-shadow: 0 0 0 3px #795827, 7px 7px 0 #030405, 0 0 22px rgba(240, 205, 112, .3), inset 0 0 0 2px rgba(255, 225, 138, .3) !important;
+}
+
+.world-event-choice-card.selected {
   border-color: #f0cd70 !important;
   box-shadow: 0 0 0 2px #6e4f23, 7px 7px 0 #030405, inset 0 0 0 2px rgba(240, 205, 112, .21) !important;
+}
+
+.action-hand > .action-card.selected:not(:disabled):hover {
+  transform: translate(-2px, -7px) scale(1.035);
 }
 
 .skill-card.effect-damage,
