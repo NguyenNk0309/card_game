@@ -26,6 +26,7 @@ assert.match(styles, /\.game-shell \.card-description\s*\{[\s\S]*height:\s*8\.7e
 
 assert.equal((cardSurfaces.match(/<Crown size=\{\d+\}\/> SPECIAL/g) || []).length, 3, "all special-card banners must show only SPECIAL");
 assert(!/SPECIAL\s*·|SPECIAL CARD|toUpperCase\(\)\}\s*SKILL/.test(cardSurfaces), "special-card headers must not include a character or class name");
+assert.match(gameApp, /className="history-penalty-cell"><HighlightPlayerNames text=\{presentation\.penalty \|\| "—"\}/, "empty expanded-history penalties must display the same dash placeholder as other empty columns");
 
 assert.match(partyRail, /<em>\{buff\.tooltipValue \?\? buff\.value\}<\/em>\{buff\.durationLabel && <><i aria-hidden="true">-<\/i><b>\{buff\.durationLabel\}<\/b><\/>\}/, "timed status tooltips must show value - full duration");
 assert.match(partyRail, /<span>\{hero\.name\}<\/span>/, "battle roster subtitles must show only the character name");
