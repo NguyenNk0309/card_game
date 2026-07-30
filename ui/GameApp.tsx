@@ -19,6 +19,7 @@ import { PityCostBadge, PityIcon } from "./components/PityCost";
 import { ResolvedWorldEventPanel, ShatteredTributeChoicePanel, WorldEventLibrary } from "./components/WorldEventPanels";
 import { useGameAudio } from "./hooks/useGameAudio";
 import { useRoomSocket } from "./hooks/useRoomSocket";
+import { getCardZoneChanges } from "./cardZoneMotion";
 
 const teamName: Record<TeamId, string> = { veil: "Veilbound", ember: "Embercourt" };
 const PLAYER_NAME_STORAGE_KEY = "shattered-oath-player-name";
@@ -304,38 +305,51 @@ function TargetPlayerPicker({ options, selectedId, game, localPlayer, onChange }
 }
 
 type CardSlotRect = { top: number; left: number; width: number; height: number };
-type CardZoneMotion = {
-  id: number;
+type CardZoneMotionItem = {
   slotIndex: number;
-  mode: "replace" | "compact" | "refill";
-  previousHand: string[];
   slotRect?: CardSlotRect;
   drawn?: ActionCard;
   discarded?: ActionCard;
 };
+type CardZoneMotion = {
+  id: number;
+  mode: "replace" | "compact" | "refill";
+  previousHand: string[];
+  items: CardZoneMotionItem[];
+};
 
 function CardZoneVfx({ motion, player, playable }: { motion: CardZoneMotion; player: PlayerSession; playable: boolean }) {
-  const [slotStyle, setSlotStyle] = useState<React.CSSProperties | null>(motion.slotRect ?? null);
+  const [slotStyles, setSlotStyles] = useState<Array<React.CSSProperties | null>>(() => motion.items.map((item) => item.slotRect ?? null));
   useLayoutEffect(() => {
     const slots = [...document.querySelectorAll<HTMLElement>(".action-hand [data-hand-slot]")];
-    const slot = document.querySelector<HTMLElement>(`.action-hand [data-hand-slot="${motion.slotIndex}"]`) ?? slots.at(-1);
-    if (motion.mode === "replace" && slot) slot.classList.add("zone-vfx-slot-hidden");
-    if (motion.slotRect) setSlotStyle(motion.slotRect);
-    if (!slot) return;
-    const placeOverSlot = () => {
-      const rect = slot.getBoundingClientRect();
-      setSlotStyle({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
+    const motionSlots = motion.items.map((item) => document.querySelector<HTMLElement>(`.action-hand [data-hand-slot="${item.slotIndex}"]`) ?? (item.slotRect ? undefined : slots.at(-1)));
+    if (motion.mode === "replace") motionSlots.forEach((slot) => slot?.classList.add("zone-vfx-slot-hidden"));
+    const placeOverSlots = () => {
+      setSlotStyles((current) => motion.items.map((item, index) => {
+        const slot = motionSlots[index];
+        if (!slot) return item.slotRect ?? current[index] ?? null;
+        const rect = slot.getBoundingClientRect();
+        return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+      }));
     };
-    if (!motion.slotRect) placeOverSlot();
-    window.addEventListener("resize", placeOverSlot);
+    placeOverSlots();
+    window.addEventListener("resize", placeOverSlots);
     return () => {
-      if (motion.mode === "replace") slot.classList.remove("zone-vfx-slot-hidden");
-      window.removeEventListener("resize", placeOverSlot);
+      if (motion.mode === "replace") motionSlots.forEach((slot) => slot?.classList.remove("zone-vfx-slot-hidden"));
+      window.removeEventListener("resize", placeOverSlots);
     };
-  }, [motion.id, motion.mode, motion.slotIndex, motion.slotRect]);
-  if (!slotStyle) return null;
-  const cardStyle = { ...slotStyle, "--hero-color": player.hero.color, "--settled-card-opacity": playable ? 1 : 0.48 } as React.CSSProperties;
-  return <div className={`card-zone-vfx ${motion.mode}-motion ${motion.discarded && motion.drawn ? "replacement-motion" : "single-zone-motion"} ${playable ? "playable-motion" : "inactive-motion"}`} aria-hidden="true">{motion.discarded && <article className={`action-card selected card-motion hand-from-zone effect-${motion.discarded.effect} ${motion.discarded.unique ? "hero-special-card" : "common-action-card"} ${motion.discarded.effect === "none" ? "no-effect-card" : ""}`} style={cardStyle}><HandCardContents card={motion.discarded}/></article>}{motion.drawn && <article className={`action-card card-motion hand-to-zone effect-${motion.drawn.effect} ${motion.drawn.unique ? "hero-special-card" : "common-action-card"} ${motion.drawn.effect === "none" ? "no-effect-card" : ""}`} style={cardStyle}><HandCardContents card={motion.drawn}/></article>}</div>;
+  }, [motion]);
+  const hasDiscard = motion.items.some((item) => item.discarded);
+  const hasDraw = motion.items.some((item) => item.drawn);
+  return <div className={`card-zone-vfx ${motion.mode}-motion ${hasDiscard && hasDraw ? "replacement-motion" : "single-zone-motion"} ${playable ? "playable-motion" : "inactive-motion"}`} aria-hidden="true">{motion.items.flatMap((item, index) => {
+    const slotStyle = slotStyles[index];
+    if (!slotStyle) return [];
+    const cardStyle = { ...slotStyle, "--hero-color": player.hero.color, "--settled-card-opacity": playable ? 1 : 0.48 } as React.CSSProperties;
+    return [
+      item.discarded && <article className={`action-card selected card-motion hand-from-zone effect-${item.discarded.effect} ${item.discarded.unique ? "hero-special-card" : "common-action-card"} ${item.discarded.effect === "none" ? "no-effect-card" : ""}`} style={cardStyle} key={`discard-${item.slotIndex}-${item.discarded.id}`}><HandCardContents card={item.discarded}/></article>,
+      item.drawn && <article className={`action-card card-motion hand-to-zone effect-${item.drawn.effect} ${item.drawn.unique ? "hero-special-card" : "common-action-card"} ${item.drawn.effect === "none" ? "no-effect-card" : ""}`} style={cardStyle} key={`draw-${item.slotIndex}-${item.drawn.id}`}><HandCardContents card={item.drawn}/></article>,
+    ].filter((card): card is React.ReactElement => Boolean(card));
+  })}</div>;
 }
 
 export default function GameApp() {
@@ -366,8 +380,8 @@ export default function GameApp() {
   const [cardZoneMotion, setCardZoneMotion] = useState<CardZoneMotion | null>(null);
   const [visibleNotices, setVisibleNotices] = useState<GameNotice[]>([]);
   const expirySentRef = useRef(0);
-  const previousLocalZonesRef = useRef<{ playerId: string; hand: string[]; drawPile: string[]; discardPile: string[] } | null>(null);
-  const pendingCardMotionRef = useRef<{ completedTurns: number; slotIndex: number; slotRect?: CardSlotRect; discarded: ActionCard } | null>(null);
+  const previousLocalZonesRef = useRef<{ playerId: string; hand: string[]; drawPile: string[]; discardPile: string[]; slotRects: CardSlotRect[] } | null>(null);
+  const pendingCardMotionRef = useRef<{ completedTurns: number; previousHand: string[]; items: Array<CardZoneMotionItem & { discarded: ActionCard }> } | null>(null);
   const outcomeSoundReadyRef = useRef(false);
   const lastOutcomeSoundKeyRef = useRef("");
   const lastBattleResultKeyRef = useRef("");
@@ -558,21 +572,28 @@ export default function GameApp() {
     }
     const previous = previousLocalZonesRef.current;
     if (previous?.playerId === localPlayer.id) {
-      const pending = pendingCardMotionRef.current && (game?.completedTurns ?? 0) > pendingCardMotionRef.current.completedTurns ? pendingCardMotionRef.current : null;
-      const outgoingId = previous.hand.find((id) => !localState.hand.includes(id));
-      const incomingId = localState.hand.find((id) => !previous.hand.includes(id));
-      const slotIndex = pending?.slotIndex ?? (outgoingId ? Math.max(0, previous.hand.indexOf(outgoingId)) : Math.max(0, localState.hand.indexOf(incomingId ?? "")));
-      const discarded = pending?.discarded ?? (outgoingId ? cardCatalog.find((card) => card.id === outgoingId) : undefined);
-      const recycledPlayedCard = Boolean(pending && previous.drawPile.length === 0 && localState.discardPile.length === 0 && localState.hand.includes(pending.discarded.id));
+      const handChanged = previous.hand.length !== localState.hand.length || previous.hand.some((cardId, index) => cardId !== localState.hand[index]);
+      const pendingSnapshot = pendingCardMotionRef.current;
+      const pendingMatchesPrevious = Boolean(pendingSnapshot
+        && pendingSnapshot.previousHand.length === previous.hand.length
+        && pendingSnapshot.previousHand.every((cardId, index) => cardId === previous.hand[index]));
+      const pending = pendingMatchesPrevious && (handChanged || (game?.completedTurns ?? 0) > (pendingSnapshot?.completedTurns ?? 0)) ? pendingSnapshot : null;
+      const changes = getCardZoneChanges(previous.hand, localState.hand, pending?.items.map((item) => item.slotIndex));
+      const pendingItems = new Map(pending?.items.map((item) => [item.slotIndex, item]) ?? []);
+      const items = changes.map((change) => ({
+        slotIndex: change.slotIndex,
+        slotRect: pendingItems.get(change.slotIndex)?.slotRect ?? previous.slotRects[change.slotIndex],
+        discarded: pendingItems.get(change.slotIndex)?.discarded ?? (change.discardedId ? cardCatalog.find((card) => card.id === change.discardedId) : undefined),
+        drawn: change.drawnId ? cardCatalog.find((card) => card.id === change.drawnId) : undefined,
+      })).filter((item) => item.discarded || item.drawn);
+      const recycledPlayedCard = Boolean(pending && previous.drawPile.length === 0 && localState.discardPile.length === 0 && pending.items.some((item) => localState.hand.includes(item.discarded.id)));
       const refill = previous.hand.length > 0 && previous.drawPile.length === 0 && localState.discardPile.length === 0 && (localState.hand.length > previous.hand.length || recycledPlayedCard);
       const compact = !refill && previous.drawPile.length === 0 && localState.hand.length < previous.hand.length;
       const mode: CardZoneMotion["mode"] = refill ? "refill" : compact ? "compact" : "replace";
-      const replacementId = mode === "replace" ? incomingId : undefined;
-      const drawn = replacementId ? cardCatalog.find((card) => card.id === replacementId) : undefined;
-      if (discarded || drawn || refill || compact) setCardZoneMotion({ id: Date.now(), slotIndex, slotRect: pending?.slotRect, mode, previousHand: [...previous.hand], discarded, drawn });
+      if (items.length || refill || compact) setCardZoneMotion({ id: Date.now(), mode, previousHand: [...previous.hand], items });
       if (pending) pendingCardMotionRef.current = null;
     }
-    previousLocalZonesRef.current = { playerId: localPlayer.id, hand: [...localState.hand], drawPile: [...localState.drawPile], discardPile: [...localState.discardPile] };
+    previousLocalZonesRef.current = { playerId: localPlayer.id, hand: [...localState.hand], drawPile: [...localState.drawPile], discardPile: [...localState.discardPile], slotRects: captureHandSlotRects() };
   }, [localPlayer, localState, cardCatalog, game?.completedTurns]);
   useEffect(() => {
     if (!cardZoneMotion || panelOverlayOpen) return;
@@ -664,22 +685,25 @@ export default function GameApp() {
     });
     send({ type: "start", players: battlePlayers, game: createInitialGame(battlePlayers, createAdventure(), 30) });
   };
-  const captureCardSlot = (slotIndex: number): CardSlotRect | undefined => {
-    const slot = document.querySelector<HTMLElement>(`.action-hand [data-hand-slot="${slotIndex}"]`);
-    if (!slot) return undefined;
-    const rect = slot.getBoundingClientRect();
-    return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+  const captureHandSlotRects = (): CardSlotRect[] => [...document.querySelectorAll<HTMLElement>(".action-hand [data-hand-slot]")]
+    .map((slot) => {
+      const rect = slot.getBoundingClientRect();
+      return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+    });
+  const captureCardSlot = (slotIndex: number): CardSlotRect | undefined => captureHandSlotRects()[slotIndex];
+  const queuePendingCardMotion = (items: Array<CardZoneMotionItem & { discarded: ActionCard }>) => {
+    pendingCardMotionRef.current = localState && items.length ? { completedTurns: game?.completedTurns ?? 0, previousHand: [...localState.hand], items } : null;
   };
   const castDie = () => {
     if (rolling || !game || !activePlayer || activePlayer.id !== sessionId || !activeCard || runComplete || worldEventBlocking || status !== "connected" || (activeState?.hp ?? 0) <= 0) return;
     playEffect("roll");
     setRolling(true); let ticks = 0;
-    const timer = window.setInterval(() => { setAnimatedRoll(randomD20Roll()); ticks += 1; if (ticks >= 9) { window.clearInterval(timer); const finalRoll = randomD20Roll(); const slotIndex = Math.max(0, localState?.hand.indexOf(activeCard.id) ?? 0); pendingCardMotionRef.current = { completedTurns: game.completedTurns, slotIndex, slotRect: captureCardSlot(slotIndex), discarded: activeCard }; if (send({ type: "game:update", game: resolveCardTurn(game, players, activeCard.id, targetPlayerId, finalRoll) })) playEffect("play"); else pendingCardMotionRef.current = null; setAnimatedRoll(finalRoll); setRolling(false); } }, 85);
+    const timer = window.setInterval(() => { setAnimatedRoll(randomD20Roll()); ticks += 1; if (ticks >= 9) { window.clearInterval(timer); const finalRoll = randomD20Roll(); const slotIndex = Math.max(0, localState?.hand.indexOf(activeCard.id) ?? 0); queuePendingCardMotion([{ slotIndex, slotRect: captureCardSlot(slotIndex), discarded: activeCard }]); if (send({ type: "game:update", game: resolveCardTurn(game, players, activeCard.id, targetPlayerId, finalRoll) })) playEffect("play"); else pendingCardMotionRef.current = null; setAnimatedRoll(finalRoll); setRolling(false); } }, 85);
   };
   const usePityRoll = () => {
     if (!game || !activePlayer || activePlayer.id !== sessionId || !activeCard || runComplete || worldEventBlocking || status !== "connected" || rolling || (activeState?.hp ?? 0) <= 0 || (localState?.pityPoints ?? 0) < activePityCost) return;
     const slotIndex = Math.max(0, localState?.hand.indexOf(activeCard.id) ?? 0);
-    pendingCardMotionRef.current = { completedTurns: game.completedTurns, slotIndex, slotRect: captureCardSlot(slotIndex), discarded: activeCard };
+    queuePendingCardMotion([{ slotIndex, slotRect: captureCardSlot(slotIndex), discarded: activeCard }]);
     if (send({ type: "game:update", game: resolveCardTurn(game, players, activeCard.id, targetPlayerId, 0, true) })) playEffect("play");
     else pendingCardMotionRef.current = null;
   };
@@ -690,11 +714,21 @@ export default function GameApp() {
   const discardCard = () => {
     if (!game || !activePlayer || activePlayer.id !== sessionId || !activeCard || runComplete || worldEventBlocking || status !== "connected" || rolling || (activeState?.hp ?? 0) <= 0) return;
     const slotIndex = Math.max(0, localState?.hand.indexOf(activeCard.id) ?? 0);
-    pendingCardMotionRef.current = { completedTurns: game.completedTurns, slotIndex, slotRect: captureCardSlot(slotIndex), discarded: activeCard };
+    queuePendingCardMotion([{ slotIndex, slotRect: captureCardSlot(slotIndex), discarded: activeCard }]);
     if (send({ type: "discard-card", sessionId, cardId: activeCard.id })) playEffect("discard");
     else pendingCardMotionRef.current = null;
   };
-  const submitWorldEventChoice = (eventId: string, cardIds: string[]) => send({ type: "world-event:choose", eventId, cardIds });
+  const submitWorldEventChoice = (eventId: string, cardIds: string[]) => {
+    const selectedHandMotions = cardIds.flatMap((cardId) => {
+      const slotIndex = localState?.hand.indexOf(cardId) ?? -1;
+      const discarded = cardCatalog.find((card) => card.id === cardId);
+      return slotIndex >= 0 && discarded ? [{ slotIndex, slotRect: captureCardSlot(slotIndex), discarded }] : [];
+    });
+    queuePendingCardMotion(selectedHandMotions);
+    const sent = send({ type: "world-event:choose", eventId, cardIds });
+    if (!sent) pendingCardMotionRef.current = null;
+    return sent;
+  };
   const removePlayer = (targetSessionId: string) => {
     const target = players.find((player) => player.id === targetSessionId);
     if (!localPlayer || !target || targetSessionId === sessionId || !window.confirm(`Remove ${target.displayName} from the battle?`)) return;

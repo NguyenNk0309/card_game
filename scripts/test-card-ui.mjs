@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import ts from "typescript";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const cardDescription = read("ui/components/CardDescription.tsx");
@@ -9,7 +10,13 @@ const worldEvents = read("ui/components/WorldEventPanels.tsx");
 const partyRail = read("ui/components/PartyRail.tsx");
 const roomSocket = read("ui/hooks/useRoomSocket.ts");
 const gameAudio = read("ui/hooks/useGameAudio.ts");
+const cardZoneMotion = read("ui/cardZoneMotion.ts");
 const styles = read("app/globals.css");
+
+const compiledCardZoneMotion = ts.transpileModule(cardZoneMotion, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
+}).outputText;
+const { getCardZoneChanges } = await import(`data:text/javascript;base64,${Buffer.from(compiledCardZoneMotion).toString("base64")}`);
 
 const cardSurfaces = [gameApp, lobby, worldEvents].join("\n");
 assert.equal((cardSurfaces.match(/<CardDescription\b/g) || []).length, 6, "every card-description surface must use the shared fixed-height component");
@@ -28,4 +35,35 @@ assert.match(roomSocket, /previousPlayerTeamsRef = useRef<Map<string, TeamId> \|
 assert.match(roomSocket, /payload\.state\.phase === "lobby"[\s\S]*!previousPlayerTeams\.has\(playerId\) \|\| previousPlayerTeams\.get\(playerId\) !== team/, "only new lobby membership or a team switch must trigger the join sound");
 assert.match(gameApp, /teamJoinSoundSequence > 0\) playEffect\("team-join"\)/, "confirmed team joins must play the entry chime");
 
-console.log("Card UI contract passed: shared card sizing, normalized status values, and confirmed team-join audio.");
+assert.deepEqual(
+  getCardZoneChanges(["first", "second", "third", "fourth"], ["draw-one", "second", "draw-two", "fourth"]),
+  [
+    { slotIndex: 0, discardedId: "first", drawnId: "draw-one" },
+    { slotIndex: 2, discardedId: "third", drawnId: "draw-two" },
+  ],
+  "two replaced hand positions must each animate their discarded and drawn card"
+);
+assert.deepEqual(
+  getCardZoneChanges(["first", "second", "third", "fourth"], ["draw-one", "second", "fourth"]),
+  [
+    { slotIndex: 0, discardedId: "first", drawnId: "draw-one" },
+    { slotIndex: 2, discardedId: "third", drawnId: undefined },
+  ],
+  "partial refills must animate every discard and only the available draw"
+);
+assert.deepEqual(
+  getCardZoneChanges(["first", "second", "third", "fourth"], ["third", "fourth", "first", "second"]),
+  [
+    { slotIndex: 0, discardedId: "first", drawnId: "third" },
+    { slotIndex: 1, discardedId: "second", drawnId: "fourth" },
+    { slotIndex: 2, discardedId: "third", drawnId: "first" },
+    { slotIndex: 3, discardedId: "fourth", drawnId: "second" },
+  ],
+  "a multi-card redraw must animate every changed hand position"
+);
+assert.match(gameApp, /motion\.items\.flatMap/, "the replacement VFX must render every changed card slot");
+assert.match(gameApp, /selectedHandMotions = cardIds\.flatMap/, "multi-card World Event choices must preserve every selected hand slot");
+assert.match(styles, /\.card-motion\.hand-from-zone\s*\{[^}]*animation:\s*hand-card-fade-out 1\.05s ease-in-out both;/, "every outgoing card must retain the discard animation");
+assert.match(styles, /\.card-motion\.hand-to-zone\s*\{[^}]*animation:\s*hand-card-fade-in 1\.18s ease-in-out 1\.1s both;/, "every drawn card must retain the delayed draw animation");
+
+console.log("Card UI contract passed: shared card sizing, normalized status values, multi-card zone animation, and confirmed team-join audio.");
