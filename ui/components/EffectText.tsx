@@ -17,13 +17,13 @@ function numberTone(text: string, index: number, length: number, card?: ActionCa
   if (/\bphase\s*$/.test(before)) return "speed";
   if (/(d20|dice|roll|result)/.test(context)) return "dice";
   if (/(restore|heal|revive|healing)/.test(context)) return "heal";
+  if (card?.effect === "heal") return "heal";
+  if (card?.effect === "guard" || card?.supportType === "shield") return "shield";
+  if (card?.effect === "damage" || card?.effect === "aoe") return "damage";
   if (/shield/.test(context)) return "shield";
   if (/(damage|backlash|lose .*hp|lost .*hp|takes? .*hp)/.test(context)) return "damage";
   if (/(turn|speed|phase)/.test(context)) return "speed";
   if (/(card|use|deck|hand|draw|discard|graveyard)/.test(context)) return "cards";
-  if (card?.effect === "heal") return "heal";
-  if (card?.effect === "guard" || card?.supportType === "shield") return "shield";
-  if (card?.effect === "damage" || card?.effect === "aoe") return "damage";
   return "value";
 }
 
