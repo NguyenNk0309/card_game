@@ -6,6 +6,7 @@
     "dev": "node backend/server.mjs --dev",
     "test:realtime": "node scripts/test-realtime.mjs",
     "test:polling": "node scripts/test-polling.mjs",
+    "test:rooms": "node scripts/test-rooms.mjs",
     "test:worker": "node scripts/verify-worker.mjs",
     "test:ui": "node scripts/test-card-ui.mjs",
     "test:game": "node scripts/test-game-rules.mjs",

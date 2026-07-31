@@ -11,14 +11,38 @@ import {
   isWorldEventBlocking,
   getActiveBattleDeadline
 } from './world-event-engine.mjs';
+import { createRoomId, isValidRoomId, normalizeRoomId, roomExpiresAt, roomIsExpired } from '../shared/roomId.mjs';
 import { sanitizeCommunicationGame } from '../shared/viewpoint.mjs';
 
-const emptyRoom = () => ({ players: [], phase: 'lobby', game: null, revision: 0, phaseFiveOriginalCards: {} });
-let room = emptyRoom();
-const peers = new Map();
+const LEGACY_ROOM_ID = 'shared-room';
+const emptyRoom = (roomId = '', createdAt = 0) => ({
+  roomId,
+  createdAt,
+  expiresAt: createdAt ? roomExpiresAt(createdAt) : 0,
+  players: [],
+  phase: 'lobby',
+  game: null,
+  revision: 0,
+  phaseFiveOriginalCards: {}
+});
+const defaultContext = { room: emptyRoom(LEGACY_ROOM_ID), peers: new Map(), storage: null };
+let activeContext = defaultContext;
+let room = defaultContext.room;
+let peers = defaultContext.peers;
 const roomCacheKey = new Request('https://shattered-oath-room.internal/shared-state-v3');
 let durableStorage = null;
 let roomQueue = Promise.resolve();
+
+function activateContext(context) {
+  activeContext = context;
+  room = context.room;
+  peers = context.peers;
+  durableStorage = context.storage;
+}
+
+function roomMetadata(source = room) {
+  return { roomId: source.roomId, createdAt: source.createdAt, expiresAt: source.expiresAt };
+}
 
 function publicState(viewerId = '') {
   if (room.game) {
@@ -33,7 +57,7 @@ function publicState(viewerId = '') {
     ]))
   } : null;
   const game = personalizedGame ? sanitizeCommunicationGame(sanitizeWorldEventGame(personalizedGame, viewerId), room.players, viewerId) : null;
-  return { players: room.players, phase: room.phase, game, revision: room.revision, serverNow: Date.now(), viewerSessionId: viewerId };
+  return { ...roomMetadata(), players: room.players, phase: room.phase, game, revision: room.revision, serverNow: Date.now(), viewerSessionId: viewerId };
 }
 
 async function hydrateRoom() {
@@ -66,8 +90,11 @@ async function persistRoom() {
     if (durableStorage) {
       await durableStorage.put('shared-room', room);
       const activeDeadline = getActiveBattleDeadline(room.game);
-      if (room.phase === 'game' && activeDeadline && !room.game?.ended) {
-        await durableStorage.setAlarm(activeDeadline);
+      const expiryDeadline = !room.expiredAt && room.expiresAt > Date.now() ? room.expiresAt : 0;
+      const battleDeadline = room.phase === 'game' && activeDeadline && !room.game?.ended ? activeDeadline : 0;
+      const nextAlarm = battleDeadline && expiryDeadline ? Math.min(battleDeadline, expiryDeadline) : battleDeadline || expiryDeadline;
+      if (nextAlarm) {
+        await durableStorage.setAlarm(nextAlarm);
       } else {
         await durableStorage.deleteAlarm();
       }
@@ -81,8 +108,31 @@ async function persistRoom() {
   }
 }
 
-function serialized(task) {
-  const next = roomQueue.then(task, task);
+async function expireActiveRoom(now = Date.now()) {
+  const expired = {
+    ...emptyRoom(room.roomId, room.createdAt),
+    expiresAt: room.expiresAt,
+    expiredAt: now,
+    revision: room.revision + 1
+  };
+  room = expired;
+  for (const socket of peers.keys()) {
+    try { socket.close(4001, 'Room expired'); } catch {}
+  }
+  peers.clear();
+  await persistRoom();
+}
+
+function serialized(context, task) {
+  const run = async () => {
+    activateContext(context);
+    try {
+      return await task();
+    } finally {
+      context.room = room;
+    }
+  };
+  const next = roomQueue.then(run, run);
   roomQueue = next.catch(() => {});
   return next;
 }
@@ -1080,15 +1130,16 @@ async function handleSocketMessage(socket, text) {
 
 async function connectWebSocket() {
   await hydrateRoom();
+  const context = activeContext;
   const pair = new WebSocketPair();
   const [client, server] = Object.values(pair);
   server.accept();
   peers.set(server, '');
   server.addEventListener('message', (event) => {
-    void serialized(() => handleSocketMessage(server, event.data));
+    void serialized(context, () => handleSocketMessage(server, event.data));
   });
-  server.addEventListener('close', () => peers.delete(server));
-  server.addEventListener('error', () => peers.delete(server));
+  server.addEventListener('close', () => context.peers.delete(server));
+  server.addEventListener('error', () => context.peers.delete(server));
   return new Response(null, { status: 101, webSocket: client });
 }
 
@@ -1129,11 +1180,55 @@ async function handleRoomApi(request) {
   return json({ state: publicState(requesterId), error: error || null }, error ? 400 : 200);
 }
 
+async function handleRoomAdmin(request) {
+  await hydrateRoom();
+  const url = new URL(request.url);
+  const roomId = normalizeRoomId(url.searchParams.get('roomId'));
+  if (!isValidRoomId(roomId)) return json({ error: 'Invalid room ID.' }, 400);
+
+  if (request.method === 'POST') {
+    if (room.createdAt && !room.expiredAt && !roomIsExpired(room.expiresAt)) return json({ error: 'Room ID collision.' }, 409);
+    room = emptyRoom(roomId, Date.now());
+    await persistRoom();
+    return json({ room: roomMetadata() }, 201);
+  }
+
+  if (request.method !== 'GET') return json({ error: 'Method not allowed.' }, 405);
+  if (!room.createdAt || room.roomId !== roomId) return json({ error: 'Room not found.' }, 404);
+  if (room.expiredAt || roomIsExpired(room.expiresAt)) {
+    if (!room.expiredAt) await expireActiveRoom();
+    return json({ error: 'This room has expired.' }, 410);
+  }
+  return json({ room: roomMetadata() });
+}
+
+async function activeRoomAccessError(request) {
+  const url = new URL(request.url);
+  const requested = url.searchParams.get('roomId');
+  if (requested == null) {
+    if (!room.roomId) room.roomId = LEGACY_ROOM_ID;
+    return null;
+  }
+  const roomId = normalizeRoomId(requested);
+  if (!isValidRoomId(roomId)) return json({ error: 'Invalid room ID.' }, 400);
+  if (!room.createdAt || room.roomId !== roomId) return json({ error: 'Room not found.' }, 404);
+  if (room.expiredAt || roomIsExpired(room.expiresAt)) {
+    if (!room.expiredAt) await expireActiveRoom();
+    return json({ error: 'This room has expired.' }, 410);
+  }
+  return null;
+}
+
 async function handleRoomRequest(request) {
   const url = new URL(request.url);
-  if (url.pathname === '/api/room') return serialized(() => handleRoomApi(request));
+  if (url.pathname === '/api/rooms') return handleRoomAdmin(request);
+  if (url.pathname === '/api/room') {
+    const accessError = await activeRoomAccessError(request);
+    return accessError || handleRoomApi(request);
+  }
   if (url.pathname === '/ws') {
-    return serialized(() => connectWebSocket());
+    const accessError = await activeRoomAccessError(request);
+    return accessError || connectWebSocket();
   }
   return json({ error: 'Room route not found.' }, 404);
 }
@@ -1148,25 +1243,29 @@ function proxyRoomRequest(request, origin) {
 
 export class GameRoom {
   constructor(state) {
-    durableStorage = state.storage;
+    this.context = { room: emptyRoom(), peers: new Map(), storage: state.storage };
     this.ready = state.blockConcurrencyWhile(async () => {
-      const stored = await durableStorage.get('shared-room');
+      const stored = await state.storage.get('shared-room');
       if (stored && Array.isArray(stored.players)) {
-        room = stored;
-        if (room.game) normalizeWorldEventState(room.game);
+        this.context.room = stored;
+        if (this.context.room.game) normalizeWorldEventState(this.context.room.game);
       }
     });
   }
 
   async fetch(request) {
     await this.ready;
-    return handleRoomRequest(request);
+    return serialized(this.context, () => handleRoomRequest(request));
   }
 
   async alarm() {
     await this.ready;
-    await serialized(async () => {
+    await serialized(this.context, async () => {
       await hydrateRoom();
+      if (room.expiredAt || roomIsExpired(room.expiresAt)) {
+        if (!room.expiredAt) await expireActiveRoom();
+        return;
+      }
       await advanceActiveDeadline();
     });
   }
@@ -1178,13 +1277,45 @@ export default {
     if (url.pathname === '/api/realtime-config') {
       return json({ origin: env.REALTIME_ORIGIN || url.origin });
     }
-    if (url.pathname === '/api/room' || url.pathname === '/ws') {
+    if (url.pathname === '/api/rooms' && request.method === 'POST') {
       if (env.GAME_ROOM) {
-        const id = env.GAME_ROOM.idFromName('shared-room');
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          const roomId = createRoomId();
+          const target = new URL(request.url);
+          target.searchParams.set('roomId', roomId);
+          const id = env.GAME_ROOM.idFromName(roomId);
+          const response = await env.GAME_ROOM.get(id).fetch(new Request(target, { method: 'POST', headers: request.headers }));
+          if (response.status !== 409) return response;
+        }
+        return json({ error: 'Could not allocate a room ID.' }, 503);
+      }
+      if (env.REALTIME_ORIGIN) return proxyRoomRequest(request, env.REALTIME_ORIGIN);
+      return json({ error: 'Room service unavailable.' }, 503);
+    }
+    if (url.pathname.startsWith('/api/rooms/')) {
+      const roomId = normalizeRoomId(url.pathname.slice('/api/rooms/'.length));
+      if (!isValidRoomId(roomId)) return json({ error: 'Invalid room ID.' }, 400);
+      if (env.GAME_ROOM) {
+        const target = new URL(request.url);
+        target.pathname = '/api/rooms';
+        target.searchParams.set('roomId', roomId);
+        const id = env.GAME_ROOM.idFromName(roomId);
+        return env.GAME_ROOM.get(id).fetch(new Request(target, request));
+      }
+      if (env.REALTIME_ORIGIN) return proxyRoomRequest(request, env.REALTIME_ORIGIN);
+      return json({ error: 'Room service unavailable.' }, 503);
+    }
+    if (url.pathname === '/api/room' || url.pathname === '/ws') {
+      const requestedRoomId = url.searchParams.get('roomId');
+      const roomId = requestedRoomId == null ? LEGACY_ROOM_ID : normalizeRoomId(requestedRoomId);
+      if (requestedRoomId != null && !isValidRoomId(roomId)) return json({ error: 'Invalid room ID.' }, 400);
+      if (env.GAME_ROOM) {
+        const id = env.GAME_ROOM.idFromName(roomId);
         return env.GAME_ROOM.get(id).fetch(request);
       }
       if (env.REALTIME_ORIGIN) return proxyRoomRequest(request, env.REALTIME_ORIGIN);
-      return handleRoomRequest(request);
+      if (roomId !== LEGACY_ROOM_ID) return json({ error: 'Room service unavailable.' }, 503);
+      return serialized(defaultContext, () => handleRoomRequest(request));
     }
 
     const response = await env.ASSETS.fetch(request);

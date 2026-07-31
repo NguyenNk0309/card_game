@@ -6,12 +6,17 @@ import type { SharedRoomState, TeamId } from "@/shared/types";
 type ConnectionStatus = "connecting" | "connected" | "reconnecting" | "offline";
 
 const EMPTY_ROOM: SharedRoomState = {
+  roomId: "",
+  createdAt: 0,
+  expiresAt: 0,
   players: [],
   phase: "lobby",
   game: null,
   revision: 0,
   serverNow: Date.now()
 };
+
+type RoomAccessError = "not-found" | "expired" | null;
 
 const BASE_POLL_DELAY_MS = 1500;
 const HIDDEN_POLL_DELAY_MS = 5000;
@@ -73,10 +78,11 @@ function retryDelay(response: Response, fallback: number) {
   return Number.isNaN(date) ? fallback : Math.min(MAX_POLL_DELAY_MS, Math.max(1000, date - Date.now()));
 }
 
-export function useRoomSocket() {
+export function useRoomSocket(roomId: string) {
   const [room, setRoom] = useState<SharedRoomState>(EMPTY_ROOM);
   const [status, setStatus] = useState<ConnectionStatus>("connecting");
   const [error, setError] = useState("");
+  const [roomAccessError, setRoomAccessError] = useState<RoomAccessError>(null);
   const [sessionId, setSessionId] = useState("");
   const [serverTimeOffsetMs, setServerTimeOffsetMs] = useState(0);
   const [teamJoinSoundSequence, setTeamJoinSoundSequence] = useState(0);
@@ -103,6 +109,7 @@ export function useRoomSocket() {
       }
       previousPlayerTeamsRef.current = playerTeams;
       setRoom(payload.state);
+      setRoomAccessError(null);
       if (Number.isFinite(payload.state.serverNow)) setServerTimeOffsetMs(payload.state.serverNow - Date.now());
     }
     if (payload.error) setError(localizeRoomError(payload.error));
@@ -120,7 +127,15 @@ export function useRoomSocket() {
     pollInFlightRef.current = true;
     let nextDelay = document.visibilityState === "hidden" ? HIDDEN_POLL_DELAY_MS : BASE_POLL_DELAY_MS;
     try {
-      const response = await fetch(`/api/room?sessionId=${encodeURIComponent(sessionIdRef.current)}`, { cache: "no-store" });
+      const query = new URLSearchParams({ roomId, sessionId: sessionIdRef.current });
+      const response = await fetch(`/api/room?${query.toString()}`, { cache: "no-store" });
+      if (response.status === 404 || response.status === 410) {
+        pollingRef.current = false;
+        setStatus("offline");
+        setRoomAccessError(response.status === 410 ? "expired" : "not-found");
+        setError(response.status === 410 ? "This room has expired." : "This room no longer exists.");
+        return;
+      }
       if (response.status === 429) {
         pollDelayRef.current = Math.min(MAX_POLL_DELAY_MS, Math.max(8000, pollDelayRef.current * 2));
         nextDelay = retryDelay(response, pollDelayRef.current);
@@ -131,6 +146,7 @@ export function useRoomSocket() {
       if (!response.ok) throw new Error(`Room request failed with status ${response.status}.`);
       const payload = await response.json() as { state?: SharedRoomState; error?: string | null };
       acceptResponse(payload);
+      setRoomAccessError(null);
       pollDelayRef.current = BASE_POLL_DELAY_MS;
       const playerCount = Math.max(1, payload.state?.players.length ?? 1);
       nextDelay = document.visibilityState === "hidden"
@@ -148,7 +164,7 @@ export function useRoomSocket() {
       pollInFlightRef.current = false;
       schedulePoll(nextDelay);
     }
-  }, [acceptResponse, schedulePoll]);
+  }, [acceptResponse, roomId, schedulePoll]);
 
   pollRoomRef.current = pollRoom;
 
@@ -162,6 +178,9 @@ export function useRoomSocket() {
 
   useEffect(() => {
     disposedRef.current = false;
+    setRoom({ ...EMPTY_ROOM, roomId });
+    setRoomAccessError(null);
+    previousPlayerTeamsRef.current = null;
     const storageKey = "shattered-oath-browser-session";
     let stableSessionId = window.localStorage.getItem(storageKey);
     if (!stableSessionId) {
@@ -172,7 +191,7 @@ export function useRoomSocket() {
     setSessionId(stableSessionId);
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    let socketUrl = `${protocol}//${window.location.host}/ws`;
+    let socketUrl = `${protocol}//${window.location.host}/ws?roomId=${encodeURIComponent(roomId)}`;
     let fallbackTimer: number | null = null;
     let reconnectTimer: number | null = null;
 
@@ -226,7 +245,7 @@ export function useRoomSocket() {
             const origin = new URL(config.origin);
             origin.protocol = origin.protocol === "https:" ? "wss:" : "ws:";
             origin.pathname = "/ws";
-            origin.search = "";
+            origin.search = new URLSearchParams({ roomId }).toString();
             origin.hash = "";
             socketUrl = origin.toString();
           }
@@ -246,7 +265,7 @@ export function useRoomSocket() {
       socketRef.current?.close();
       if (pollTimerRef.current !== null) window.clearTimeout(pollTimerRef.current);
     };
-  }, [acceptResponse, startPolling]);
+  }, [acceptResponse, roomId, startPolling]);
 
   const send = useCallback((message: Record<string, unknown>) => {
     const payload = { ...message, sessionId: message.sessionId ?? sessionIdRef.current };
@@ -256,7 +275,7 @@ export function useRoomSocket() {
       return true;
     }
     if (pollingRef.current) {
-      void fetch("/api/room", {
+      void fetch(`/api/room?roomId=${encodeURIComponent(roomId)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -267,6 +286,13 @@ export function useRoomSocket() {
           setStatus("reconnecting");
           setError(`Room busy; retry in ${Math.ceil(delay / 1000)}s.`);
           schedulePoll(delay);
+          return;
+        }
+        if (response.status === 404 || response.status === 410) {
+          pollingRef.current = false;
+          setStatus("offline");
+          setRoomAccessError(response.status === 410 ? "expired" : "not-found");
+          setError(response.status === 410 ? "This room has expired." : "This room no longer exists.");
           return;
         }
         const result = await response.json();
@@ -280,7 +306,7 @@ export function useRoomSocket() {
     }
     setError("Room still connecting.");
     return false;
-  }, [acceptResponse, schedulePoll]);
+  }, [acceptResponse, roomId, schedulePoll]);
 
   return {
     room,
@@ -289,6 +315,7 @@ export function useRoomSocket() {
     sessionId,
     serverTimeOffsetMs,
     teamJoinSoundSequence,
+    roomAccessError,
     send,
     clearError: () => setError("")
   };

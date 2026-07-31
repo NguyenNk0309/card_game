@@ -17,6 +17,7 @@ import {
   submitWorldEventChoice,
   triggerWorldEventAfterPhase
 } from './world-event-engine.mjs';
+import { createRoomId, isValidRoomId, normalizeRoomId, roomExpiresAt, roomIsExpired } from '../shared/roomId.mjs';
 import { sanitizeCommunicationGame } from '../shared/viewpoint.mjs';
 
 const dev = process.argv.includes('--dev');
@@ -76,15 +77,64 @@ async function serveStatic(request, response) {
   createReadStream(target).pipe(response);
 }
 
-const room = {
+const LEGACY_ROOM_ID = 'shared-room';
+const emptyRoom = (roomId, createdAt = 0) => ({
+  roomId,
+  createdAt,
+  expiresAt: createdAt ? roomExpiresAt(createdAt) : 0,
   players: [],
   phase: 'lobby',
   game: null,
   revision: 0,
   phaseFiveOriginalCards: {}
-};
+});
+const createRoomContext = (roomId, createdAt = Date.now()) => ({ room: emptyRoom(roomId, createdAt), peers: new Map() });
+const legacyRoomContext = createRoomContext(LEGACY_ROOM_ID, 0);
+const roomContexts = new Map([[LEGACY_ROOM_ID, legacyRoomContext]]);
+const expiredRoomIds = new Map();
+let room = legacyRoomContext.room;
+let peers = legacyRoomContext.peers;
 
-const peers = new Map();
+function withRoomContext(context, task) {
+  const previousRoom = room;
+  const previousPeers = peers;
+  room = context.room;
+  peers = context.peers;
+  try {
+    return task();
+  } finally {
+    room = previousRoom;
+    peers = previousPeers;
+  }
+}
+
+function roomMetadata(source = room) {
+  return { roomId: source.roomId, createdAt: source.createdAt, expiresAt: source.expiresAt };
+}
+
+function expireRoomContext(roomId, context) {
+  for (const socket of context.peers.keys()) {
+    try { socket.close?.(4001, 'Room expired'); } catch {}
+  }
+  context.peers.clear();
+  roomContexts.delete(roomId);
+  expiredRoomIds.set(roomId, Date.now());
+}
+
+function cleanupExpiredRooms(now = Date.now()) {
+  for (const [roomId, context] of roomContexts.entries()) {
+    if (roomId !== LEGACY_ROOM_ID && roomIsExpired(context.room.expiresAt, now)) expireRoomContext(roomId, context);
+  }
+  for (const [roomId, expiredAt] of expiredRoomIds.entries()) {
+    if (now - expiredAt >= 24 * 60 * 60 * 1000) expiredRoomIds.delete(roomId);
+  }
+}
+
+function uniqueRoomId() {
+  let roomId;
+  do roomId = createRoomId(); while (roomContexts.has(roomId) || expiredRoomIds.has(roomId));
+  return roomId;
+}
 
 function publicState(viewerId = '') {
   if (room.game) upgradePhaseFiveCards(room.game);
@@ -98,6 +148,7 @@ function publicState(viewerId = '') {
     ]))
   } : null;
   return {
+    ...roomMetadata(),
     players: room.players,
     phase: room.phase,
     game,
@@ -1179,17 +1230,58 @@ function handleMessage(socket, rawMessage) {
   }
 }
 
-async function handleRoomApi(request, response) {
+function writeJson(response, status, payload) {
+  response.writeHead(status, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'Content-Language': 'en'
+  }).end(JSON.stringify(payload));
+}
+
+function contextForRoomRequest(url) {
+  const requested = url.searchParams.get('roomId');
+  if (requested == null) return { roomId: LEGACY_ROOM_ID, context: legacyRoomContext };
+  const roomId = normalizeRoomId(requested);
+  if (!isValidRoomId(roomId)) return { roomId, error: 'Invalid room ID.' };
+  cleanupExpiredRooms();
+  if (expiredRoomIds.has(roomId)) return { roomId, error: 'This room has expired.', status: 410 };
+  const context = roomContexts.get(roomId);
+  return context ? { roomId, context } : { roomId, error: 'Room not found.', status: 404 };
+}
+
+async function handleRoomsApi(request, response, url) {
+  cleanupExpiredRooms();
+  if (url.pathname === '/api/rooms') {
+    if (request.method !== 'POST') return writeJson(response, 405, { error: 'Method not allowed.' });
+    const roomId = uniqueRoomId();
+    const context = createRoomContext(roomId);
+    roomContexts.set(roomId, context);
+    return writeJson(response, 201, { room: roomMetadata(context.room) });
+  }
+
+  if (request.method !== 'GET') return writeJson(response, 405, { error: 'Method not allowed.' });
+  const roomId = normalizeRoomId(url.pathname.slice('/api/rooms/'.length));
+  if (!isValidRoomId(roomId)) return writeJson(response, 400, { error: 'Invalid room ID.' });
+  if (expiredRoomIds.has(roomId)) return writeJson(response, 410, { error: 'This room has expired.' });
+  const context = roomContexts.get(roomId);
+  if (!context) return writeJson(response, 404, { error: 'Room not found.' });
+  return writeJson(response, 200, { room: roomMetadata(context.room) });
+}
+
+async function handleRoomApi(request, response, context) {
   response.setHeader('Content-Type', 'application/json; charset=utf-8');
   response.setHeader('Cache-Control', 'no-store');
   if (request.method === 'GET') {
-    advanceTimedOutTurn();
     const viewerId = new URL(request.url || '/', `http://${request.headers.host}`).searchParams.get('sessionId') || '';
-    response.end(JSON.stringify({ state: publicState(viewerId) }));
+    const state = withRoomContext(context, () => {
+      advanceTimedOutTurn();
+      return publicState(viewerId);
+    });
+    response.end(JSON.stringify({ state }));
     return;
   }
   if (request.method !== 'POST') {
-    response.writeHead(405).end(JSON.stringify({ error: 'Method not allowed.', state: publicState() }));
+    response.writeHead(405).end(JSON.stringify({ error: 'Method not allowed.', state: withRoomContext(context, () => publicState()) }));
     return;
   }
 
@@ -1197,7 +1289,7 @@ async function handleRoomApi(request, response) {
   for await (const chunk of request) {
     body += chunk;
     if (body.length > 1_000_000) {
-      response.writeHead(413).end(JSON.stringify({ error: 'Room message is too large.', state: publicState() }));
+      response.writeHead(413).end(JSON.stringify({ error: 'Room message is too large.', state: withRoomContext(context, () => publicState()) }));
       return;
     }
   }
@@ -1206,31 +1298,44 @@ async function handleRoomApi(request, response) {
   try {
     message = JSON.parse(body);
   } catch {
-    response.writeHead(400).end(JSON.stringify({ error: 'Invalid message.', state: publicState() }));
+    response.writeHead(400).end(JSON.stringify({ error: 'Invalid message.', state: withRoomContext(context, () => publicState()) }));
     return;
   }
 
-  let result = null;
-  const requestPeer = {
-    OPEN: 1,
-    readyState: 1,
-    send(payload) {
-      result = JSON.parse(payload);
-    }
-  };
-  peers.set(requestPeer, String(message.sessionId || ''));
-  handleMessage(requestPeer, Buffer.from(JSON.stringify(message)));
-  peers.delete(requestPeer);
-  const error = result?.type === 'error' ? result.message : null;
-  response.writeHead(error ? 400 : 200).end(JSON.stringify({ state: publicState(String(message.sessionId || '')), error }));
+  const payload = withRoomContext(context, () => {
+    let result = null;
+    const requestPeer = {
+      OPEN: 1,
+      readyState: 1,
+      send(responsePayload) {
+        result = JSON.parse(responsePayload);
+      }
+    };
+    peers.set(requestPeer, String(message.sessionId || ''));
+    handleMessage(requestPeer, Buffer.from(JSON.stringify(message)));
+    peers.delete(requestPeer);
+    const error = result?.type === 'error' ? result.message : null;
+    return { state: publicState(String(message.sessionId || '')), error };
+  });
+  response.writeHead(payload.error ? 400 : 200).end(JSON.stringify(payload));
 }
 
 if (app) await app.prepare();
 
 const server = createServer((request, response) => {
-  const pathname = new URL(request.url || '/', `http://${request.headers.host}`).pathname;
+  const url = new URL(request.url || '/', `http://${request.headers.host}`);
+  const pathname = url.pathname;
+  if (pathname === '/api/rooms' || pathname.startsWith('/api/rooms/')) {
+    handleRoomsApi(request, response, url).catch(() => writeJson(response, 500, { error: 'Server error.' }));
+    return;
+  }
   if (pathname === '/api/room') {
-    handleRoomApi(request, response).catch(() => response.writeHead(500).end(JSON.stringify({ error: 'Server error.' })));
+    const resolved = contextForRoomRequest(url);
+    if (!resolved.context) {
+      writeJson(response, resolved.status || 400, { error: resolved.error });
+      return;
+    }
+    handleRoomApi(request, response, resolved.context).catch(() => writeJson(response, 500, { error: 'Server error.' }));
     return;
   }
   if (app) {
@@ -1242,16 +1347,23 @@ const server = createServer((request, response) => {
 const wss = new WebSocketServer({ noServer: true });
 const nextUpgrade = app?.getUpgradeHandler();
 
-wss.on('connection', (socket) => {
-  peers.set(socket, '');
-  socket.on('message', (message) => handleMessage(socket, message));
-  socket.on('close', () => peers.delete(socket));
+wss.on('connection', (socket, _request, context) => {
+  context.peers.set(socket, '');
+  socket.on('message', (message) => withRoomContext(context, () => handleMessage(socket, message)));
+  socket.on('close', () => context.peers.delete(socket));
 });
 
 server.on('upgrade', (request, socket, head) => {
-  const pathname = new URL(request.url || '/', `http://${request.headers.host}`).pathname;
+  const url = new URL(request.url || '/', `http://${request.headers.host}`);
+  const pathname = url.pathname;
   if (pathname === '/ws') {
-    wss.handleUpgrade(request, socket, head, (webSocket) => wss.emit('connection', webSocket, request));
+    const resolved = contextForRoomRequest(url);
+    if (!resolved.context) {
+      socket.write(`HTTP/1.1 ${resolved.status || 400} ${resolved.error || 'Invalid room'}\r\nConnection: close\r\n\r\n`);
+      socket.destroy();
+      return;
+    }
+    wss.handleUpgrade(request, socket, head, (webSocket) => wss.emit('connection', webSocket, request, resolved.context));
     return;
   }
   if (nextUpgrade) nextUpgrade(request, socket, head);
@@ -1263,4 +1375,7 @@ server.listen(port, hostname, () => {
   console.log(`Shared WebSocket room ready at ws://${hostname}:${port}/ws`);
 });
 
-setInterval(() => advanceTimedOutTurn(), 500);
+setInterval(() => {
+  cleanupExpiredRooms();
+  for (const context of roomContexts.values()) withRoomContext(context, () => advanceTimedOutTurn());
+}, 500);

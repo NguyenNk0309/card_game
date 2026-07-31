@@ -15,11 +15,17 @@ const durableClassStart = cloudflareWorker.indexOf('export class GameRoom');
 const defaultExportStart = cloudflareWorker.indexOf('export default', durableClassStart);
 if (durableClassStart < 0 || defaultExportStart < 0) throw new Error('Could not locate the Durable Object export in the realtime worker.');
 
-const sitesWorker = `${cloudflareWorker.slice(0, durableClassStart)}${cloudflareWorker.slice(defaultExportStart)}`.replace(
-  /      if \(env\.GAME_ROOM\) \{[\s\S]*?      if \(env\.REALTIME_ORIGIN\) return proxyRoomRequest\(request, env\.REALTIME_ORIGIN\);\r?\n      return handleRoomRequest\(request\);/,
-  `      if (env.REALTIME_ORIGIN) return proxyRoomRequest(request, env.REALTIME_ORIGIN);
-      return json({ error: 'The shared room backend is not configured.' }, 503);`
-);
+const workerWithoutDurableClass = `${cloudflareWorker.slice(0, durableClassStart)}${cloudflareWorker.slice(defaultExportStart)}`;
+const roomRoutesStart = workerWithoutDurableClass.indexOf("    if (url.pathname === '/api/rooms' && request.method === 'POST')");
+const assetRoutesStart = workerWithoutDurableClass.indexOf('    const response = await env.ASSETS.fetch(request);', roomRoutesStart);
+if (roomRoutesStart < 0 || assetRoutesStart < 0) throw new Error('Could not locate the room router in the realtime worker.');
+const sitesRoomRouter = `    if (url.pathname === '/api/rooms' || url.pathname.startsWith('/api/rooms/') || url.pathname === '/api/room' || url.pathname === '/ws') {
+      if (env.REALTIME_ORIGIN) return proxyRoomRequest(request, env.REALTIME_ORIGIN);
+      return json({ error: 'The shared room backend is not configured.' }, 503);
+    }
+
+`;
+const sitesWorker = `${workerWithoutDurableClass.slice(0, roomRoutesStart)}${sitesRoomRouter}${workerWithoutDurableClass.slice(assetRoutesStart)}`;
 if (sitesWorker.includes('export class GameRoom') || sitesWorker.includes('env.GAME_ROOM')) throw new Error('Sites worker still contains a Durable Object binding.');
 if (!sitesWorker.includes('env.REALTIME_ORIGIN') || sitesWorker.includes('return handleRoomRequest(request);')) {
   throw new Error('Sites worker must proxy every room request to the authoritative realtime backend.');

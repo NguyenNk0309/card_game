@@ -290,6 +290,9 @@ export type SyncedGameState = {
 };
 
 export type SharedRoomState = {
+  roomId: string;
+  createdAt: number;
+  expiresAt: number;
   players: PlayerSession[];
   phase: "lobby" | "game";
   game: SyncedGameState | null;

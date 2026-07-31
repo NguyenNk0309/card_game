@@ -46,6 +46,10 @@ const server = spawn(process.execPath, ["backend/server.mjs"], {
 
 try {
   await waitForServer(server);
+  await run(process.execPath, [npmCli, "run", "test:rooms"], {
+    ...baseEnvironment,
+    ROOMS_ORIGIN: `http://127.0.0.1:${port}`
+  });
   await run(process.execPath, [npmCli, "run", "test:realtime"], {
     ...baseEnvironment,
     ROOM_URL: `ws://127.0.0.1:${port}/ws`

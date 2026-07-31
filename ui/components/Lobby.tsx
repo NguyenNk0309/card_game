@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Crown, Eye, Flame, LogOut, Shield, Sparkles, Swords, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Check, Crown, Eye, Flame, House, KeyRound, LogOut, Shield, Sparkles, Swords, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
 import { useState } from "react";
 import { describeCardFailure, describeCardSuccess } from "@/shared/cardRules";
 import type { CharacterOption, PlayerSession, TeamId } from "@/shared/types";
@@ -10,11 +10,12 @@ import { EffectText } from "./EffectText";
 import { PityCostBadge } from "./PityCost";
 
 type Props = {
+  roomId: string;
   players: PlayerSession[]; playerName: string; error: string; selectedPlayerId: string | null;
   localSessionId: string; connectionStatus: string; characterOptions: CharacterOption[]; selectedHeroName: string;
   onNameChange: (name: string) => void; onSlotSelect: (team: TeamId) => void; onSelectPlayer: (id: string) => void;
   onToggleReady: (id: string) => void; onLeave: (id: string) => void; onRemovePlayer: (id: string) => void;
-  onEnterGame: () => void; onHeroSelect: (heroName: string) => void;
+  onEnterGame: () => void; onHeroSelect: (heroName: string) => void; onReturnHome: () => void;
 };
 
 const statusText: Record<string, string> = { connecting: "CONNECTING", connected: "CONNECTED", reconnecting: "RECONNECTING", offline: "OFFLINE" };
@@ -28,8 +29,9 @@ const characterGroups: Array<{ id: CharacterGroup; label: string; roles: string[
   { id: "supporter", label: "Supporter", roles: ["Support", "Controller"] }
 ];
 
-export function Lobby({ players, playerName, error, selectedPlayerId, localSessionId, connectionStatus, characterOptions, selectedHeroName, onNameChange, onSlotSelect, onSelectPlayer, onToggleReady, onLeave, onRemovePlayer, onEnterGame, onHeroSelect }: Props) {
+export function Lobby({ roomId, players, playerName, error, selectedPlayerId, localSessionId, connectionStatus, characterOptions, selectedHeroName, onNameChange, onSlotSelect, onSelectPlayer, onToggleReady, onLeave, onRemovePlayer, onEnterGame, onHeroSelect, onReturnHome }: Props) {
   const [activeCharacterGroup, setActiveCharacterGroup] = useState<CharacterGroup>("attacker");
+  const [roomIdCopied, setRoomIdCopied] = useState(false);
   const localPlayer = players.find((player) => player.id === localSessionId);
   const selected = players.find((player) => player.id === selectedPlayerId) ?? localPlayer;
   const selectedOption = characterOptions.find((option) => option.hero.name === selectedHeroName);
@@ -47,6 +49,15 @@ export function Lobby({ players, playerName, error, selectedPlayerId, localSessi
   const canJoinSlot = !localPlayer && Boolean(playerName.trim()) && (Boolean(shownHero) || randomPending) && connectionStatus === "connected";
   const activeGroup = characterGroups.find((group) => group.id === activeCharacterGroup) ?? characterGroups[0];
   const visibleCharacterOptions = characterOptions.filter((option) => activeGroup.roles.includes(option.hero.role));
+  const copyRoomId = async () => {
+    try {
+      await navigator.clipboard.writeText(roomId);
+      setRoomIdCopied(true);
+      window.setTimeout(() => setRoomIdCopied(false), 1600);
+    } catch {
+      setRoomIdCopied(false);
+    }
+  };
   const renderTeam = (team: TeamId) => {
     const members = teamPlayers(team);
     const TeamIcon = team === "veil" ? Eye : Flame;
@@ -75,7 +86,7 @@ export function Lobby({ players, playerName, error, selectedPlayerId, localSessi
     <div className="lobby-intro"><span className="eyebrow">THE ARENA AWAITS</span><h1>Join the battle.</h1><p>Choose or randomize a character, enter a name, join a team, and ready up.</p></div>
     <div className="lobby-grid">
       <section className="join-panel">
-        <div className="lobby-panel-heading"><div><span className="eyebrow">SHARED GAME ROOM</span><h2>{localPlayer ? <><span className={`player-name-highlight ${relationClass(localPlayer)}`}>{localPlayer.displayName}</span> joined {localPlayer.hero.team === "veil" ? "Veilbound" : "Embercourt"}</> : "Enter your name and choose a slot"}</h2></div><div className="lobby-heading-status"><span className={`connection-pill ${connectionStatus}`}>{statusText[connectionStatus] ?? connectionStatus}</span><div className={players.length >= 10 ? "capacity full" : "capacity"}><Users size={16} /> {players.length}/10</div></div></div>
+        <div className="lobby-panel-heading"><div><span className="eyebrow">SHARED GAME ROOM</span><h2>{localPlayer ? <><span className={`player-name-highlight ${relationClass(localPlayer)}`}>{localPlayer.displayName}</span> joined {localPlayer.hero.team === "veil" ? "Veilbound" : "Embercourt"}</> : "Enter your name and choose a slot"}</h2></div><div className="lobby-heading-status"><button type="button" className="lobby-home-button" onClick={onReturnHome}><House size={15}/> Home</button><button type="button" className={`lobby-room-id ${roomIdCopied ? "is-copied" : ""}`} onClick={() => void copyRoomId()} aria-label={roomIdCopied ? `Room ID ${roomId} copied` : `Copy room ID ${roomId}`} title={roomIdCopied ? "Room ID copied" : "Copy room ID"}>{roomIdCopied ? <Check size={16}/> : <KeyRound size={16}/>} Room <strong>{roomId}</strong></button><span className={`connection-pill ${connectionStatus}`}>{statusText[connectionStatus] ?? connectionStatus}</span><div className={players.length >= 10 ? "capacity full" : "capacity"}><Users size={16} /> {players.length}/10</div></div></div>
         {!localPlayer && <div className="join-form"><label htmlFor="player-name">Player name</label><div><input id="player-name" value={playerName} onChange={(event) => onNameChange(event.target.value)} placeholder="Enter a name..." maxLength={24} autoComplete="off"/></div><span className="join-slot-hint">Then choose a slot.</span></div>}
         {error && <div className="lobby-error" role="alert">{error}</div>}
         <div className="joined-heading"><div><span className="eyebrow">JOINED PLAYERS</span><strong>{readyCount}/{players.length} ready</strong></div><span>Five slots per team.</span></div>
