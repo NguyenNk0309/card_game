@@ -31,9 +31,32 @@ assert(sampledTargets.every((value) => Number.isInteger(value) && value >= 8 && 
 assert(sampledRolls.every((value) => Number.isInteger(value) && value >= 1 && value <= 20), "every d20 result must be an independent integer from 1 through 20");
 assert(new Set(sampledTargets).size > 1, "target sampling must not return a fixed value");
 assert(new Set(sampledRolls).size > 1, "d20 sampling must not return a fixed value");
+assert.equal(engine.BATTLE_TURN_SECONDS, 60, "the exported battle-turn duration stays synchronized with created games");
+assert.equal(engine.randomIntInclusive(5, 5), 5, "inclusive random ranges support a single valid value");
+assert.throws(() => engine.randomIntInclusive(2, 1), RangeError, "invalid random ranges fail explicitly");
+assert.match(engine.createSeed(), /^[A-Z0-9]{0,6}$/, "generated adventure seeds use the compact uppercase format");
+const minimumParty = engine.createParty(1);
+const maximumParty = engine.createParty(99);
+assert.equal(minimumParty.length, 2, "party creation enforces the two-player minimum");
+assert.equal(maximumParty.length, 10, "party creation enforces the ten-character maximum");
+assert.deepEqual(maximumParty.map((hero) => hero.team), ["veil", "ember", "veil", "ember", "veil", "ember", "veil", "ember", "veil", "ember"], "generated parties alternate teams");
+assert.deepEqual(maximumParty.map((hero) => hero.isYou), [true, false, false, false, false, false, false, false, false, false], "only the first generated hero is the local preview hero");
 
 const options = engine.getCharacterOptions();
 assert.equal(options.length, 10);
+assert.deepEqual(options.map((option) => option.hero.name), catalog.HERO_TEMPLATES.map((hero) => hero.name), "character options expose every catalog hero in canonical order");
+assert.equal(catalog.ACTION_CARDS.length, 7, "the reusable common-card catalog contains exactly seven cards");
+assert.equal(Object.values(catalog.CHARACTER_SKILL_CARDS).flat().length, 30, "the special-card catalog contains exactly thirty cards");
+assert.equal(catalog.REALMS.length, 1, "the current battle uses one authoritative realm definition");
+assert.equal(catalog.STORY_BEATS.length, catalog.EVENTS.length, "story and event narration catalogs remain index-compatible");
+const helperAdventure = engine.createAdventure("HELPERS");
+assert.equal(helperAdventure.seed, "HELPERS");
+assert.equal(helperAdventure.realm, catalog.REALMS[0]);
+const nextNarrative = engine.nextStory(helperAdventure);
+assert(catalog.STORY_BEATS.includes(nextNarrative.story), "nextStory selects a catalog story beat");
+assert(catalog.EVENTS.includes(nextNarrative.event), "nextStory selects the paired catalog event copy");
+assert.equal(engine.createSkillDeck(catalog.HERO_TEMPLATES[0]).length, 10, "direct skill-deck creation returns three special and seven common cards");
+assert.equal(catalog.calculatePityCost({ ...catalog.ACTION_CARDS[0], pityCost: 9.8 }), 8, "stored pity costs are floored and capped at eight");
 const everyCard = options.flatMap((option) => option.skillDeck);
 const expectedSpecialBalance = {
   "ev-aegis": { pityCost: 5, failureEffect: "team-damage", failureValue: 1 },
@@ -95,6 +118,18 @@ assert.equal(pityCostRules.isTestModeEnabled(" TRUE "), true, "TEST_MODE accepts
 process.env.TEST_MODE = "false";
 assert.equal(cardRules.describeCardFailure(options[0].skillDeck.find((card) => !card.unique)), "No effect.", "common-card failure copy stays concise and grammatical");
 assert.equal(cardRules.describeCardSuccess(options[0].skillDeck.find((card) => card.effect === "none")), "No effect.", "no-effect success copy stays concise and grammatical");
+const cardRuleSample = options[0].skillDeck.find((card) => card.id === "ev-command");
+assert.equal(cardRules.hasFavorableOmen({ completedPlayerTurns: 2, zeroPityUntilTurn: 3 }), true, "Favorable Omen is active before its target-turn boundary");
+assert.equal(cardRules.hasFavorableOmen({ completedPlayerTurns: 3, zeroPityUntilTurn: 3 }), false, "Favorable Omen expires at its target-turn boundary");
+assert.equal(cardRules.getEffectiveCardPityCost(cardRuleSample, { completedPlayerTurns: 2, zeroPityUntilTurn: 3 }), 0, "Favorable Omen overrides an affected card to zero pity");
+assert.equal(cardRules.getEffectiveCardPityCost(cardRuleSample, { completedPlayerTurns: 3, zeroPityUntilTurn: 3 }), cardRuleSample.pityCost, "an expired Favorable Omen restores the printed pity cost");
+assert.equal(cardRules.getCardTargetLabel(cardRuleSample), "One other living ally", "advance-ally cards exclude the acting player in target copy");
+assert.equal(cardRules.describeCardImpact(cardRuleSample), `Success: ${cardRules.describeCardSuccess(cardRuleSample)} Failure: ${cardRules.describeCardFailure(cardRuleSample)}`, "combined impact copy uses the canonical success and failure descriptions");
+for (const card of everyCard) {
+  assert(cardRules.getCardEffectLabel(card).length > 0, `${card.name} exposes a player-facing effect label`);
+  assert(cardRules.getCardTargetLabel(card).length > 0, `${card.name} exposes a player-facing target label`);
+  assert(cardRules.describeCardImpact(card).length > 0, `${card.name} exposes a complete player-facing impact description`);
+}
 for (const option of options) {
   assert.equal(option.skillDeck.length, 10, `${option.hero.name} must have 10 cards`);
   assert.equal(option.skillDeck.filter((card) => card.unique).length, 3);
@@ -195,6 +230,18 @@ assert.equal(game.playerStates[first.id].pityPoints, 0, "every player begins wit
 assert.equal(game.playerStates[first.id].hand.length + game.playerStates[first.id].drawPile.length + game.playerStates[first.id].discardPile.length + game.playerStates[first.id].graveyard.length, 10, "all cards begin in reusable zones with an empty graveyard");
 assert.equal(engine.createInitialGame([first, second], engine.createAdventure("TIMER"), 5).turnSeconds, 60, "battle turns always last exactly 60 seconds");
 assert(game.adventure.target >= 8 && game.adventure.target <= 16, "the initial target is randomly selected from the balanced target range");
+const normalizedOrderGame = structuredClone(game);
+normalizedOrderGame.turnOrder = [first.id, first.id, "missing-player"];
+assert.deepEqual(engine.normalizeTurnOrder(normalizedOrderGame, [first, second]), [first.id, second.id], "turn-order normalization removes duplicates and stale IDs while restoring missing players");
+const nextLivingStates = structuredClone(game.playerStates);
+nextLivingStates[second.id].hp = 0;
+assert.equal(engine.findNextLivingPlayerIndex([first, second], nextLivingStates, 0), 0, "next-player lookup falls back to the current living player when every opponent is defeated");
+const legacyAttack = first.skillDeck.find((card) => card.effect === "damage") ?? first.skillDeck[0];
+const legacyAction = engine.resolveAction({ ...game.adventure, target: 12 }, legacyAttack.id, 12, true, first.skillDeck);
+assert.equal(legacyAction.success, true, "the legacy action resolver succeeds exactly at its d20 target");
+assert.equal(legacyAction.total, 12);
+assert.equal(legacyAction.card.id, legacyAttack.id);
+assert(legacyAction.adventure.target >= 8 && legacyAction.adventure.target <= 16, "the legacy action resolver generates the next balanced target");
 
 const attack = first.skillDeck.find((card) => card.effect === "damage");
 process.env.TEST_MODE = "true";
@@ -1010,6 +1057,124 @@ assert(!fourthPurge.playerStates[commander.id].graveyard.includes(purgeCard.id),
 assert(fourthPurge.playerStates[diceEnemy.id].graveyard.includes(purgeReplacement.id), "a fourth Tactical Purge still moves an enemy hand card to graveyard");
 assert(fourthPurge.playerStates[diceEnemy.id].purgedCards.some((entry) => entry.cardId === purgeReplacement.id), "a fourth Tactical Purge still records the two-phase return timer");
 
+let resolvedSuccessCardCopies = 0;
+for (const option of options) {
+  for (const templateCard of option.skillDeck) {
+    const otherHeroNames = options.map((candidate) => candidate.hero.name).filter((name) => name !== option.hero.name);
+    const matrixActor = engine.createPlayerSession(`Success ${templateCard.id}`, 0, option.hero.name, `success-${templateCard.id}-actor`);
+    const matrixEnemyOne = engine.createPlayerSession(`Enemy one ${templateCard.id}`, 1, otherHeroNames[0], `success-${templateCard.id}-enemy-one`);
+    const matrixAlly = engine.createPlayerSession(`Ally ${templateCard.id}`, 2, otherHeroNames[1], `success-${templateCard.id}-ally`);
+    const matrixEnemyTwo = engine.createPlayerSession(`Enemy two ${templateCard.id}`, 3, otherHeroNames[2], `success-${templateCard.id}-enemy-two`);
+    const matrixParty = [matrixActor, matrixEnemyOne, matrixAlly, matrixEnemyTwo];
+    const matrixCard = matrixActor.skillDeck.find((card) => card.id === templateCard.id);
+    const matrixGame = engine.createInitialGame(matrixParty, engine.createAdventure(`SUCCESS-MATRIX-${templateCard.id}`), 30);
+    matrixGame.turnOrder = matrixParty.map((player) => player.id);
+    matrixGame.adventure.target = 8;
+    const actorState = matrixGame.playerStates[matrixActor.id];
+    const allyState = matrixGame.playerStates[matrixAlly.id];
+    const enemyOneState = matrixGame.playerStates[matrixEnemyOne.id];
+    const actorReplacement = matrixActor.skillDeck.find((card) => card.id !== matrixCard.id);
+    const enemyCandidate = matrixEnemyOne.skillDeck.find((card) => card.unique);
+    const enemyReplacement = matrixEnemyOne.skillDeck.find((card) => card.id !== enemyCandidate.id);
+    actorState.hand = [matrixCard.id];
+    actorState.drawPile = [actorReplacement.id];
+    actorState.discardPile = [];
+    actorState.graveyard = [];
+    if (matrixCard.effect === "heal") {
+      actorState.hp = 1;
+      allyState.hp = 1;
+    }
+    if (matrixCard.target === "defeated-ally") allyState.hp = 0;
+    if (["purge-card", "steal-card"].includes(matrixCard.supportType)) {
+      enemyOneState.hand = [enemyCandidate.id];
+      enemyOneState.drawPile = [enemyReplacement.id];
+      enemyOneState.discardPile = [];
+      enemyOneState.graveyard = [];
+    }
+    if (matrixCard.supportType === "dispel-enemy") {
+      Object.assign(enemyOneState, { shield: 5, attackBuff: 2, diceBuff: 2 });
+      enemyOneState.timedEffects = [
+        { kind: "shield", value: 5, expiresAfterTurn: 1 },
+        { kind: "attackBuff", value: 2, expiresAfterTurn: 1 },
+        { kind: "diceBuff", value: 2, expiresAfterTurn: 1 }
+      ];
+    }
+    if (matrixCard.supportType === "shield-to-attack") {
+      actorState.shield = 6;
+      actorState.timedEffects = [{ kind: "shield", value: 6, expiresAfterTurn: 99 }];
+    }
+    const expectedTargetIds = matrixCard.target === "all-enemies" ? [matrixEnemyOne.id, matrixEnemyTwo.id]
+      : matrixCard.target === "all-allies" ? [matrixActor.id, matrixAlly.id]
+        : matrixCard.target === "self" ? [matrixActor.id]
+          : matrixCard.target === "ally" || matrixCard.target === "defeated-ally" ? [matrixAlly.id]
+            : [matrixEnemyOne.id];
+    const targetId = matrixCard.target === "ally" || matrixCard.target === "defeated-ally" ? matrixAlly.id
+      : matrixCard.target === "enemy" || matrixCard.target === "player" ? matrixEnemyOne.id
+        : matrixActor.id;
+    const beforeSuccess = structuredClone(matrixGame);
+    const matrixSuccess = engine.resolveCardTurn(matrixGame, matrixParty, matrixCard.id, targetId, 20);
+    assert.equal(matrixSuccess.outcome.success, true, `${matrixCard.name} must resolve successfully above the d20 target`);
+    assert.equal(matrixSuccess.outcome.cardId, matrixCard.id, `${matrixCard.name} must preserve its card identity in the synchronized outcome`);
+    assert.equal(matrixSuccess.outcome.effect, matrixCard.effect, `${matrixCard.name} must publish its catalog effect type`);
+    assert.deepEqual([...matrixSuccess.outcome.targetIds].sort(), [...expectedTargetIds].sort(), `${matrixCard.name} must affect exactly its legal targets`);
+    assert.equal(matrixSuccess.outcome.failureDetail, "", `${matrixCard.name} success must not publish or apply a failure impact`);
+    assert.equal(matrixSuccess.playerStates[matrixActor.id].cardUses[matrixCard.id], 1, `${matrixCard.name} must record its successful use`);
+    if (matrixCard.id === "bo-return") assert(matrixSuccess.playerStates[matrixActor.id].graveyard.includes(matrixCard.id), "Returning Light enters the graveyard after successful use");
+    else assert(matrixSuccess.playerStates[matrixActor.id].discardPile.includes(matrixCard.id), `${matrixCard.name} cycles to discard after successful use`);
+
+    if (matrixCard.effect === "damage" || matrixCard.effect === "aoe") {
+      const expectedDamage = expectedTargetIds.map((id) => {
+        const targetState = beforeSuccess.playerStates[id];
+        return matrixCard.value
+          + engine.getThorneValePassiveDamageBonus(matrixActor, matrixCard, beforeSuccess.playerStates[matrixActor.id])
+          + (matrixActor.hero.classId === "mage" && matrixCard.effect === "aoe" ? 1 : 0)
+          + (matrixActor.hero.classId === "berserker" && beforeSuccess.playerStates[matrixActor.id].hp <= beforeSuccess.playerStates[matrixActor.id].maxHp / 2 ? 1 : 0)
+          + engine.getKaelRookPassiveDamageBonus(matrixActor, matrixCard, beforeSuccess.playerStates[matrixActor.id], targetState);
+      });
+      assert.equal(matrixSuccess.outcome.amount, expectedDamage.reduce((sum, value) => sum + value, 0), `${matrixCard.name} must apply its exact total attack damage`);
+      expectedTargetIds.forEach((id, index) => assert.equal(matrixSuccess.playerStates[id].hp, beforeSuccess.playerStates[id].hp - expectedDamage[index], `${matrixCard.name} must update each target's authoritative HP`));
+    } else if (matrixCard.effect === "heal") {
+      const healPower = matrixCard.value + (matrixActor.hero.name === "Brother Orren" ? 1 : 0);
+      const expectedHealing = expectedTargetIds.map((id) => Math.min(healPower, beforeSuccess.playerStates[id].maxHp - beforeSuccess.playerStates[id].hp));
+      assert.equal(matrixSuccess.outcome.amount, expectedHealing.reduce((sum, value) => sum + value, 0), `${matrixCard.name} must report its exact restored HP`);
+      expectedTargetIds.forEach((id, index) => assert.equal(matrixSuccess.playerStates[id].hp, beforeSuccess.playerStates[id].hp + expectedHealing[index], `${matrixCard.name} must update each target's authoritative HP`));
+    } else if (matrixCard.effect === "guard") {
+      const guardPower = matrixCard.value + (matrixActor.hero.name === "Elara Voss" ? 1 : 0);
+      assert.equal(matrixSuccess.outcome.amount, guardPower, `${matrixCard.name} must report its exact shield amount per target`);
+      expectedTargetIds.forEach((id) => assert.equal(matrixSuccess.playerStates[id].shield, beforeSuccess.playerStates[id].shield + guardPower, `${matrixCard.name} must update each target's authoritative shield`));
+    } else if (matrixCard.effect === "support") {
+      if (matrixCard.supportType === "attack") expectedTargetIds.forEach((id) => assert.equal(matrixSuccess.playerStates[id].attackBuff, matrixCard.value, `${matrixCard.name} must grant its exact attack buff`));
+      else if (matrixCard.supportType === "dice") expectedTargetIds.forEach((id) => assert.equal(matrixSuccess.playerStates[id].diceBuff, matrixCard.value, `${matrixCard.name} must grant its exact d20 buff`));
+      else if (matrixCard.supportType === "enemy-dice") assert.equal(matrixSuccess.playerStates[matrixEnemyOne.id].dicePenalty, matrixCard.value, `${matrixCard.name} must apply its exact d20 penalty`);
+      else if (matrixCard.supportType === "advance-ally") assert.equal(matrixSuccess.turnOrder[0], matrixAlly.id, `${matrixCard.name} must move the chosen ally directly behind the acting player`);
+      else if (matrixCard.supportType === "revive") assert.equal(matrixSuccess.playerStates[matrixAlly.id].hp, Math.ceil(matrixAlly.hero.maxHp / 3), `${matrixCard.name} must immediately revive its target with one-third HP`);
+      else if (matrixCard.supportType === "skip-enemy") assert.equal(matrixSuccess.playerStates[matrixEnemyOne.id].skipTurns, 1, `${matrixCard.name} must cancel exactly one enemy turn`);
+      else if (matrixCard.supportType === "zero-pity") assert.equal(matrixSuccess.playerStates[matrixAlly.id].zeroPityUntilTurn, 1, `${matrixCard.name} must grant zero pity through the ally's next turn`);
+      else if (matrixCard.supportType === "purge-card") {
+        assert(matrixSuccess.playerStates[matrixEnemyOne.id].graveyard.includes(enemyCandidate.id), `${matrixCard.name} must move the selected random hand card to graveyard`);
+        assert.deepEqual(matrixSuccess.playerStates[matrixEnemyOne.id].purgedCards, [{ cardId: enemyCandidate.id, returnAfterPhase: 2 }], `${matrixCard.name} must record the two-phase return boundary`);
+      } else if (matrixCard.supportType === "steal-card") {
+        assert(matrixSuccess.playerStates[matrixActor.id].hand.includes(enemyCandidate.id), `${matrixCard.name} must move the selected random enemy card into the actor's hand`);
+        assert.equal(matrixSuccess.playerStates[matrixActor.id].borrowedCards[0].ownerId, matrixEnemyOne.id, `${matrixCard.name} must retain authoritative ownership metadata`);
+      } else if (matrixCard.supportType === "dispel-enemy") {
+        assert.equal(matrixSuccess.playerStates[matrixEnemyOne.id].shield, 2, `${matrixCard.name} must destroy up to its exact shield value`);
+        assert.equal(matrixSuccess.playerStates[matrixEnemyOne.id].attackBuff, 0, `${matrixCard.name} must remove attack buffs`);
+        assert.equal(matrixSuccess.playerStates[matrixEnemyOne.id].diceBuff, 0, `${matrixCard.name} must remove d20 buffs`);
+      } else if (matrixCard.supportType === "shield-to-attack") {
+        assert.equal(matrixSuccess.playerStates[matrixActor.id].shield, 3, `${matrixCard.name} must spend half of the actor's current shield`);
+        assert.equal(matrixSuccess.playerStates[matrixActor.id].attackBuff, 3, `${matrixCard.name} must convert the spent shield into equal next-attack damage`);
+        assert.equal(matrixSuccess.outcome.amount, 3, `${matrixCard.name} must report the converted attack amount`);
+      } else assert.fail(`${matrixCard.name} uses an untested support effect`);
+    } else {
+      assert.equal(matrixSuccess.outcome.amount, 0, `${matrixCard.name} must resolve with no gameplay effect`);
+      assert.equal(matrixSuccess.playerStates[matrixEnemyOne.id].hp, beforeSuccess.playerStates[matrixEnemyOne.id].hp, `${matrixCard.name} must not alter enemy HP`);
+      assert.equal(matrixSuccess.playerStates[matrixActor.id].shield, beforeSuccess.playerStates[matrixActor.id].shield, `${matrixCard.name} must not alter actor shield`);
+    }
+    resolvedSuccessCardCopies += 1;
+  }
+}
+assert.equal(resolvedSuccessCardCopies, 100, "the success matrix must execute every card in all ten character decks");
+
 for (const option of options) {
   for (const templateCard of option.skillDeck.filter((card) => card.unique)) {
     const matrixActor = engine.createPlayerSession(`Failure ${templateCard.id}`, 0, option.hero.name, `failure-${templateCard.id}-actor`);
@@ -1219,4 +1384,4 @@ assert.deepEqual(nextSpeedRound.actedThisRound, []);
 if (originalTestMode === undefined) delete process.env.TEST_MODE;
 else process.env.TEST_MODE = originalTestMode;
 
-console.log("Game-rule test passed: TEST_MODE pity overrides, random targets, pity earning/spending, balanced card costs, special-card penalties, support effects, turn order, event history, victory, and defeated-player lockout.");
+console.log("Game-rule test passed: all 100 character-deck card success paths, all 30 special-card failures, all 10 passives, helper contracts, pity, support effects, turn order, history, victory, and defeated-player lockout.");
