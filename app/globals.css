@@ -5383,6 +5383,14 @@ button:focus-visible {
   .private-hand-zone { position: relative; }
 }
 
+/* Give the lobby character status enough room for both trait columns on
+   1080p and 1440p desktop layouts without changing compact breakpoints. */
+@media (min-width: 1600px) and (min-height: 900px) {
+  .character-review-layout {
+    grid-template-columns: minmax(300px, .72fr) minmax(0, 1.28fr);
+  }
+}
+
 /* Ability tabs, balanced lobby panels, and consistently filled card surfaces. */
 .lobby-grid {
   align-items: stretch;
