@@ -231,7 +231,7 @@ function finishPlayedCard(states: Record<string, PlayerRunState>, actorId: strin
   if (!borrowed) {
     const useCount = (actorState.cardUses[cardId] ?? 0) + 1;
     actorState.cardUses[cardId] = useCount;
-    if ((cardId === "bo-return" && useCount >= 1) || (["im-purge", "sf-favor"].includes(cardId) && useCount >= 3)) {
+    if ((cardId === "bo-return" && useCount >= 1) || (cardId === "im-purge" && useCount >= 3)) {
       moveCardToGraveyard(actorState, cardId);
       states[actorId] = actorState;
       return;

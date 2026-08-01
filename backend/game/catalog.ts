@@ -62,7 +62,7 @@ export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
     { id: "bc-march", name: "Shieldforged Assault", description: "Convert half of the current shield of all living allies, including yourself, rounded down, into an equal attack damage bonus for their next attack; expires at the end of each target's next turn.", bonus: 0, effect: "support", target: "all-allies", value: 0, supportType: "shield-to-attack", failureEffect: "team-damage", failureValue: 2 }
   ],
   "Sable Fen": [
-    { id: "sf-favor", name: "Favorable Omen", description: "One living ally, including yourself, plays their next card during their next turn for 0 pity; expires at the end of that turn, and after its third use enters the graveyard.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "zero-pity", failureEffect: "self-damage", failureValue: 1 },
+    { id: "sf-favor", name: "Favorable Omen", description: "One living ally, including yourself, plays their next card during their next turn for 0 pity; expires at the end of that turn.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "zero-pity", failureEffect: "self-damage", failureValue: 1 },
     { id: "sf-hex", name: "Dark Omen", description: "One living enemy gets -3 on their next d20; expires at the end of the target's next turn.", bonus: 0, effect: "support", target: "enemy", value: 3, supportType: "enemy-dice", failureEffect: "team-damage", failureValue: 1 },
     { id: "sf-stolen", name: "Stolen Moment", description: "Cancel one living enemy's next turn. Their effects expire normally when that turn ends.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "skip-enemy", failureEffect: "team-damage", failureValue: 2 }
   ],
