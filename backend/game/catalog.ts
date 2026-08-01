@@ -31,54 +31,54 @@ export function calculatePityCost(card: CardWithoutPity | ActionCard) {
 
 export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
   "Elara Voss": [
-    { id: "ev-aegis", name: "Rallying Aegis", type: "Spirit", description: "All living allies, including yourself, gain 2 shield (3 with United Front); expires at the end of each target's next turn.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "shield", failureEffect: "team-damage", failureValue: 1 },
-    { id: "ev-ward", name: "Lantern Ward", type: "Spirit", description: "One living ally, including yourself, gains 4 shield; expires at the end of the target's next turn.", bonus: 0, effect: "guard", target: "ally", value: 4, failureEffect: "lose-shield", failureValue: 2 },
-    { id: "ev-command", name: "Rescue Formation", type: "Wit", description: "Move another living ally directly behind Elara in turn order.", bonus: 0, effect: "support", target: "ally", value: 1, supportType: "advance-ally", failureEffect: "self-damage", failureValue: 1 }
+    { id: "ev-aegis", name: "Rallying Aegis", description: "All living allies, including yourself, gain 2 shield (3 with United Front); expires at the end of each target's next turn.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "shield", failureEffect: "team-damage", failureValue: 1 },
+    { id: "ev-ward", name: "Lantern Ward", description: "One living ally, including yourself, gains 4 shield; expires at the end of the target's next turn.", bonus: 0, effect: "guard", target: "ally", value: 4, failureEffect: "lose-shield", failureValue: 2 },
+    { id: "ev-command", name: "Rescue Formation", description: "Move another living ally directly behind Elara in turn order.", bonus: 0, effect: "support", target: "ally", value: 1, supportType: "advance-ally", failureEffect: "self-damage", failureValue: 1 }
   ],
   "Thorne Vale": [
-    { id: "tv-mark", name: "Marked Arrow", type: "Wit", description: "Deal 4 damage to one living enemy (5 with Deadeye).", bonus: 0, effect: "damage", target: "enemy", value: 4, failureEffect: "self-damage", failureValue: 1 },
-    { id: "tv-pierce", name: "Piercing Arrow", type: "Wit", description: "Deal 3 damage to one living enemy, ignoring shield (4 with Deadeye).", bonus: 0, effect: "damage", target: "enemy", value: 3, ignoresShield: true, failureEffect: "self-damage", failureValue: 2 },
-    { id: "tv-hunt", name: "Hunter's Mark", type: "Spirit", description: "One living ally, including yourself, gains +2 attack damage; expires at the end of the target's next turn.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "attack", failureEffect: "lose-shield", failureValue: 2 }
+    { id: "tv-mark", name: "Marked Arrow", description: "Deal 4 damage to one living enemy (5 with Deadeye).", bonus: 0, effect: "damage", target: "enemy", value: 4, failureEffect: "self-damage", failureValue: 1 },
+    { id: "tv-pierce", name: "Piercing Arrow", description: "Deal 3 damage to one living enemy, ignoring shield (4 with Deadeye).", bonus: 0, effect: "damage", target: "enemy", value: 3, ignoresShield: true, failureEffect: "self-damage", failureValue: 2 },
+    { id: "tv-hunt", name: "Hunter's Mark", description: "One living ally, including yourself, gains +2 attack damage; expires at the end of the target's next turn.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "attack", failureEffect: "lose-shield", failureValue: 2 }
   ],
   "Mira Ash": [
-    { id: "ma-inferno", name: "Inferno", type: "Might", description: "Deal 2 damage to every living enemy (3 with Spreading Flame).", bonus: 0, effect: "aoe", target: "all-enemies", value: 2, failureEffect: "team-damage", failureValue: 1 },
-    { id: "ma-comet", name: "Ash Comet", type: "Wit", description: "Deal 2 damage to every living enemy, ignoring shield (3 with Spreading Flame).", bonus: 0, effect: "aoe", target: "all-enemies", value: 2, ignoresShield: true, failureEffect: "self-damage", failureValue: 2 },
-    { id: "ma-gravity", name: "Gravity Hex", type: "Wit", description: "One living enemy gets -2 on their next d20; expires at the end of the target's next turn.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "enemy-dice", failureEffect: "team-damage", failureValue: 1 }
+    { id: "ma-inferno", name: "Inferno", description: "Deal 2 damage to every living enemy (3 with Spreading Flame).", bonus: 0, effect: "aoe", target: "all-enemies", value: 2, failureEffect: "team-damage", failureValue: 1 },
+    { id: "ma-comet", name: "Ash Comet", description: "Deal 2 damage to every living enemy, ignoring shield (3 with Spreading Flame).", bonus: 0, effect: "aoe", target: "all-enemies", value: 2, ignoresShield: true, failureEffect: "self-damage", failureValue: 2 },
+    { id: "ma-gravity", name: "Gravity Hex", description: "One living enemy gets -2 on their next d20; expires at the end of the target's next turn.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "enemy-dice", failureEffect: "team-damage", failureValue: 1 }
   ],
   "Brother Orren": [
-    { id: "bo-prayer", name: "Prayer of Life", type: "Spirit", description: "One living ally, including yourself, restores 4 HP (6 with Enduring Grace); cannot revive.", bonus: 0, effect: "heal", target: "ally", value: 4, failureEffect: "self-damage", failureValue: 1 },
-    { id: "bo-blessing", name: "Shared Blessing", type: "Spirit", description: "All living allies, including yourself, restore 2 HP; cannot revive.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "healing", failureEffect: "team-damage", failureValue: 1 },
-    { id: "bo-return", name: "Returning Light", type: "Spirit", description: "Immediately revive one defeated ally with one-third HP; they take the next turn after Orren in the current phase, then this card enters the graveyard.", bonus: 0, effect: "support", target: "defeated-ally", value: 1, supportType: "revive", failureEffect: "team-damage", failureValue: 2 }
+    { id: "bo-prayer", name: "Prayer of Life", description: "One living ally, including yourself, restores 4 HP (6 with Enduring Grace); cannot revive.", bonus: 0, effect: "heal", target: "ally", value: 4, failureEffect: "self-damage", failureValue: 1 },
+    { id: "bo-blessing", name: "Shared Blessing", description: "All living allies, including yourself, restore 2 HP; cannot revive.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "healing", failureEffect: "team-damage", failureValue: 1 },
+    { id: "bo-return", name: "Returning Light", description: "Immediately revive one defeated ally with one-third HP; they take the next turn after Orren in the current phase, then this card enters the graveyard.", bonus: 0, effect: "support", target: "defeated-ally", value: 1, supportType: "revive", failureEffect: "team-damage", failureValue: 2 }
   ],
   "Nyx Calder": [
-    { id: "nc-knife", name: "Quiet Knife", type: "Wit", description: "Deal 4 damage to one living enemy, ignoring shield.", bonus: 0, effect: "damage", target: "enemy", value: 4, failureEffect: "self-damage", failureValue: 1 },
-    { id: "nc-execute", name: "Execute", type: "Might", description: "Deal 5 damage to one living enemy, ignoring shield.", bonus: 0, effect: "damage", target: "enemy", value: 5, ignoresShield: true, failureEffect: "self-damage", failureValue: 3 },
-    { id: "nc-pilfer", name: "Pilfered Chance", type: "Wit", description: "Steal 1 random card from an enemy hand, preferring special cards; return it to their discard pile when Nyx's next turn ends.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "steal-card", failureEffect: "self-damage", failureValue: 2 }
+    { id: "nc-knife", name: "Quiet Knife", description: "Deal 4 damage to one living enemy, ignoring shield.", bonus: 0, effect: "damage", target: "enemy", value: 4, failureEffect: "self-damage", failureValue: 1 },
+    { id: "nc-execute", name: "Execute", description: "Deal 5 damage to one living enemy, ignoring shield.", bonus: 0, effect: "damage", target: "enemy", value: 5, ignoresShield: true, failureEffect: "self-damage", failureValue: 3 },
+    { id: "nc-pilfer", name: "Pilfered Chance", description: "Steal 1 random card from an enemy hand, preferring special cards; return it to their discard pile when Nyx's next turn ends.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "steal-card", failureEffect: "self-damage", failureValue: 2 }
   ],
   "Bram Coalhand": [
-    { id: "bc-fortress", name: "Living Fortress", type: "Might", description: "One living ally, including yourself, gains 5 shield (7 with Tempered Steel); expires at the end of the target's next turn.", bonus: 0, effect: "guard", target: "ally", value: 5, failureEffect: "lose-shield", failureValue: 3 },
-    { id: "bc-temper", name: "Temper Armor", type: "Spirit", description: "All living allies, including yourself, gain 2 shield; expires at the end of each target's next turn.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "shield", failureEffect: "team-damage", failureValue: 1 },
-    { id: "bc-march", name: "Fortified March", type: "Might", description: "All living allies, including yourself, gain 3 shield; expires at the end of each target's next turn.", bonus: 0, effect: "support", target: "all-allies", value: 3, supportType: "shield", failureEffect: "team-damage", failureValue: 2 }
+    { id: "bc-fortress", name: "Living Fortress", description: "One living ally, including yourself, gains 5 shield (7 with Tempered Steel); expires at the end of the target's next turn.", bonus: 0, effect: "guard", target: "ally", value: 5, failureEffect: "lose-shield", failureValue: 3 },
+    { id: "bc-temper", name: "Temper Armor", description: "All living allies, including yourself, gain 2 shield; expires at the end of each target's next turn.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "shield", failureEffect: "team-damage", failureValue: 1 },
+    { id: "bc-march", name: "Fortified March", description: "All living allies, including yourself, gain 3 shield; expires at the end of each target's next turn.", bonus: 0, effect: "support", target: "all-allies", value: 3, supportType: "shield", failureEffect: "team-damage", failureValue: 2 }
   ],
   "Sable Fen": [
-    { id: "sf-favor", name: "Favorable Omen", type: "Spirit", description: "One living ally, including yourself, plays their next card during their next turn for 0 pity; expires at the end of that turn, and after its third use enters the graveyard.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "zero-pity", failureEffect: "self-damage", failureValue: 1 },
-    { id: "sf-hex", name: "Dark Omen", type: "Wit", description: "One living enemy gets -3 on their next d20; expires at the end of the target's next turn.", bonus: 0, effect: "support", target: "enemy", value: 3, supportType: "enemy-dice", failureEffect: "team-damage", failureValue: 1 },
-    { id: "sf-stolen", name: "Stolen Moment", type: "Wit", description: "Cancel one living enemy's next turn. Their effects expire normally when that turn ends.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "skip-enemy", failureEffect: "team-damage", failureValue: 2 }
+    { id: "sf-favor", name: "Favorable Omen", description: "One living ally, including yourself, plays their next card during their next turn for 0 pity; expires at the end of that turn, and after its third use enters the graveyard.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "zero-pity", failureEffect: "self-damage", failureValue: 1 },
+    { id: "sf-hex", name: "Dark Omen", description: "One living enemy gets -3 on their next d20; expires at the end of the target's next turn.", bonus: 0, effect: "support", target: "enemy", value: 3, supportType: "enemy-dice", failureEffect: "team-damage", failureValue: 1 },
+    { id: "sf-stolen", name: "Stolen Moment", description: "Cancel one living enemy's next turn. Their effects expire normally when that turn ends.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "skip-enemy", failureEffect: "team-damage", failureValue: 2 }
   ],
   "Kael Rook": [
-    { id: "kr-riposte", name: "Riposte", type: "Might", description: "Deal 5 damage to one living enemy (6 while Kael has no shield).", bonus: 0, effect: "damage", target: "enemy", value: 5, failureEffect: "self-damage", failureValue: 2 },
-    { id: "kr-duel", name: "Challenge", type: "Might", description: "Deal 4 damage to one living enemy (5 while Kael has no shield).", bonus: 0, effect: "damage", target: "enemy", value: 4, failureEffect: "lose-shield", failureValue: 3 },
-    { id: "kr-break", name: "Break Stance", type: "Wit", description: "Remove one living enemy's attack and d20 buffs, then destroy up to 3 shield.", bonus: 0, effect: "support", target: "enemy", value: 3, supportType: "dispel-enemy", failureEffect: "self-damage", failureValue: 1 }
+    { id: "kr-riposte", name: "Riposte", description: "Deal 5 damage to one living enemy (6 while Kael has no shield).", bonus: 0, effect: "damage", target: "enemy", value: 5, failureEffect: "self-damage", failureValue: 2 },
+    { id: "kr-duel", name: "Challenge", description: "Deal 4 damage to one living enemy (5 while Kael has no shield).", bonus: 0, effect: "damage", target: "enemy", value: 4, failureEffect: "lose-shield", failureValue: 3 },
+    { id: "kr-break", name: "Break Stance", description: "Remove one living enemy's attack and d20 buffs, then destroy up to 3 shield.", bonus: 0, effect: "support", target: "enemy", value: 3, supportType: "dispel-enemy", failureEffect: "self-damage", failureValue: 1 }
   ],
   "Ione Mire": [
-    { id: "im-command", name: "Attack Order", type: "Spirit", description: "All living allies, including yourself, gain +2 attack damage; expires at the end of each target's next turn.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "attack", failureEffect: "team-damage", failureValue: 1 },
-    { id: "im-focus", name: "Focus Order", type: "Spirit", description: "All living allies, including yourself, gain +2 d20; expires at the end of each target's next turn.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "dice", failureEffect: "self-damage", failureValue: 1 },
-    { id: "im-purge", name: "Tactical Purge", type: "Wit", description: "Move 1 random card from an enemy hand to graveyard for 2 phases, then to discard pile; after its third use, this card enters Ione's graveyard.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "purge-card", failureEffect: "self-damage", failureValue: 2 }
+    { id: "im-command", name: "Attack Order", description: "All living allies, including yourself, gain +2 attack damage; expires at the end of each target's next turn.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "attack", failureEffect: "team-damage", failureValue: 1 },
+    { id: "im-focus", name: "Focus Order", description: "All living allies, including yourself, gain +2 d20; expires at the end of each target's next turn.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "dice", failureEffect: "self-damage", failureValue: 1 },
+    { id: "im-purge", name: "Tactical Purge", description: "Move 1 random card from an enemy hand to graveyard for 2 phases, then to discard pile; after its third use, this card enters Ione's graveyard.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "purge-card", failureEffect: "self-damage", failureValue: 2 }
   ],
   "Dagan Flint": [
-    { id: "df-none", name: "None Left Standing", type: "Might", description: "Deal 3 damage to every living enemy (4 while Dagan is at half HP).", bonus: 0, effect: "aoe", target: "all-enemies", value: 3, failureEffect: "self-damage", failureValue: 2 },
-    { id: "df-cleave", name: "Cleave", type: "Might", description: "Deal 5 damage to one living enemy (6 while Dagan is at half HP).", bonus: 0, effect: "damage", target: "enemy", value: 5, failureEffect: "self-damage", failureValue: 3 },
-    { id: "df-frenzy", name: "Blood Frenzy", type: "Spirit", description: "Gain +3 attack damage; expires at the end of your next turn.", bonus: 0, effect: "support", target: "self", value: 3, supportType: "attack", failureEffect: "self-damage", failureValue: 2 }
+    { id: "df-none", name: "None Left Standing", description: "Deal 3 damage to every living enemy (4 while Dagan is at half HP).", bonus: 0, effect: "aoe", target: "all-enemies", value: 3, failureEffect: "self-damage", failureValue: 2 },
+    { id: "df-cleave", name: "Cleave", description: "Deal 5 damage to one living enemy (6 while Dagan is at half HP).", bonus: 0, effect: "damage", target: "enemy", value: 5, failureEffect: "self-damage", failureValue: 3 },
+    { id: "df-frenzy", name: "Blood Frenzy", description: "Gain +3 attack damage; expires at the end of your next turn.", bonus: 0, effect: "support", target: "self", value: 3, supportType: "attack", failureEffect: "self-damage", failureValue: 2 }
   ]
 };
 
@@ -89,13 +89,13 @@ export const PHASE_FIVE_CARD_UPGRADES = {
 } as const;
 
 const COMMON_ACTION_CARDS: CardWithoutPity[] = [
-  { id: "slash", name: "Slash", type: "Might", description: "Deal 3 damage to one living enemy.", bonus: 0, effect: "damage", target: "enemy", value: 3, unique: false },
-  { id: "heavy", name: "Heavy Blow", type: "Might", description: "Deal 4 damage to one living enemy.", bonus: 0, effect: "damage", target: "enemy", value: 4, unique: false },
-  { id: "brace", name: "Brace", type: "Spirit", description: "Gain 3 shield; expires at the end of your next turn.", bonus: 0, effect: "guard", target: "self", value: 3, unique: false },
-  { id: "second-wind", name: "Second Wind", type: "Spirit", description: "Restore 4 HP to yourself; cannot revive.", bonus: 0, effect: "heal", target: "self", value: 4, unique: false },
-  { id: "empty-gesture", name: "Empty Gesture", type: "Spirit", description: "No effect; upgrades to a heal card after phase 5.", bonus: 0, effect: "none", target: "self", value: 0, unique: false },
-  { id: "broken-plan", name: "Broken Plan", type: "Wit", description: "No effect; upgrades to a shield card after phase 5.", bonus: 0, effect: "none", target: "self", value: 0, unique: false },
-  { id: "lost-momentum", name: "Lost Momentum", type: "Might", description: "No effect; upgrades to a heavy attack card after phase 5.", bonus: 0, effect: "none", target: "self", value: 0, unique: false }
+  { id: "slash", name: "Slash", description: "Deal 3 damage to one living enemy.", bonus: 0, effect: "damage", target: "enemy", value: 3, unique: false },
+  { id: "heavy", name: "Heavy Blow", description: "Deal 4 damage to one living enemy.", bonus: 0, effect: "damage", target: "enemy", value: 4, unique: false },
+  { id: "brace", name: "Brace", description: "Gain 3 shield; expires at the end of your next turn.", bonus: 0, effect: "guard", target: "self", value: 3, unique: false },
+  { id: "second-wind", name: "Second Wind", description: "Restore 4 HP to yourself; cannot revive.", bonus: 0, effect: "heal", target: "self", value: 4, unique: false },
+  { id: "empty-gesture", name: "Empty Gesture", description: "No effect; upgrades to a heal card after phase 5.", bonus: 0, effect: "none", target: "self", value: 0, unique: false },
+  { id: "broken-plan", name: "Broken Plan", description: "No effect; upgrades to a shield card after phase 5.", bonus: 0, effect: "none", target: "self", value: 0, unique: false },
+  { id: "lost-momentum", name: "Lost Momentum", description: "No effect; upgrades to a heavy attack card after phase 5.", bonus: 0, effect: "none", target: "self", value: 0, unique: false }
 ];
 
 export const ACTION_CARDS: ActionCard[] = COMMON_ACTION_CARDS.map((card) => ({ ...card, pityCost: calculatePityCost(card) }));

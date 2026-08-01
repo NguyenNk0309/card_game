@@ -6,18 +6,18 @@ const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
 function testSkillDeck(id) {
   const special = [
-    { id: `card-${id}`, name: "Test Skill", type: "Wit", description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, failureEffect: "self-damage", failureValue: 2, unique: true },
-    { id: `purge-${id}`, name: "Tactical Purge", type: "Wit", description: "Temporarily purge a random enemy hand card.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "purge-card", unique: true },
-    { id: `pilfer-${id}`, name: "Pilfered Chance", type: "Wit", description: "Steal a random enemy hand card, preferring special cards.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "steal-card", unique: true },
-    { id: `favor-${id}`, name: "Favorable Omen", type: "Spirit", description: "Make one ally's next played card cost 0 pity.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "zero-pity", unique: true }
+    { id: `card-${id}`, name: "Test Skill", description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, failureEffect: "self-damage", failureValue: 2, unique: true },
+    { id: `purge-${id}`, name: "Tactical Purge", description: "Temporarily purge a random enemy hand card.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "purge-card", unique: true },
+    { id: `pilfer-${id}`, name: "Pilfered Chance", description: "Steal a random enemy hand card, preferring special cards.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "steal-card", unique: true },
+    { id: `favor-${id}`, name: "Favorable Omen", description: "Make one ally's next played card cost 0 pity.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "zero-pity", unique: true }
   ];
   const common = [
-    { id: "heavy", name: "Heavy Blow", type: "Might", description: "Deal 4 damage.", effect: "damage", target: "enemy", value: 4 },
-    { id: "brace", name: "Brace", type: "Spirit", description: "Gain 3 shield.", effect: "guard", target: "self", value: 3 },
-    { id: "second-wind", name: "Second Wind", type: "Spirit", description: "Restore up to 4 HP.", effect: "heal", target: "self", value: 4 },
-    { id: "empty-gesture", name: "Empty Gesture", type: "Spirit", description: "Upgrades to healing.", effect: "none", target: "self", value: 0 },
-    { id: "broken-plan", name: "Broken Plan", type: "Wit", description: "Upgrades to shielding.", effect: "none", target: "self", value: 0 },
-    { id: "lost-momentum", name: "Lost Momentum", type: "Might", description: "Upgrades to heavy damage.", effect: "none", target: "self", value: 0 }
+    { id: "heavy", name: "Heavy Blow", description: "Deal 4 damage.", effect: "damage", target: "enemy", value: 4 },
+    { id: "brace", name: "Brace", description: "Gain 3 shield.", effect: "guard", target: "self", value: 3 },
+    { id: "second-wind", name: "Second Wind", description: "Restore up to 4 HP.", effect: "heal", target: "self", value: 4 },
+    { id: "empty-gesture", name: "Empty Gesture", description: "Upgrades to healing.", effect: "none", target: "self", value: 0 },
+    { id: "broken-plan", name: "Broken Plan", description: "Upgrades to shielding.", effect: "none", target: "self", value: 0 },
+    { id: "lost-momentum", name: "Lost Momentum", description: "Upgrades to heavy damage.", effect: "none", target: "self", value: 0 }
   ].map((card) => ({ ...card, id: `${id}-common-${card.id}`, bonus: 0, unique: false }));
   return [...special, ...common];
 }

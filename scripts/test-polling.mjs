@@ -7,15 +7,15 @@ const secondId = `poll-second-${runId}`;
 const thirdId = `poll-third-${runId}`;
 
 function testSkillDeck(id) {
-  const special = Array.from({ length: 3 }, (_, index) => ({ id: index === 0 ? `card-${id}` : `card-${id}-${index}`, name: index === 0 ? "Test Skill" : `Test Skill ${index + 1}`, type: "Wit", description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, failureEffect: "self-damage", failureValue: 2, unique: true }));
+  const special = Array.from({ length: 3 }, (_, index) => ({ id: index === 0 ? `card-${id}` : `card-${id}-${index}`, name: index === 0 ? "Test Skill" : `Test Skill ${index + 1}`, description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, failureEffect: "self-damage", failureValue: 2, unique: true }));
   const common = [
-    { id: "slash", name: "Slash", type: "Might", description: "Deal 3 damage.", effect: "damage", target: "enemy", value: 3 },
-    { id: "heavy", name: "Heavy Blow", type: "Might", description: "Deal 4 damage.", effect: "damage", target: "enemy", value: 4 },
-    { id: "brace", name: "Brace", type: "Spirit", description: "Gain 3 shield.", effect: "guard", target: "self", value: 3 },
-    { id: "second-wind", name: "Second Wind", type: "Spirit", description: "Restore up to 4 HP.", effect: "heal", target: "self", value: 4 },
-    { id: "empty-gesture", name: "Empty Gesture", type: "Spirit", description: "Upgrades to healing.", effect: "none", target: "self", value: 0 },
-    { id: "broken-plan", name: "Broken Plan", type: "Wit", description: "Upgrades to shielding.", effect: "none", target: "self", value: 0 },
-    { id: "lost-momentum", name: "Lost Momentum", type: "Might", description: "Upgrades to heavy damage.", effect: "none", target: "self", value: 0 }
+    { id: "slash", name: "Slash", description: "Deal 3 damage.", effect: "damage", target: "enemy", value: 3 },
+    { id: "heavy", name: "Heavy Blow", description: "Deal 4 damage.", effect: "damage", target: "enemy", value: 4 },
+    { id: "brace", name: "Brace", description: "Gain 3 shield.", effect: "guard", target: "self", value: 3 },
+    { id: "second-wind", name: "Second Wind", description: "Restore up to 4 HP.", effect: "heal", target: "self", value: 4 },
+    { id: "empty-gesture", name: "Empty Gesture", description: "Upgrades to healing.", effect: "none", target: "self", value: 0 },
+    { id: "broken-plan", name: "Broken Plan", description: "Upgrades to shielding.", effect: "none", target: "self", value: 0 },
+    { id: "lost-momentum", name: "Lost Momentum", description: "Upgrades to heavy damage.", effect: "none", target: "self", value: 0 }
   ].map((card) => ({ ...card, id: `${id}-common-${card.id}`, bonus: 0, unique: false }));
   return [...special, ...common];
 }

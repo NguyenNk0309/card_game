@@ -5,7 +5,11 @@ import ts from "typescript";
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const cardDescription = read("ui/components/CardDescription.tsx");
 const cardFace = read("ui/components/CardFace.tsx");
+const cardHoverPreview = read("ui/components/CardHoverPreview.tsx");
 const cardArtwork = read("ui/cardArtwork.ts");
+const cardCatalog = read("backend/game/catalog.ts");
+const gameEngine = read("backend/game/engine.ts");
+const sharedTypes = read("shared/types.ts");
 const pityCost = read("ui/components/PityCost.tsx");
 const truncatedEffectText = read("ui/components/TruncatedEffectText.tsx");
 const gameApp = read("ui/GameApp.tsx");
@@ -16,18 +20,29 @@ const partyRail = read("ui/components/PartyRail.tsx");
 const roomSocket = read("ui/hooks/useRoomSocket.ts");
 const gameAudio = read("ui/hooks/useGameAudio.ts");
 const cardZoneMotion = read("ui/cardZoneMotion.ts");
+const tooltipPosition = read("ui/components/tooltipPosition.ts");
 const styles = read("app/globals.css");
 
 const compiledCardZoneMotion = ts.transpileModule(cardZoneMotion, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
 }).outputText;
 const { getCardZoneChanges } = await import(`data:text/javascript;base64,${Buffer.from(compiledCardZoneMotion).toString("base64")}`);
+const compiledTooltipPosition = ts.transpileModule(tooltipPosition, {
+  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
+}).outputText;
+const { fitCardTooltipToViewport } = await import(`data:text/javascript;base64,${Buffer.from(compiledTooltipPosition).toString("base64")}`);
 
 const cardSurfaces = [gameApp, lobby, worldEvents].join("\n");
 assert.equal((cardSurfaces.match(/<CardFace\b/g) || []).length, 6, "every production card surface must use the universal card face");
 assert(!/\b(?:card|entry\.card|inspectedCard)\.description\b/.test(cardSurfaces), "card surfaces must not bypass the shared card-content pipeline");
 assert.match(cardFace, /<CardDescription card=\{card\}\/>/, "the universal card face must own the shared description component");
 assert.match(cardFace, /defaultRows[\s\S]*describeCardSuccess\(card\)[\s\S]*describeCardFailure\(card\)/, "the universal card face must keep repository-backed success and failure rows");
+assert.match(cardFace, /<CardHoverPreview anchorRef=\{faceRef\} artwork=\{artwork\} card=\{card\} pityCostOverride=\{pityCostOverride\} rows=\{rows\}\/>/, "every universal card face must expose the shared full-content hover preview");
+assert.match(cardHoverPreview, /addEventListener\("mouseenter", show\)[\s\S]*addEventListener\("mouseleave", hide\)/, "card hover previews must open on mouse entry and disappear on mouse leave");
+assert.match(cardHoverPreview, /classList\.contains\("history-card-detail"\) \? "right" : "top"/, "history-detail card previews must place their tooltip to the right while other cards prefer the top");
+assert.match(cardHoverPreview, /card\.unique \? "Special" : "Common"[\s\S]*Pity points[\s\S]*getCardEffectLabel\(card\)[\s\S]*EffectText text=\{card\.description\}[\s\S]*rows\.map/, "the hover preview must include rarity, pity, action type, full description, and every result row");
+assert.match(cardHoverPreview, /<small>\{getCardEffectLabel\(card\)\}<\/small>/, "the hover preview identity must show only the meaningful action label");
+assert(!/\bcardType\b|card\.type|\btype:\s*["']/.test([cardCatalog, gameEngine, sharedTypes, cardHoverPreview].join("\n")), "the obsolete card-type field must stay removed from data, outcomes, shared types, and UI");
 assert.match(cardDescription, /maxLines=\{4\}[\s\S]*text=\{card\.description\}/, "main descriptions must use the shared four-line truncator");
 assert.match(cardFace, /className="gothic-card-result-text" maxLines=\{2\}/, "result text must use the shared two-line truncator");
 assert(!/gothic-card-type/.test(cardFace), "card faces must omit the redundant Common or Special type strip");
@@ -43,6 +58,11 @@ assert.match(styles, /\.gothic-card-result-text\s*\{[\s\S]*display:\s*flex;[\s\S
 assert(!/gothic-card-sprite-crop|gothic-card-targets/.test(cardFace), "special-card artwork must render as one integrated scene rather than layered sprites");
 assert.match(styles, /\.gothic-card-action-icon\s*\{[\s\S]*width:\s*8cqw;/, "the action icon must stay compact in the former type-strip row");
 assert.match(styles, /\.gothic-card-result-row\s*\{[\s\S]*grid-template-columns:\s*9cqw 29%/, "success and failure icons must use the smaller result column");
+assert.match(styles, /\.card-hover-tooltip\s*\{[\s\S]*width:\s*min\(460px, calc\(100vw - 24px\)\);[\s\S]*max-height:\s*calc\(100dvh - 24px\);[\s\S]*pointer-events:\s*none;/, "the large hover preview must remain viewport-bound and disappear without intercepting the mouse");
+assert.match(styles, /\.card-hover-tooltip-art\s*\{[\s\S]*background-size:\s*cover;[\s\S]*filter:\s*blur\(11px\) brightness\(\.48\) contrast\(1\.12\)/, "the card illustration must fill and blur behind the hover-preview content");
+assert.match(styles, /\.card-hover-tooltip::after\s*\{[\s\S]*linear-gradient[\s\S]*rgba\(6, 7, 9, \.95\)/, "the hover preview must place a dark contrast wash over its illustration");
+assert.match(styles, /\.gothic-card-action-icon\.effect-support\s*\{\s*color:\s*#a7abb0;\s*\}/, "support-card action icons must use the approved neutral gray on every universal card face");
+assert.match(styles, /\.card-hover-tooltip\.effect-support\s*\{\s*--card-tooltip-accent:\s*#a7abb0;\s*\}/, "support-card hover previews must use gray for their action icon and tooltip border accents");
 assert.match(styles, /\.gothic-card:hover:not\(:disabled\)\s*\{[\s\S]*transform:\s*translateY\(-\.4cqw\)\s*!important;[\s\S]*box-shadow:/, "enabled cards should retain a reduced hover lift and glow");
 assert.match(styles, /\.action-hand\s*\{[\s\S]*--hand-card-gap:\s*16px;[\s\S]*--hand-card-width:\s*min\(260px, calc\(\(100% - 48px\) \/ 4\)\)/, "battle-hand cards must use a wider gap and an adaptive desktop cap");
 assert.match(styles, /\.action-hand\s*\{[\s\S]*padding:\s*20px 10px 22px;/, "the battle hand must reserve vertical room for card hover effects");
@@ -55,6 +75,34 @@ assert.match(styles, /\.character-deck-panel \.public-character-deck > div:last-
 assert.match(styles, /@media \(min-width: 2200px\) and \(min-height: 1200px\)\s*\{[\s\S]*\.lobby-skill-deck\s*\{\s*grid-template-columns:\s*repeat\(3, minmax\(0, 260px\)\)/, "1440p card galleries must use three larger columns");
 assert.match(styles, /\.history-card-detail\.gothic-card\s*\{[\s\S]*width:\s*min\(360px,/, "inspected history cards must use the larger preview size");
 assert.match(styles, /\.gothic-card:disabled \.gothic-card-face\s*\{[\s\S]*grayscale/, "disabled cards should retain a clear unavailable state");
+assert.deepEqual(
+  fitCardTooltipToViewport(
+    { left: 400, right: 600, top: 500, width: 200, height: 300 },
+    { width: 460, height: 300 },
+    { width: 1280, height: 720 }
+  ),
+  { left: 270, top: 186 },
+  "ordinary card tooltips must center above their hovered card"
+);
+assert.deepEqual(
+  fitCardTooltipToViewport(
+    { left: 300, right: 660, top: 80, width: 360, height: 540 },
+    { width: 400, height: 320 },
+    { width: 1280, height: 720 },
+    "right"
+  ),
+  { left: 674, top: 190 },
+  "history-detail tooltips must anchor to the card's right edge"
+);
+assert.deepEqual(
+  fitCardTooltipToViewport(
+    { left: 10, right: 210, top: 20, width: 200, height: 300 },
+    { width: 460, height: 350 },
+    { width: 600, height: 500 }
+  ),
+  { left: 12, top: 12 },
+  "card tooltips must clamp to the viewport gutter at compact resolutions"
+);
 const specialSceneIds = [...cardArtwork.matchAll(/specialScene\("([^"]+)"/g)].map((match) => match[1]);
 assert.equal(specialSceneIds.length, 30, "every character-specific special card must have an explicit integrated-scene mapping");
 for (const id of specialSceneIds) assert(existsSync(new URL(`../public/art/cards/special/${id}.webp`, import.meta.url)), `${id} must have a project-bound integrated-scene asset`);

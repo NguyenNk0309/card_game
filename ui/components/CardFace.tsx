@@ -1,10 +1,14 @@
+"use client";
+
 import { Check, Crown, X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
+import { useRef } from "react";
 import { describeCardFailure, describeCardSuccess, getCardEffectLabel } from "@/shared/cardRules";
 import type { ActionCard } from "@/shared/types";
 import { getCardArtwork } from "../cardArtwork";
 import { CardDescription } from "./CardDescription";
 import { CardEffectIcon } from "./CardEffectIcon";
+import { CardHoverPreview } from "./CardHoverPreview";
 import { PityCostBadge } from "./PityCost";
 import { TruncatedEffectText } from "./TruncatedEffectText";
 
@@ -30,8 +34,9 @@ const defaultRows = (card: ActionCard): CardResultRow[] => [
 export function CardFace({ card, contextLabel, pityCostOverride, resultRows }: Props) {
   const artwork = getCardArtwork(card);
   const rows = resultRows ?? defaultRows(card);
+  const faceRef = useRef<HTMLDivElement>(null);
 
-  return <div className="gothic-card-face" data-card-id={card.id} data-card-name={card.name} data-rarity={card.unique ? "special" : "common"}>
+  return <><div ref={faceRef} className="gothic-card-face" data-card-id={card.id} data-card-name={card.name} data-rarity={card.unique ? "special" : "common"}>
     <div className="gothic-card-art" data-target={artwork.target} data-art-kind={artwork.kind}>
       <div className="gothic-card-art-backdrop"/>
       {artwork.scene
@@ -55,5 +60,5 @@ export function CardFace({ card, contextLabel, pityCostOverride, resultRows }: P
       </div>)}
     </div>
     <div className="gothic-card-gem" aria-hidden="true"/>
-  </div>;
+  </div><CardHoverPreview anchorRef={faceRef} artwork={artwork} card={card} pityCostOverride={pityCostOverride} rows={rows}/></>;
 }

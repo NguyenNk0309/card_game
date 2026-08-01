@@ -56,7 +56,6 @@ export type Hero = {
 export type ActionCard = {
   id: string;
   name: string;
-  type: "Might" | "Wit" | "Spirit";
   description: string;
   bonus: number;
   effect: CardEffect;
@@ -112,7 +111,6 @@ export type GameOutcome = {
   actorId?: string;
   actorName?: string;
   cardName?: string;
-  cardType?: ActionCard["type"];
   effect?: CardEffect;
   targetName?: string;
   roll?: number;

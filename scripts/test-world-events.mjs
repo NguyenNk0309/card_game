@@ -90,7 +90,6 @@ const EXPECTED_KEYS = [
 const makeCard = (ownerId, suffix, { unique = false, name = suffix } = {}) => ({
   id: `${ownerId}-${suffix}`,
   name,
-  type: "Wit",
   description: `${name} test card.`,
   bonus: 0,
   effect: unique ? "support" : "damage",
