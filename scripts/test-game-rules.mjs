@@ -357,7 +357,7 @@ const thorneTarget = engine.createPlayerSession("Deadeye target", 1, "Bram Coalh
 const thorneParty = [thorne, thorneTarget];
 const markedArrow = thorne.skillDeck.find((card) => card.id === "tv-mark");
 const thorneBlank = thorne.skillDeck.find((card) => card.effect === "none");
-assert.match(thorne.hero.passiveText, /every second turn.*\+1 damage.*count starts when battle begins.*restarts on the turn after Deadeye triggers/i, "Deadeye explains its damage and full recurring cadence");
+assert.equal(thorne.hero.passiveText, "Every second turn, Thorne's single-target attacks deal +1 damage.", "Deadeye uses the requested concise passive text");
 assert.match(markedArrow.description, /5 when Deadeye triggers/i, "Marked Arrow states its triggered Deadeye damage");
 assert.match(thorne.skillDeck.find((card) => card.id === "tv-pierce").description, /4 when Deadeye triggers/i, "Piercing Arrow states its triggered Deadeye damage");
 const thorneCadenceState = engine.createInitialGame(thorneParty, engine.createAdventure("DEADEYE-CADENCE"), 30).playerStates[thorne.id];
