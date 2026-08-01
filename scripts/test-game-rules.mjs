@@ -57,7 +57,7 @@ const expectedSpecialBalance = {
   "sf-favor": { pityCost: 6, failureEffect: "self-damage", failureValue: 2 },
   "sf-hex": { pityCost: 6, failureEffect: "enemy-shield", failureValue: 1 },
   "sf-stolen": { pityCost: 8, failureEffect: "team-damage", failureValue: 2 },
-  "kr-riposte": { pityCost: 6, failureEffect: "self-damage", failureValue: 2 },
+  "kr-riposte": { pityCost: 5, failureEffect: "self-damage", failureValue: 2 },
   "kr-duel": { pityCost: 6, failureEffect: "lose-shield", failureValue: 2 },
   "kr-break": { pityCost: 6, failureEffect: "enemy-shield", failureValue: 2 },
   "im-command": { pityCost: 6, failureEffect: "team-damage", failureValue: 1 },
@@ -439,35 +439,64 @@ const kaelTarget = engine.createPlayerSession("No Guard target", 1, "Bram Coalha
 const kaelParty = [kael, kaelTarget];
 const riposte = kael.skillDeck.find((card) => card.id === "kr-riposte");
 const challenge = kael.skillDeck.find((card) => card.id === "kr-duel");
+const kaelCommonAttack = kael.skillDeck.find((card) => !card.unique && card.id.endsWith("common-slash"));
 assert.equal(riposte.value, 3, "Riposte has 3 base damage");
 assert.equal(challenge.value, 3, "Challenge has 3 base damage");
-assert.equal(riposte.pityCost, 6, "Riposte's pity cost accounts for its No Guard damage ceiling");
+assert.equal(riposte.pityCost, 5, "Riposte's pity cost accounts for its reduced No Guard damage ceiling");
 assert.equal(challenge.pityCost, 6, "Challenge's pity cost accounts for its No Guard damage ceiling");
-assert.match(kael.hero.passiveText, /\+2 damage.*enemies with no shield/i, "No Guard states its target-based condition and damage");
-assert.match(riposte.description, /3 damage.*5 with No Guard.*target has no shield/i, "Riposte describes its base and No Guard damage");
-assert.match(challenge.description, /3 damage.*5 with No Guard.*target has no shield/i, "Challenge describes its base and No Guard damage");
+assert.match(kael.hero.passiveText, /Attack cards deal \+1 damage while he has no shield/i, "No Guard states Kael's shield condition and general Attack-card bonus");
+assert.match(riposte.description, /3 damage.*\+1 with No Guard.*Kael has no shield/i, "Riposte concisely describes its base and No Guard damage");
+assert.match(challenge.description, /3 damage.*No Guard.*\+2 if Kael and the target have no shield.*\+1 if only Kael has no shield/i, "Challenge concisely describes both No Guard levels");
 const challengeOpenGame = engine.createInitialGame(kaelParty, engine.createAdventure("CHALLENGE-NO-SHIELD"), 30);
 challengeOpenGame.turnOrder = [kael.id, kaelTarget.id];
 challengeOpenGame.adventure.target = 8;
-challengeOpenGame.playerStates[kael.id].shield = 4;
 challengeOpenGame.playerStates[kael.id].hand = [challenge.id];
 const challengeOpenResult = engine.resolveCardTurn(challengeOpenGame, kaelParty, challenge.id, kaelTarget.id, 20);
 assert.equal(challengeOpenResult.outcome.amount, 5, "Challenge deals 3 base plus 2 No Guard damage to an unshielded enemy");
-assert.equal(challengeOpenResult.playerStates[kaelTarget.id].hp, kaelTarget.hero.maxHp - 5, "No Guard depends on the target's shield rather than Kael's shield");
-const challengeShieldedGame = engine.createInitialGame(kaelParty, engine.createAdventure("CHALLENGE-SHIELDED"), 30);
-challengeShieldedGame.turnOrder = [kael.id, kaelTarget.id];
-challengeShieldedGame.adventure.target = 8;
-challengeShieldedGame.playerStates[kael.id].hand = [challenge.id];
-challengeShieldedGame.playerStates[kaelTarget.id].shield = 2;
-const challengeShieldedResult = engine.resolveCardTurn(challengeShieldedGame, kaelParty, challenge.id, kaelTarget.id, 20);
-assert.equal(challengeShieldedResult.outcome.amount, 1, "a shielded enemy receives no No Guard bonus before shield blocks Challenge");
-assert.equal(challengeShieldedResult.playerStates[kaelTarget.id].shield, 0, "Challenge's 3 base damage removes the target's 2 shield normally");
+assert.equal(challengeOpenResult.playerStates[kaelTarget.id].hp, kaelTarget.hero.maxHp - 5, "Challenge receives +2 only when both Kael and the target have no shield");
+const challengeTargetShieldedGame = engine.createInitialGame(kaelParty, engine.createAdventure("CHALLENGE-TARGET-SHIELDED"), 30);
+challengeTargetShieldedGame.turnOrder = [kael.id, kaelTarget.id];
+challengeTargetShieldedGame.adventure.target = 8;
+challengeTargetShieldedGame.playerStates[kael.id].hand = [challenge.id];
+challengeTargetShieldedGame.playerStates[kaelTarget.id].shield = 2;
+const challengeTargetShieldedResult = engine.resolveCardTurn(challengeTargetShieldedGame, kaelParty, challenge.id, kaelTarget.id, 20);
+assert.equal(challengeTargetShieldedResult.outcome.amount, 2, "Challenge gains +1 when only Kael has no shield before the target blocks damage");
+assert.equal(challengeTargetShieldedResult.playerStates[kaelTarget.id].shield, 0, "Challenge removes the shielded target's 2 shield");
+const challengeKaelShieldedGame = engine.createInitialGame(kaelParty, engine.createAdventure("CHALLENGE-KAEL-SHIELDED"), 30);
+challengeKaelShieldedGame.turnOrder = [kael.id, kaelTarget.id];
+challengeKaelShieldedGame.adventure.target = 8;
+challengeKaelShieldedGame.playerStates[kael.id].shield = 2;
+challengeKaelShieldedGame.playerStates[kael.id].hand = [challenge.id];
+const challengeKaelShieldedResult = engine.resolveCardTurn(challengeKaelShieldedGame, kaelParty, challenge.id, kaelTarget.id, 20);
+assert.equal(challengeKaelShieldedResult.outcome.amount, 3, "Challenge receives no No Guard bonus when only the target has no shield");
+const challengeBothShieldedGame = engine.createInitialGame(kaelParty, engine.createAdventure("CHALLENGE-BOTH-SHIELDED"), 30);
+challengeBothShieldedGame.turnOrder = [kael.id, kaelTarget.id];
+challengeBothShieldedGame.adventure.target = 8;
+challengeBothShieldedGame.playerStates[kael.id].shield = 2;
+challengeBothShieldedGame.playerStates[kael.id].hand = [challenge.id];
+challengeBothShieldedGame.playerStates[kaelTarget.id].shield = 2;
+const challengeBothShieldedResult = engine.resolveCardTurn(challengeBothShieldedGame, kaelParty, challenge.id, kaelTarget.id, 20);
+assert.equal(challengeBothShieldedResult.outcome.amount, 1, "Challenge receives no No Guard bonus when both Kael and the target have shield");
+assert.equal(challengeBothShieldedResult.playerStates[kaelTarget.id].shield, 0, "the target's shield blocks Challenge normally when No Guard is inactive");
 const riposteOpenGame = engine.createInitialGame(kaelParty, engine.createAdventure("RIPOSTE-NO-SHIELD"), 30);
 riposteOpenGame.turnOrder = [kael.id, kaelTarget.id];
 riposteOpenGame.adventure.target = 8;
 riposteOpenGame.playerStates[kael.id].hand = [riposte.id];
 const riposteOpenResult = engine.resolveCardTurn(riposteOpenGame, kaelParty, riposte.id, kaelTarget.id, 20);
-assert.equal(riposteOpenResult.outcome.amount, 5, "the updated No Guard passive also adds 2 damage to Riposte against an unshielded enemy");
+assert.equal(riposteOpenResult.outcome.amount, 4, "No Guard adds exactly 1 damage to Riposte while Kael has no shield");
+const commonAttackGame = engine.createInitialGame(kaelParty, engine.createAdventure("KAEL-COMMON-ATTACK"), 30);
+commonAttackGame.turnOrder = [kael.id, kaelTarget.id];
+commonAttackGame.adventure.target = 8;
+commonAttackGame.playerStates[kael.id].hand = [kaelCommonAttack.id];
+const commonAttackResult = engine.resolveCardTurn(commonAttackGame, kaelParty, kaelCommonAttack.id, kaelTarget.id, 20);
+assert.equal(commonAttackResult.outcome.amount, kaelCommonAttack.value + 1, "No Guard also adds 1 damage to Kael's common Attack cards while he has no shield");
+const shieldedCommonAttackGame = engine.createInitialGame(kaelParty, engine.createAdventure("KAEL-SHIELDED-COMMON-ATTACK"), 30);
+shieldedCommonAttackGame.turnOrder = [kael.id, kaelTarget.id];
+shieldedCommonAttackGame.adventure.target = 8;
+shieldedCommonAttackGame.playerStates[kael.id].shield = 2;
+shieldedCommonAttackGame.playerStates[kael.id].hand = [kaelCommonAttack.id];
+const shieldedCommonAttackResult = engine.resolveCardTurn(shieldedCommonAttackGame, kaelParty, kaelCommonAttack.id, kaelTarget.id, 20);
+assert.equal(shieldedCommonAttackResult.outcome.amount, kaelCommonAttack.value, "No Guard is inactive for common Attack cards while Kael has shield");
 
 const healer = engine.createPlayerSession("Orren", 0, "Brother Orren", "healer");
 const supportAlly = engine.createPlayerSession("Support ally", 2, "Elara Voss", "support-ally");

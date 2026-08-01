@@ -171,6 +171,11 @@ export function getThorneValePassiveDamageBonus(player: PlayerSession, card: Act
   return currentPlayerTurn % 2 === 0 ? 1 : 0;
 }
 
+export function getKaelRookPassiveDamageBonus(player: PlayerSession, card: ActionCard, state: PlayerRunState, targetState: PlayerRunState) {
+  if (player.hero.name !== "Kael Rook" || !["damage", "aoe"].includes(card.effect) || state.shield > 0) return 0;
+  return card.id === "kr-duel" && targetState.shield === 0 ? 2 : 1;
+}
+
 function drawOneOrRecycleDiscard(state: PlayerRunState, handIndex = state.hand.length): PlayerRunState {
   let drawPile = [...state.drawPile];
   let discardPile = [...state.discardPile];
@@ -439,8 +444,8 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       const reports: string[] = [];
       for (const target of targets) {
         const state = states[target.id];
-        const targetPassive = actor.hero.name === "Kael Rook" && state.shield === 0 ? 2 : 0;
-        const power = card.value + actorState.attackBuff + passive + targetPassive;
+        const kaelPassive = getKaelRookPassiveDamageBonus(actor, card, actorState, state);
+        const power = card.value + actorState.attackBuff + passive + kaelPassive;
         const blocked = ignoresShield ? 0 : Math.min(state.shield, power);
         removeTimedEffectAmount(state, "shield", blocked);
         const damage = power - blocked;
