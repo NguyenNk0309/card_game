@@ -166,7 +166,7 @@ export function getPassiveDiceBonus(player: PlayerSession, card: ActionCard, sta
 export function getThorneValePassiveDamageBonus(player: PlayerSession, card: ActionCard, state: PlayerRunState) {
   if (player.hero.name !== "Thorne Vale" || card.effect !== "damage") return 0;
   const currentPlayerTurn = (state.completedPlayerTurns ?? 0) + 1;
-  return currentPlayerTurn % 2 === 0 ? 2 : 0;
+  return currentPlayerTurn % 2 === 0 ? 1 : 0;
 }
 
 function drawOneOrRecycleDiscard(state: PlayerRunState, handIndex = state.hand.length): PlayerRunState {
