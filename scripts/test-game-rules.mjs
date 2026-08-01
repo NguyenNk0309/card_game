@@ -301,6 +301,36 @@ assert.equal(infernoResult.playerStates[infernoTargetOne.id].hp, infernoTargetOn
 assert.equal(infernoResult.playerStates[infernoTargetTwo.id].hp, infernoTargetTwo.hero.maxHp - 4, "Inferno deals 3 base plus 1 Spreading Flame damage to each unshielded enemy");
 assert.equal(infernoResult.playerStates[infernoAlly.id].hp, infernoAlly.hero.maxHp, "Inferno never damages Mira's allies");
 
+const nyx = engine.createPlayerSession("Nyx", 0, "Nyx Calder", "nyx-damage");
+const nyxTarget = engine.createPlayerSession("Armor Pierce target", 1, "Bram Coalhand", "nyx-target");
+const nyxParty = [nyx, nyxTarget];
+const quietKnife = nyx.skillDeck.find((card) => card.id === "nc-knife");
+const execute = nyx.skillDeck.find((card) => card.id === "nc-execute");
+assert.equal(quietKnife.value, 3, "Quiet Knife has 3 base damage");
+assert.equal(execute.value, 4, "Execute has 4 base damage");
+assert.equal(quietKnife.pityCost, 5, "Quiet Knife's pity cost follows the existing single-target damage formula");
+assert.equal(execute.pityCost, 7, "Execute's pity cost follows the existing shield-piercing damage formula");
+assert.match(quietKnife.description, /3 damage.*ignoring shield/i, "Quiet Knife describes its reduced shield-piercing damage");
+assert.match(execute.description, /4 damage.*ignoring shield/i, "Execute describes its reduced shield-piercing damage");
+const quietKnifeGame = engine.createInitialGame(nyxParty, engine.createAdventure("QUIET-KNIFE-DAMAGE"), 30);
+quietKnifeGame.turnOrder = [nyx.id, nyxTarget.id];
+quietKnifeGame.adventure.target = 8;
+quietKnifeGame.playerStates[nyx.id].hand = [quietKnife.id];
+quietKnifeGame.playerStates[nyxTarget.id].shield = 10;
+const quietKnifeResult = engine.resolveCardTurn(quietKnifeGame, nyxParty, quietKnife.id, nyxTarget.id, 20);
+assert.equal(quietKnifeResult.outcome.amount, 3, "Quiet Knife deals exactly 3 HP damage through Armor Pierce");
+assert.equal(quietKnifeResult.playerStates[nyxTarget.id].hp, nyxTarget.hero.maxHp - 3, "Quiet Knife reduces target HP by its new base damage");
+assert.equal(quietKnifeResult.playerStates[nyxTarget.id].shield, 10, "Quiet Knife ignores shield without consuming it");
+const executeGame = engine.createInitialGame(nyxParty, engine.createAdventure("EXECUTE-DAMAGE"), 30);
+executeGame.turnOrder = [nyx.id, nyxTarget.id];
+executeGame.adventure.target = 8;
+executeGame.playerStates[nyx.id].hand = [execute.id];
+executeGame.playerStates[nyxTarget.id].shield = 10;
+const executeResult = engine.resolveCardTurn(executeGame, nyxParty, execute.id, nyxTarget.id, 20);
+assert.equal(executeResult.outcome.amount, 4, "Execute deals exactly 4 HP damage through Armor Pierce");
+assert.equal(executeResult.playerStates[nyxTarget.id].hp, nyxTarget.hero.maxHp - 4, "Execute reduces target HP by its new base damage");
+assert.equal(executeResult.playerStates[nyxTarget.id].shield, 10, "Execute ignores shield without consuming it");
+
 const healer = engine.createPlayerSession("Orren", 0, "Brother Orren", "healer");
 const supportAlly = engine.createPlayerSession("Support ally", 2, "Elara Voss", "support-ally");
 const supportEnemy = engine.createPlayerSession("Support enemy", 1, "Thorne Vale", "support-enemy");

@@ -51,8 +51,8 @@ export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
     { id: "bo-return", name: "Returning Light", description: "Immediately revive one defeated ally with one-third HP; they take the next turn after Orren in the current phase, then this card enters the graveyard.", bonus: 0, effect: "support", target: "defeated-ally", value: 1, supportType: "revive", failureEffect: "team-damage", failureValue: 2 }
   ],
   "Nyx Calder": [
-    { id: "nc-knife", name: "Quiet Knife", description: "Deal 4 damage to one living enemy, ignoring shield.", bonus: 0, effect: "damage", target: "enemy", value: 4, failureEffect: "self-damage", failureValue: 1 },
-    { id: "nc-execute", name: "Execute", description: "Deal 5 damage to one living enemy, ignoring shield.", bonus: 0, effect: "damage", target: "enemy", value: 5, ignoresShield: true, failureEffect: "self-damage", failureValue: 3 },
+    { id: "nc-knife", name: "Quiet Knife", description: "Deal 3 damage to one living enemy, ignoring shield.", bonus: 0, effect: "damage", target: "enemy", value: 3, failureEffect: "self-damage", failureValue: 1 },
+    { id: "nc-execute", name: "Execute", description: "Deal 4 damage to one living enemy, ignoring shield.", bonus: 0, effect: "damage", target: "enemy", value: 4, ignoresShield: true, failureEffect: "self-damage", failureValue: 3 },
     { id: "nc-pilfer", name: "Pilfered Chance", description: "Steal 1 random card from an enemy hand, preferring special cards; return it to their discard pile when Nyx's next turn ends.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "steal-card", failureEffect: "self-damage", failureValue: 2 }
   ],
   "Bram Coalhand": [
