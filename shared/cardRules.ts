@@ -36,6 +36,7 @@ export function getCardEffectLabel(card: ActionCard) {
   if (card.effect === "heal" && card.target === "self") return "Heal yourself";
   if (card.effect === "heal" && card.target === "all-allies") return "Heal all allies";
   if (card.effect === "guard" && card.target === "self") return "Shield yourself";
+  if (card.effect === "support" && card.target === "self") return "Empower yourself";
   return effectLabels[card.effect];
 }
 
@@ -53,7 +54,7 @@ export function describeCardFailure(card: ActionCard) {
   if (card.failureEffect === "self-damage") return `Take ${card.failureValue} backlash damage.`;
   if (card.failureEffect === "team-damage") return `Team takes ${card.failureValue} backlash damage.`;
   if (card.failureEffect === "lose-shield") return `Lose up to ${card.failureValue} shield.`;
-  return `Enemies gain ${card.failureValue} shield.`;
+  return `Every enemy gains ${card.failureValue} shield until the end of their next turn.`;
 }
 
 export function describeCardImpact(card: ActionCard) {

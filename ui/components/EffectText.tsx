@@ -33,7 +33,7 @@ function numberTone(text: string, index: number, length: number, card?: ActionCa
 }
 
 export function getEffectTextSegments(text: string, card?: ActionCard): EffectTextSegment[] {
-  const matches = [...text.matchAll(/(heavy attack card|shield card|heal card|[+-]?\d+(?:\/\d+)?|one-third|half)/gi)]
+  const matches = [...text.matchAll(/(attack damage bonus|heavy attack card|shield card|heal card|[+-]?\d+(?:\/\d+)?|one-third|half)/gi)]
     .filter((match) => !(match[0] === "20" && text[(match.index ?? 0) - 1]?.toLowerCase() === "d"));
   if (!matches.length) return [{ text }];
   const parts: EffectTextSegment[] = [];
@@ -42,7 +42,7 @@ export function getEffectTextSegments(text: string, card?: ActionCard): EffectTe
     const index = match.index ?? 0;
     if (index > cursor) parts.push({ text: text.slice(cursor, index) });
     const phrase = match[0].toLowerCase();
-    const tone = phrase === "heavy attack card" ? "damage"
+    const tone = phrase === "attack damage bonus" || phrase === "heavy attack card" ? "damage"
       : phrase === "shield card" ? "shield"
       : phrase === "heal card" ? "heal"
       : numberTone(text, index, match[0].length, card);

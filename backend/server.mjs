@@ -650,9 +650,13 @@ function reconcileFailureImpact(previousGame, incomingGame, actor) {
       const previousState = previousGame.playerStates?.[enemy.id];
       const incomingState = incomingGame.playerStates?.[enemy.id];
       if (!previousState || !incomingState) continue;
-      incomingState.shield = Math.max(Number(incomingState.shield) || 0, (previousState.shield || 0) + penalty);
+      incomingState.shield = Math.max(0, Number(previousState.shield) || 0) + penalty;
+      incomingState.timedEffects = [
+        ...(previousState.timedEffects || []).map((effect) => ({ ...effect })),
+        { kind: 'shield', value: penalty, expiresAfterTurn: (previousState.completedPlayerTurns || 0) + 1 }
+      ];
     }
-    failureDetail = `Every enemy gained ${penalty} shield because the action failed.`;
+    failureDetail = `Every enemy gained ${penalty} shield until the end of their next turn because the action failed.`;
   }
 
   if (!failureDetail) return;

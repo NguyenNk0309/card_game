@@ -514,6 +514,12 @@ button:focus-visible {
   border-color: rgba(216, 102, 89, .4);
 }
 
+.roster-buff-row .roster-buff-indicator.attack {
+  color: #ff8274;
+  background: rgba(194, 79, 67, .12);
+  border-color: rgba(216, 102, 89, .4);
+}
+
 .roster-buff-row .roster-buff-indicator.shield {
   min-width: 28px;
   padding: 0 4px;
@@ -567,6 +573,8 @@ button:focus-visible {
 .roster-buff-tooltip em { color: #8fd9a7; font-weight: 900; }
 .roster-buff-tooltip > span.negative,
 .roster-buff-tooltip > span.negative em { color: #ef9187; }
+.roster-buff-tooltip > span.attack,
+.roster-buff-tooltip > span.attack em { color: #ff8274; }
 .roster-buff-tooltip > p {
   margin: 6px 0 0;
   color: var(--muted);
@@ -6645,6 +6653,10 @@ textarea::placeholder { color: #716b61; }
   box-shadow: 2px 2px 0 #030405;
 }
 .roster-buff-indicator.negative {
+  border-color: #92342f;
+  background: #211012;
+}
+.roster-buff-indicator.attack {
   border-color: #92342f;
   background: #211012;
 }

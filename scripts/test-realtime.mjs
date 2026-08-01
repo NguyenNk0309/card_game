@@ -7,7 +7,7 @@ const testMode = String(process.env.TEST_MODE ?? "").trim().toLowerCase() === "t
 
 function testSkillDeck(id) {
   const special = [
-    { id: `card-${id}`, name: "Test Skill", description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, failureEffect: "self-damage", failureValue: 2, unique: true },
+    { id: `card-${id}`, name: "Test Skill", description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, failureEffect: "enemy-shield", failureValue: 2, unique: true },
     { id: `purge-${id}`, name: "Tactical Purge", description: "Temporarily purge a random enemy hand card.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "purge-card", unique: true },
     { id: `pilfer-${id}`, name: "Pilfered Chance", description: "Steal a random enemy hand card, preferring special cards.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "steal-card", unique: true },
     { id: `favor-${id}`, name: "Favorable Omen", description: "Make one ally's next played card cost 0 pity.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "zero-pity", unique: true }
@@ -461,10 +461,13 @@ try {
     assert.equal(pendingFirst.game.outcome.success, true, "TEST_MODE makes the zero-cost card automatically succeed at the realtime authority");
     assert.equal(pendingFirst.game.outcome.pityCost, 0, "the realtime authority reports zero pity cost in TEST_MODE");
     assert.equal(pendingFirst.game.playerStates[firstId].hp, tributeStartedFirst.game.playerStates[firstId].hp, "an automatic test-mode success does not apply failure backlash");
+    assert.equal(pendingFirst.game.playerStates[secondId].shield, tributeStartedFirst.game.playerStates[secondId].shield, "an automatic test-mode success grants no failure shield");
     assert.equal(pendingFirst.game.outcome.failureDetail, undefined, "an automatic test-mode success has no failure impact");
   } else {
-    assert.equal(pendingFirst.game.playerStates[firstId].hp, tributeStartedFirst.game.playerStates[firstId].hp - 2, "the realtime authority applies printed failure backlash even when the client snapshot leaves HP unchanged");
-    assert.match(pendingFirst.game.outcome.failureDetail, /took 2 backlash damage/, "the realtime authority publishes the reconciled failure impact");
+    assert.equal(pendingFirst.game.playerStates[firstId].hp, tributeStartedFirst.game.playerStates[firstId].hp, "an enemy-shield failure does not damage its user");
+    assert.equal(pendingFirst.game.playerStates[secondId].shield, tributeStartedFirst.game.playerStates[secondId].shield + 2, "the realtime authority grants the exact failure shield even when the client snapshot omits it");
+    assert(pendingFirst.game.playerStates[secondId].timedEffects.some((effect) => effect.kind === "shield" && effect.value === 2 && effect.expiresAfterTurn === (tributeStartedFirst.game.playerStates[secondId].completedPlayerTurns ?? 0) + 1), "the realtime authority expires failure shield after the enemy's next turn");
+    assert.match(pendingFirst.game.outcome.failureDetail, /gained 2 shield until the end of their next turn/, "the realtime authority publishes the reconciled failure impact and duration");
   }
   assert.equal(pendingFirst.game.pendingWorldEvent.phase, 3);
   assert.equal(pendingFirst.game.pendingWorldEvent.title, "Shattered Tribute");

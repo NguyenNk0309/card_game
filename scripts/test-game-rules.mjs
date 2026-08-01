@@ -35,6 +35,55 @@ assert(new Set(sampledRolls).size > 1, "d20 sampling must not return a fixed val
 const options = engine.getCharacterOptions();
 assert.equal(options.length, 10);
 const everyCard = options.flatMap((option) => option.skillDeck);
+const expectedSpecialBalance = {
+  "ev-aegis": { pityCost: 5, failureEffect: "team-damage", failureValue: 1 },
+  "ev-ward": { pityCost: 5, failureEffect: "lose-shield", failureValue: 2 },
+  "ev-command": { pityCost: 4, failureEffect: "self-damage", failureValue: 1 },
+  "tv-mark": { pityCost: 6, failureEffect: "self-damage", failureValue: 2 },
+  "tv-pierce": { pityCost: 6, failureEffect: "self-damage", failureValue: 2 },
+  "tv-hunt": { pityCost: 5, failureEffect: "enemy-shield", failureValue: 1 },
+  "ma-inferno": { pityCost: 7, failureEffect: "team-damage", failureValue: 1 },
+  "ma-comet": { pityCost: 7, failureEffect: "self-damage", failureValue: 2 },
+  "ma-gravity": { pityCost: 5, failureEffect: "enemy-shield", failureValue: 1 },
+  "bo-prayer": { pityCost: 5, failureEffect: "self-damage", failureValue: 1 },
+  "bo-blessing": { pityCost: 6, failureEffect: "team-damage", failureValue: 1 },
+  "bo-return": { pityCost: 8, failureEffect: "team-damage", failureValue: 2 },
+  "nc-knife": { pityCost: 6, failureEffect: "self-damage", failureValue: 2 },
+  "nc-execute": { pityCost: 7, failureEffect: "self-damage", failureValue: 3 },
+  "nc-pilfer": { pityCost: 7, failureEffect: "enemy-shield", failureValue: 2 },
+  "bc-fortress": { pityCost: 6, failureEffect: "lose-shield", failureValue: 3 },
+  "bc-temper": { pityCost: 7, failureEffect: "team-damage", failureValue: 1 },
+  "bc-march": { pityCost: 6, failureEffect: "lose-shield", failureValue: 2 },
+  "sf-favor": { pityCost: 6, failureEffect: "self-damage", failureValue: 2 },
+  "sf-hex": { pityCost: 6, failureEffect: "enemy-shield", failureValue: 1 },
+  "sf-stolen": { pityCost: 8, failureEffect: "team-damage", failureValue: 2 },
+  "kr-riposte": { pityCost: 6, failureEffect: "self-damage", failureValue: 2 },
+  "kr-duel": { pityCost: 6, failureEffect: "lose-shield", failureValue: 2 },
+  "kr-break": { pityCost: 6, failureEffect: "enemy-shield", failureValue: 2 },
+  "im-command": { pityCost: 6, failureEffect: "team-damage", failureValue: 1 },
+  "im-focus": { pityCost: 6, failureEffect: "team-damage", failureValue: 1 },
+  "im-purge": { pityCost: 7, failureEffect: "enemy-shield", failureValue: 2 },
+  "df-none": { pityCost: 7, failureEffect: "self-damage", failureValue: 2 },
+  "df-cleave": { pityCost: 8, failureEffect: "self-damage", failureValue: 3 },
+  "df-frenzy": { pityCost: 6, failureEffect: "self-damage", failureValue: 2 }
+};
+const expectedCommonPityCosts = { slash: 3, heavy: 4, brace: 3, "second-wind": 4, "empty-gesture": 0, "broken-plan": 0, "lost-momentum": 0 };
+const specialCards = everyCard.filter((card) => card.unique);
+assert.equal(Object.keys(expectedSpecialBalance).length, 30, "the rebalance contract must cover all 30 special cards");
+assert.equal(specialCards.length, 30, "the live catalog must expose all 30 special cards");
+for (const card of specialCards) {
+  assert.deepEqual(
+    { pityCost: card.pityCost, failureEffect: card.failureEffect, failureValue: card.failureValue },
+    expectedSpecialBalance[card.id],
+    `${card.name} must use its effect-specific pity and failure balance`
+  );
+}
+for (const card of everyCard.filter((candidate) => !candidate.unique)) {
+  const commonId = card.id.slice(card.id.indexOf("-common-") + "-common-".length);
+  assert.equal(card.pityCost, expectedCommonPityCosts[commonId], `${card.name} must use its common-card pity cost`);
+}
+const enemyShieldFailureCard = specialCards.find((card) => card.failureEffect === "enemy-shield");
+assert.equal(cardRules.describeCardFailure(enemyShieldFailureCard), `Every enemy gains ${enemyShieldFailureCard.failureValue} shield until the end of their next turn.`, "enemy-shield failure copy must state its target, amount, and duration");
 const originalTestMode = process.env.TEST_MODE;
 delete process.env.TEST_MODE;
 assert(everyCard.every((card) => cardRules.getCardPityCost(card) === pityCostRules.calculateRuntimePityCost(card, false)), "an absent TEST_MODE preserves every original pity cost");
@@ -55,7 +104,7 @@ for (const option of options) {
   assert(option.skillDeck.filter((card) => card.effect !== "none").every((card) => card.pityCost >= 3), "effect cards must require accumulated pity");
   assert(option.skillDeck.every((card) => card.bonus === 0), "cards cannot carry a built-in d20 bonus");
   assert(option.skillDeck.every((card) => !("risk" in card) && card.effect !== "check"));
-  assert(option.skillDeck.filter((card) => card.unique).every((card) => ["self-damage", "team-damage", "lose-shield"].includes(card.failureEffect) && card.failureValue > 0), "every special card needs a balanced owner/team failure penalty");
+  assert(option.skillDeck.filter((card) => card.unique).every((card) => ["self-damage", "team-damage", "lose-shield", "enemy-shield"].includes(card.failureEffect) && card.failureValue > 0), "every special card needs a balanced failure impact");
   const common = option.skillDeck.filter((card) => !card.unique);
   assert(common.every((card) => !card.failureEffect && !card.failureValue), "common cards cannot have failure penalties");
   assert.equal(common.filter((card) => card.effect === "damage").length, 2, "common deck needs two attacks");
@@ -259,7 +308,7 @@ const elaraCommonGuard = elara.skillDeck.find((card) => !card.unique && card.eff
 assert.match(elara.hero.passiveText, /Guard cards grant \+1 shield/i, "United Front applies only to Elara's Guard cards");
 assert.equal(rallyingAegis.effect, "guard", "Rallying Aegis is a Guard card");
 assert.equal(rallyingAegis.supportType, undefined, "Rallying Aegis no longer carries a Support subtype");
-assert.equal(rallyingAegis.pityCost, 4, "Rallying Aegis follows the existing Guard-card pity formula");
+assert.equal(rallyingAegis.pityCost, 5, "Rallying Aegis accounts for shielding the entire living team");
 assert.equal(lanternWard.value, 3, "Lantern Ward has 3 base shield");
 assert.equal(lanternWard.pityCost, 5, "Lantern Ward follows the existing Guard-card pity formula after its shield reduction");
 assert.match(lanternWard.description, /3 shield.*4 with United Front/i, "Lantern Ward describes its base and passive-enhanced shield");
@@ -342,7 +391,7 @@ const inferno = mira.skillDeck.find((card) => card.id === "ma-inferno");
 assert.equal(mira.hero.hp, 9, "Mira Ash's printed HP is 9");
 assert.equal(mira.hero.maxHp, 9, "Mira Ash begins battle with 9 max HP");
 assert.equal(inferno.value, 3, "Inferno has 3 base damage");
-assert.equal(inferno.pityCost, 6, "Inferno's pity cost follows the existing AOE balance formula after its damage increase");
+assert.equal(inferno.pityCost, 7, "Inferno's pity cost accounts for its increased team-wide damage");
 assert.match(inferno.description, /3 damage.*4 with Spreading Flame/i, "Inferno describes its base and passive-enhanced damage");
 const infernoGame = engine.createInitialGame(infernoParty, engine.createAdventure("INFERNO-DAMAGE"), 30);
 infernoGame.turnOrder = [mira.id, infernoTargetOne.id, infernoTargetTwo.id, infernoAlly.id];
@@ -362,7 +411,7 @@ const quietKnife = nyx.skillDeck.find((card) => card.id === "nc-knife");
 const execute = nyx.skillDeck.find((card) => card.id === "nc-execute");
 assert.equal(quietKnife.value, 3, "Quiet Knife has 3 base damage");
 assert.equal(execute.value, 4, "Execute has 4 base damage");
-assert.equal(quietKnife.pityCost, 5, "Quiet Knife's pity cost follows the existing single-target damage formula");
+assert.equal(quietKnife.pityCost, 6, "Quiet Knife's pity cost accounts for Armor Pierce");
 assert.equal(execute.pityCost, 7, "Execute's pity cost follows the existing shield-piercing damage formula");
 assert.match(quietKnife.description, /3 damage.*ignoring shield/i, "Quiet Knife describes its reduced shield-piercing damage");
 assert.match(execute.description, /4 damage.*ignoring shield/i, "Execute describes its reduced shield-piercing damage");
@@ -392,8 +441,8 @@ const riposte = kael.skillDeck.find((card) => card.id === "kr-riposte");
 const challenge = kael.skillDeck.find((card) => card.id === "kr-duel");
 assert.equal(riposte.value, 3, "Riposte has 3 base damage");
 assert.equal(challenge.value, 3, "Challenge has 3 base damage");
-assert.equal(riposte.pityCost, 5, "Riposte's pity cost follows the existing single-target damage formula");
-assert.equal(challenge.pityCost, 5, "Challenge's pity cost follows the existing single-target damage formula");
+assert.equal(riposte.pityCost, 6, "Riposte's pity cost accounts for its No Guard damage ceiling");
+assert.equal(challenge.pityCost, 6, "Challenge's pity cost accounts for its No Guard damage ceiling");
 assert.match(kael.hero.passiveText, /\+2 damage.*enemies with no shield/i, "No Guard states its target-based condition and damage");
 assert.match(riposte.description, /3 damage.*5 with No Guard.*target has no shield/i, "Riposte describes its base and No Guard damage");
 assert.match(challenge.description, /3 damage.*5 with No Guard.*target has no shield/i, "Challenge describes its base and No Guard damage");
@@ -434,7 +483,7 @@ assert.match(prayerOfLife.description, /3 HP.*4 with Enduring Grace/i, "Prayer o
 assert.equal(sharedBlessing.effect, "heal", "Shared Blessing is a Heal card");
 assert.equal(sharedBlessing.supportType, undefined, "Shared Blessing no longer carries a Support subtype");
 assert.equal(sharedBlessing.value, 2, "Shared Blessing keeps its 2 base healing");
-assert.equal(sharedBlessing.pityCost, 4, "Shared Blessing follows the Heal-card pity formula");
+assert.equal(sharedBlessing.pityCost, 6, "Shared Blessing's pity cost accounts for healing every living ally");
 assert.match(sharedBlessing.description, /2 HP.*3 with Enduring Grace/i, "Shared Blessing describes its base and passive-enhanced healing");
 assert.equal(cardRules.getCardEffectLabel(sharedBlessing), "Heal all allies", "Shared Blessing's player-facing action type matches its all-allies Heal effect");
 const healGame = engine.createInitialGame(supportParty, engine.createAdventure("HEAL"), 30);
@@ -468,13 +517,17 @@ assert.equal(livingFortress.pityCost, 6, "Living Fortress follows the Guard-card
 assert.equal(temperArmor.effect, "guard", "Temper Armor is a Guard card");
 assert.equal(temperArmor.supportType, undefined, "Temper Armor no longer carries a Support subtype");
 assert.equal(temperArmor.value, 3, "Temper Armor grants 3 base shield");
-assert.equal(temperArmor.pityCost, 5, "Temper Armor follows the Guard-card pity formula");
+assert.equal(temperArmor.pityCost, 7, "Temper Armor's pity cost accounts for team-wide, two-turn shield");
 assert.match(bramBrace.description, /expires at the end of your second turn/i, "Bram's common Guard card describes Tempered Steel's duration");
 assert.equal(shieldforgedAssault.name, "Shieldforged Assault", "Fortified March is renamed to match its shield conversion effect");
 assert.equal(shieldforgedAssault.supportType, "shield-to-attack", "Shieldforged Assault uses the shield conversion rule");
+assert.equal(shieldforgedAssault.target, "self", "Shieldforged Assault targets only Bram");
 assert.equal(shieldforgedAssault.value, 0, "Shieldforged Assault derives its strength from current shield instead of a flat value");
-assert.equal(shieldforgedAssault.pityCost, 6, "Shieldforged Assault preserves the special card's existing pity cost");
-assert.match(shieldforgedAssault.description, /half.*current shield.*rounded down.*equal attack damage bonus.*next attack.*next turn/i, "Shieldforged Assault fully describes conversion, rounding, use, and expiry");
+assert.equal(shieldforgedAssault.pityCost, 6, "Shieldforged Assault's pity cost accounts for its self-only shield conversion");
+assert.equal(shieldforgedAssault.failureEffect, "lose-shield", "Shieldforged Assault risks the shield it attempts to convert");
+assert.equal(shieldforgedAssault.failureValue, 2, "Shieldforged Assault loses up to 2 shield on failure");
+assert.equal(cardRules.getCardEffectLabel(shieldforgedAssault), "Empower yourself", "Shieldforged Assault's player-facing action type matches its self-only effect");
+assert.match(shieldforgedAssault.description, /half.*your current shield.*rounded down.*equal attack damage bonus.*your next attack.*your next turn/i, "Shieldforged Assault fully describes its self-only conversion, rounding, use, and expiry");
 const guardGame = engine.createInitialGame(tankParty, engine.createAdventure("GUARD"), 30);
 guardGame.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
 guardGame.playerStates[tank.id].hand = [livingFortress.id];
@@ -519,40 +572,41 @@ conversionGame.playerStates[tankAlly.id].timedEffects = [{ kind: "shield", value
 conversionGame.playerStates[tankEnemy.id].shield = 10;
 conversionGame.playerStates[tankEnemy.id].timedEffects = [{ kind: "shield", value: 10, expiresAfterTurn: 10 }];
 const shieldsForged = engine.resolveCardTurn(conversionGame, tankParty, shieldforgedAssault.id, tank.id, 20);
-assert.equal(shieldsForged.outcome.amount, 6, "Shieldforged Assault reports the total shield converted across allies");
+assert.equal(shieldsForged.outcome.amount, 2, "Shieldforged Assault reports only Bram's converted shield");
+assert.deepEqual(shieldsForged.outcome.targetIds, [tank.id], "Shieldforged Assault synchronizes Bram as its only target");
 assert.equal(shieldsForged.playerStates[tank.id].shield, 3, "Shieldforged Assault rounds Bram's odd shield down before conversion");
 assert.equal(shieldsForged.playerStates[tank.id].attackBuff, 2, "Bram gains attack damage equal to his converted shield");
-assert.equal(shieldsForged.playerStates[tankAlly.id].shield, 4, "Shieldforged Assault removes half of an ally's even shield");
-assert.equal(shieldsForged.playerStates[tankAlly.id].attackBuff, 4, "the ally gains attack damage equal to converted shield");
+assert.equal(shieldsForged.playerStates[tankAlly.id].shield, 8, "Shieldforged Assault preserves allied shield");
+assert.equal(shieldsForged.playerStates[tankAlly.id].attackBuff, 0, "Shieldforged Assault never grants allies an attack bonus");
 assert.equal(shieldsForged.playerStates[tankEnemy.id].shield, 10, "Shieldforged Assault never converts enemy shield");
 assert.equal(shieldsForged.playerStates[tankEnemy.id].attackBuff, 0, "Shieldforged Assault never buffs enemies");
-const forgedAllyAttack = tankAlly.skillDeck.find((card) => card.effect === "damage");
-shieldsForged.turnOrder = [tankAlly.id, tankEnemy.id, tank.id];
+const forgedBramAttack = tank.skillDeck.find((card) => card.effect === "damage");
+shieldsForged.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
 shieldsForged.adventure.target = 8;
-shieldsForged.playerStates[tankAlly.id].hand = [forgedAllyAttack.id];
+shieldsForged.playerStates[tank.id].hand = [forgedBramAttack.id];
 shieldsForged.playerStates[tankEnemy.id].shield = 0;
 shieldsForged.playerStates[tankEnemy.id].timedEffects = [];
-const forgedAttack = engine.resolveCardTurn(shieldsForged, tankParty, forgedAllyAttack.id, tankEnemy.id, 20);
-assert.equal(forgedAttack.playerStates[tankEnemy.id].hp, tankEnemy.hero.maxHp - forgedAllyAttack.value - 4, "converted shield adds damage to the ally's next real attack");
-assert.equal(forgedAttack.playerStates[tankAlly.id].attackBuff, 0, "the converted attack bonus is consumed by that attack");
+const forgedAttack = engine.resolveCardTurn(shieldsForged, tankParty, forgedBramAttack.id, tankEnemy.id, 20);
+assert.equal(forgedAttack.playerStates[tankEnemy.id].hp, tankEnemy.hero.maxHp - forgedBramAttack.value - 2, "converted shield adds damage to Bram's next real attack");
+assert.equal(forgedAttack.playerStates[tank.id].attackBuff, 0, "Bram's converted attack bonus is consumed by that attack");
 
 const expiringConversionGame = structuredClone(conversionGame);
 expiringConversionGame.playerStates[tank.id].hand = [shieldforgedAssault.id];
 const expiringConversion = engine.resolveCardTurn(expiringConversionGame, tankParty, shieldforgedAssault.id, tank.id, 20);
-engine.expireTimedEffectsAtTurnEnd(expiringConversion.playerStates[tankAlly.id]);
-assert.equal(expiringConversion.playerStates[tankAlly.id].attackBuff, 0, "an unused converted attack bonus expires after the ally's next turn");
+assert.equal(expiringConversion.playerStates[tank.id].attackBuff, 2, "Bram's unused converted attack bonus remains through the turn it is created");
+engine.expireTimedEffectsAtTurnEnd(expiringConversion.playerStates[tank.id]);
+assert.equal(expiringConversion.playerStates[tank.id].attackBuff, 0, "Bram's unused converted attack bonus expires at the end of his next turn");
 
 const failedConversionGame = structuredClone(conversionGame);
 failedConversionGame.adventure.target = 20;
 failedConversionGame.playerStates[tank.id].hand = [shieldforgedAssault.id];
 const failedConversion = engine.resolveCardTurn(failedConversionGame, tankParty, shieldforgedAssault.id, tank.id, 1);
 assert.equal(failedConversion.outcome.success, false, "a failed Shieldforged Assault performs no conversion");
-assert.equal(failedConversion.playerStates[tank.id].shield, 5, "failed conversion preserves Bram's shield");
+assert.equal(failedConversion.playerStates[tank.id].shield, 3, "failed conversion removes up to 2 of Bram's shield");
 assert.equal(failedConversion.playerStates[tankAlly.id].shield, 8, "failed conversion preserves allied shield");
 assert.equal(failedConversion.playerStates[tank.id].attackBuff, 0, "failed conversion grants no attack bonus");
-assert.equal(failedConversion.playerStates[tank.id].hp, tank.hero.maxHp - 2, "Shieldforged Assault retains Fortified March's team-damage failure");
-assert.equal(failedConversion.playerStates[tankAlly.id].hp, tankAlly.hero.maxHp - 2, "Shieldforged Assault failure damages every living ally");
-assert.equal(failedConversion.playerStates[tankEnemy.id].hp, tankEnemy.hero.maxHp, "Shieldforged Assault failure never damages enemies");
+assert.equal(failedConversion.playerStates[tank.id].hp, tank.hero.maxHp, "Shieldforged Assault failure no longer damages Bram");
+assert.equal(failedConversion.playerStates[tankAlly.id].hp, tankAlly.hero.maxHp, "Shieldforged Assault failure no longer damages allies");
 
 const teamHealGame = engine.createInitialGame(supportParty, engine.createAdventure("TEAM-HEAL"), 30);
 teamHealGame.turnOrder = [healer.id, supportEnemy.id, supportAlly.id];
@@ -652,7 +706,7 @@ failedFavorableGame.playerStates[oracle.id].hand = [favorableOmen.id];
 const failedFavorable = engine.resolveCardTurn(failedFavorableGame, curseParty, favorableOmen.id, oracleAlly.id, 1);
 assert.equal(failedFavorable.outcome.success, false, "a failed Favorable Omen grants no zero-pity effect");
 assert.equal(failedFavorable.playerStates[oracleAlly.id].zeroPityUntilTurn, 0, "Favorable Omen cannot affect its target on failure");
-assert.equal(failedFavorable.playerStates[oracle.id].hp, 4, "Favorable Omen retains its 1 self-damage failure");
+assert.equal(failedFavorable.playerStates[oracle.id].hp, 3, "Favorable Omen applies its rebalanced 2 self-damage failure");
 
 const selfFavorableGame = engine.createInitialGame(curseParty, engine.createAdventure("FAVOR-SELF"), 30);
 selfFavorableGame.turnOrder = [oracle.id, cursedEnemy.id, oracleAlly.id];
@@ -887,6 +941,57 @@ secondPurge.playerStates[diceEnemy.id].hand = [purgedEnemyCards[2].id];
 const thirdPurge = engine.resolveCardTurn(secondPurge, [commander, diceEnemy], purgeCard.id, diceEnemy.id, 20);
 assert(thirdPurge.playerStates[commander.id].graveyard.includes(purgeCard.id), "Tactical Purge enters Ione's graveyard after its third use");
 assert(![...thirdPurge.playerStates[commander.id].hand, ...thirdPurge.playerStates[commander.id].drawPile, ...thirdPurge.playerStates[commander.id].discardPile].includes(purgeCard.id), "Tactical Purge cannot be drawn after entering the graveyard");
+
+for (const option of options) {
+  for (const templateCard of option.skillDeck.filter((card) => card.unique)) {
+    const matrixActor = engine.createPlayerSession(`Failure ${templateCard.id}`, 0, option.hero.name, `failure-${templateCard.id}-actor`);
+    const matrixAlly = engine.createPlayerSession(`Ally ${templateCard.id}`, 2, "Elara Voss", `failure-${templateCard.id}-ally`);
+    const matrixEnemyOne = engine.createPlayerSession(`Enemy one ${templateCard.id}`, 1, "Thorne Vale", `failure-${templateCard.id}-enemy-one`);
+    const matrixEnemyTwo = engine.createPlayerSession(`Enemy two ${templateCard.id}`, 3, "Mira Ash", `failure-${templateCard.id}-enemy-two`);
+    const matrixParty = [matrixActor, matrixEnemyOne, matrixAlly, matrixEnemyTwo];
+    const matrixCard = matrixActor.skillDeck.find((card) => card.id === templateCard.id);
+    const matrixGame = engine.createInitialGame(matrixParty, engine.createAdventure(`FAILURE-MATRIX-${templateCard.id}`), 30);
+    matrixGame.turnOrder = matrixParty.map((player) => player.id);
+    matrixGame.adventure.target = 20;
+    matrixGame.playerStates[matrixActor.id].hand = [matrixCard.id];
+    matrixGame.playerStates[matrixActor.id].shield = 10;
+    matrixGame.playerStates[matrixActor.id].timedEffects = [{ kind: "shield", value: 10, expiresAfterTurn: 99 }];
+    if (matrixCard.target === "defeated-ally") matrixGame.playerStates[matrixAlly.id].hp = 0;
+    const targetId = matrixCard.target === "ally" || matrixCard.target === "defeated-ally"
+      ? matrixAlly.id
+      : matrixCard.target === "enemy" || matrixCard.target === "player"
+        ? matrixEnemyOne.id
+        : matrixActor.id;
+    const beforeFailure = structuredClone(matrixGame);
+    const matrixFailure = engine.resolveCardTurn(matrixGame, matrixParty, matrixCard.id, targetId, 1);
+    assert.equal(matrixFailure.outcome.success, false, `${matrixCard.name} must fail below the d20 target`);
+    assert.equal(matrixFailure.outcome.amount, 0, `${matrixCard.name} must not apply its main effect on failure`);
+    assert.equal(matrixFailure.playerStates[matrixActor.id].pityPoints, 1, `${matrixCard.name} failure must grant 1 pity point`);
+    assert(matrixFailure.outcome.failureDetail, `${matrixCard.name} must publish its failure impact`);
+    if (matrixCard.failureEffect === "self-damage") {
+      assert.equal(matrixFailure.playerStates[matrixActor.id].hp, matrixActor.hero.maxHp - matrixCard.failureValue, `${matrixCard.name} must apply its exact self backlash`);
+      assert.equal(matrixFailure.playerStates[matrixAlly.id].hp, beforeFailure.playerStates[matrixAlly.id].hp, `${matrixCard.name} self backlash must not damage allies`);
+    } else if (matrixCard.failureEffect === "team-damage") {
+      for (const ally of [matrixActor, matrixAlly]) {
+        const hpBefore = beforeFailure.playerStates[ally.id].hp;
+        const expectedHp = hpBefore > 0 ? Math.max(0, hpBefore - matrixCard.failureValue) : 0;
+        assert.equal(matrixFailure.playerStates[ally.id].hp, expectedHp, `${matrixCard.name} must apply its exact backlash to each living ally`);
+      }
+    } else if (matrixCard.failureEffect === "lose-shield") {
+      assert.equal(matrixFailure.playerStates[matrixActor.id].shield, 10 - matrixCard.failureValue, `${matrixCard.name} must remove its exact shield penalty`);
+      assert.equal(matrixFailure.playerStates[matrixActor.id].hp, matrixActor.hero.maxHp, `${matrixCard.name} shield loss must not deal HP damage`);
+    } else if (matrixCard.failureEffect === "enemy-shield") {
+      for (const enemy of [matrixEnemyOne, matrixEnemyTwo]) {
+        assert.equal(matrixFailure.playerStates[enemy.id].shield, matrixCard.failureValue, `${matrixCard.name} must grant its exact shield penalty to every living enemy`);
+        assert(matrixFailure.playerStates[enemy.id].timedEffects.some((effect) => effect.kind === "shield" && effect.value === matrixCard.failureValue && effect.expiresAfterTurn === 1), `${matrixCard.name} enemy shield must expire after that enemy's next turn`);
+      }
+    } else {
+      assert.fail(`${matrixCard.name} uses an unsupported failure effect`);
+    }
+    assert.equal(matrixFailure.playerStates[matrixEnemyOne.id].hp, matrixEnemyOne.hero.maxHp, `${matrixCard.name} failure must never damage enemies`);
+    assert.equal(matrixFailure.playerStates[matrixEnemyTwo.id].hp, matrixEnemyTwo.hero.maxHp, `${matrixCard.name} failure must never damage enemies`);
+  }
+}
 
 const duelist = engine.createPlayerSession("Kael", 0, "Kael Rook", "duelist");
 const failureEnemy = engine.createPlayerSession("Failure target", 1, "Thorne Vale", "failure-enemy");

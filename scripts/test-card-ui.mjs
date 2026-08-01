@@ -13,6 +13,7 @@ const gameEngine = read("backend/game/engine.ts");
 const sharedTypes = read("shared/types.ts");
 const pityCost = read("ui/components/PityCost.tsx");
 const truncatedEffectText = read("ui/components/TruncatedEffectText.tsx");
+const effectText = read("ui/components/EffectText.tsx");
 const gameApp = read("ui/GameApp.tsx");
 const homeScreen = read("ui/components/HomeScreen.tsx");
 const lobby = read("ui/components/Lobby.tsx");
@@ -62,6 +63,9 @@ assert(!/\.gothic-card-gem::(?:before|after)/.test(styles), "the divider diamond
 assert(!/>PITY</.test(pityCost), "the pity badge must show its number without a redundant PITY caption");
 assert.match(truncatedEffectText, /trimEnd\(\)\}\.\.\./, "truncation must use exactly three ASCII periods");
 assert(!truncatedEffectText.includes("…"), "truncation must never use the single ellipsis character");
+assert.match(effectText, /attack damage bonus[\s\S]*phrase === "attack damage bonus"[\s\S]*"damage"/, "attack damage bonus copy must use the red damage treatment");
+assert.match(partyRail, /buff\.kind === "attackBuff" \? "attack"/, "roster attack bonuses must receive their red attack treatment");
+assert.match(styles, /\.roster-buff-row \.roster-buff-indicator\.attack\s*\{[^}]*color:\s*#ff8274;/, "roster attack bonus values must render in red");
 assert.match(styles, /\.gothic-card\s*\{[\s\S]*aspect-ratio:\s*2\s*\/\s*3;/, "all cards must reserve the approved 2:3 aspect ratio");
 assert.match(styles, /\.game-shell \.gothic-card \.card-description\s*\{[\s\S]*height:\s*4\.88em\s*!important;[\s\S]*overflow:\s*hidden\s*!important;/, "card descriptions must remain a fixed four-line box without scrolling");
 assert.match(styles, /\.gothic-card-result-text\s*\{[\s\S]*height:\s*2\.44em;[\s\S]*overflow:\s*hidden;/, "result text must remain a fixed two-line box");

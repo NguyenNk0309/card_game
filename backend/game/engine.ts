@@ -588,7 +588,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       failureDetail = `${actor.displayName} lost ${lost} shield when their guard broke.`;
     } else if (card.failureEffect === "enemy-shield") {
       for (const enemy of enemies) addTimedEffect(states[enemy.id], "shield", penalty, false);
-      failureDetail = `Every enemy gained ${penalty} shield because the action failed.`;
+      failureDetail = `Every enemy gained ${penalty} shield until the end of their next turn because the action failed.`;
     }
     detail = `${detail} ${failureDetail}`;
   }

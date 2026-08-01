@@ -53,7 +53,7 @@ function RosterEffect({ buff, icon }: { buff: StatusPresentation; icon: React.Re
   return <>
     <span
       ref={anchorRef}
-      className={`roster-buff-indicator ${buff.negative ? "negative" : ""} ${buff.shield ? "shield" : ""}`}
+      className={`roster-buff-indicator ${buff.negative ? "negative" : ""} ${buff.shield ? "shield" : ""} ${buff.kind === "attackBuff" ? "attack" : ""}`}
       tabIndex={0}
       aria-label={`${buff.label}: ${buff.tooltipValue ?? buff.value}${buff.durationLabel ? ` - ${buff.durationLabel}` : ""}. ${buff.tooltip}`}
       aria-describedby={open ? tooltipId : undefined}
@@ -68,12 +68,12 @@ function RosterEffect({ buff, icon }: { buff: StatusPresentation; icon: React.Re
       <span
         ref={tooltipRef}
         id={tooltipId}
-        className="roster-buff-tooltip is-visible"
+        className={`roster-buff-tooltip is-visible ${buff.kind === "attackBuff" ? "attack" : ""}`}
         role="tooltip"
         style={{ left: position.left, top: position.top, visibility: position.ready ? "visible" : "hidden" }}
       >
         <strong>{buff.label}</strong>
-        <span className={buff.negative ? "negative" : ""}><em>{buff.tooltipValue ?? buff.value}</em>{buff.durationLabel && <><i aria-hidden="true">-</i><b>{buff.durationLabel}</b></>}</span>
+        <span className={buff.negative ? "negative" : buff.kind === "attackBuff" ? "attack" : ""}><em>{buff.tooltipValue ?? buff.value}</em>{buff.durationLabel && <><i aria-hidden="true">-</i><b>{buff.durationLabel}</b></>}</span>
         <p>{buff.tooltip}</p>
       </span>
       <span className={`tooltip-arrow roster-tooltip-arrow placement-${position.placement}`} aria-hidden="true" style={{ left: position.arrowLeft, top: position.arrowTop, visibility: position.ready ? "visible" : "hidden" }}/>
