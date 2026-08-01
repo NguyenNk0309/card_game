@@ -137,8 +137,6 @@ const makePlayer = (id, team, {
       skill: "Test Skill",
       skillText: "Test skill.",
       summary: "Test hero.",
-      strength: "Testing.",
-      weakness: "Testing.",
       impact: "Testing.",
       hp: maxHp,
       maxHp,

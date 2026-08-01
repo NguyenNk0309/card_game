@@ -7,6 +7,7 @@ const cardDescription = read("ui/components/CardDescription.tsx");
 const cardFace = read("ui/components/CardFace.tsx");
 const cardArtworkViewer = read("ui/components/CardArtworkViewer.tsx");
 const cardHoverPreview = read("ui/components/CardHoverPreview.tsx");
+const characterAvatar = read("ui/components/CharacterAvatar.tsx");
 const cardArtwork = read("ui/cardArtwork.ts");
 const cardCatalog = read("backend/game/catalog.ts");
 const gameEngine = read("backend/game/engine.ts");
@@ -25,6 +26,28 @@ const gameAudio = read("ui/hooks/useGameAudio.ts");
 const cardZoneMotion = read("ui/cardZoneMotion.ts");
 const tooltipPosition = read("ui/components/tooltipPosition.ts");
 const styles = read("app/globals.css");
+
+const characterAvatars = [
+  ["Elara Voss", "elara-voss.webp"],
+  ["Thorne Vale", "thorne-vale.webp"],
+  ["Mira Ash", "mira-ash.webp"],
+  ["Brother Orren", "brother-orren.webp"],
+  ["Nyx Calder", "nyx-calder.webp"],
+  ["Bram Coalhand", "bram-coalhand.webp"],
+  ["Sable Fen", "sable-fen.webp"],
+  ["Kael Rook", "kael-rook.webp"],
+  ["Ione Mire", "ione-mire.webp"],
+  ["Dagan Flint", "dagan-flint.webp"]
+];
+for (const [heroName, fileName] of characterAvatars) {
+  assert(characterAvatar.includes(`"${heroName}": "/art/characters/${fileName}"`), `${heroName} must have a unique avatar mapping`);
+  assert(existsSync(new URL(`../public/art/characters/${fileName}`, import.meta.url)), `${heroName}'s avatar asset must exist`);
+}
+assert.match(characterAvatar, /avatar \? <Image className="character-avatar-image"[\s\S]*: hero\.initials/, "character avatars must retain initials as a safe fallback");
+assert.match(lobby, /hero-picker-grid[\s\S]*<CharacterAvatar hero=\{option\.hero\}[\s\S]*character-banner[\s\S]*<CharacterAvatar hero=\{shownHero\}/, "lobby character selection and review must show the unique avatars");
+assert.match(gameApp, /turn-queue-list[\s\S]*<CharacterAvatar hero=\{player\.hero\}[\s\S]*character-detail-modal[\s\S]*<CharacterAvatar hero=\{inspectedPlayer\.hero\}/, "turn order and character detail must show the unique avatars");
+assert.match(partyRail, /portrait-button[\s\S]*<CharacterAvatar hero=\{hero\}/, "the battle roster must show each hero's unique avatar");
+assert(!/\b(?:strength|weakness)\s*:|character-(?:impact-grid|trait)|>Strength<|>Weakness</i.test([cardCatalog, sharedTypes, gameApp, lobby, styles].join("\n")), "Strength and Weakness data, sections, and styles must stay fully removed");
 
 const compiledCardZoneMotion = ts.transpileModule(cardZoneMotion, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },

@@ -42,8 +42,6 @@ export type Hero = {
   skill: string;
   skillText: string;
   summary: string;
-  strength: string;
-  weakness: string;
   impact: string;
   hp: number;
   maxHp: number;

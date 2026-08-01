@@ -41,8 +41,6 @@ function player(id, displayName, team) {
       skill: "Test Skill",
       skillText: "Used only by the realtime integration test.",
       summary: "Test hero",
-      strength: "Attack",
-      weakness: "Defense",
       impact: "Realtime test",
       hp: 8,
       maxHp: 8,

@@ -5,6 +5,7 @@ import { useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
 import { getStatusPresentations } from "@/shared/viewpoint.mjs";
+import { CharacterAvatar } from "./CharacterAvatar";
 import { fitTooltipToViewport } from "./tooltipPosition";
 
 const teamMeta: Record<TeamId, { name: string; icon: typeof Shield }> = {
@@ -115,7 +116,7 @@ export function PartyRail({ players, game, localSessionId, onInspectPlayer }: {
           const dead = hp <= 0;
           const buffs = state ? getStatusPresentations(player, state, players, localSessionId, currentPhase) : [];
           return <article className={`hero-row ${dead ? "is-dead" : ""} ${player.id === localSessionId ? "is-you" : ""}`} key={player.id}>
-            <button className="portrait-button" onClick={() => onInspectPlayer?.(player.id)} aria-label={`View ${player.displayName}'s character`}><div className="portrait" style={{ "--hero-color": hero.color } as React.CSSProperties}>{hero.initials}</div></button>
+            <button className="portrait-button" onClick={() => onInspectPlayer?.(player.id)} aria-label={`View ${player.displayName}'s character`}><CharacterAvatar hero={hero} sizes="38px"/></button>
             <div className="hero-copy">
               <div className="hero-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{player.displayName}</strong>{dead ? <em>DEFEATED</em> : null}</div>
               <span>{hero.name}</span>

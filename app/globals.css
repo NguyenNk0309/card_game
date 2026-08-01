@@ -2890,28 +2890,6 @@ button:focus-visible {
   line-height: 1.55;
 }
 
-.character-impact-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 9px;
-}
-
-.character-trait {
-  min-height: 70px;
-  padding: 10px 11px;
-  border-left: 3px solid;
-  background: rgba(255, 255, 255, 0.025);
-}
-
-.character-trait.strength {
-  border-color: #78bc8d;
-}
-
-.character-trait.weakness {
-  border-color: #d37b6f;
-}
-
-.character-trait span,
 .impact-note span {
   display: block;
   margin-bottom: 4px;
@@ -2920,11 +2898,6 @@ button:focus-visible {
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-}
-
-.character-trait strong {
-  color: var(--paper);
-  font: 500 13px/1.4 Georgia, "Times New Roman", serif;
 }
 
 .impact-note {
@@ -3219,7 +3192,6 @@ button:focus-visible {
 }
 
 @media (max-width: 720px) {
-  .character-impact-grid,
   .tutorial-steps,
   .stat-guide {
     grid-template-columns: 1fr;
@@ -3724,8 +3696,6 @@ button:focus-visible {
 .character-detail-stats > div:last-child { border-right: 0; }
 .character-detail-stats span { color: var(--muted); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
 .character-detail-stats strong { font: 500 17px Georgia, serif; }
-.character-detail-modal .character-impact-grid { width: 100%; }
-
 .privacy-note {
   padding: 9px 12px;
   display: flex;
@@ -5317,8 +5287,6 @@ button:focus-visible {
   .character-profile { margin-top: 10px; padding: 10px; }
   .character-profile > p { margin-top: 0; }
   .passive-callout { margin: 9px 0; padding: 10px; }
-  .character-impact-grid { gap: 8px; }
-  .character-trait { padding: 9px; }
   .impact-note { margin-top: 8px; padding: 9px; }
   .character-stats { margin: 10px 0 0; padding: 8px 0; }
 
@@ -5408,8 +5376,8 @@ button:focus-visible {
   .private-hand-zone { position: relative; }
 }
 
-/* Give the lobby character status enough room for both trait columns on
-   1080p and 1440p desktop layouts without changing compact breakpoints. */
+/* Give the lobby character status enough room on 1080p and 1440p desktop
+   layouts without changing compact breakpoints. */
 @media (min-width: 1600px) and (min-height: 900px) {
   .character-review-layout {
     grid-template-columns: minmax(300px, .72fr) minmax(0, 1.28fr);
@@ -6508,7 +6476,6 @@ textarea::placeholder { color: #716b61; }
 .character-profile,
 .passive-callout,
 .impact-note,
-.character-trait,
 .expanded-panel-content,
 .tutorial-section,
 .world-event-library-group {
@@ -7219,7 +7186,6 @@ textarea::placeholder { color: #716b61; }
 .public-deck-card p,
 .guide-update-grid p,
 .impact-note p,
-.character-trait span,
 .impact-note span,
 .history-entry p,
 .turn-queue-item p,
@@ -7295,6 +7261,29 @@ textarea::placeholder {
 .large-portrait {
   background:
     linear-gradient(135deg, color-mix(in srgb, var(--hero-color, #8d6b35) 42%, #151218) 0 50%, #0a090c 50%) !important;
+}
+
+.character-avatar {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  padding: 0;
+}
+
+.character-avatar-image {
+  z-index: 0;
+  object-fit: cover;
+  object-position: center 24%;
+}
+
+.character-avatar::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 2px;
+  border: 1px solid rgba(255, 231, 174, .22);
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, .62);
+  pointer-events: none;
 }
 
 .d20 {
