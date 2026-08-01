@@ -8471,7 +8471,7 @@ button:disabled :where(span, small, strong, b, p),
   top: 76.8%;
   left: 5.3%;
   width: 89.4%;
-  height: 19.25%;
+  height: 15%;
   display: grid;
   grid-template-rows: repeat(var(--result-row-count), minmax(0, 1fr));
   overflow: hidden;
@@ -8563,8 +8563,9 @@ button:disabled :where(span, small, strong, b, p),
 .gothic-card-gem {
   position: absolute;
   z-index: 45;
+  top: 74.8%;
   left: 47%;
-  bottom: .8%;
+  bottom: auto;
   width: 6%;
   aspect-ratio: 1;
   border: .48cqw solid #9a682c;
@@ -8589,6 +8590,122 @@ button:disabled :where(span, small, strong, b, p),
 .gothic-card .effect-number.heal { color: #62b862; }
 .gothic-card .effect-number.shield { color: #539bd0; }
 .gothic-card .effect-number.speed { color: #e5b433; }
+
+.gothic-card-view-image {
+  position: absolute;
+  z-index: 52;
+  top: 92.4%;
+  right: auto;
+  bottom: auto;
+  left: 3.4%;
+  width: 93.2%;
+  min-height: 0;
+  height: 5.3%;
+  box-sizing: border-box;
+  padding: 3px 2cqw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.6cqw;
+  color: #ebd9b7 !important;
+  border: .42cqw solid #a8742d;
+  background: linear-gradient(180deg, #2b2118, #0b0908 72%);
+  box-shadow: inset 0 0 0 .4cqw #120b07, 0 .7cqw 0 #020202;
+  font: 800 clamp(7px, 3.15cqw, 11px)/1 var(--pixel-font) !important;
+  letter-spacing: .08em;
+  text-shadow: .35cqw .35cqw 0 #000;
+  text-transform: none;
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+  clip-path: polygon(4% 0, 96% 0, 100% 28%, 100% 72%, 96% 100%, 4% 100%, 0 72%, 0 28%);
+}
+.gothic-card-view-image > span { min-width: 0; font: inherit !important; white-space: nowrap; }
+.gothic-card-view-image svg { width: 3.7cqw; height: 3.7cqw; stroke-width: 2.2; }
+.gothic-card-view-image:hover,
+.gothic-card-view-image:focus-visible {
+  color: #fff1cf !important;
+  border-color: #e4b65d;
+  background: linear-gradient(180deg, #4b3520, #130d09 72%);
+  outline: .55cqw solid rgba(239, 190, 94, .5);
+  outline-offset: .3cqw;
+}
+.gothic-card-view-image[aria-disabled="true"] { opacity: .42; cursor: not-allowed; }
+
+.card-artwork-viewer-backdrop {
+  position: fixed;
+  z-index: 1600;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: clamp(12px, 3vw, 32px);
+  background: rgba(2, 3, 5, .9);
+  backdrop-filter: blur(12px);
+}
+
+.card-artwork-viewer-panel {
+  width: min(1080px, 100%);
+  max-height: calc(100dvh - 24px);
+  box-sizing: border-box;
+  padding: clamp(12px, 2vw, 20px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  overflow: hidden;
+  color: #f1e2ca;
+  border: 2px solid #b98234;
+  background: #08090b;
+  box-shadow: 0 0 0 3px #27170b, 0 26px 80px rgba(0, 0, 0, .82);
+  font-family: var(--pixel-font);
+  clip-path: polygon(0 12px, 12px 12px, 12px 0, calc(100% - 12px) 0, calc(100% - 12px) 12px, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 12px calc(100% - 12px), 0 calc(100% - 12px));
+}
+
+.card-artwork-viewer-panel > header {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.card-artwork-viewer-panel > header small { color: #c79c52; font-size: 11px; letter-spacing: .12em; }
+.card-artwork-viewer-panel > header h2 { margin: 3px 0 0; color: #f3e6d1; font: 500 clamp(24px, 4vw, 38px)/1 Georgia, "Times New Roman", serif; }
+.card-artwork-viewer-close {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  color: #ead8b8;
+  border: 1px solid #8d622a;
+  background: #17110d;
+  cursor: pointer;
+}
+.card-artwork-viewer-close:hover,
+.card-artwork-viewer-close:focus-visible { color: #fff; border-color: #dfb25d; outline: 2px solid rgba(223, 178, 93, .5); }
+.card-artwork-viewer-close svg { width: 22px; height: 22px; }
+
+.card-artwork-viewer-frame {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  background:
+    linear-gradient(45deg, rgba(255, 255, 255, .018) 25%, transparent 25% 75%, rgba(255, 255, 255, .018) 75%),
+    #030405;
+  background-size: 16px 16px;
+  border: 1px solid rgba(192, 140, 58, .42);
+}
+.card-artwork-viewer-image {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(100dvh - 142px);
+  object-fit: contain;
+  image-rendering: pixelated;
+}
 
 .gothic-card.card-preview-click-trigger:not(:disabled) { cursor: pointer; }
 
@@ -8915,6 +9032,18 @@ button:disabled :where(span, small, strong, b, p),
 }
 .world-event-choice-card-grid { grid-auto-columns: 270px; align-items: start; }
 
+@media (min-width: 1600px) and (min-height: 900px) {
+  .action-hand { --hand-card-width: min(300px, calc((100% - 48px) / 4)); }
+  .lobby-skill-deck { grid-template-columns: repeat(2, minmax(0, 310px)) !important; }
+  .character-deck-panel .public-character-deck > div:last-child,
+  .public-character-deck > div:last-child { grid-template-columns: repeat(2, minmax(0, 310px)); }
+  .public-deck-card.gothic-card { max-width: 310px; }
+  .pile-card-grid { grid-template-columns: repeat(2, minmax(0, 310px)); }
+  .pile-review-card.gothic-card { max-width: 310px; }
+  .history-card-detail.gothic-card { width: min(400px, calc(100vw - 56px)); max-width: 400px; }
+  .world-event-choice-card-grid { grid-auto-columns: 310px; }
+}
+
 @media (max-width: 900px) {
   .action-hand { --hand-card-width: min(240px, calc((100% - 48px) / 4)); }
   .character-deck-panel .public-character-deck > div:last-child,
@@ -8922,10 +9051,15 @@ button:disabled :where(span, small, strong, b, p),
 }
 
 @media (min-width: 2200px) and (min-height: 1200px) {
-  .lobby-skill-deck { grid-template-columns: repeat(3, minmax(0, 260px)) !important; }
+  .action-hand { --hand-card-width: min(330px, calc((100% - 48px) / 4)); }
+  .lobby-skill-deck { grid-template-columns: repeat(3, minmax(0, 324px)) !important; }
   .character-deck-panel .public-character-deck > div:last-child,
-  .public-character-deck > div:last-child { grid-template-columns: repeat(3, minmax(0, 260px)); }
-  .pile-card-grid { grid-template-columns: repeat(3, minmax(0, 260px)); }
+  .public-character-deck > div:last-child { grid-template-columns: repeat(3, minmax(0, 324px)); }
+  .public-deck-card.gothic-card { max-width: 324px; }
+  .pile-card-grid { grid-template-columns: repeat(3, minmax(0, 324px)); }
+  .pile-review-card.gothic-card { max-width: 324px; }
+  .history-card-detail.gothic-card { width: min(440px, calc(100vw - 56px)); max-width: 440px; }
+  .world-event-choice-card-grid { grid-auto-columns: 324px; }
 }
 
 @media (max-width: 720px) {

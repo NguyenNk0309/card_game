@@ -5,6 +5,7 @@ import ts from "typescript";
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const cardDescription = read("ui/components/CardDescription.tsx");
 const cardFace = read("ui/components/CardFace.tsx");
+const cardArtworkViewer = read("ui/components/CardArtworkViewer.tsx");
 const cardHoverPreview = read("ui/components/CardHoverPreview.tsx");
 const cardArtwork = read("ui/cardArtwork.ts");
 const cardCatalog = read("backend/game/catalog.ts");
@@ -37,7 +38,10 @@ assert.equal((cardSurfaces.match(/<CardFace\b/g) || []).length, 6, "every produc
 assert(!/\b(?:card|entry\.card|inspectedCard)\.description\b/.test(cardSurfaces), "card surfaces must not bypass the shared card-content pipeline");
 assert.match(cardFace, /<CardDescription card=\{card\}\/>/, "the universal card face must own the shared description component");
 assert.match(cardFace, /defaultRows[\s\S]*describeCardSuccess\(card\)[\s\S]*describeCardFailure\(card\)/, "the universal card face must keep repository-backed success and failure rows");
-assert.match(cardFace, /previewTrigger = "click"[\s\S]*<CardHoverPreview anchorRef=\{faceRef\} artwork=\{artwork\} card=\{card\} pityCostOverride=\{pityCostOverride\} rows=\{rows\} trigger=\{previewTrigger\}\/>/, "universal card faces must default to click-triggered full-content previews");
+assert.match(cardFace, /previewTrigger = "click"[\s\S]*<CardArtworkViewer artwork=\{artwork\} cardName=\{card\.name\} open=\{artworkViewerOpen\} onOpenChange=\{changeArtworkViewer\}\/>[\s\S]*<CardHoverPreview anchorRef=\{faceRef\} artwork=\{artwork\} card=\{card\} pityCostOverride=\{pityCostOverride\} rows=\{rows\} suspended=\{artworkViewerOpen\} trigger=\{previewTrigger\}\/>/, "universal card faces must include an artwork viewer and default to click-triggered full-content previews");
+assert.match(cardArtworkViewer, /onClickCapture=\{openViewer\}[\s\S]*onKeyDownCapture=\{openWithKeyboard\}/, "the View Image control must intercept pointer and keyboard activation before the containing card");
+assert.match(cardArtworkViewer, /event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);[\s\S]*onOpenChange\(true\)/, "opening artwork must not trigger card selection or its detail tooltip");
+assert.match(cardArtworkViewer, /role="dialog"[\s\S]*aria-modal="true"[\s\S]*className="card-artwork-viewer-image" src=\{artwork\.scene\}/, "View Image must open the original illustration in an accessible modal panel");
 assert.match(gameApp, /function HandCardContents[\s\S]*<CardFace card=\{card\} pityCostOverride=\{pityCostOverride\} previewTrigger="hover"\/>/, "cards in hand must retain hover-triggered full-content previews");
 assert.match(cardHoverPreview, /trigger === "hover"[\s\S]*addEventListener\("mouseenter", show\)[\s\S]*addEventListener\("mouseleave", hide\)[\s\S]*addEventListener\("click", toggle\)/, "only hover-mode cards should use mouse entry while other cards toggle their preview on click");
 assert.match(cardHoverPreview, /document\.addEventListener\("click", closeOutside\)[\s\S]*document\.addEventListener\("keydown", closeWithEscape\)/, "click-triggered card previews must close on outside click or Escape");
@@ -57,6 +61,9 @@ assert(!truncatedEffectText.includes("…"), "truncation must never use the sing
 assert.match(styles, /\.gothic-card\s*\{[\s\S]*aspect-ratio:\s*2\s*\/\s*3;/, "all cards must reserve the approved 2:3 aspect ratio");
 assert.match(styles, /\.game-shell \.gothic-card \.card-description\s*\{[\s\S]*height:\s*4\.88em\s*!important;[\s\S]*overflow:\s*hidden\s*!important;/, "card descriptions must remain a fixed four-line box without scrolling");
 assert.match(styles, /\.gothic-card-result-text\s*\{[\s\S]*height:\s*2\.44em;[\s\S]*overflow:\s*hidden;/, "result text must remain a fixed two-line box");
+assert.match(styles, /\.gothic-card-results\s*\{[\s\S]*top:\s*76\.8%;[\s\S]*height:\s*15%;/, "card result rows must end before the dedicated image-button footer");
+assert.match(styles, /\.gothic-card-view-image\s*\{[\s\S]*top:\s*92\.4%;[\s\S]*left:\s*3\.4%;[\s\S]*width:\s*93\.2%;[\s\S]*height:\s*5\.3%;[\s\S]*padding:\s*3px 2cqw;[\s\S]*white-space:\s*nowrap;[\s\S]*pointer-events:\s*auto;[\s\S]*cursor:\s*pointer;/, "the View Image control must occupy the full inner-card width with three-pixel vertical padding in its own single-line footer below every card result");
+assert.match(styles, /\.card-artwork-viewer-image\s*\{[\s\S]*max-width:\s*100%;[\s\S]*max-height:\s*calc\(100dvh - 142px\);[\s\S]*object-fit:\s*contain;/, "the artwork panel must show the complete original illustration within the viewport");
 assert.match(styles, /\.game-shell \.gothic-card \.card-description\s*\{[\s\S]*display:\s*flex\s*!important;[\s\S]*align-items:\s*center;/, "short main descriptions must be vertically centered in the fixed four-line box");
 assert.match(styles, /\.gothic-card-result-text\s*\{[\s\S]*display:\s*flex;[\s\S]*align-items:\s*center;/, "short success and failure copy must be vertically centered in its fixed two-line box");
 assert(!/gothic-card-sprite-crop|gothic-card-targets/.test(cardFace), "special-card artwork must render as one integrated scene rather than layered sprites");
@@ -73,10 +80,11 @@ assert.match(styles, /\.action-hand\s*\{[\s\S]*padding:\s*20px 10px 22px;/, "the
 assert.match(styles, /\.action-hand > \.gothic-card\.selected,\s*\.action-hand > \.gothic-card\.selected:not\(:disabled\):hover,\s*\.world-event-choice-card\.gothic-card\.selected,\s*\.world-event-choice-card\.gothic-card\.selected:hover:not\(:disabled\)\s*\{[\s\S]*transform:\s*none\s*!important;[\s\S]*box-shadow:\s*none\s*!important;/, "hand and Phase 3 selection must not move, scale, or cast a neighboring-card shadow");
 assert.match(styles, /\.card-motion\.hand-from-zone\.gothic-card\.selected\s*\{[\s\S]*outline:\s*0\s*!important;[\s\S]*box-shadow:\s*none\s*!important;/, "an outgoing selected card must suppress the obsolete gold highlight without overriding its discard animation transform");
 assert.match(styles, /\.action-hand > \.gothic-card\.selected::before,\s*\.world-event-choice-card\.gothic-card\.selected::before,\s*\.card-motion\.hand-from-zone\.gothic-card\.selected::before\s*\{[\s\S]*inset:\s*\.5cqw;[\s\S]*pointer-events:\s*none;[\s\S]*border:\s*1\.4cqw solid #e14b3f;/, "hand, Phase 3, and outgoing selected cards must share the thick red outer-edge highlight without affecting layout");
-assert.match(styles, /\.lobby-skill-deck\s*\{[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 282px\)\)\s*!important;/, "1080p card galleries must use two larger adaptive columns");
+assert.match(styles, /\.lobby-skill-deck\s*\{[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 282px\)\)\s*!important;/, "baseline desktop card galleries must keep two adaptive columns");
+assert.match(styles, /@media \(min-width: 1600px\) and \(min-height: 900px\)\s*\{[\s\S]*--hand-card-width:\s*min\(300px,[\s\S]*\.lobby-skill-deck\s*\{\s*grid-template-columns:\s*repeat\(2, minmax\(0, 310px\)\)/, "1080p layouts must render taller 300px hand cards and larger 310px gallery cards");
 assert.match(styles, /\.lobby-skill-deck\s*\{[\s\S]*padding-block:\s*18px 22px;[\s\S]*scroll-padding-block:\s*18px 22px;/, "card-preview galleries must reserve top and bottom hover room");
 assert.match(styles, /\.character-deck-panel \.public-character-deck > div:last-child\s*\{[\s\S]*padding-top:\s*24px;[\s\S]*scroll-padding-top:\s*24px;/, "the in-battle character-deck preview must reserve top clearance for card hover and focus effects");
-assert.match(styles, /@media \(min-width: 2200px\) and \(min-height: 1200px\)\s*\{[\s\S]*\.lobby-skill-deck\s*\{\s*grid-template-columns:\s*repeat\(3, minmax\(0, 260px\)\)/, "1440p card galleries must use three larger columns");
+assert.match(styles, /@media \(min-width: 2200px\) and \(min-height: 1200px\)\s*\{[\s\S]*--hand-card-width:\s*min\(330px,[\s\S]*\.lobby-skill-deck\s*\{\s*grid-template-columns:\s*repeat\(3, minmax\(0, 324px\)\)/, "1440p layouts must render taller 330px hand cards and three larger 324px gallery columns");
 assert.match(styles, /\.history-card-detail\.gothic-card\s*\{[\s\S]*width:\s*min\(360px,/, "inspected history cards must use the larger preview size");
 assert.match(styles, /\.gothic-card:disabled \.gothic-card-face\s*\{[\s\S]*grayscale/, "disabled cards should retain a clear unavailable state");
 assert.deepEqual(

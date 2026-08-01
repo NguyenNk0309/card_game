@@ -19,6 +19,7 @@ type Props = {
   card: ActionCard;
   pityCostOverride?: number;
   rows: CardResultRow[];
+  suspended: boolean;
   trigger: "click" | "hover";
 };
 
@@ -31,11 +32,15 @@ type PreviewPosition = {
 
 const hiddenPosition: PreviewPosition = { left: -10000, placement: "top", ready: false, top: -10000 };
 
-export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, rows, trigger }: Props) {
+export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, rows, suspended, trigger }: Props) {
   const [open, setOpen] = useState(false);
   const [position, setPosition] = useState<PreviewPosition>(hiddenPosition);
   const tooltipRef = useRef<HTMLElement>(null);
   const tooltipId = useId();
+
+  useEffect(() => {
+    if (suspended) setOpen(false);
+  }, [suspended]);
 
   useEffect(() => {
     const anchor = anchorRef.current?.closest<HTMLElement>(".gothic-card");

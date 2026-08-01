@@ -1,0 +1,86 @@
+"use client";
+
+import { Eye, X } from "lucide-react";
+import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useId, useRef } from "react";
+import { createPortal } from "react-dom";
+import type { CardArtwork } from "../cardArtwork";
+
+type Props = {
+  artwork: CardArtwork;
+  cardName: string;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+};
+
+export function CardArtworkViewer({ artwork, cardName, onOpenChange, open }: Props) {
+  const titleId = useId();
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusFrame = window.requestAnimationFrame(() => closeRef.current?.focus({ preventScroll: true }));
+    const closeWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onOpenChange(false);
+    };
+    document.addEventListener("keydown", closeWithEscape);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", closeWithEscape);
+      if (previouslyFocused?.isConnected) previouslyFocused.focus({ preventScroll: true });
+    };
+  }, [onOpenChange, open]);
+
+  const openViewer = (event: ReactMouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (artwork.scene) onOpenChange(true);
+  };
+  const openWithKeyboard = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (artwork.scene) onOpenChange(true);
+  };
+  const keepFocusInViewer = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key !== "Tab") return;
+    event.preventDefault();
+    closeRef.current?.focus({ preventScroll: true });
+  };
+
+  const portalRoot = open && artwork.scene && typeof document !== "undefined" ? document.body : null;
+
+  return <>
+    <span
+      ref={triggerRef}
+      className="gothic-card-view-image"
+      role="button"
+      tabIndex={artwork.scene ? 0 : -1}
+      aria-disabled={!artwork.scene}
+      aria-haspopup="dialog"
+      aria-label={`View full illustration for ${cardName}`}
+      onClickCapture={openViewer}
+      onKeyDownCapture={openWithKeyboard}
+    ><Eye aria-hidden="true"/><span>View Image</span></span>
+    {portalRoot && createPortal(<div className="card-artwork-viewer-backdrop" onClick={() => onOpenChange(false)}>
+      <section
+        className="card-artwork-viewer-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={keepFocusInViewer}
+      >
+        <header>
+          <div><small>FULL ILLUSTRATION</small><h2 id={titleId}>{cardName}</h2></div>
+          <button ref={closeRef} type="button" className="card-artwork-viewer-close" onClick={() => onOpenChange(false)} aria-label="Close full illustration"><X/></button>
+        </header>
+        <div className="card-artwork-viewer-frame">
+          <img className="card-artwork-viewer-image" src={artwork.scene} alt={artwork.alt} decoding="async" draggable={false}/>
+        </div>
+      </section>
+    </div>, portalRoot)}
+  </>;
+}
