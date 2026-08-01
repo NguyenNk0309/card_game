@@ -62,9 +62,9 @@ const expectedSpecialBalance = {
   "kr-break": { pityCost: 6, failureEffect: "enemy-shield", failureValue: 2 },
   "im-command": { pityCost: 6, failureEffect: "team-damage", failureValue: 1 },
   "im-focus": { pityCost: 6, failureEffect: "team-damage", failureValue: 1 },
-  "im-purge": { pityCost: 7, failureEffect: "enemy-shield", failureValue: 2 },
+  "im-purge": { pityCost: 8, failureEffect: "enemy-shield", failureValue: 2 },
   "df-none": { pityCost: 7, failureEffect: "self-damage", failureValue: 2 },
-  "df-cleave": { pityCost: 7, failureEffect: "self-damage", failureValue: 3 },
+  "df-cleave": { pityCost: 7, failureEffect: "self-damage", failureValue: 2 },
   "df-frenzy": { pityCost: 6, failureEffect: "self-damage", failureValue: 2 }
 };
 const expectedCommonPityCosts = { slash: 3, heavy: 4, brace: 3, "second-wind": 4, "empty-gesture": 0, "broken-plan": 0, "lost-momentum": 0 };
@@ -504,6 +504,7 @@ const daganParty = [dagan, daganTarget];
 const cleave = dagan.skillDeck.find((card) => card.id === "df-cleave");
 assert.equal(cleave.value, 4, "Cleave has 4 base damage");
 assert.equal(cleave.pityCost, 7, "Cleave's pity cost reflects its reduced damage tier");
+assert.equal(cleave.failureValue, 2, "Cleave's failure backlash reflects its reduced damage tier");
 assert.match(cleave.description, /4 damage.*5 while Dagan is at half HP/i, "Cleave describes its base and Pain Makes Power damage");
 const cleaveHealthyGame = engine.createInitialGame(daganParty, engine.createAdventure("CLEAVE-HEALTHY"), 30);
 cleaveHealthyGame.turnOrder = [dagan.id, daganTarget.id];
@@ -934,6 +935,7 @@ const commanderPurge = engine.createInitialGame([commander, diceEnemy], engine.c
 commanderPurge.turnOrder = [commander.id, diceEnemy.id];
 const purgeCard = commander.skillDeck.find((card) => card.supportType === "purge-card");
 assert.equal(purgeCard.target, "enemy", "Tactical Purge only exposes living enemies as targets");
+assert.equal(purgeCard.pityCost, 8, "unlimited Tactical Purge uses the highest control-effect pity tier");
 assert.match(purgeCard.description, /random card.*hand.*graveyard.*2 phases.*draw pile/i, "Tactical Purge's description explains its complete updated effect");
 assert.doesNotMatch(purgeCard.description, /third use|Ione's graveyard/i, "Tactical Purge no longer describes a use limit");
 const purgedEnemyCards = diceEnemy.skillDeck.filter((card) => card.unique);
