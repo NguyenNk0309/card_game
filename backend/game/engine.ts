@@ -432,13 +432,13 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     } else if (card.effect === "damage" || card.effect === "aoe") {
       let passive = getThorneValePassiveDamageBonus(actor, card, actorState);
       if (actor.hero.classId === "mage" && card.effect === "aoe") passive += 1;
-      if (actor.hero.classId === "duelist" && actorState.shield === 0) passive += 1;
       if (actor.hero.classId === "berserker" && actorState.hp <= actorState.maxHp / 2) passive += 1;
-      const power = card.value + actorState.attackBuff + passive;
       const ignoresShield = Boolean(card.ignoresShield || actor.hero.classId === "assassin");
       const reports: string[] = [];
       for (const target of targets) {
         const state = states[target.id];
+        const targetPassive = actor.hero.name === "Kael Rook" && state.shield === 0 ? 2 : 0;
+        const power = card.value + actorState.attackBuff + passive + targetPassive;
         const blocked = ignoresShield ? 0 : Math.min(state.shield, power);
         removeTimedEffectAmount(state, "shield", blocked);
         const damage = power - blocked;
