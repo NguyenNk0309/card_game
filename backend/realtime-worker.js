@@ -13,6 +13,7 @@ import {
 } from './world-event-engine.mjs';
 import { createRoomId, isValidRoomId, normalizeRoomId, roomExpiresAt, roomIsExpired } from '../shared/roomId.mjs';
 import { sanitizeCommunicationGame } from '../shared/viewpoint.mjs';
+import { calculateRuntimePityCost, isTestModeEnabled } from '../shared/pityCost.mjs';
 
 const LEGACY_ROOM_ID = 'shared-room';
 const emptyRoom = (roomId = '', createdAt = 0) => ({
@@ -25,7 +26,7 @@ const emptyRoom = (roomId = '', createdAt = 0) => ({
   revision: 0,
   phaseFiveOriginalCards: {}
 });
-const defaultContext = { room: emptyRoom(LEGACY_ROOM_ID), peers: new Map(), storage: null };
+const defaultContext = { room: emptyRoom(LEGACY_ROOM_ID), peers: new Map(), storage: null, testMode: false };
 let activeContext = defaultContext;
 let room = defaultContext.room;
 let peers = defaultContext.peers;
@@ -468,16 +469,7 @@ function triggerSableRevives(game) {
 }
 
 function cardPityCost(card) {
-  const stored = Number(card?.pityCost);
-  if (Number.isFinite(stored) && stored >= 0) return Math.min(8, Math.floor(stored));
-  if (card?.effect === 'none') return 0;
-  if (!card?.unique) return Math.min(5, Math.max(3, Number(card?.value) || 0));
-  if (card?.effect === 'damage') return Math.min(8, 2 + (Number(card.value) || 0) + (card.ignoresShield ? 1 : 0));
-  if (card?.effect === 'aoe') return Math.min(8, 3 + (Number(card.value) || 0) + (card.ignoresShield ? 1 : 0));
-  if (card?.effect === 'heal' || card?.effect === 'guard') return Math.min(7, 2 + (Number(card.value) || 0));
-  if (['revive', 'skip-enemy', 'steal-card'].includes(card?.supportType || '')) return 7;
-  if (['purge-card', 'advance-ally', 'dispel-enemy'].includes(card?.supportType || '')) return 6;
-  return Math.min(6, 3 + (Number(card?.value) || 0));
+  return calculateRuntimePityCost(card, activeContext.testMode);
 }
 
 function reconcilePityPoints(previousGame, incomingGame, actor) {
@@ -501,7 +493,7 @@ function reconcilePityPoints(previousGame, incomingGame, actor) {
     incomingState.pityPoints = before - cost;
     outcome.success = true;
   } else {
-    if (favorableOmenActive) outcome.success = true;
+    if (favorableOmenActive || activeContext.testMode) outcome.success = true;
     incomingState.pityPoints = before + (outcome.success ? 0 : 1);
   }
   if (outcome.resolution === 'pity' || cost === 0) outcome.pityCost = cost;
@@ -1242,8 +1234,8 @@ function proxyRoomRequest(request, origin) {
 }
 
 export class GameRoom {
-  constructor(state) {
-    this.context = { room: emptyRoom(), peers: new Map(), storage: state.storage };
+  constructor(state, env) {
+    this.context = { room: emptyRoom(), peers: new Map(), storage: state.storage, testMode: isTestModeEnabled(env?.TEST_MODE) };
     this.ready = state.blockConcurrencyWhile(async () => {
       const stored = await state.storage.get('shared-room');
       if (stored && Array.isArray(stored.players)) {
@@ -1315,6 +1307,7 @@ export default {
       }
       if (env.REALTIME_ORIGIN) return proxyRoomRequest(request, env.REALTIME_ORIGIN);
       if (roomId !== LEGACY_ROOM_ID) return json({ error: 'Room service unavailable.' }, 503);
+      defaultContext.testMode = isTestModeEnabled(env.TEST_MODE);
       return serialized(defaultContext, () => handleRoomRequest(request));
     }
 

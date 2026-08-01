@@ -281,6 +281,7 @@ export type SyncedGameState = {
   worldEvent: WorldEventOutcome | null;
   worldEventHistory: WorldEventOutcome[];
   pendingWorldEvent: PendingWorldEvent | null;
+  worldEventPlan?: Partial<Record<number, WorldEventKey>>;
   turnOrder?: string[];
   roundNumber?: number;
   roundOrder?: string[];

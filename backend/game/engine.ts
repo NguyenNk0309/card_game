@@ -1,4 +1,5 @@
 import { ACTION_CARDS, calculatePityCost, CHARACTER_SKILL_CARDS, EVENTS, HERO_TEMPLATES, REALMS, STORY_BEATS } from "./catalog";
+import { calculateRuntimePityCost, isTestModeEnabled } from "@/shared/pityCost.mjs";
 import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, Hero, PlayerLifeEvent, PlayerRunState, PlayerSession, SyncedGameState, TeamId, TimedEffectKind } from "@/shared/types";
 
 export function randomIntInclusive(minimum: number, maximum: number) {
@@ -357,7 +358,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const actorIndex = players.findIndex((player) => player.id === actor?.id);
   const actorState = actor && game.playerStates[actor.id];
   const card = players.flatMap((player) => player.skillDeck).find((item) => item.id === cardId);
-  const pityCost = card ? (hasFavorableOmen(actorState) ? 0 : calculatePityCost(card)) : 0;
+  const pityCost = card ? calculateRuntimePityCost(card, hasFavorableOmen(actorState) || isTestModeEnabled(process.env.TEST_MODE)) : 0;
   const pityBefore = actorState?.pityPoints ?? 0;
   if (!actor || !actorState || actorState.hp <= 0 || !card || !actorState.hand.includes(card.id) || game.ended || game.pendingWorldEvent || (usePity && pityBefore < pityCost)) return game;
 

@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { createReadStream } from 'node:fs';
+import { createReadStream, readFileSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import next from 'next';
@@ -19,6 +19,26 @@ import {
 } from './world-event-engine.mjs';
 import { createRoomId, isValidRoomId, normalizeRoomId, roomExpiresAt, roomIsExpired } from '../shared/roomId.mjs';
 import { sanitizeCommunicationGame } from '../shared/viewpoint.mjs';
+import { calculateRuntimePityCost, isTestModeEnabled } from '../shared/pityCost.mjs';
+
+function testModeFromEnvironment() {
+  if (process.env.TEST_MODE !== undefined) return isTestModeEnabled(process.env.TEST_MODE);
+  try {
+    const source = readFileSync(new URL('../.env', import.meta.url), 'utf8');
+    const assignment = source.split(/\r?\n/).reverse().find((line) => /^\s*(?:export\s+)?TEST_MODE\s*=/.test(line));
+    if (!assignment) return false;
+    let value = assignment.replace(/^\s*(?:export\s+)?TEST_MODE\s*=\s*/, '').trim();
+    const quoted = value.match(/^(['"])(.*?)\1(?:\s+#.*)?$/);
+    if (quoted) value = quoted[2];
+    else value = value.replace(/\s+#.*$/, '').trim();
+    return isTestModeEnabled(value);
+  } catch (error) {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+const testMode = testModeFromEnvironment();
 
 const dev = process.argv.includes('--dev');
 const hostname = process.env.HOSTNAME || '127.0.0.1';
@@ -543,16 +563,7 @@ function triggerSableRevives(game) {
 }
 
 function cardPityCost(card) {
-  const stored = Number(card?.pityCost);
-  if (Number.isFinite(stored) && stored >= 0) return Math.min(8, Math.floor(stored));
-  if (card?.effect === 'none') return 0;
-  if (!card?.unique) return Math.min(5, Math.max(3, Number(card?.value) || 0));
-  if (card?.effect === 'damage') return Math.min(8, 2 + (Number(card.value) || 0) + (card.ignoresShield ? 1 : 0));
-  if (card?.effect === 'aoe') return Math.min(8, 3 + (Number(card.value) || 0) + (card.ignoresShield ? 1 : 0));
-  if (card?.effect === 'heal' || card?.effect === 'guard') return Math.min(7, 2 + (Number(card.value) || 0));
-  if (['revive', 'skip-enemy', 'steal-card'].includes(card?.supportType || '')) return 7;
-  if (['purge-card', 'advance-ally', 'dispel-enemy'].includes(card?.supportType || '')) return 6;
-  return Math.min(6, 3 + (Number(card?.value) || 0));
+  return calculateRuntimePityCost(card, testMode);
 }
 
 function reconcilePityPoints(previousGame, incomingGame, actor) {
@@ -576,7 +587,7 @@ function reconcilePityPoints(previousGame, incomingGame, actor) {
     incomingState.pityPoints = before - cost;
     outcome.success = true;
   } else {
-    if (favorableOmenActive) outcome.success = true;
+    if (favorableOmenActive || testMode) outcome.success = true;
     incomingState.pityPoints = before + (outcome.success ? 0 : 1);
   }
   if (outcome.resolution === 'pity' || cost === 0) outcome.pityCost = cost;

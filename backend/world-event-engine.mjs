@@ -1,6 +1,7 @@
 import {
   getWorldEventDefinition,
-  getWorldEventScheduleEntry
+  getWorldEventScheduleEntry,
+  WORLD_EVENT_SCHEDULE
 } from '../shared/worldEvents.mjs';
 
 export const WORLD_EVENT_CHOICE_SECONDS = 60;
@@ -42,6 +43,33 @@ function sample(items, count, options) {
     selected.push(pool.splice(randomInt(options, 0, pool.length - 1), 1)[0]);
   }
   return selected;
+}
+
+function normalizeWorldEventPlan(game) {
+  const source = game?.worldEventPlan && typeof game.worldEventPlan === 'object' ? game.worldEventPlan : {};
+  const plan = {};
+  for (const schedule of WORLD_EVENT_SCHEDULE) {
+    const eventKey = source[schedule.phase];
+    if (schedule.eventKeys.includes(eventKey)) plan[schedule.phase] = eventKey;
+  }
+  for (const event of [...(game?.worldEventHistory || []), game?.worldEvent, game?.pendingWorldEvent].filter(Boolean)) {
+    const schedule = getWorldEventScheduleEntry(event.phase ?? event.turn);
+    if (schedule?.eventKeys.includes(event.eventKey)) plan[schedule.phase] = event.eventKey;
+  }
+  game.worldEventPlan = plan;
+  return plan;
+}
+
+export function ensureWorldEventPlan(game, options = {}) {
+  if (!game) return {};
+  const plan = normalizeWorldEventPlan(game);
+  for (const schedule of WORLD_EVENT_SCHEDULE) {
+    if (!plan[schedule.phase]) {
+      plan[schedule.phase] = schedule.selection === 'fixed' ? schedule.eventKeys[0] : pickRandom(schedule.eventKeys, options);
+    }
+  }
+  game.worldEventPlan = plan;
+  return plan;
 }
 
 const asNumber = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -120,23 +148,28 @@ export function normalizeWorldEventState(game) {
     pending.deadlineAt = asNumber(pending.deadlineAt, pending.startedAt + WORLD_EVENT_CHOICE_SECONDS * 1000);
     pending.results = Array.isArray(pending.results) ? pending.results : [];
   }
+  normalizeWorldEventPlan(game);
   return game;
 }
 
-export function initializeNewBattleWorldEvents(game) {
+export function initializeNewBattleWorldEvents(game, options = {}) {
   if (!game) return game;
   game.worldEvent = null;
   game.worldEventHistory = [];
   game.pendingWorldEvent = null;
+  game.worldEventPlan = {};
+  ensureWorldEventPlan(game, options);
   return game;
 }
 
 export function captureAuthoritativeWorldEventState(game) {
   normalizeWorldEventState(game);
+  ensureWorldEventPlan(game);
   return {
     worldEvent: game.worldEvent ? structuredClone(game.worldEvent) : null,
     worldEventHistory: structuredClone(game.worldEventHistory || []),
     pendingWorldEvent: game.pendingWorldEvent ? structuredClone(game.pendingWorldEvent) : null,
+    worldEventPlan: structuredClone(game.worldEventPlan || {}),
     publicWorldHistoryEntries: structuredClone((game.history || []).filter((entry) => entry?.kind === 'world'))
   };
 }
@@ -146,6 +179,7 @@ export function restoreAuthoritativeWorldEventState(game, captured) {
   game.worldEvent = captured.worldEvent ? structuredClone(captured.worldEvent) : null;
   game.worldEventHistory = structuredClone(captured.worldEventHistory || []);
   game.pendingWorldEvent = captured.pendingWorldEvent ? structuredClone(captured.pendingWorldEvent) : null;
+  game.worldEventPlan = structuredClone(captured.worldEventPlan || {});
   const publicWorldHistoryEntries = structuredClone(captured.publicWorldHistoryEntries || []);
   const authoritativeWorldHistoryIds = new Set(publicWorldHistoryEntries.map((entry) => entry?.id).filter(Boolean));
   const ordinaryHistory = (Array.isArray(game.history) ? game.history : [])
@@ -177,6 +211,7 @@ function sanitizeResolvedEvent(event, viewerId) {
 export function sanitizeWorldEventGame(game, viewerId = '') {
   if (!game) return game;
   normalizeWorldEventState(game);
+  ensureWorldEventPlan(game);
   const pending = game.pendingWorldEvent ? { ...game.pendingWorldEvent } : null;
   if (pending) delete pending.results;
   return {
@@ -886,7 +921,11 @@ export function triggerWorldEventAfterPhase(game, players, previousCompletedPhas
   const alreadyResolved = (game.worldEventHistory || []).some((event) => event.phase === upcomingPhase)
     || game.worldEvent?.phase === upcomingPhase;
   if (alreadyResolved) return { triggered: false, status: 'none', reason: 'already-resolved', event: game.worldEvent };
-  const eventKey = schedule.selection === 'fixed' ? schedule.eventKeys[0] : pickRandom(schedule.eventKeys, options);
+  const plannedEventKey = game.worldEventPlan?.[upcomingPhase];
+  const eventKey = schedule.eventKeys.includes(plannedEventKey)
+    ? plannedEventKey
+    : schedule.selection === 'fixed' ? schedule.eventKeys[0] : pickRandom(schedule.eventKeys, options);
+  game.worldEventPlan = { ...(game.worldEventPlan || {}), [upcomingPhase]: eventKey };
   const event = resolveWorldEventByKey(game, players, eventKey, { ...options, phase: upcomingPhase });
   return { triggered: true, status: game.pendingWorldEvent ? 'pending' : 'resolved', event };
 }

@@ -3,6 +3,7 @@ import WebSocket from "ws";
 
 const roomUrl = process.env.ROOM_URL || "ws://127.0.0.1:3102/ws";
 const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+const testMode = String(process.env.TEST_MODE ?? "").trim().toLowerCase() === "true";
 
 function testSkillDeck(id) {
   const special = [
@@ -454,8 +455,15 @@ try {
   const [pendingFirst, pendingSecond] = await Promise.all([pendingFirstPromise, pendingSecondPromise]);
   const pendingEventId = pendingFirst.game.pendingWorldEvent.id;
   assert.equal(pendingFirst.game.completedPhases, 2, "phase 2 completes before the phase-3 World Event begins");
-  assert.equal(pendingFirst.game.playerStates[firstId].hp, tributeStartedFirst.game.playerStates[firstId].hp - 2, "the realtime authority applies printed failure backlash even when the client snapshot leaves HP unchanged");
-  assert.match(pendingFirst.game.outcome.failureDetail, /took 2 backlash damage/, "the realtime authority publishes the reconciled failure impact");
+  if (testMode) {
+    assert.equal(pendingFirst.game.outcome.success, true, "TEST_MODE makes the zero-cost card automatically succeed at the realtime authority");
+    assert.equal(pendingFirst.game.outcome.pityCost, 0, "the realtime authority reports zero pity cost in TEST_MODE");
+    assert.equal(pendingFirst.game.playerStates[firstId].hp, tributeStartedFirst.game.playerStates[firstId].hp, "an automatic test-mode success does not apply failure backlash");
+    assert.equal(pendingFirst.game.outcome.failureDetail, undefined, "an automatic test-mode success has no failure impact");
+  } else {
+    assert.equal(pendingFirst.game.playerStates[firstId].hp, tributeStartedFirst.game.playerStates[firstId].hp - 2, "the realtime authority applies printed failure backlash even when the client snapshot leaves HP unchanged");
+    assert.match(pendingFirst.game.outcome.failureDetail, /took 2 backlash damage/, "the realtime authority publishes the reconciled failure impact");
+  }
   assert.equal(pendingFirst.game.pendingWorldEvent.phase, 3);
   assert.equal(pendingFirst.game.pendingWorldEvent.title, "Shattered Tribute");
   assert.deepEqual(new Set(pendingFirst.game.pendingWorldEvent.requiredPlayerIds), new Set([firstId, secondId]), "every living player is required to submit");

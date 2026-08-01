@@ -85,6 +85,8 @@ const EXPECTED_KEYS = [
   assert.match(guideSource, /6 · World Events occur before phases 3, 7, 12, 17, 22, and 27\.[\s\S]*7 · Eliminate the enemy team, or lead in HP after phase 30\./, "World Events are guidance 6 and victory is guidance 7");
   assert.doesNotMatch(guideSource, /<article><strong>[^<]+<\/strong><p>|WorldEventLibrary|World Event system/, "guidance uses one-sentence headers without World Event detail");
   assert.doesNotMatch(gameAppSource, /guide-world-event-library|tutorial-world-event-library/, "guidance surfaces do not embed the World Event library");
+  assert.doesNotMatch(gameAppSource, /getWorldEventsForPhase|possibleEventDetails/, "phase tooltips must not list every possible World Event");
+  assert.match(gameAppSource, /worldEventPlan\?\.\[phase\][\s\S]*plannedDefinition[\s\S]*plannedDefinition\.title[\s\S]*plannedDefinition\.fullDescription/, "phase tooltips show the one World Event planned for the current battle");
 }
 
 const makeCard = (ownerId, suffix, { unique = false, name = suffix } = {}) => ({
@@ -281,9 +283,11 @@ const fourPlayers = [veilFast, emberFast, veilSlow, emberSlow];
   ];
 
   const captured = worldEventEngine.captureAuthoritativeWorldEventState(legacy);
+  const capturedPlan = structuredClone(captured.worldEventPlan);
   legacy.worldEvent = null;
   legacy.worldEventHistory = [];
   legacy.pendingWorldEvent = { id: "forged" };
+  legacy.worldEventPlan = { 27: "sudden-death" };
   legacy.history = [
     { id: "normal-before", kind: "damage", createdAt: 100 },
     { id: "forged-world-history", kind: "world", createdAt: 150 },
@@ -292,12 +296,14 @@ const fourPlayers = [veilFast, emberFast, veilSlow, emberSlow];
   worldEventEngine.restoreAuthoritativeWorldEventState(legacy, captured);
   assert.equal(legacy.worldEvent.id, "legacy-world", "captured authority restores the current event");
   assert.equal(legacy.pendingWorldEvent, null, "captured authority ignores a forged pending event");
+  assert.deepEqual(legacy.worldEventPlan, capturedPlan, "captured authority ignores a forged World Event plan");
   assert.deepEqual(legacy.history.map((entry) => entry.id), ["normal-before", "authoritative-world-history", "normal-after"], "captured authority preserves normal history while restoring only server-owned World Event entries");
 
-  worldEventEngine.initializeNewBattleWorldEvents(legacy);
+  worldEventEngine.initializeNewBattleWorldEvents(legacy, { randomInt: minimumRandomInt });
   assert.equal(legacy.worldEvent, null);
   assert.deepEqual(legacy.worldEventHistory, []);
   assert.equal(legacy.pendingWorldEvent, null);
+  assert.deepEqual(legacy.worldEventPlan, Object.fromEntries(WORLD_EVENT_SCHEDULE.map((entry) => [entry.phase, entry.eventKeys[0]])), "a new battle preselects exactly one authoritative event for every scheduled phase");
 }
 
 {
@@ -788,6 +794,15 @@ const fourPlayers = [veilFast, emberFast, veilSlow, emberSlow];
   const result = worldEventEngine.triggerWorldEventAfterPhase(game, players, 5, 6, eventOptions({ randomInt: (_minimum, maximum) => maximum }));
   assert.equal(result.triggered, true);
   assert.equal(game.worldEvent.eventKey, "unstable-wards", "injected maximum randomness can select the final event in a random phase pool");
+}
+
+{
+  const players = [veilFast, emberFast];
+  const game = makeGame(players, { completedPhases: 6 });
+  worldEventEngine.initializeNewBattleWorldEvents(game, { randomInt: minimumRandomInt });
+  const result = worldEventEngine.triggerWorldEventAfterPhase(game, players, 5, 6, eventOptions({ randomInt: (_minimum, maximum) => maximum }));
+  assert.equal(result.triggered, true);
+  assert.equal(game.worldEvent.eventKey, "shifting-arsenal", "the event that resolves must match the one shown in the battle's phase tooltip plan");
 }
 
 {

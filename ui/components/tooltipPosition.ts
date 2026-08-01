@@ -1,4 +1,4 @@
-type AnchorRect = Pick<DOMRect, "right" | "top" | "height">;
+type AnchorRect = Pick<DOMRect, "left" | "right" | "top" | "height">;
 type TooltipRect = Pick<DOMRect, "width" | "height">;
 
 type CardAnchorRect = Pick<DOMRect, "left" | "right" | "top" | "width" | "height">;
@@ -10,11 +10,14 @@ export function fitTooltipToViewport(
   gutter = 12,
   offset = 9
 ) {
-  const preferredLeft = anchor.right + offset;
+  const fitsRight = anchor.right + offset + tooltip.width <= viewport.width - gutter;
+  const fitsLeft = anchor.left - offset - tooltip.width >= gutter;
+  const placement: "left" | "right" = fitsRight || !fitsLeft ? "right" : "left";
+  const preferredLeft = placement === "right" ? anchor.right + offset : anchor.left - tooltip.width - offset;
   const left = Math.min(Math.max(gutter, preferredLeft), Math.max(gutter, viewport.width - tooltip.width - gutter));
   const preferredTop = anchor.top + anchor.height / 2 - tooltip.height / 2;
   const top = Math.min(Math.max(gutter, preferredTop), Math.max(gutter, viewport.height - tooltip.height - gutter));
-  return { left, top };
+  return { left, placement, top };
 }
 
 export function fitCardTooltipToViewport(

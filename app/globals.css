@@ -3100,7 +3100,7 @@ button:focus-visible {
   margin-bottom: 18px;
 }
 
-.resolution-chips span {
+.resolution-chips > span {
   padding: 6px 9px;
   color: #cbd4d0;
   background: rgba(255, 255, 255, 0.045);
@@ -3108,6 +3108,14 @@ button:focus-visible {
   font-size: 11px;
   font-weight: 800;
   text-transform: capitalize;
+}
+
+.resolution-chips > span .inline-player-name {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  line-height: inherit;
 }
 
 .resolution-equation {
@@ -4170,13 +4178,22 @@ button:focus-visible {
   transition: opacity 140ms ease, transform 140ms ease, visibility 140ms ease;
 }
 
-.phase-event-tooltip::before {
-  content: "";
+.tooltip-arrow {
+  position: fixed;
+  z-index: 1001;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  filter: drop-shadow(2px 2px 0 #000);
+}
+
+.phase-event-tooltip > .phase-tooltip-arrow {
   position: absolute;
+  z-index: 1;
   left: 50%;
   bottom: 100%;
   border: 6px solid transparent;
-  border-bottom-color: rgba(222, 88, 70, 0.72);
+  border-bottom-color: #d94737;
   transform: translateX(-50%);
 }
 
@@ -6643,6 +6660,20 @@ textarea::placeholder { color: #716b61; }
   box-shadow: 4px 4px 0 #000;
 }
 
+.roster-tooltip-arrow.placement-right {
+  border-top: 7px solid transparent;
+  border-right: 9px solid #8b6b35;
+  border-bottom: 7px solid transparent;
+  transform: translateY(-50%);
+}
+
+.roster-tooltip-arrow.placement-left {
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-left: 9px solid #8b6b35;
+  transform: translateY(-50%);
+}
+
 .active-effects-strip {
   border: 2px solid #4a4037;
   background: #0d0c10;
@@ -6914,7 +6945,7 @@ textarea::placeholder { color: #716b61; }
 .resolution-metrics,
 .resolution-pity,
 .automatic-success-notice,
-.resolution-chips span,
+.resolution-chips > span,
 .world-event-private-result {
   border: 2px solid #504238;
   background:
@@ -6924,6 +6955,7 @@ textarea::placeholder { color: #716b61; }
 }
 
 .resolution-verdict {
+  padding: 5px 10px 6px;
   border: 2px solid currentColor;
   background: #0c0b0e;
   box-shadow: 3px 3px 0 #000;
@@ -7364,6 +7396,20 @@ button:disabled :where(span, small, strong, b, p),
 .inline-player-name,
 .history-player-name {
   color: var(--player-name-color, var(--pixel-text-cyan)) !important;
+}
+
+.history-card-link {
+  font-size: 1em !important;
+  line-height: inherit !important;
+}
+
+.resolution-content h2 .history-card-link {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+  letter-spacing: inherit !important;
+  vertical-align: baseline;
 }
 
 .pity-button,
@@ -8737,11 +8783,31 @@ button:disabled :where(span, small, strong, b, p),
   clip-path: polygon(0 8px, 8px 8px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 8px), 0 calc(100% - 8px));
 }
 
+.card-tooltip-arrow { --card-tooltip-accent: #d7ab54; }
 .card-hover-tooltip.effect-damage,
-.card-hover-tooltip.effect-aoe { --card-tooltip-accent: #d96842; }
-.card-hover-tooltip.effect-heal { --card-tooltip-accent: #71bd80; }
-.card-hover-tooltip.effect-guard { --card-tooltip-accent: #6da8cf; }
-.card-hover-tooltip.effect-support { --card-tooltip-accent: #a7abb0; }
+.card-hover-tooltip.effect-aoe,
+.card-tooltip-arrow.effect-damage,
+.card-tooltip-arrow.effect-aoe { --card-tooltip-accent: #d96842; }
+.card-hover-tooltip.effect-heal,
+.card-tooltip-arrow.effect-heal { --card-tooltip-accent: #71bd80; }
+.card-hover-tooltip.effect-guard,
+.card-tooltip-arrow.effect-guard { --card-tooltip-accent: #6da8cf; }
+.card-hover-tooltip.effect-support,
+.card-tooltip-arrow.effect-support { --card-tooltip-accent: #a7abb0; }
+
+.card-tooltip-arrow.placement-top {
+  border-top: 10px solid var(--card-tooltip-accent);
+  border-right: 9px solid transparent;
+  border-left: 9px solid transparent;
+  transform: translateX(-50%);
+}
+
+.card-tooltip-arrow.placement-right {
+  border-top: 9px solid transparent;
+  border-right: 10px solid var(--card-tooltip-accent);
+  border-bottom: 9px solid transparent;
+  transform: translate(-100%, -50%);
+}
 
 .card-hover-tooltip::after,
 .card-hover-tooltip-art {

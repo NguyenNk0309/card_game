@@ -17,7 +17,7 @@ type StatusPresentation = ReturnType<typeof getStatusPresentations>[number];
 function RosterEffect({ buff, icon }: { buff: StatusPresentation; icon: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
-  const [position, setPosition] = useState({ left: 12, top: 12 });
+  const [position, setPosition] = useState({ arrowLeft: 12, arrowTop: 12, left: 12, placement: "right" as "left" | "right", ready: false, top: 12 });
   const anchorRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLSpanElement>(null);
   const tooltipId = useId();
@@ -32,7 +32,14 @@ function RosterEffect({ buff, icon }: { buff: StatusPresentation; icon: React.Re
       const anchor = anchorRef.current?.getBoundingClientRect();
       const tooltip = tooltipRef.current?.getBoundingClientRect();
       if (!anchor || !tooltip) return;
-      setPosition(fitTooltipToViewport(anchor, tooltip, { width: window.innerWidth, height: window.innerHeight }));
+      const next = fitTooltipToViewport(anchor, tooltip, { width: window.innerWidth, height: window.innerHeight });
+      const arrowTop = Math.min(Math.max(next.top + 10, anchor.top + anchor.height / 2), next.top + tooltip.height - 10);
+      setPosition({
+        ...next,
+        arrowLeft: next.placement === "right" ? next.left : next.left + tooltip.width,
+        arrowTop,
+        ready: true
+      });
     };
     placeTooltip();
     window.addEventListener("resize", placeTooltip);
@@ -57,18 +64,20 @@ function RosterEffect({ buff, icon }: { buff: StatusPresentation; icon: React.Re
     >
       {icon}<b>{buff.displayValue}</b>
     </span>
-    {open && portalRoot && createPortal(
+    {open && portalRoot && createPortal(<>
       <span
         ref={tooltipRef}
         id={tooltipId}
         className="roster-buff-tooltip is-visible"
         role="tooltip"
-        style={{ left: position.left, top: position.top }}
+        style={{ left: position.left, top: position.top, visibility: position.ready ? "visible" : "hidden" }}
       >
         <strong>{buff.label}</strong>
         <span className={buff.negative ? "negative" : ""}><em>{buff.tooltipValue ?? buff.value}</em>{buff.durationLabel && <><i aria-hidden="true">-</i><b>{buff.durationLabel}</b></>}</span>
         <p>{buff.tooltip}</p>
-      </span>,
+      </span>
+      <span className={`tooltip-arrow roster-tooltip-arrow placement-${position.placement}`} aria-hidden="true" style={{ left: position.arrowLeft, top: position.arrowTop, visibility: position.ready ? "visible" : "hidden" }}/>
+      </>,
       portalRoot
     )}
   </>;

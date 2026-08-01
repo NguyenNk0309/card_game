@@ -10,12 +10,17 @@ const compile = (source, fileName) => ts.transpileModule(source, {
 const catalogSource = await readFile(new URL("../backend/game/catalog.ts", import.meta.url), "utf8");
 const catalogUrl = `data:text/javascript;base64,${Buffer.from(compile(catalogSource, "catalog.ts")).toString("base64")}`;
 const catalog = await import(catalogUrl);
+const pityCostUrl = new URL("../shared/pityCost.mjs", import.meta.url).href;
+const pityCostRules = await import(pityCostUrl);
 const cardRulesSource = await readFile(new URL("../shared/cardRules.ts", import.meta.url), "utf8");
-const cardRules = await import(`data:text/javascript;base64,${Buffer.from(compile(cardRulesSource, "cardRules.ts")).toString("base64")}`);
+const compiledCardRules = compile(cardRulesSource, "cardRules.ts").replace('from "./pityCost.mjs"', `from "${pityCostUrl}"`);
+const cardRules = await import(`data:text/javascript;base64,${Buffer.from(compiledCardRules).toString("base64")}`);
 const diceVisibilitySource = await readFile(new URL("../shared/diceVisibility.ts", import.meta.url), "utf8");
 const diceVisibility = await import(`data:text/javascript;base64,${Buffer.from(compile(diceVisibilitySource, "diceVisibility.ts")).toString("base64")}`);
 const engineSource = await readFile(new URL("../backend/game/engine.ts", import.meta.url), "utf8");
-const compiledEngine = compile(engineSource, "engine.ts").replace('from "./catalog"', `from "${catalogUrl}"`);
+const compiledEngine = compile(engineSource, "engine.ts")
+  .replace('from "./catalog"', `from "${catalogUrl}"`)
+  .replace('from "@/shared/pityCost.mjs"', `from "${pityCostUrl}"`);
 const engine = await import(`data:text/javascript;base64,${Buffer.from(compiledEngine).toString("base64")}`);
 
 const sampledTargets = Array.from({ length: 256 }, () => engine.randomDiceTarget());
@@ -29,6 +34,16 @@ assert(new Set(sampledRolls).size > 1, "d20 sampling must not return a fixed val
 
 const options = engine.getCharacterOptions();
 assert.equal(options.length, 10);
+const everyCard = options.flatMap((option) => option.skillDeck);
+const originalTestMode = process.env.TEST_MODE;
+delete process.env.TEST_MODE;
+assert(everyCard.every((card) => cardRules.getCardPityCost(card) === pityCostRules.calculateRuntimePityCost(card, false)), "an absent TEST_MODE preserves every original pity cost");
+process.env.TEST_MODE = "false";
+assert(everyCard.every((card) => cardRules.getCardPityCost(card) === pityCostRules.calculateRuntimePityCost(card, false)), "TEST_MODE=false preserves every original pity cost");
+process.env.TEST_MODE = "true";
+assert(everyCard.every((card) => cardRules.getCardPityCost(card) === 0), "TEST_MODE=true makes every card's effective pity cost zero");
+assert.equal(pityCostRules.isTestModeEnabled(" TRUE "), true, "TEST_MODE accepts a normalized true value");
+process.env.TEST_MODE = "false";
 assert.equal(cardRules.describeCardFailure(options[0].skillDeck.find((card) => !card.unique)), "No effect.", "common-card failure copy stays concise and grammatical");
 assert.equal(cardRules.describeCardSuccess(options[0].skillDeck.find((card) => card.effect === "none")), "No effect.", "no-effect success copy stays concise and grammatical");
 for (const option of options) {
@@ -133,6 +148,17 @@ assert.equal(engine.createInitialGame([first, second], engine.createAdventure("T
 assert(game.adventure.target >= 8 && game.adventure.target <= 16, "the initial target is randomly selected from the balanced target range");
 
 const attack = first.skillDeck.find((card) => card.effect === "damage");
+process.env.TEST_MODE = "true";
+const testModeGame = engine.createInitialGame([first, second], engine.createAdventure("PITY-TEST-MODE"), 30);
+testModeGame.turnOrder = [first.id, second.id];
+testModeGame.adventure.target = 16;
+testModeGame.playerStates[first.id].hand = [attack.id];
+testModeGame.playerStates[first.id].pityPoints = 4;
+const testModeResult = engine.resolveCardTurn(testModeGame, [first, second], attack.id, second.id, 1);
+assert.equal(testModeResult.outcome.success, true, "TEST_MODE=true makes a normal play automatically succeed at zero pity cost");
+assert.equal(testModeResult.outcome.pityCost, 0, "the test-mode outcome reports zero pity cost");
+assert.equal(testModeResult.playerStates[first.id].pityPoints, 4, "a test-mode card neither spends nor earns pity");
+process.env.TEST_MODE = "false";
 const pityFailureGame = engine.createInitialGame([first, second], engine.createAdventure("PITY-FAIL"), 30);
 pityFailureGame.turnOrder = [first.id, second.id];
 pityFailureGame.adventure.target = 16;
@@ -689,4 +715,7 @@ assert.equal(nextSpeedRound.history.at(-1).phase, 1, "the final turn in a phase 
 assert.equal(nextSpeedRound.turnOrder[0], second.id, "a completed round resets to the fastest living player");
 assert.deepEqual(nextSpeedRound.actedThisRound, []);
 
-console.log("Game-rule test passed: random targets, pity earning/spending, balanced card costs, special-card penalties, support effects, turn order, event history, victory, and defeated-player lockout.");
+if (originalTestMode === undefined) delete process.env.TEST_MODE;
+else process.env.TEST_MODE = originalTestMode;
+
+console.log("Game-rule test passed: TEST_MODE pity overrides, random targets, pity earning/spending, balanced card costs, special-card penalties, support effects, turn order, event history, victory, and defeated-player lockout.");

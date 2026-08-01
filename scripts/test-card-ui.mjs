@@ -32,7 +32,7 @@ const { getCardZoneChanges } = await import(`data:text/javascript;base64,${Buffe
 const compiledTooltipPosition = ts.transpileModule(tooltipPosition, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
 }).outputText;
-const { fitCardTooltipToViewport } = await import(`data:text/javascript;base64,${Buffer.from(compiledTooltipPosition).toString("base64")}`);
+const { fitCardTooltipToViewport, fitTooltipToViewport } = await import(`data:text/javascript;base64,${Buffer.from(compiledTooltipPosition).toString("base64")}`);
 
 const cardSurfaces = [gameApp, lobby, worldEvents].join("\n");
 assert.equal((cardSurfaces.match(/<CardFace\b/g) || []).length, 6, "every production card surface must use the universal card face");
@@ -74,7 +74,14 @@ assert.match(styles, /\.card-hover-tooltip\s*\{[\s\S]*width:\s*min\(460px, calc\
 assert.match(styles, /\.card-hover-tooltip-art\s*\{[\s\S]*background-size:\s*cover;[\s\S]*filter:\s*blur\(11px\) brightness\(\.48\) contrast\(1\.12\)/, "the card illustration must fill and blur behind the hover-preview content");
 assert.match(styles, /\.card-hover-tooltip::after\s*\{[\s\S]*linear-gradient[\s\S]*rgba\(6, 7, 9, \.95\)/, "the hover preview must place a dark contrast wash over its illustration");
 assert.match(styles, /\.gothic-card-action-icon\.effect-support\s*\{\s*color:\s*#a7abb0;\s*\}/, "support-card action icons must use the approved neutral gray on every universal card face");
-assert.match(styles, /\.card-hover-tooltip\.effect-support\s*\{\s*--card-tooltip-accent:\s*#a7abb0;\s*\}/, "support-card hover previews must use gray for their action icon and tooltip border accents");
+assert.match(styles, /\.card-hover-tooltip\.effect-support,\s*\.card-tooltip-arrow\.effect-support\s*\{\s*--card-tooltip-accent:\s*#a7abb0;\s*\}/, "support-card hover previews and arrows must use the approved neutral gray accent");
+assert.match(gameApp, /className="phase-event-tooltip" role="tooltip"><span className="tooltip-arrow phase-tooltip-arrow"/, "World Event tooltips must render the shared trigger arrow");
+assert.match(partyRail, /role="tooltip"[\s\S]*tooltip-arrow roster-tooltip-arrow placement-/, "roster-effect tooltips must render a viewport-aware trigger arrow");
+assert.match(cardHoverPreview, /role="tooltip"[\s\S]*tooltip-arrow card-tooltip-arrow[\s\S]*placement-/, "card-preview tooltips must render a placement-aware trigger arrow");
+assert.match(cardHoverPreview, /const card = anchorRef\.current\?\.closest<HTMLElement>\("\.gothic-card"\);[\s\S]*const anchorRect = anchorRef\.current\.getBoundingClientRect\(\);[\s\S]*card\.classList\.contains\("history-card-detail"\)/, "card-preview tooltips and arrows must anchor to the visible card face while retaining history-panel placement");
+assert.match(styles, /\.roster-tooltip-arrow\.placement-right[\s\S]*border-right:[^;]+;[\s\S]*\.roster-tooltip-arrow\.placement-left[\s\S]*border-left:[^;]+;/, "roster tooltip arrows must point toward triggers on either side");
+assert.match(styles, /\.card-tooltip-arrow\.placement-top[\s\S]*border-top:[^;]+;[\s\S]*\.card-tooltip-arrow\.placement-right[\s\S]*border-right:[^;]+;/, "card tooltip arrows must point toward top and right card triggers");
+assert.match(styles, /\.card-tooltip-arrow\.placement-right\s*\{[^}]*border-right:\s*10px solid var\(--card-tooltip-accent\);[^}]*transform:\s*translate\(-100%, -50%\);/, "right-side card-preview arrows must sit fully outside the tooltip border");
 assert.match(styles, /\.gothic-card:hover:not\(:disabled\)\s*\{[\s\S]*transform:\s*translateY\(-\.4cqw\)\s*!important;[\s\S]*box-shadow:/, "enabled cards should retain a reduced hover lift and glow");
 assert.match(styles, /\.action-hand\s*\{[\s\S]*--hand-card-gap:\s*16px;[\s\S]*--hand-card-width:\s*min\(260px, calc\(\(100% - 48px\) \/ 4\)\)/, "battle-hand cards must use a wider gap and an adaptive desktop cap");
 assert.match(styles, /\.action-hand\s*\{[\s\S]*padding:\s*20px 10px 22px;/, "the battle hand must reserve vertical room for card hover effects");
@@ -117,6 +124,15 @@ assert.deepEqual(
   { left: 12, top: 12 },
   "card tooltips must clamp to the viewport gutter at compact resolutions"
 );
+assert.deepEqual(
+  fitTooltipToViewport(
+    { left: 1100, right: 1120, top: 100, height: 20 },
+    { width: 300, height: 100 },
+    { width: 1280, height: 720 }
+  ),
+  { left: 791, placement: "left", top: 60 },
+  "roster tooltips and their arrows must move to the trigger's left when the right side cannot fit"
+);
 const specialSceneIds = [...cardArtwork.matchAll(/specialScene\("([^"]+)"/g)].map((match) => match[1]);
 assert.equal(specialSceneIds.length, 30, "every character-specific special card must have an explicit integrated-scene mapping");
 for (const id of specialSceneIds) assert(existsSync(new URL(`../public/art/cards/special/${id}.webp`, import.meta.url)), `${id} must have a project-bound integrated-scene asset`);
@@ -137,6 +153,10 @@ assert.match(gameApp, /function HistoryMessage[\s\S]*useActualNames/, "history d
 assert.match(gameApp, /presentation\.actor[\s\S]*useActualNames[\s\S]*presentation\.target[\s\S]*useActualNames/, "expanded-history actor and target cells must preserve real player names");
 assert.match(highlightCardNames, /className="history-card-link"[\s\S]*aria-label=\{`View \$\{cardName\} card`\}[\s\S]*onClick=\{\(\) => onInspectCard\(cardName\)\}/, "panel card names must reuse the highlighted history link and open the same card inspector");
 assert.match(highlightCardNames, /names\.map\(escapePattern\)[\s\S]*\\p\{L\}[\s\S]*\\p\{N\}/, "card-name matching must be escaped and bounded so partial words are not highlighted");
+assert.match(styles, /\.history-card-link\s*\{[^}]*font-size:\s*1em\s*!important;[^}]*line-height:\s*inherit\s*!important;/, "interactive card names must match the surrounding sentence text size and line height in every panel");
+assert.match(styles, /\.resolution-content h2 \.history-card-link\s*\{[^}]*font-family:\s*inherit\s*!important;[^}]*font-size:\s*inherit\s*!important;[^}]*font-weight:\s*inherit\s*!important;[^}]*letter-spacing:\s*inherit\s*!important;/, "action-result card names must inherit the complete verdict-title typography");
+assert.match(styles, /\.resolution-chips > span\s*\{[\s\S]*\.resolution-chips > span \.inline-player-name\s*\{[^}]*padding:\s*0;[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*font:\s*inherit;/, "action-result target names must stay inside the same chip as the Target label");
+assert.match(styles, /\.resolution-verdict\s*\{[^}]*padding:\s*5px 10px 6px;/, "action SUCCESS and FAILURE verdicts must have readable inner padding");
 assert.match(gameApp, /function LocalTurnActionPanel[\s\S]*presentation\.title[\s\S]*HighlightInteractiveNames[\s\S]*presentation\.detail[\s\S]*HighlightInteractiveNames/, "discard and skip panels must render interactive card names");
 assert.match(gameApp, /showOutcome && outcome && outcomePresentation \?[^\n]*outcomePresentation\.title[^\n]*cardNames=\{panelCardNames\}[^\n]*outcomePresentation\.detail[^\n]*cardNames=\{panelCardNames\}[^\n]*outcome\.failureDetail[^\n]*onInspectCard=\{inspectCard\}/, "local action panels must link card names in titles, details, and failure effects");
 assert.match(gameApp, /showTurnSummary && outcome && outcomePresentation \?[^\n]*outcomePresentation\.title[^\n]*cardNames=\{panelCardNames\}[^\n]*outcomePresentation\.detail[^\n]*cardNames=\{panelCardNames\}/, "turn-summary panels must link visible card names");

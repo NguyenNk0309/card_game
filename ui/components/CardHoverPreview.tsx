@@ -24,13 +24,15 @@ type Props = {
 };
 
 type PreviewPosition = {
+  arrowLeft: number;
+  arrowTop: number;
   left: number;
   placement: "top" | "right";
   ready: boolean;
   top: number;
 };
 
-const hiddenPosition: PreviewPosition = { left: -10000, placement: "top", ready: false, top: -10000 };
+const hiddenPosition: PreviewPosition = { arrowLeft: -10000, arrowTop: -10000, left: -10000, placement: "top", ready: false, top: -10000 };
 
 export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, rows, suspended, trigger }: Props) {
   const [open, setOpen] = useState(false);
@@ -121,17 +123,24 @@ export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, r
   useLayoutEffect(() => {
     if (!open) return;
     const placePreview = () => {
-      const anchor = anchorRef.current?.closest<HTMLElement>(".gothic-card");
+      const card = anchorRef.current?.closest<HTMLElement>(".gothic-card");
       const tooltip = tooltipRef.current?.getBoundingClientRect();
-      if (!anchor || !tooltip) return;
-      const placement = anchor.classList.contains("history-card-detail") ? "right" : "top";
+      if (!card || !anchorRef.current || !tooltip) return;
+      const anchorRect = anchorRef.current.getBoundingClientRect();
+      const placement = card.classList.contains("history-card-detail") ? "right" : "top";
       const next = fitCardTooltipToViewport(
-        anchor.getBoundingClientRect(),
+        anchorRect,
         tooltip,
         { width: window.innerWidth, height: window.innerHeight },
         placement
       );
-      setPosition({ ...next, placement, ready: true });
+      const arrowLeft = placement === "right"
+        ? next.left
+        : Math.min(Math.max(next.left + 12, anchorRect.left + anchorRect.width / 2), next.left + tooltip.width - 12);
+      const arrowTop = placement === "right"
+        ? Math.min(Math.max(next.top + 12, anchorRect.top + anchorRect.height / 2), next.top + tooltip.height - 12)
+        : next.top + tooltip.height;
+      setPosition({ ...next, arrowLeft, arrowTop, placement, ready: true });
     };
     placePreview();
     window.addEventListener("resize", placePreview);
@@ -146,7 +155,7 @@ export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, r
   if (!open || !portalRoot) return null;
   const pityCost = pityCostOverride ?? getCardPityCost(card);
 
-  return createPortal(<aside
+  return createPortal(<><aside
     ref={tooltipRef}
     id={tooltipId}
     className={`card-hover-tooltip effect-${card.effect} placement-${position.placement}`}
@@ -182,5 +191,5 @@ export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, r
         </section>)}
       </div>
     </div>
-  </aside>, portalRoot);
+  </aside><span className={`tooltip-arrow card-tooltip-arrow effect-${card.effect} placement-${position.placement}`} aria-hidden="true" style={{ left: position.arrowLeft, top: position.arrowTop, visibility: position.ready ? "visible" : "hidden" }}/></>, portalRoot);
 }
