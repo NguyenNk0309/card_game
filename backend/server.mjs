@@ -491,8 +491,8 @@ function returnExpiredPurgedCards(game, completedPhases) {
     for (const entry of returning) {
       removeCardFromZones(state, entry.cardId);
       state.graveyard = (state.graveyard || []).filter((id) => id !== entry.cardId);
-      state.discardPile ||= [];
-      if (!state.discardPile.includes(entry.cardId)) state.discardPile.push(entry.cardId);
+      state.drawPile ||= [];
+      if (!state.drawPile.includes(entry.cardId)) state.drawPile.push(entry.cardId);
       returned.push({ playerId: player.id, cardId: entry.cardId });
     }
     state.purgedCards = (state.purgedCards || []).filter((entry) => !returning.includes(entry));
@@ -683,7 +683,7 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
     const removedId = candidates[Math.floor(Math.random() * candidates.length)];
     if (removedId) {
       temporarilyPurgeHandCard(targetState, removedId, Number(previousGame.completedPhases || 0) + 2);
-      replacementDetail = `${target.displayName} had one random hand card moved to their graveyard for 2 phases; it will then return to their discard pile.`;
+      replacementDetail = `${target.displayName} had one random hand card moved to their graveyard for 2 phases; it will then return to their draw pile.`;
     } else replacementDetail = `${target.displayName} had no eligible card in hand, so Tactical Purge had no effect.`;
   }
   if (card.supportType === 'steal-card' && target.id !== actor.id && target.hero.team !== actor.hero.team && (previousGame.playerStates?.[target.id]?.hp || 0) > 0) {

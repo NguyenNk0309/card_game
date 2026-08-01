@@ -270,7 +270,7 @@ function returnExpiredPurgedCards(states: Record<string, PlayerRunState>, comple
     for (const entry of returning) {
       removeCardFromZones(state, entry.cardId);
       state.graveyard = state.graveyard.filter((id) => id !== entry.cardId);
-      if (!state.discardPile.includes(entry.cardId)) state.discardPile.push(entry.cardId);
+      if (!state.drawPile.includes(entry.cardId)) state.drawPile.push(entry.cardId);
     }
     state.purgedCards = (state.purgedCards ?? []).filter((entry) => !returning.includes(entry));
   }
@@ -536,7 +536,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         const removedId = candidates.length ? pick(candidates) : "";
         const returnAfterPhase = (game.completedPhases ?? Math.max(0, (game.roundNumber ?? 1) - 1)) + 2;
         if (removedId) temporarilyPurgeHandCard(selectedState, removedId, returnAfterPhase);
-        reports.push(`one random card from ${selectedEnemy.displayName}'s hand moved to their graveyard for 2 phases, then will return to their discard pile`);
+        reports.push(`one random card from ${selectedEnemy.displayName}'s hand moved to their graveyard for 2 phases, then will return to their draw pile`);
       }
       if (card.supportType === "steal-card" && selectedEnemy) {
         const enemyState = states[selectedEnemy.id];

@@ -827,7 +827,7 @@ const commanderPurge = engine.createInitialGame([commander, diceEnemy], engine.c
 commanderPurge.turnOrder = [commander.id, diceEnemy.id];
 const purgeCard = commander.skillDeck.find((card) => card.supportType === "purge-card");
 assert.equal(purgeCard.target, "enemy", "Tactical Purge only exposes living enemies as targets");
-assert.match(purgeCard.description, /random card.*hand.*graveyard.*2 phases.*discard pile.*third use/i, "Tactical Purge's description explains its complete updated effect");
+assert.match(purgeCard.description, /random card.*hand.*graveyard.*2 phases.*draw pile.*third use/i, "Tactical Purge's description explains its complete updated effect");
 const purgedEnemyCards = diceEnemy.skillDeck.filter((card) => card.unique);
 const purgeReplacement = diceEnemy.skillDeck.find((card) => !card.unique && card.effect === "none");
 const commanderBlank = commander.skillDeck.find((card) => !card.unique && card.effect === "none");
@@ -847,6 +847,8 @@ const enemyPhaseOneCard = purged.playerStates[diceEnemy.id].hand[0];
 const afterOnePhase = engine.resolveCardTurn(purged, [commander, diceEnemy], enemyPhaseOneCard, diceEnemy.id, 20);
 assert.equal(afterOnePhase.completedPhases, 1);
 assert(afterOnePhase.playerStates[diceEnemy.id].graveyard.includes(purgedEnemyCards[0].id), "the purged card remains in the graveyard after one phase");
+assert(!afterOnePhase.playerStates[diceEnemy.id].drawPile.includes(purgedEnemyCards[0].id), "the purged card cannot return to draw after only one phase");
+assert(!afterOnePhase.playerStates[diceEnemy.id].discardPile.includes(purgedEnemyCards[0].id), "the purged card cannot leak into discard while its timer is active");
 assert.equal(afterOnePhase.playerStates[diceEnemy.id].purgedCards.length, 1);
 
 const enemyPhaseTwoCard = afterOnePhase.playerStates[diceEnemy.id].hand[0];
@@ -856,8 +858,21 @@ midSecondPhase.playerStates[commander.id].hand = [commanderPhaseTwoCard];
 const afterTwoPhases = engine.resolveCardTurn(midSecondPhase, [commander, diceEnemy], commanderPhaseTwoCard, commander.id, 20);
 assert.equal(afterTwoPhases.completedPhases, 2);
 assert(!afterTwoPhases.playerStates[diceEnemy.id].graveyard.includes(purgedEnemyCards[0].id), "the purged card leaves the graveyard after two phases");
-assert(afterTwoPhases.playerStates[diceEnemy.id].discardPile.includes(purgedEnemyCards[0].id), "the purged card returns to its owner's discard pile after two phases");
+assert(afterTwoPhases.playerStates[diceEnemy.id].drawPile.includes(purgedEnemyCards[0].id), "the purged card returns to its owner's draw pile after two phases");
+assert(!afterTwoPhases.playerStates[diceEnemy.id].discardPile.includes(purgedEnemyCards[0].id), "the purged card never returns to discard");
 assert.equal(afterTwoPhases.playerStates[diceEnemy.id].purgedCards.length, 0, "the completed purge timer is removed");
+
+const redrawPurgedGame = structuredClone(afterTwoPhases);
+const redrawSource = diceEnemy.skillDeck.find((card) => !card.unique && card.effect === "none");
+redrawPurgedGame.turnOrder = [diceEnemy.id, commander.id];
+redrawPurgedGame.activePlayerIndex = 1;
+redrawPurgedGame.adventure.target = 8;
+redrawPurgedGame.playerStates[diceEnemy.id].hand = [redrawSource.id];
+redrawPurgedGame.playerStates[diceEnemy.id].drawPile = [purgedEnemyCards[0].id];
+redrawPurgedGame.playerStates[diceEnemy.id].discardPile = [];
+const redrawnPurge = engine.resolveCardTurn(redrawPurgedGame, [commander, diceEnemy], redrawSource.id, diceEnemy.id, 20);
+assert(redrawnPurge.playerStates[diceEnemy.id].hand.includes(purgedEnemyCards[0].id), "the returned card can be drawn normally on a later card replacement");
+assert(!redrawnPurge.playerStates[diceEnemy.id].drawPile.includes(purgedEnemyCards[0].id), "drawing the returned card removes it from the draw pile");
 
 afterTwoPhases.turnOrder = [commander.id, diceEnemy.id];
 afterTwoPhases.activePlayerIndex = 0;

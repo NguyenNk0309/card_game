@@ -598,6 +598,8 @@ try {
   const phaseTwoSetup = await phaseTwoSetupPromise;
   assert.equal(phaseTwoSetup.game.completedPhases, 1);
   assert(phaseTwoSetup.game.playerStates[secondId].graveyard.includes(`card-${secondId}`), "the authoritative purge remains after one completed phase");
+  assert(!phaseTwoSetup.game.playerStates[secondId].drawPile.includes(`card-${secondId}`), "the authority cannot return a purged card to draw after only one phase");
+  assert(!phaseTwoSetup.game.playerStates[secondId].discardPile.includes(`card-${secondId}`), "the authority keeps an active purged card out of discard");
 
   const phaseTwoAdvance = structuredClone(phaseTwoSetup.game);
   phaseTwoAdvance.completedTurns = 3;
@@ -611,7 +613,8 @@ try {
   first.send({ type: "game:update", game: phaseTwoAdvance });
   const purgeReturned = await purgeReturnedPromise;
   assert(!purgeReturned.game.playerStates[secondId].graveyard.includes(`card-${secondId}`), "the realtime authority removes the purged card from graveyard after two phases");
-  assert(purgeReturned.game.playerStates[secondId].discardPile.includes(`card-${secondId}`), "the realtime authority returns the purged card to discard after two phases");
+  assert(purgeReturned.game.playerStates[secondId].drawPile.includes(`card-${secondId}`), "the realtime authority returns the purged card to draw after two phases");
+  assert(!purgeReturned.game.playerStates[secondId].discardPile.includes(`card-${secondId}`), "the realtime authority never returns the purged card to discard");
   assert.equal(purgeReturned.game.playerStates[secondId].purgedCards.length, 0);
   assert.deepEqual(purgeReturned.game.outcome.notices ?? [], [], "returning a purged card does not emit a toast");
   first.send({ type: "return:lobby" });
