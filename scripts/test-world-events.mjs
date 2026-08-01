@@ -132,7 +132,7 @@ const makePlayer = (id, team, {
       role: "Support",
       classId: "support",
       className: "Supporter",
-      passiveName: heroName === "Sable Fen" ? "Second Sight" : "Test Passive",
+      passiveName: heroName === "Sable Fen" ? "Foreseen Return" : "Test Passive",
       passiveText: "Test passive.",
       skill: "Test Skill",
       skillText: "Test skill.",
@@ -565,7 +565,7 @@ const fourPlayers = [veilFast, emberFast, veilSlow, emberSlow];
   game.roundOrder = [...game.turnOrder];
   game.actedThisRound = [enemy.id, "missing-player"];
   const event = resolveEvent(game, [sable, enemy], "first-blood", { lastTeam: "ember", eventId: "lethal-world" });
-  assert.equal(game.playerStates[sable.id].hp, 4, "Second Sight revives Sable once with half maximum HP after simultaneous event damage");
+  assert.equal(game.playerStates[sable.id].hp, 4, "Foreseen Return revives Sable once with half maximum HP after simultaneous event damage");
   assert.equal(game.playerStates[sable.id].passiveReviveUsed, true);
   assert.equal(game.playerStates[enemy.id].hp, 0);
   assert.deepEqual(game.turnOrder, [sable.id], "a lethal World Event rebuilds order with the revived living player only");

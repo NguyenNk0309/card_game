@@ -72,7 +72,7 @@ export function DiceRoller({ roll, rolling, target, passiveBonus = 0, diceBuff =
 
   return <section className="dice-panel">
     <div className={`d20 ${rolling ? "rolling" : ""}`} aria-label={rolling ? "Rolling d20" : roll === null ? "D20" : `D20 rolled ${roll}`}><span aria-hidden="true">?</span></div>
-    <div className="dice-copy"><span className="eyebrow">ACTION CHECK</span><strong>Target <b>{target}</b></strong><small>d20{passiveBonus ? ` + ${passiveBonus} Commanding Voice` : ""}{diceBuff ? ` + ${diceBuff} Focus Order` : ""}{dicePenalty ? ` - ${dicePenalty} omen/hex` : ""}</small><em>Total modifier: <b>{modifier >= 0 ? "+" : ""}{modifier}</b></em></div>
+    <div className="dice-copy"><span className="eyebrow">ACTION CHECK</span><strong>Target <b>{target}</b></strong><small>d20{passiveBonus ? ` + ${passiveBonus} Marshal's Fortune` : ""}{diceBuff ? ` + ${diceBuff} Precision Order` : ""}{dicePenalty ? ` - ${dicePenalty} omen/hex` : ""}</small><em>Total modifier: <b>{modifier >= 0 ? "+" : ""}{modifier}</b></em></div>
     <button className="roll-button" onClick={onRoll} disabled={rolling || disabled || !hasSelectedCard}>{rolling ? <Sparkles size={17}/> : <Dices size={18}/>}<span>{rolling ? "Rolling..." : !hasSelectedCard && !disabled ? "Select a card" : "Roll the die"}</span></button>
     <button className="pity-button" onClick={onPity} disabled={rolling || disabled || !hasSelectedCard || pityPoints < pityCost} title={!hasSelectedCard ? "Select a card" : pityPoints < pityCost ? `Need ${pityCost - pityPoints} pity` : `Spend ${pityCost} pity to succeed`}><PityIcon size={18}/><span>Pity roll<small>{pityPoints} available · cost {pityCost}</small></span></button>
     <div className="turn-action-buttons" ref={controlsRef}>

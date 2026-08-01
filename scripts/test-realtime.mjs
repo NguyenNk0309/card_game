@@ -8,9 +8,9 @@ const testMode = String(process.env.TEST_MODE ?? "").trim().toLowerCase() === "t
 function testSkillDeck(id) {
   const special = [
     { id: `card-${id}`, name: "Test Skill", description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, failureEffect: "enemy-shield", failureValue: 2, unique: true },
-    { id: `purge-${id}`, name: "Tactical Purge", description: "Temporarily purge a random enemy hand card.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "purge-card", unique: true },
-    { id: `pilfer-${id}`, name: "Pilfered Chance", description: "Steal a random enemy hand card, preferring special cards.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "steal-card", unique: true },
-    { id: `favor-${id}`, name: "Favorable Omen", description: "Make one ally's next played card cost 0 pity.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "zero-pity", unique: true }
+    { id: `purge-${id}`, name: "Mirefield Seizure", description: "Temporarily purge a random enemy hand card.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "purge-card", unique: true },
+    { id: `pilfer-${id}`, name: "Borrowed Fate", description: "Steal a random enemy hand card, preferring special cards.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "steal-card", unique: true },
+    { id: `favor-${id}`, name: "Foretold Success", description: "Make one ally's next played card cost 0 pity.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "zero-pity", unique: true }
   ];
   const common = [
     { id: "heavy", name: "Heavy Blow", description: "Deal 4 damage.", effect: "damage", target: "enemy", value: 4 },
@@ -36,7 +36,7 @@ function player(id, displayName, team) {
       role: "Scout",
       classId: "ranger",
       className: "Ranger",
-      passiveName: "Deadeye",
+      passiveName: "Second-Beat Deadeye",
       passiveText: "Single-target attacks deal 1 additional damage.",
       skill: "Test Skill",
       skillText: "Used only by the realtime integration test.",
@@ -585,10 +585,10 @@ try {
   purgeAction.playerStates[firstId].hand = [`card-${firstId}`];
   purgeAction.playerStates[firstId].drawPile = [];
   purgeAction.playerStates[firstId].discardPile = [`purge-${firstId}`];
-  purgeAction.outcome = { kind: "card", success: true, total: 20, target: purgeAction.adventure.target, label: `${firstName} used Tactical Purge`, detail: "Tactical Purge resolved.", actorName: firstName, cardId: `purge-${firstId}`, cardName: "Tactical Purge", effect: "support", supportType: "purge-card", targetIds: [secondId], targetName: secondName, resolution: "roll" };
-  purgeAction.history = [{ id: `purge-${runId}`, turn: 1, phase: 1, kind: "support", actorName: firstName, message: `${firstName} used Tactical Purge.`, success: true, createdAt: Date.now() }];
-  const purgeObserverPromise = first.waitForNext((state) => state.game?.outcome?.cardName === "Tactical Purge");
-  const purgeOwnerPromise = second.waitForNext((state) => state.game?.outcome?.cardName === "Tactical Purge");
+  purgeAction.outcome = { kind: "card", success: true, total: 20, target: purgeAction.adventure.target, label: `${firstName} used Mirefield Seizure`, detail: "Mirefield Seizure resolved.", actorName: firstName, cardId: `purge-${firstId}`, cardName: "Mirefield Seizure", effect: "support", supportType: "purge-card", targetIds: [secondId], targetName: secondName, resolution: "roll" };
+  purgeAction.history = [{ id: `purge-${runId}`, turn: 1, phase: 1, kind: "support", actorName: firstName, message: `${firstName} used Mirefield Seizure.`, success: true, createdAt: Date.now() }];
+  const purgeObserverPromise = first.waitForNext((state) => state.game?.outcome?.cardName === "Mirefield Seizure");
+  const purgeOwnerPromise = second.waitForNext((state) => state.game?.outcome?.cardName === "Mirefield Seizure");
   first.send({ type: "game:update", game: purgeAction });
   const [purgeObserverView, purgeOwnerView] = await Promise.all([purgeObserverPromise, purgeOwnerPromise]);
   assert.deepEqual(purgeObserverView.game.playerStates[secondId].purgedCards, [], "temporary purge metadata stays private from opponents");
@@ -668,13 +668,13 @@ try {
   pilferAction.playerStates[firstId].hand = [`${firstId}-common-second-wind`];
   pilferAction.playerStates[firstId].drawPile = [];
   pilferAction.playerStates[firstId].discardPile = [`pilfer-${firstId}`];
-  pilferAction.outcome = { kind: "card", success: true, total: 20, target: pilferAction.adventure.target, label: `${firstName} used Pilfered Chance`, detail: "Pilfered Chance resolved.", actorName: firstName, cardId: `pilfer-${firstId}`, cardName: "Pilfered Chance", effect: "support", supportType: "steal-card", targetIds: [secondId], targetName: secondName, resolution: "roll" };
-  pilferAction.history = [{ id: `pilfer-${runId}`, turn: 1, phase: 1, kind: "support", actorName: firstName, message: `${firstName} used Pilfered Chance.`, success: true, createdAt: Date.now() }];
-  const pilferActorPromise = first.waitForNext((state) => state.game?.outcome?.cardName === "Pilfered Chance");
-  const pilferTargetPromise = second.waitForNext((state) => state.game?.outcome?.cardName === "Pilfered Chance");
+  pilferAction.outcome = { kind: "card", success: true, total: 20, target: pilferAction.adventure.target, label: `${firstName} used Borrowed Fate`, detail: "Borrowed Fate resolved.", actorName: firstName, cardId: `pilfer-${firstId}`, cardName: "Borrowed Fate", effect: "support", supportType: "steal-card", targetIds: [secondId], targetName: secondName, resolution: "roll" };
+  pilferAction.history = [{ id: `pilfer-${runId}`, turn: 1, phase: 1, kind: "support", actorName: firstName, message: `${firstName} used Borrowed Fate.`, success: true, createdAt: Date.now() }];
+  const pilferActorPromise = first.waitForNext((state) => state.game?.outcome?.cardName === "Borrowed Fate");
+  const pilferTargetPromise = second.waitForNext((state) => state.game?.outcome?.cardName === "Borrowed Fate");
   first.send({ type: "game:update", game: pilferAction });
   const [pilferActorView, pilferTargetView] = await Promise.all([pilferActorPromise, pilferTargetPromise]);
-  assert(pilferActorView.game.playerStates[firstId].hand.includes(`card-${secondId}`), "Pilfered Chance prefers a special card from the target's private hand");
+  assert(pilferActorView.game.playerStates[firstId].hand.includes(`card-${secondId}`), "Borrowed Fate prefers a special card from the target's private hand");
   assert.deepEqual(pilferActorView.game.playerStates[firstId].borrowedCards, [{ cardId: `card-${secondId}`, ownerId: secondId, borrowedAtTurn: 1, expiresAfterBorrowerTurn: 2 }], "the realtime authority binds the stolen card to the end of Nyx's next turn");
   assert(!pilferTargetView.game.playerStates[secondId].hand.includes(`card-${secondId}`), "the stolen special card leaves the target's hand");
   assert(pilferTargetView.game.playerStates[secondId].hand.includes(`${secondId}-common-empty-gesture`), "a special card is preferred over an available common card");
@@ -748,20 +748,20 @@ try {
   favorableAction.playerStates[firstId].drawPile = [];
   favorableAction.playerStates[firstId].discardPile = [`favor-${firstId}`];
   favorableAction.playerStates[firstId].cardUses = { [`favor-${firstId}`]: 1 };
-  favorableAction.outcome = { kind: "card", success: true, total: 20, target: favorableAction.adventure.target, label: `${firstName} used Favorable Omen`, detail: "Favorable Omen resolved.", actorName: firstName, cardId: `favor-${firstId}`, cardName: "Favorable Omen", effect: "support", supportType: "zero-pity", targetIds: [firstId], targetName: firstName, resolution: "roll" };
-  favorableAction.history = [{ id: `favor-${runId}`, turn: 1, phase: 1, kind: "support", actorName: firstName, message: `${firstName} used Favorable Omen.`, success: true, createdAt: Date.now() }];
-  const favorableActorPromise = first.waitForNext((state) => state.game?.outcome?.cardName === "Favorable Omen");
-  const favorableObserverPromise = second.waitForNext((state) => state.game?.outcome?.cardName === "Favorable Omen");
+  favorableAction.outcome = { kind: "card", success: true, total: 20, target: favorableAction.adventure.target, label: `${firstName} used Foretold Success`, detail: "Foretold Success resolved.", actorName: firstName, cardId: `favor-${firstId}`, cardName: "Foretold Success", effect: "support", supportType: "zero-pity", targetIds: [firstId], targetName: firstName, resolution: "roll" };
+  favorableAction.history = [{ id: `favor-${runId}`, turn: 1, phase: 1, kind: "support", actorName: firstName, message: `${firstName} used Foretold Success.`, success: true, createdAt: Date.now() }];
+  const favorableActorPromise = first.waitForNext((state) => state.game?.outcome?.cardName === "Foretold Success");
+  const favorableObserverPromise = second.waitForNext((state) => state.game?.outcome?.cardName === "Foretold Success");
   first.send({ type: "game:update", game: favorableAction });
   const [favorableActorView, favorableObserverView] = await Promise.all([favorableActorPromise, favorableObserverPromise]);
-  assert.equal(favorableActorView.game.playerStates[firstId].zeroPityUntilTurn, 2, "self-targeted Favorable Omen remains active through its casting turn");
-  assert.equal(favorableObserverView.game.playerStates[firstId].zeroPityUntilTurn, 2, "the realtime authority synchronizes Favorable Omen as a public player effect");
+  assert.equal(favorableActorView.game.playerStates[firstId].zeroPityUntilTurn, 2, "self-targeted Foretold Success remains active through its casting turn");
+  assert.equal(favorableObserverView.game.playerStates[firstId].zeroPityUntilTurn, 2, "the realtime authority synchronizes Foretold Success as a public player effect");
   assert.match(favorableActorView.game.outcome.detail, /next played card.*0 pity cost/);
 
   const beforeFavorableTurnPromise = first.waitForNext((state) => state.game?.completedTurns === 2 && state.game?.outcome?.kind === "skip");
   second.send({ type: "skip-turn", sessionId: secondId });
   const beforeFavorableTurn = await beforeFavorableTurnPromise;
-  assert.equal(beforeFavorableTurn.game.playerStates[firstId].zeroPityUntilTurn, 2, "another player's turn does not consume Favorable Omen");
+  assert.equal(beforeFavorableTurn.game.playerStates[firstId].zeroPityUntilTurn, 2, "another player's turn does not consume Foretold Success");
 
   const zeroPityAction = structuredClone(beforeFavorableTurn.game);
   zeroPityAction.completedTurns = 3;
@@ -777,12 +777,12 @@ try {
   zeroPityAction.playerStates[firstId].drawPile = [];
   zeroPityAction.playerStates[firstId].discardPile = [`favor-${firstId}`, `card-${firstId}`];
   zeroPityAction.outcome = { kind: "card", success: true, total: 1, target: zeroPityAction.adventure.target, label: `${firstName} used Test Skill`, detail: "The zero-pity card resolved.", actorName: firstName, cardId: `card-${firstId}`, cardName: "Test Skill", effect: "damage", targetIds: [secondId], targetName: secondName, roll: 1, bonus: 0, resolution: "roll", pityCost: 0, pityBefore: 3, pityAfter: 3 };
-  zeroPityAction.history = [...zeroPityAction.history, { id: `favor-card-${runId}`, turn: 3, phase: 2, kind: "damage", actorName: firstName, targetName: secondName, cardName: "Test Skill", message: `${firstName} used Test Skill with Favorable Omen.`, success: true, diceRoll: 1, diceTarget: zeroPityAction.adventure.target, diceBonus: 0, dicePenalty: 0, diceTotal: 1, resolution: "roll", pityCost: 0, pityBefore: 3, pityAfter: 3, createdAt: Date.now() }];
+  zeroPityAction.history = [...zeroPityAction.history, { id: `favor-card-${runId}`, turn: 3, phase: 2, kind: "damage", actorName: firstName, targetName: secondName, cardName: "Test Skill", message: `${firstName} used Test Skill with Foretold Success.`, success: true, diceRoll: 1, diceTarget: zeroPityAction.adventure.target, diceBonus: 0, dicePenalty: 0, diceTotal: 1, resolution: "roll", pityCost: 0, pityBefore: 3, pityAfter: 3, createdAt: Date.now() }];
   const zeroPityActorPromise = first.waitForNext((state) => state.game?.completedTurns === 3 && state.game?.outcome?.cardName === "Test Skill");
   const zeroPityObserverPromise = second.waitForNext((state) => state.game?.completedTurns === 3 && state.game?.outcome?.cardName === "Test Skill");
   first.send({ type: "game:update", game: zeroPityAction });
   const [zeroPityActorView, zeroPityObserverView] = await Promise.all([zeroPityActorPromise, zeroPityObserverPromise]);
-  assert.equal(zeroPityActorView.game.outcome.success, true, "Favorable Omen makes the next normal card action automatically succeed");
+  assert.equal(zeroPityActorView.game.outcome.success, true, "Foretold Success makes the next normal card action automatically succeed");
   assert.equal(zeroPityActorView.game.outcome.pityCost, 0, "the realtime authority reports the affected card's pity cost as 0");
   assert.equal(zeroPityActorView.game.playerStates[firstId].pityPoints, 3, "the affected card spends and gains no pity");
   assert.equal(zeroPityActorView.game.playerStates[firstId].zeroPityUntilTurn, 0, "the omen clears after the affected card is played");
@@ -790,7 +790,7 @@ try {
   first.send({ type: "return:lobby" });
   await first.waitForNext((state) => state.phase === "lobby");
 
-  console.log("Realtime test passed: private hands, Shattered Tribute choices and privacy, temporary Tactical Purge, temporary Pilfered Chance theft, Favorable Omen zero-pity turns, phase-5 card upgrades and resets, initial phase-5 normalization, 60-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");
+  console.log("Realtime test passed: private hands, Shattered Tribute choices and privacy, temporary Mirefield Seizure, temporary Borrowed Fate theft, Foretold Success zero-pity turns, phase-5 card upgrades and resets, initial phase-5 normalization, 60-second timer, forced/manual skips, preserved cards, player removal, end game, and leave game.");
 } finally {
   first.send({ type: "return:lobby" });
   await first.waitFor((state) => state.phase === "lobby").catch(() => {});

@@ -26,7 +26,7 @@ function player(id, displayName, team) {
     displayName,
     ready: false,
     joinedAt: Date.now(),
-    hero: { id: `hero-${id}`, name: `${displayName} Hero`, title: "Test Oath", role: "Scout", classId: "ranger", className: "Ranger", passiveName: "Deadeye", passiveText: "Single-target attacks deal 1 additional damage.", skill: "Test Skill", skillText: "Test", summary: "Test hero", strength: "Attack", weakness: "Defense", impact: "Polling test", hp: 8, maxHp: 8, speed: id.includes("second") ? 10 : 5, team, color: "#a78bfa", initials: displayName.slice(0, 2).toUpperCase() },
+    hero: { id: `hero-${id}`, name: `${displayName} Hero`, title: "Test Oath", role: "Scout", classId: "ranger", className: "Ranger", passiveName: "Second-Beat Deadeye", passiveText: "Single-target attacks deal 1 additional damage.", skill: "Test Skill", skillText: "Test", summary: "Test hero", strength: "Attack", weakness: "Defense", impact: "Polling test", hp: 8, maxHp: 8, speed: id.includes("second") ? 10 : 5, team, color: "#a78bfa", initials: displayName.slice(0, 2).toUpperCase() },
     skillDeck: testSkillDeck(id)
   };
 }

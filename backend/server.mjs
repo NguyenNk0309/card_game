@@ -688,7 +688,7 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
     if (removedId) {
       temporarilyPurgeHandCard(targetState, removedId, Number(previousGame.completedPhases || 0) + 2);
       replacementDetail = `${target.displayName} had one random hand card moved to their graveyard for 2 phases; it will then return to their draw pile.`;
-    } else replacementDetail = `${target.displayName} had no eligible card in hand, so Tactical Purge had no effect.`;
+    } else replacementDetail = `${target.displayName} had no eligible card in hand, so Mirefield Seizure had no effect.`;
   }
   if (card.supportType === 'steal-card' && target.id !== actor.id && target.hero.team !== actor.hero.team && (previousGame.playerStates?.[target.id]?.hp || 0) > 0) {
     const candidates = (targetState.hand || []).filter((id) => target.skillDeck.some((item) => item.id === id));
@@ -706,7 +706,7 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
         expiresAfterBorrowerTurn: (actorState.completedPlayerTurns || 0) + 1
       }];
       replacementDetail = `${actor.displayName} stole one random ${specialCandidates.length ? 'special ' : ''}card from ${target.displayName}; it will return to ${target.displayName}'s discard pile when ${actor.displayName}'s next turn ends.`;
-    } else replacementDetail = `${target.displayName} had no eligible card in hand, so Pilfered Chance had no effect.`;
+    } else replacementDetail = `${target.displayName} had no eligible card in hand, so Borrowed Fate had no effect.`;
   }
   if (card.supportType === 'zero-pity' && target.hero.team === actor.hero.team && (previousGame.playerStates?.[target.id]?.hp || 0) > 0) {
     targetState.zeroPityUntilTurn = Math.max(
@@ -821,9 +821,9 @@ function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', discard
   const outcomeId = `${kind}-${completedTurns}-${now}`;
   game.completedTurns = completedTurns;
   game.adventure = { ...game.adventure, target: randomDiceTarget() };
-  game.outcome = { id: outcomeId, kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered discard; replacement drawn if available. Effects expired.` : forced ? 'A support effect skipped this turn; cards preserved and effects expired.' : timedOut ? 'Time expired; cards preserved and effects expired.' : 'Turn skipped; cards preserved and effects expired.', actorId: passingPlayer?.id, actorName: playerName, cardId: discardedCardId || undefined, cardName: discardedCardName || undefined, lifeEvents: revived.map((player) => ({ id: `life-${completedTurns}-${now}-returning-light-${player.id}`, kind: 'revive', playerId: player.id, playerName: player.displayName, reason: `${player.displayName} returned through Returning Light with one-third HP.` })) };
+  game.outcome = { id: outcomeId, kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered discard; replacement drawn if available. Effects expired.` : forced ? 'A support effect skipped this turn; cards preserved and effects expired.' : timedOut ? 'Time expired; cards preserved and effects expired.' : 'Turn skipped; cards preserved and effects expired.', actorId: passingPlayer?.id, actorName: playerName, cardId: discardedCardId || undefined, cardName: discardedCardName || undefined, lifeEvents: revived.map((player) => ({ id: `life-${completedTurns}-${now}-returning-light-${player.id}`, kind: 'revive', playerId: player.id, playerName: player.displayName, reason: `${player.displayName} returned through Immediate Resurrection with one-third HP.` })) };
   game.history = [...(game.history || []), { id: outcomeId, turn: completedTurns, phase: actionPhase, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} discarded ${discardedCardName}; replacement drawn if available. Effects expired.` : forced ? `A support effect skipped ${playerName}; cards preserved and effects expired.` : timedOut ? `${playerName} timed out; cards preserved and effects expired.` : `${playerName} skipped; cards preserved and effects expired.`, success: false, createdAt: now }];
-  if (revived.length) game.history.push({ id: `revive-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind: 'system', actorName: 'Returning Light', message: `${revived.map((player) => player.displayName).join(', ')} revived with one-third HP.`, success: true, createdAt: now });
+  if (revived.length) game.history.push({ id: `revive-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind: 'system', actorName: 'Immediate Resurrection', message: `${revived.map((player) => player.displayName).join(', ')} revived with one-third HP.`, success: true, createdAt: now });
   game.roll = null;
   let phaseCompleted = false;
   if (passingPlayer) {

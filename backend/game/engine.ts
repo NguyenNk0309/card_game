@@ -521,7 +521,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         revivedTargetId = selectedDefeatedAlly.id;
         amount = revivedState.hp;
         reports.push(`${selectedDefeatedAlly.displayName} revived immediately with one-third HP (${revivedState.hp}/${revivedState.maxHp})`);
-        lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-returning-light-${selectedDefeatedAlly.id}`, kind: "revive", playerId: selectedDefeatedAlly.id, playerName: selectedDefeatedAlly.displayName, reason: `${selectedDefeatedAlly.displayName} returned immediately through Returning Light with one-third HP.` });
+        lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-returning-light-${selectedDefeatedAlly.id}`, kind: "revive", playerId: selectedDefeatedAlly.id, playerName: selectedDefeatedAlly.displayName, reason: `${selectedDefeatedAlly.displayName} returned immediately through Immediate Resurrection with one-third HP.` });
       }
       if (card.supportType === "skip-enemy" && selectedEnemy) {
         states[selectedEnemy.id].skipTurns = (states[selectedEnemy.id].skipTurns ?? 0) + 1;
@@ -617,7 +617,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     detail = `${detail} ${revivedNames.join(", ")} revived with one-third HP.`;
     for (const id of revivedIds) {
       const player = players.find((candidate) => candidate.id === id);
-      if (player) lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-returning-light-${id}`, kind: "revive", playerId: id, playerName: player.displayName, reason: `${player.displayName} returned through Returning Light with one-third HP.` });
+      if (player) lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-returning-light-${id}`, kind: "revive", playerId: id, playerName: player.displayName, reason: `${player.displayName} returned through Immediate Resurrection with one-third HP.` });
     }
   }
   let adventure = { ...game.adventure, target: randomDiceTarget() };
@@ -632,11 +632,11 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const passiveRevives = triggerSableRevives(players, states);
   if (passiveRevives.length) {
     const names = passiveRevives.map((player) => player.displayName);
-    const reviveMessage = `${names.join(", ")} invoked Second Sight and revived with half HP.`;
+    const reviveMessage = `${names.join(", ")} invoked Foreseen Return and revived with half HP.`;
     detail = `${detail} ${reviveMessage}`;
     actionHistory.message = `${actor.displayName} used ${card.name} (${rollSummary}) — ${detail}`;
-    history.push({ id: `sable-revive-${turn}-${Date.now()}`, turn, phase: actionPhase, kind: "system", actorName: "Second Sight", message: reviveMessage, success: true, createdAt: Date.now() });
-    for (const player of passiveRevives) lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-second-sight-${player.id}`, kind: "revive", playerId: player.id, playerName: player.displayName, reason: `${player.displayName} invoked Second Sight and revived with half HP.` });
+    history.push({ id: `sable-revive-${turn}-${Date.now()}`, turn, phase: actionPhase, kind: "system", actorName: "Foreseen Return", message: reviveMessage, success: true, createdAt: Date.now() });
+    for (const player of passiveRevives) lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-second-sight-${player.id}`, kind: "revive", playerId: player.id, playerName: player.displayName, reason: `${player.displayName} invoked Foreseen Return and revived with half HP.` });
   }
   let nextTurnOrder = rotateTurnOrder(turnOrder, actor.id, states);
   if (success && card.supportType === "delay-enemy" && selectedEnemy) nextTurnOrder = moveTurnTarget(nextTurnOrder, selectedEnemy.id, "delay");

@@ -534,7 +534,7 @@ function addEventLifeEvents(game, event, players, hpBefore, now) {
       kind: 'revive',
       playerId: player.id,
       playerName: player.displayName,
-      reason: `${player.displayName} invoked Second Sight after ${event.title} and revived with half HP.`,
+      reason: `${player.displayName} invoked Foreseen Return after ${event.title} and revived with half HP.`,
       source: 'world-event'
     });
   }
@@ -735,8 +735,8 @@ function applyImmediateEvent(game, players, definition, options) {
   const life = addEventLifeEvents(game, provisionalEvent, players, hpBefore, asNumber(options?.now, Date.now()));
   for (const player of life.revived) {
     const detail = details.get(player.id) || { publicSummary: `${player.displayName} was affected.` };
-    detail.publicSummary = `${detail.publicSummary} ${player.displayName} invoked Second Sight and revived with half HP.`;
-    detail.privateSummary = `${detail.privateSummary || detail.publicSummary} You invoked Second Sight and revived with half HP.`;
+    detail.publicSummary = `${detail.publicSummary} ${player.displayName} invoked Foreseen Return and revived with half HP.`;
+    detail.privateSummary = `${detail.privateSummary || detail.publicSummary} You invoked Foreseen Return and revived with half HP.`;
     details.set(player.id, detail);
   }
   const results = affected.map((player) => resultFromDetail(player, game.playerStates[player.id], before[player.id], details.get(player.id)));

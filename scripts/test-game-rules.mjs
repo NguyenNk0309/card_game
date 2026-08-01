@@ -58,6 +58,59 @@ assert(catalog.EVENTS.includes(nextNarrative.event), "nextStory selects the pair
 assert.equal(engine.createSkillDeck(catalog.HERO_TEMPLATES[0]).length, 10, "direct skill-deck creation returns three special and seven common cards");
 assert.equal(catalog.calculatePityCost({ ...catalog.ACTION_CARDS[0], pityCost: 9.8 }), 8, "stored pity costs are floored and capped at eight");
 const everyCard = options.flatMap((option) => option.skillDeck);
+const expectedPassiveNames = {
+  "Elara Voss": "Lantern-Forged Guard",
+  "Thorne Vale": "Second-Beat Deadeye",
+  "Mira Ash": "Wildfire Reach",
+  "Brother Orren": "Graceful Restoration",
+  "Nyx Calder": "Veilpiercer",
+  "Bram Coalhand": "Two-Turn Temper",
+  "Sable Fen": "Foreseen Return",
+  "Kael Rook": "Unshielded Edge",
+  "Ione Mire": "Marshal's Fortune",
+  "Dagan Flint": "Bloodied Power"
+};
+const expectedSpecialNames = {
+  "ev-aegis": "Lantern Phalanx",
+  "ev-ward": "Undying Ward",
+  "ev-command": "Rescue Order",
+  "tv-mark": "Deadeye Bolt",
+  "tv-pierce": "Armor-Piercing Bolt",
+  "tv-hunt": "Predator's Boon",
+  "ma-inferno": "Wildfire Inferno",
+  "ma-comet": "Piercing Ashfall",
+  "ma-gravity": "Gravitic Misfortune",
+  "bo-prayer": "Graceful Renewal",
+  "bo-blessing": "Shared Restoration",
+  "bo-return": "Immediate Resurrection",
+  "nc-knife": "Veilpiercing Knife",
+  "nc-execute": "Veilpiercing Execution",
+  "nc-pilfer": "Borrowed Fate",
+  "bc-fortress": "Two-Turn Bastion",
+  "bc-temper": "Tempered Phalanx",
+  "bc-march": "Bulwark to Blade",
+  "sf-favor": "Foretold Success",
+  "sf-hex": "Foretold Misfortune",
+  "sf-stolen": "Foretold Delay",
+  "kr-riposte": "Unshielded Riposte",
+  "kr-duel": "Baresteel Challenge",
+  "kr-break": "Buffbreaker",
+  "im-command": "Assault Order",
+  "im-focus": "Precision Order",
+  "im-purge": "Mirefield Seizure",
+  "df-none": "Bloodied Onslaught",
+  "df-cleave": "Bloodied Cleave",
+  "df-frenzy": "Flintblood Fury"
+};
+assert.equal(Object.keys(expectedPassiveNames).length, 10, "the naming contract must cover all ten character passives");
+assert.equal(Object.keys(expectedSpecialNames).length, 30, "the naming contract must cover all thirty special cards");
+for (const option of options) {
+  assert.equal(option.hero.passiveName, expectedPassiveNames[option.hero.name], `${option.hero.name} must use its effect-aligned passive name`);
+  assert.equal(option.hero.skill, option.skillDeck[0].name, `${option.hero.name}'s featured skill name must match their first special card`);
+}
+for (const card of everyCard.filter((candidate) => candidate.unique)) assert.equal(card.name, expectedSpecialNames[card.id], `${card.id} must use its effect-aligned special-card name`);
+assert.equal(new Set(Object.values(expectedPassiveNames)).size, 10, "every passive name must be unique");
+assert.equal(new Set(Object.values(expectedSpecialNames)).size, 30, "every special-card name must be unique");
 const expectedSpecialBalance = {
   "ev-aegis": { pityCost: 5, failureEffect: "team-damage", failureValue: 1 },
   "ev-ward": { pityCost: 5, failureEffect: "lose-shield", failureValue: 2 },
@@ -119,10 +172,10 @@ process.env.TEST_MODE = "false";
 assert.equal(cardRules.describeCardFailure(options[0].skillDeck.find((card) => !card.unique)), "No effect.", "common-card failure copy stays concise and grammatical");
 assert.equal(cardRules.describeCardSuccess(options[0].skillDeck.find((card) => card.effect === "none")), "No effect.", "no-effect success copy stays concise and grammatical");
 const cardRuleSample = options[0].skillDeck.find((card) => card.id === "ev-command");
-assert.equal(cardRules.hasFavorableOmen({ completedPlayerTurns: 2, zeroPityUntilTurn: 3 }), true, "Favorable Omen is active before its target-turn boundary");
-assert.equal(cardRules.hasFavorableOmen({ completedPlayerTurns: 3, zeroPityUntilTurn: 3 }), false, "Favorable Omen expires at its target-turn boundary");
-assert.equal(cardRules.getEffectiveCardPityCost(cardRuleSample, { completedPlayerTurns: 2, zeroPityUntilTurn: 3 }), 0, "Favorable Omen overrides an affected card to zero pity");
-assert.equal(cardRules.getEffectiveCardPityCost(cardRuleSample, { completedPlayerTurns: 3, zeroPityUntilTurn: 3 }), cardRuleSample.pityCost, "an expired Favorable Omen restores the printed pity cost");
+assert.equal(cardRules.hasFavorableOmen({ completedPlayerTurns: 2, zeroPityUntilTurn: 3 }), true, "Foretold Success is active before its target-turn boundary");
+assert.equal(cardRules.hasFavorableOmen({ completedPlayerTurns: 3, zeroPityUntilTurn: 3 }), false, "Foretold Success expires at its target-turn boundary");
+assert.equal(cardRules.getEffectiveCardPityCost(cardRuleSample, { completedPlayerTurns: 2, zeroPityUntilTurn: 3 }), 0, "Foretold Success overrides an affected card to zero pity");
+assert.equal(cardRules.getEffectiveCardPityCost(cardRuleSample, { completedPlayerTurns: 3, zeroPityUntilTurn: 3 }), cardRuleSample.pityCost, "an expired Foretold Success restores the printed pity cost");
 assert.equal(cardRules.getCardTargetLabel(cardRuleSample), "One other living ally", "advance-ally cards exclude the acting player in target copy");
 assert.equal(cardRules.describeCardImpact(cardRuleSample), `Success: ${cardRules.describeCardSuccess(cardRuleSample)} Failure: ${cardRules.describeCardFailure(cardRuleSample)}`, "combined impact copy uses the canonical success and failure descriptions");
 for (const card of everyCard) {
@@ -192,7 +245,7 @@ for (const [playerIndex, sourceIds] of [[0, zoneOneSources], [1, zoneTwoSources]
 const supportTypes = new Set(options.flatMap((option) => option.skillDeck.filter((card) => card.effect === "support").map((card) => card.supportType)));
 assert.deepEqual([...supportTypes].sort(), ["advance-ally", "attack", "dice", "dispel-enemy", "enemy-dice", "purge-card", "revive", "shield-to-attack", "skip-enemy", "steal-card", "zero-pity"]);
 const diceModifierCards = options.flatMap((option) => option.skillDeck).filter((card) => card.supportType === "dice" || card.supportType === "enemy-dice");
-assert.deepEqual(diceModifierCards.map((card) => card.name).sort(), ["Dark Omen", "Focus Order", "Gravity Hex"], "only the approved cards can create stored d20 modifiers");
+assert.deepEqual(diceModifierCards.map((card) => card.name).sort(), ["Foretold Misfortune", "Gravitic Misfortune", "Precision Order"], "only the approved cards can create stored d20 modifiers");
 const durationCards = options.flatMap((option) => option.skillDeck).filter((card) =>
   card.effect === "guard" || ["attack", "shield", "shield-to-attack", "dice", "enemy-dice", "skip-enemy", "steal-card", "zero-pity"].includes(card.supportType)
 );
@@ -352,70 +405,70 @@ const elaraParty = [elara, elaraEnemy, elaraAlly];
 const rallyingAegis = elara.skillDeck.find((card) => card.id === "ev-aegis");
 const lanternWard = elara.skillDeck.find((card) => card.id === "ev-ward");
 const elaraCommonGuard = elara.skillDeck.find((card) => !card.unique && card.effect === "guard");
-assert.match(elara.hero.passiveText, /Guard cards grant \+1 shield/i, "United Front applies only to Elara's Guard cards");
-assert.equal(rallyingAegis.effect, "guard", "Rallying Aegis is a Guard card");
-assert.equal(rallyingAegis.supportType, undefined, "Rallying Aegis no longer carries a Support subtype");
-assert.equal(rallyingAegis.pityCost, 5, "Rallying Aegis accounts for shielding the entire living team");
-assert.equal(lanternWard.value, 3, "Lantern Ward has 3 base shield");
-assert.equal(lanternWard.pityCost, 5, "Lantern Ward follows the existing Guard-card pity formula after its shield reduction");
-assert.match(lanternWard.description, /3 shield.*4 with United Front/i, "Lantern Ward describes its base and passive-enhanced shield");
+assert.match(elara.hero.passiveText, /Guard cards grant \+1 shield/i, "Lantern-Forged Guard applies only to Elara's Guard cards");
+assert.equal(rallyingAegis.effect, "guard", "Lantern Phalanx is a Guard card");
+assert.equal(rallyingAegis.supportType, undefined, "Lantern Phalanx no longer carries a Support subtype");
+assert.equal(rallyingAegis.pityCost, 5, "Lantern Phalanx accounts for shielding the entire living team");
+assert.equal(lanternWard.value, 3, "Undying Ward has 3 base shield");
+assert.equal(lanternWard.pityCost, 5, "Undying Ward follows the existing Guard-card pity formula after its shield reduction");
+assert.match(lanternWard.description, /3 shield.*4 with Lantern-Forged Guard/i, "Undying Ward describes its base and passive-enhanced shield");
 const aegisGame = engine.createInitialGame(elaraParty, engine.createAdventure("RALLYING-AEGIS-GUARD"), 30);
 aegisGame.turnOrder = [elara.id, elaraEnemy.id, elaraAlly.id];
 aegisGame.adventure.target = 8;
 aegisGame.playerStates[elara.id].hand = [rallyingAegis.id];
 const aegisResult = engine.resolveCardTurn(aegisGame, elaraParty, rallyingAegis.id, elara.id, 20);
-assert.equal(aegisResult.outcome.effect, "guard", "Rallying Aegis resolves and synchronizes as a Guard card");
-assert.equal(aegisResult.outcome.amount, 3, "United Front raises Rallying Aegis from 2 to 3 shield per target");
-assert.deepEqual(aegisResult.outcome.targetIds.sort(), [elara.id, elaraAlly.id].sort(), "Rallying Aegis targets every living ally, including Elara");
-assert.equal(aegisResult.playerStates[elara.id].shield, 3, "Rallying Aegis shields Elara");
-assert.equal(aegisResult.playerStates[elaraAlly.id].shield, 3, "Rallying Aegis shields each living ally");
-assert.equal(aegisResult.playerStates[elaraEnemy.id].shield, 0, "Rallying Aegis never shields enemies");
+assert.equal(aegisResult.outcome.effect, "guard", "Lantern Phalanx resolves and synchronizes as a Guard card");
+assert.equal(aegisResult.outcome.amount, 3, "Lantern-Forged Guard raises Lantern Phalanx from 2 to 3 shield per target");
+assert.deepEqual(aegisResult.outcome.targetIds.sort(), [elara.id, elaraAlly.id].sort(), "Lantern Phalanx targets every living ally, including Elara");
+assert.equal(aegisResult.playerStates[elara.id].shield, 3, "Lantern Phalanx shields Elara");
+assert.equal(aegisResult.playerStates[elaraAlly.id].shield, 3, "Lantern Phalanx shields each living ally");
+assert.equal(aegisResult.playerStates[elaraEnemy.id].shield, 0, "Lantern Phalanx never shields enemies");
 engine.expireTimedEffectsAtTurnEnd(aegisResult.playerStates[elaraAlly.id]);
-assert.equal(aegisResult.playerStates[elaraAlly.id].shield, 0, "Rallying Aegis expires when an ally's next turn ends");
+assert.equal(aegisResult.playerStates[elaraAlly.id].shield, 0, "Lantern Phalanx expires when an ally's next turn ends");
 engine.expireTimedEffectsAtTurnEnd(aegisResult.playerStates[elara.id]);
-assert.equal(aegisResult.playerStates[elara.id].shield, 0, "self-applied Rallying Aegis expires when Elara's following turn ends");
+assert.equal(aegisResult.playerStates[elara.id].shield, 0, "self-applied Lantern Phalanx expires when Elara's following turn ends");
 const wardGame = engine.createInitialGame(elaraParty, engine.createAdventure("LANTERN-WARD-GUARD"), 30);
 wardGame.turnOrder = [elara.id, elaraEnemy.id, elaraAlly.id];
 wardGame.adventure.target = 8;
 wardGame.playerStates[elara.id].hand = [lanternWard.id];
 const wardResult = engine.resolveCardTurn(wardGame, elaraParty, lanternWard.id, elaraAlly.id, 20);
-assert.equal(wardResult.outcome.amount, 4, "United Front raises Lantern Ward from 3 to 4 shield");
-assert.equal(wardResult.playerStates[elaraAlly.id].shield, 4, "Lantern Ward applies its passive-enhanced shield to the chosen ally");
+assert.equal(wardResult.outcome.amount, 4, "Lantern-Forged Guard raises Undying Ward from 3 to 4 shield");
+assert.equal(wardResult.playerStates[elaraAlly.id].shield, 4, "Undying Ward applies its passive-enhanced shield to the chosen ally");
 const commonGuardGame = engine.createInitialGame(elaraParty, engine.createAdventure("ELARA-COMMON-GUARD"), 30);
 commonGuardGame.turnOrder = [elara.id, elaraEnemy.id, elaraAlly.id];
 commonGuardGame.adventure.target = 8;
 commonGuardGame.playerStates[elara.id].hand = [elaraCommonGuard.id];
 const commonGuardResult = engine.resolveCardTurn(commonGuardGame, elaraParty, elaraCommonGuard.id, elara.id, 20);
-assert.equal(commonGuardResult.outcome.amount, elaraCommonGuard.value + 1, "United Front also strengthens Elara's common Guard cards");
+assert.equal(commonGuardResult.outcome.amount, elaraCommonGuard.value + 1, "Lantern-Forged Guard also strengthens Elara's common Guard cards");
 const failedAegisGame = engine.createInitialGame(elaraParty, engine.createAdventure("RALLYING-AEGIS-FAILURE"), 30);
 failedAegisGame.turnOrder = [elara.id, elaraEnemy.id, elaraAlly.id];
 failedAegisGame.adventure.target = 20;
 failedAegisGame.playerStates[elara.id].hand = [rallyingAegis.id];
 const failedAegis = engine.resolveCardTurn(failedAegisGame, elaraParty, rallyingAegis.id, elara.id, 1);
-assert.equal(failedAegis.outcome.success, false, "a failed Rallying Aegis remains unsuccessful after becoming a Guard card");
-assert.equal(failedAegis.playerStates[elara.id].shield, 0, "a failed Rallying Aegis grants no shield to Elara");
-assert.equal(failedAegis.playerStates[elaraAlly.id].shield, 0, "a failed Rallying Aegis grants no shield to allies");
-assert.equal(failedAegis.playerStates[elara.id].hp, elara.hero.maxHp - 1, "Rallying Aegis failure still damages Elara's team");
-assert.equal(failedAegis.playerStates[elaraAlly.id].hp, elaraAlly.hero.maxHp - 1, "Rallying Aegis failure still damages every living ally");
-assert.equal(failedAegis.playerStates[elaraEnemy.id].hp, elaraEnemy.hero.maxHp, "Rallying Aegis failure never damages enemies");
+assert.equal(failedAegis.outcome.success, false, "a failed Lantern Phalanx remains unsuccessful after becoming a Guard card");
+assert.equal(failedAegis.playerStates[elara.id].shield, 0, "a failed Lantern Phalanx grants no shield to Elara");
+assert.equal(failedAegis.playerStates[elaraAlly.id].shield, 0, "a failed Lantern Phalanx grants no shield to allies");
+assert.equal(failedAegis.playerStates[elara.id].hp, elara.hero.maxHp - 1, "Lantern Phalanx failure still damages Elara's team");
+assert.equal(failedAegis.playerStates[elaraAlly.id].hp, elaraAlly.hero.maxHp - 1, "Lantern Phalanx failure still damages every living ally");
+assert.equal(failedAegis.playerStates[elaraEnemy.id].hp, elaraEnemy.hero.maxHp, "Lantern Phalanx failure never damages enemies");
 
 const thorne = engine.createPlayerSession("Thorne", 0, "Thorne Vale", "thorne-passive");
-const thorneTarget = engine.createPlayerSession("Deadeye target", 1, "Bram Coalhand", "thorne-target");
+const thorneTarget = engine.createPlayerSession("Second-Beat Deadeye target", 1, "Bram Coalhand", "thorne-target");
 const thorneParty = [thorne, thorneTarget];
 const markedArrow = thorne.skillDeck.find((card) => card.id === "tv-mark");
 const thorneBlank = thorne.skillDeck.find((card) => card.effect === "none");
-assert.equal(thorne.hero.passiveText, "Every second turn, Thorne's single-target attacks deal +1 damage.", "Deadeye uses the requested concise passive text");
-assert.match(markedArrow.description, /5 when Deadeye triggers/i, "Marked Arrow states its triggered Deadeye damage");
-assert.match(thorne.skillDeck.find((card) => card.id === "tv-pierce").description, /4 when Deadeye triggers/i, "Piercing Arrow states its triggered Deadeye damage");
+assert.equal(thorne.hero.passiveText, "Every second turn, Thorne's single-target attacks deal +1 damage.", "Second-Beat Deadeye uses the requested concise passive text");
+assert.match(markedArrow.description, /5 when Second-Beat Deadeye triggers/i, "Deadeye Bolt states its triggered Second-Beat Deadeye damage");
+assert.match(thorne.skillDeck.find((card) => card.id === "tv-pierce").description, /4 when Second-Beat Deadeye triggers/i, "Armor-Piercing Bolt states its triggered Second-Beat Deadeye damage");
 const thorneCadenceState = engine.createInitialGame(thorneParty, engine.createAdventure("DEADEYE-CADENCE"), 30).playerStates[thorne.id];
-assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 0, "Deadeye is inactive on Thorne's first battle turn");
+assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 0, "Second-Beat Deadeye is inactive on Thorne's first battle turn");
 engine.expireTimedEffectsAtTurnEnd(thorneCadenceState);
-assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 1, "a completed first turn makes Deadeye active on Thorne's second turn");
+assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 1, "a completed first turn makes Second-Beat Deadeye active on Thorne's second turn");
 engine.expireTimedEffectsAtTurnEnd(thorneCadenceState);
-assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 0, "Deadeye restarts its count on the turn after it triggers");
+assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 0, "Second-Beat Deadeye restarts its count on the turn after it triggers");
 engine.expireTimedEffectsAtTurnEnd(thorneCadenceState);
-assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 1, "Deadeye triggers again on Thorne's fourth turn");
-assert.equal(engine.getThorneValePassiveDamageBonus(thorne, thorneBlank, thorneCadenceState), 0, "Deadeye only adds damage to single-target attacks");
+assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 1, "Second-Beat Deadeye triggers again on Thorne's fourth turn");
+assert.equal(engine.getThorneValePassiveDamageBonus(thorne, thorneBlank, thorneCadenceState), 0, "Second-Beat Deadeye only adds damage to single-target attacks");
 const deadeyeGame = engine.createInitialGame(thorneParty, engine.createAdventure("DEADEYE-DAMAGE"), 30);
 deadeyeGame.turnOrder = [thorne.id, thorneTarget.id];
 deadeyeGame.adventure.target = 8;
@@ -425,97 +478,97 @@ deadeyeGame.playerStates[thorne.id].hand = [markedArrow.id];
 deadeyeGame.playerStates[thorneTarget.id].hp = 14;
 deadeyeGame.playerStates[thorneTarget.id].maxHp = 14;
 const deadeyeAttack = engine.resolveCardTurn(deadeyeGame, thorneParty, markedArrow.id, thorneTarget.id, 20);
-assert.equal(deadeyeAttack.outcome.amount, 7, "a second-turn Marked Arrow deals its 4 base damage, +1 Deadeye damage, and +2 attack buff");
-assert.equal(deadeyeAttack.playerStates[thorneTarget.id].hp, 7, "Deadeye's bonus changes synchronized target HP in actual card resolution");
-assert.equal(deadeyeAttack.playerStates[thorne.id].completedPlayerTurns, 2, "the triggering turn completes before Deadeye's cadence restarts");
+assert.equal(deadeyeAttack.outcome.amount, 7, "a second-turn Deadeye Bolt deals its 4 base damage, +1 Second-Beat Deadeye damage, and +2 attack buff");
+assert.equal(deadeyeAttack.playerStates[thorneTarget.id].hp, 7, "Second-Beat Deadeye's bonus changes synchronized target HP in actual card resolution");
+assert.equal(deadeyeAttack.playerStates[thorne.id].completedPlayerTurns, 2, "the triggering turn completes before Second-Beat Deadeye's cadence restarts");
 
 const mira = engine.createPlayerSession("Mira", 0, "Mira Ash", "mira-inferno");
-const infernoTargetOne = engine.createPlayerSession("Inferno target one", 1, "Bram Coalhand", "inferno-target-one");
-const infernoTargetTwo = engine.createPlayerSession("Inferno target two", 1, "Sable Fen", "inferno-target-two");
-const infernoAlly = engine.createPlayerSession("Inferno ally", 0, "Elara Voss", "inferno-ally");
+const infernoTargetOne = engine.createPlayerSession("Wildfire Inferno target one", 1, "Bram Coalhand", "inferno-target-one");
+const infernoTargetTwo = engine.createPlayerSession("Wildfire Inferno target two", 1, "Sable Fen", "inferno-target-two");
+const infernoAlly = engine.createPlayerSession("Wildfire Inferno ally", 0, "Elara Voss", "inferno-ally");
 const infernoParty = [mira, infernoTargetOne, infernoTargetTwo, infernoAlly];
 const inferno = mira.skillDeck.find((card) => card.id === "ma-inferno");
 assert.equal(mira.hero.hp, 9, "Mira Ash's printed HP is 9");
 assert.equal(mira.hero.maxHp, 9, "Mira Ash begins battle with 9 max HP");
-assert.equal(inferno.value, 3, "Inferno has 3 base damage");
-assert.equal(inferno.pityCost, 7, "Inferno's pity cost accounts for its increased team-wide damage");
-assert.match(inferno.description, /3 damage.*4 with Spreading Flame/i, "Inferno describes its base and passive-enhanced damage");
+assert.equal(inferno.value, 3, "Wildfire Inferno has 3 base damage");
+assert.equal(inferno.pityCost, 7, "Wildfire Inferno's pity cost accounts for its increased team-wide damage");
+assert.match(inferno.description, /3 damage.*4 with Wildfire Reach/i, "Wildfire Inferno describes its base and passive-enhanced damage");
 const infernoGame = engine.createInitialGame(infernoParty, engine.createAdventure("INFERNO-DAMAGE"), 30);
 infernoGame.turnOrder = [mira.id, infernoTargetOne.id, infernoTargetTwo.id, infernoAlly.id];
 infernoGame.adventure.target = 8;
 infernoGame.playerStates[mira.id].hand = [inferno.id];
 infernoGame.playerStates[infernoTargetOne.id].shield = 1;
 const infernoResult = engine.resolveCardTurn(infernoGame, infernoParty, inferno.id, infernoTargetOne.id, 20);
-assert.equal(infernoResult.outcome.amount, 7, "Inferno deals 4 damage per enemy with Spreading Flame, reduced normally by shield");
-assert.equal(infernoResult.playerStates[infernoTargetOne.id].hp, infernoTargetOne.hero.maxHp - 3, "shield blocks one point of Inferno's passive-enhanced damage");
-assert.equal(infernoResult.playerStates[infernoTargetTwo.id].hp, infernoTargetTwo.hero.maxHp - 4, "Inferno deals 3 base plus 1 Spreading Flame damage to each unshielded enemy");
-assert.equal(infernoResult.playerStates[infernoAlly.id].hp, infernoAlly.hero.maxHp, "Inferno never damages Mira's allies");
+assert.equal(infernoResult.outcome.amount, 7, "Wildfire Inferno deals 4 damage per enemy with Wildfire Reach, reduced normally by shield");
+assert.equal(infernoResult.playerStates[infernoTargetOne.id].hp, infernoTargetOne.hero.maxHp - 3, "shield blocks one point of Wildfire Inferno's passive-enhanced damage");
+assert.equal(infernoResult.playerStates[infernoTargetTwo.id].hp, infernoTargetTwo.hero.maxHp - 4, "Wildfire Inferno deals 3 base plus 1 Wildfire Reach damage to each unshielded enemy");
+assert.equal(infernoResult.playerStates[infernoAlly.id].hp, infernoAlly.hero.maxHp, "Wildfire Inferno never damages Mira's allies");
 
 const nyx = engine.createPlayerSession("Nyx", 0, "Nyx Calder", "nyx-damage");
-const nyxTarget = engine.createPlayerSession("Armor Pierce target", 1, "Bram Coalhand", "nyx-target");
+const nyxTarget = engine.createPlayerSession("Veilpiercer target", 1, "Bram Coalhand", "nyx-target");
 const nyxParty = [nyx, nyxTarget];
 const quietKnife = nyx.skillDeck.find((card) => card.id === "nc-knife");
 const execute = nyx.skillDeck.find((card) => card.id === "nc-execute");
-assert.equal(quietKnife.value, 3, "Quiet Knife has 3 base damage");
-assert.equal(execute.value, 4, "Execute has 4 base damage");
-assert.equal(quietKnife.pityCost, 6, "Quiet Knife's pity cost accounts for Armor Pierce");
-assert.equal(execute.pityCost, 7, "Execute's pity cost follows the existing shield-piercing damage formula");
-assert.match(quietKnife.description, /3 damage.*ignoring shield/i, "Quiet Knife describes its reduced shield-piercing damage");
-assert.match(execute.description, /4 damage.*ignoring shield/i, "Execute describes its reduced shield-piercing damage");
+assert.equal(quietKnife.value, 3, "Veilpiercing Knife has 3 base damage");
+assert.equal(execute.value, 4, "Veilpiercing Execution has 4 base damage");
+assert.equal(quietKnife.pityCost, 6, "Veilpiercing Knife's pity cost accounts for Veilpiercer");
+assert.equal(execute.pityCost, 7, "Veilpiercing Execution's pity cost follows the existing shield-piercing damage formula");
+assert.match(quietKnife.description, /3 damage.*ignoring shield/i, "Veilpiercing Knife describes its reduced shield-piercing damage");
+assert.match(execute.description, /4 damage.*ignoring shield/i, "Veilpiercing Execution describes its reduced shield-piercing damage");
 const quietKnifeGame = engine.createInitialGame(nyxParty, engine.createAdventure("QUIET-KNIFE-DAMAGE"), 30);
 quietKnifeGame.turnOrder = [nyx.id, nyxTarget.id];
 quietKnifeGame.adventure.target = 8;
 quietKnifeGame.playerStates[nyx.id].hand = [quietKnife.id];
 quietKnifeGame.playerStates[nyxTarget.id].shield = 10;
 const quietKnifeResult = engine.resolveCardTurn(quietKnifeGame, nyxParty, quietKnife.id, nyxTarget.id, 20);
-assert.equal(quietKnifeResult.outcome.amount, 3, "Quiet Knife deals exactly 3 HP damage through Armor Pierce");
-assert.equal(quietKnifeResult.playerStates[nyxTarget.id].hp, nyxTarget.hero.maxHp - 3, "Quiet Knife reduces target HP by its new base damage");
-assert.equal(quietKnifeResult.playerStates[nyxTarget.id].shield, 10, "Quiet Knife ignores shield without consuming it");
+assert.equal(quietKnifeResult.outcome.amount, 3, "Veilpiercing Knife deals exactly 3 HP damage through Veilpiercer");
+assert.equal(quietKnifeResult.playerStates[nyxTarget.id].hp, nyxTarget.hero.maxHp - 3, "Veilpiercing Knife reduces target HP by its new base damage");
+assert.equal(quietKnifeResult.playerStates[nyxTarget.id].shield, 10, "Veilpiercing Knife ignores shield without consuming it");
 const executeGame = engine.createInitialGame(nyxParty, engine.createAdventure("EXECUTE-DAMAGE"), 30);
 executeGame.turnOrder = [nyx.id, nyxTarget.id];
 executeGame.adventure.target = 8;
 executeGame.playerStates[nyx.id].hand = [execute.id];
 executeGame.playerStates[nyxTarget.id].shield = 10;
 const executeResult = engine.resolveCardTurn(executeGame, nyxParty, execute.id, nyxTarget.id, 20);
-assert.equal(executeResult.outcome.amount, 4, "Execute deals exactly 4 HP damage through Armor Pierce");
-assert.equal(executeResult.playerStates[nyxTarget.id].hp, nyxTarget.hero.maxHp - 4, "Execute reduces target HP by its new base damage");
-assert.equal(executeResult.playerStates[nyxTarget.id].shield, 10, "Execute ignores shield without consuming it");
+assert.equal(executeResult.outcome.amount, 4, "Veilpiercing Execution deals exactly 4 HP damage through Veilpiercer");
+assert.equal(executeResult.playerStates[nyxTarget.id].hp, nyxTarget.hero.maxHp - 4, "Veilpiercing Execution reduces target HP by its new base damage");
+assert.equal(executeResult.playerStates[nyxTarget.id].shield, 10, "Veilpiercing Execution ignores shield without consuming it");
 
 const kael = engine.createPlayerSession("Kael", 0, "Kael Rook", "kael-damage");
-const kaelTarget = engine.createPlayerSession("No Guard target", 1, "Bram Coalhand", "kael-target");
+const kaelTarget = engine.createPlayerSession("Unshielded Edge target", 1, "Bram Coalhand", "kael-target");
 const kaelParty = [kael, kaelTarget];
 const riposte = kael.skillDeck.find((card) => card.id === "kr-riposte");
 const challenge = kael.skillDeck.find((card) => card.id === "kr-duel");
 const kaelCommonAttack = kael.skillDeck.find((card) => !card.unique && card.id.endsWith("common-slash"));
-assert.equal(riposte.value, 3, "Riposte has 3 base damage");
-assert.equal(challenge.value, 3, "Challenge has 3 base damage");
-assert.equal(riposte.pityCost, 5, "Riposte's pity cost accounts for its reduced No Guard damage ceiling");
-assert.equal(challenge.pityCost, 6, "Challenge's pity cost accounts for its No Guard damage ceiling");
-assert.match(kael.hero.passiveText, /Attack cards deal \+1 damage while he has no shield/i, "No Guard states Kael's shield condition and general Attack-card bonus");
-assert.match(riposte.description, /3 damage.*\+1 with No Guard.*Kael has no shield/i, "Riposte concisely describes its base and No Guard damage");
-assert.match(challenge.description, /3 damage.*No Guard.*\+2 if Kael and the target have no shield.*\+1 if only Kael has no shield/i, "Challenge concisely describes both No Guard levels");
+assert.equal(riposte.value, 3, "Unshielded Riposte has 3 base damage");
+assert.equal(challenge.value, 3, "Baresteel Challenge has 3 base damage");
+assert.equal(riposte.pityCost, 5, "Unshielded Riposte's pity cost accounts for its reduced Unshielded Edge damage ceiling");
+assert.equal(challenge.pityCost, 6, "Baresteel Challenge's pity cost accounts for its Unshielded Edge damage ceiling");
+assert.match(kael.hero.passiveText, /Attack cards deal \+1 damage while he has no shield/i, "Unshielded Edge states Kael's shield condition and general Attack-card bonus");
+assert.match(riposte.description, /3 damage.*\+1 with Unshielded Edge.*Kael has no shield/i, "Unshielded Riposte concisely describes its base and Unshielded Edge damage");
+assert.match(challenge.description, /3 damage.*Unshielded Edge.*\+2 if Kael and the target have no shield.*\+1 if only Kael has no shield/i, "Baresteel Challenge concisely describes both Unshielded Edge levels");
 const challengeOpenGame = engine.createInitialGame(kaelParty, engine.createAdventure("CHALLENGE-NO-SHIELD"), 30);
 challengeOpenGame.turnOrder = [kael.id, kaelTarget.id];
 challengeOpenGame.adventure.target = 8;
 challengeOpenGame.playerStates[kael.id].hand = [challenge.id];
 const challengeOpenResult = engine.resolveCardTurn(challengeOpenGame, kaelParty, challenge.id, kaelTarget.id, 20);
-assert.equal(challengeOpenResult.outcome.amount, 5, "Challenge deals 3 base plus 2 No Guard damage to an unshielded enemy");
-assert.equal(challengeOpenResult.playerStates[kaelTarget.id].hp, kaelTarget.hero.maxHp - 5, "Challenge receives +2 only when both Kael and the target have no shield");
+assert.equal(challengeOpenResult.outcome.amount, 5, "Baresteel Challenge deals 3 base plus 2 Unshielded Edge damage to an unshielded enemy");
+assert.equal(challengeOpenResult.playerStates[kaelTarget.id].hp, kaelTarget.hero.maxHp - 5, "Baresteel Challenge receives +2 only when both Kael and the target have no shield");
 const challengeTargetShieldedGame = engine.createInitialGame(kaelParty, engine.createAdventure("CHALLENGE-TARGET-SHIELDED"), 30);
 challengeTargetShieldedGame.turnOrder = [kael.id, kaelTarget.id];
 challengeTargetShieldedGame.adventure.target = 8;
 challengeTargetShieldedGame.playerStates[kael.id].hand = [challenge.id];
 challengeTargetShieldedGame.playerStates[kaelTarget.id].shield = 2;
 const challengeTargetShieldedResult = engine.resolveCardTurn(challengeTargetShieldedGame, kaelParty, challenge.id, kaelTarget.id, 20);
-assert.equal(challengeTargetShieldedResult.outcome.amount, 2, "Challenge gains +1 when only Kael has no shield before the target blocks damage");
-assert.equal(challengeTargetShieldedResult.playerStates[kaelTarget.id].shield, 0, "Challenge removes the shielded target's 2 shield");
+assert.equal(challengeTargetShieldedResult.outcome.amount, 2, "Baresteel Challenge gains +1 when only Kael has no shield before the target blocks damage");
+assert.equal(challengeTargetShieldedResult.playerStates[kaelTarget.id].shield, 0, "Baresteel Challenge removes the shielded target's 2 shield");
 const challengeKaelShieldedGame = engine.createInitialGame(kaelParty, engine.createAdventure("CHALLENGE-KAEL-SHIELDED"), 30);
 challengeKaelShieldedGame.turnOrder = [kael.id, kaelTarget.id];
 challengeKaelShieldedGame.adventure.target = 8;
 challengeKaelShieldedGame.playerStates[kael.id].shield = 2;
 challengeKaelShieldedGame.playerStates[kael.id].hand = [challenge.id];
 const challengeKaelShieldedResult = engine.resolveCardTurn(challengeKaelShieldedGame, kaelParty, challenge.id, kaelTarget.id, 20);
-assert.equal(challengeKaelShieldedResult.outcome.amount, 3, "Challenge receives no No Guard bonus when only the target has no shield");
+assert.equal(challengeKaelShieldedResult.outcome.amount, 3, "Baresteel Challenge receives no Unshielded Edge bonus when only the target has no shield");
 const challengeBothShieldedGame = engine.createInitialGame(kaelParty, engine.createAdventure("CHALLENGE-BOTH-SHIELDED"), 30);
 challengeBothShieldedGame.turnOrder = [kael.id, kaelTarget.id];
 challengeBothShieldedGame.adventure.target = 8;
@@ -523,52 +576,52 @@ challengeBothShieldedGame.playerStates[kael.id].shield = 2;
 challengeBothShieldedGame.playerStates[kael.id].hand = [challenge.id];
 challengeBothShieldedGame.playerStates[kaelTarget.id].shield = 2;
 const challengeBothShieldedResult = engine.resolveCardTurn(challengeBothShieldedGame, kaelParty, challenge.id, kaelTarget.id, 20);
-assert.equal(challengeBothShieldedResult.outcome.amount, 1, "Challenge receives no No Guard bonus when both Kael and the target have shield");
-assert.equal(challengeBothShieldedResult.playerStates[kaelTarget.id].shield, 0, "the target's shield blocks Challenge normally when No Guard is inactive");
+assert.equal(challengeBothShieldedResult.outcome.amount, 1, "Baresteel Challenge receives no Unshielded Edge bonus when both Kael and the target have shield");
+assert.equal(challengeBothShieldedResult.playerStates[kaelTarget.id].shield, 0, "the target's shield blocks Baresteel Challenge normally when Unshielded Edge is inactive");
 const riposteOpenGame = engine.createInitialGame(kaelParty, engine.createAdventure("RIPOSTE-NO-SHIELD"), 30);
 riposteOpenGame.turnOrder = [kael.id, kaelTarget.id];
 riposteOpenGame.adventure.target = 8;
 riposteOpenGame.playerStates[kael.id].hand = [riposte.id];
 const riposteOpenResult = engine.resolveCardTurn(riposteOpenGame, kaelParty, riposte.id, kaelTarget.id, 20);
-assert.equal(riposteOpenResult.outcome.amount, 4, "No Guard adds exactly 1 damage to Riposte while Kael has no shield");
+assert.equal(riposteOpenResult.outcome.amount, 4, "Unshielded Edge adds exactly 1 damage to Unshielded Riposte while Kael has no shield");
 const commonAttackGame = engine.createInitialGame(kaelParty, engine.createAdventure("KAEL-COMMON-ATTACK"), 30);
 commonAttackGame.turnOrder = [kael.id, kaelTarget.id];
 commonAttackGame.adventure.target = 8;
 commonAttackGame.playerStates[kael.id].hand = [kaelCommonAttack.id];
 const commonAttackResult = engine.resolveCardTurn(commonAttackGame, kaelParty, kaelCommonAttack.id, kaelTarget.id, 20);
-assert.equal(commonAttackResult.outcome.amount, kaelCommonAttack.value + 1, "No Guard also adds 1 damage to Kael's common Attack cards while he has no shield");
+assert.equal(commonAttackResult.outcome.amount, kaelCommonAttack.value + 1, "Unshielded Edge also adds 1 damage to Kael's common Attack cards while he has no shield");
 const shieldedCommonAttackGame = engine.createInitialGame(kaelParty, engine.createAdventure("KAEL-SHIELDED-COMMON-ATTACK"), 30);
 shieldedCommonAttackGame.turnOrder = [kael.id, kaelTarget.id];
 shieldedCommonAttackGame.adventure.target = 8;
 shieldedCommonAttackGame.playerStates[kael.id].shield = 2;
 shieldedCommonAttackGame.playerStates[kael.id].hand = [kaelCommonAttack.id];
 const shieldedCommonAttackResult = engine.resolveCardTurn(shieldedCommonAttackGame, kaelParty, kaelCommonAttack.id, kaelTarget.id, 20);
-assert.equal(shieldedCommonAttackResult.outcome.amount, kaelCommonAttack.value, "No Guard is inactive for common Attack cards while Kael has shield");
+assert.equal(shieldedCommonAttackResult.outcome.amount, kaelCommonAttack.value, "Unshielded Edge is inactive for common Attack cards while Kael has shield");
 
 const dagan = engine.createPlayerSession("Dagan", 0, "Dagan Flint", "dagan-cleave");
-const daganTarget = engine.createPlayerSession("Cleave target", 1, "Elara Voss", "dagan-cleave-target");
+const daganTarget = engine.createPlayerSession("Bloodied Cleave target", 1, "Elara Voss", "dagan-cleave-target");
 const daganParty = [dagan, daganTarget];
 const cleave = dagan.skillDeck.find((card) => card.id === "df-cleave");
-assert.equal(cleave.value, 4, "Cleave has 4 base damage");
-assert.equal(cleave.pityCost, 7, "Cleave's pity cost reflects its reduced damage tier");
-assert.equal(cleave.failureValue, 2, "Cleave's failure backlash reflects its reduced damage tier");
-assert.match(cleave.description, /4 damage.*5 while Dagan is at half HP/i, "Cleave describes its base and Pain Makes Power damage");
+assert.equal(cleave.value, 4, "Bloodied Cleave has 4 base damage");
+assert.equal(cleave.pityCost, 7, "Bloodied Cleave's pity cost reflects its reduced damage tier");
+assert.equal(cleave.failureValue, 2, "Bloodied Cleave's failure backlash reflects its reduced damage tier");
+assert.match(cleave.description, /4 damage.*5 while Dagan is at half HP/i, "Bloodied Cleave describes its base and Bloodied Power damage");
 const cleaveHealthyGame = engine.createInitialGame(daganParty, engine.createAdventure("CLEAVE-HEALTHY"), 30);
 cleaveHealthyGame.turnOrder = [dagan.id, daganTarget.id];
 cleaveHealthyGame.adventure.target = 8;
 cleaveHealthyGame.playerStates[dagan.id].hp = dagan.hero.maxHp / 2 + 1;
 cleaveHealthyGame.playerStates[dagan.id].hand = [cleave.id];
 const cleaveHealthyResult = engine.resolveCardTurn(cleaveHealthyGame, daganParty, cleave.id, daganTarget.id, 20);
-assert.equal(cleaveHealthyResult.outcome.amount, 4, "Cleave deals exactly 4 damage while Dagan is above half HP");
-assert.equal(cleaveHealthyResult.playerStates[daganTarget.id].hp, daganTarget.hero.maxHp - 4, "Cleave applies its reduced base damage to synchronized target HP");
+assert.equal(cleaveHealthyResult.outcome.amount, 4, "Bloodied Cleave deals exactly 4 damage while Dagan is above half HP");
+assert.equal(cleaveHealthyResult.playerStates[daganTarget.id].hp, daganTarget.hero.maxHp - 4, "Bloodied Cleave applies its reduced base damage to synchronized target HP");
 const cleaveWoundedGame = engine.createInitialGame(daganParty, engine.createAdventure("CLEAVE-WOUNDED"), 30);
 cleaveWoundedGame.turnOrder = [dagan.id, daganTarget.id];
 cleaveWoundedGame.adventure.target = 8;
 cleaveWoundedGame.playerStates[dagan.id].hp = dagan.hero.maxHp / 2;
 cleaveWoundedGame.playerStates[dagan.id].hand = [cleave.id];
 const cleaveWoundedResult = engine.resolveCardTurn(cleaveWoundedGame, daganParty, cleave.id, daganTarget.id, 20);
-assert.equal(cleaveWoundedResult.outcome.amount, 5, "Pain Makes Power raises Cleave from 4 to 5 damage at half HP");
-assert.equal(cleaveWoundedResult.playerStates[daganTarget.id].hp, daganTarget.hero.maxHp - 5, "Cleave's half-HP bonus updates synchronized target HP");
+assert.equal(cleaveWoundedResult.outcome.amount, 5, "Bloodied Power raises Bloodied Cleave from 4 to 5 damage at half HP");
+assert.equal(cleaveWoundedResult.playerStates[daganTarget.id].hp, daganTarget.hero.maxHp - 5, "Bloodied Cleave's half-HP bonus updates synchronized target HP");
 
 const healer = engine.createPlayerSession("Orren", 0, "Brother Orren", "healer");
 const supportAlly = engine.createPlayerSession("Support ally", 2, "Elara Voss", "support-ally");
@@ -577,23 +630,23 @@ const supportParty = [healer, supportEnemy, supportAlly];
 const prayerOfLife = healer.skillDeck.find((card) => card.id === "bo-prayer");
 const sharedBlessing = healer.skillDeck.find((card) => card.id === "bo-blessing");
 const orrenCommonHeal = healer.skillDeck.find((card) => !card.unique && card.effect === "heal");
-assert.match(healer.hero.passiveText, /Orren's Heal cards restore \+1 HP/i, "Enduring Grace grants exactly +1 HP to Orren's Heal cards");
-assert.equal(prayerOfLife.value, 3, "Prayer of Life restores 3 base HP");
-assert.equal(prayerOfLife.pityCost, 5, "Prayer of Life follows the Heal-card pity formula after its reduction");
-assert.match(prayerOfLife.description, /3 HP.*4 with Enduring Grace/i, "Prayer of Life describes its base and passive-enhanced healing");
-assert.equal(sharedBlessing.effect, "heal", "Shared Blessing is a Heal card");
-assert.equal(sharedBlessing.supportType, undefined, "Shared Blessing no longer carries a Support subtype");
-assert.equal(sharedBlessing.value, 2, "Shared Blessing keeps its 2 base healing");
-assert.equal(sharedBlessing.pityCost, 6, "Shared Blessing's pity cost accounts for healing every living ally");
-assert.match(sharedBlessing.description, /2 HP.*3 with Enduring Grace/i, "Shared Blessing describes its base and passive-enhanced healing");
-assert.equal(cardRules.getCardEffectLabel(sharedBlessing), "Heal all allies", "Shared Blessing's player-facing action type matches its all-allies Heal effect");
+assert.match(healer.hero.passiveText, /Orren's Heal cards restore \+1 HP/i, "Graceful Restoration grants exactly +1 HP to Orren's Heal cards");
+assert.equal(prayerOfLife.value, 3, "Graceful Renewal restores 3 base HP");
+assert.equal(prayerOfLife.pityCost, 5, "Graceful Renewal follows the Heal-card pity formula after its reduction");
+assert.match(prayerOfLife.description, /3 HP.*4 with Graceful Restoration/i, "Graceful Renewal describes its base and passive-enhanced healing");
+assert.equal(sharedBlessing.effect, "heal", "Shared Restoration is a Heal card");
+assert.equal(sharedBlessing.supportType, undefined, "Shared Restoration no longer carries a Support subtype");
+assert.equal(sharedBlessing.value, 2, "Shared Restoration keeps its 2 base healing");
+assert.equal(sharedBlessing.pityCost, 6, "Shared Restoration's pity cost accounts for healing every living ally");
+assert.match(sharedBlessing.description, /2 HP.*3 with Graceful Restoration/i, "Shared Restoration describes its base and passive-enhanced healing");
+assert.equal(cardRules.getCardEffectLabel(sharedBlessing), "Heal all allies", "Shared Restoration's player-facing action type matches its all-allies Heal effect");
 const healGame = engine.createInitialGame(supportParty, engine.createAdventure("HEAL"), 30);
 healGame.turnOrder = [healer.id, supportEnemy.id, supportAlly.id];
 healGame.playerStates[healer.id].hand = [prayerOfLife.id];
 healGame.playerStates[supportAlly.id].hp = 1;
 const allyHealed = engine.resolveCardTurn(healGame, supportParty, prayerOfLife.id, supportAlly.id, 20);
-assert.equal(allyHealed.outcome.amount, 4, "Enduring Grace raises Prayer of Life from 3 to 4 restored HP");
-assert.equal(allyHealed.playerStates[supportAlly.id].hp, 5, "Prayer of Life restores the chosen ally with its updated passive bonus");
+assert.equal(allyHealed.outcome.amount, 4, "Graceful Restoration raises Graceful Renewal from 3 to 4 restored HP");
+assert.equal(allyHealed.playerStates[supportAlly.id].hp, 5, "Graceful Renewal restores the chosen ally with its updated passive bonus");
 assert.equal(allyHealed.playerStates[healer.id].hp, healer.hero.maxHp, "ally heal does not redirect to the caster");
 
 const commonHealGame = engine.createInitialGame(supportParty, engine.createAdventure("ORREN-COMMON-HEAL"), 30);
@@ -601,7 +654,7 @@ commonHealGame.turnOrder = [healer.id, supportEnemy.id, supportAlly.id];
 commonHealGame.playerStates[healer.id].hp = 1;
 commonHealGame.playerStates[healer.id].hand = [orrenCommonHeal.id];
 const commonHealed = engine.resolveCardTurn(commonHealGame, supportParty, orrenCommonHeal.id, healer.id, 20);
-assert.equal(commonHealed.outcome.amount, orrenCommonHeal.value + 1, "Enduring Grace also strengthens Orren's common Heal card");
+assert.equal(commonHealed.outcome.amount, orrenCommonHeal.value + 1, "Graceful Restoration also strengthens Orren's common Heal card");
 assert.equal(commonHealed.playerStates[healer.id].hp, 1 + orrenCommonHeal.value + 1, "Orren's common Heal card applies the passive in real resolution");
 
 const tank = engine.createPlayerSession("Bram", 0, "Bram Coalhand", "tank");
@@ -612,29 +665,29 @@ const livingFortress = tank.skillDeck.find((card) => card.id === "bc-fortress");
 const temperArmor = tank.skillDeck.find((card) => card.id === "bc-temper");
 const shieldforgedAssault = tank.skillDeck.find((card) => card.id === "bc-march");
 const bramBrace = tank.skillDeck.find((card) => !card.unique && card.effect === "guard");
-assert.match(tank.hero.passiveText, /shield from Bram's Guard cards lasts for 2 turns/i, "Tempered Steel states its two-turn Guard duration");
-assert.equal(livingFortress.value, 4, "Living Fortress grants 4 base shield");
-assert.equal(livingFortress.pityCost, 6, "Living Fortress follows the Guard-card pity formula after its shield reduction");
-assert.equal(temperArmor.effect, "guard", "Temper Armor is a Guard card");
-assert.equal(temperArmor.supportType, undefined, "Temper Armor no longer carries a Support subtype");
-assert.equal(temperArmor.value, 3, "Temper Armor grants 3 base shield");
-assert.equal(temperArmor.pityCost, 7, "Temper Armor's pity cost accounts for team-wide, two-turn shield");
-assert.match(bramBrace.description, /expires at the end of your second turn/i, "Bram's common Guard card describes Tempered Steel's duration");
-assert.equal(shieldforgedAssault.name, "Shieldforged Assault", "Fortified March is renamed to match its shield conversion effect");
-assert.equal(shieldforgedAssault.supportType, "shield-to-attack", "Shieldforged Assault uses the shield conversion rule");
-assert.equal(shieldforgedAssault.target, "self", "Shieldforged Assault targets only Bram");
-assert.equal(shieldforgedAssault.value, 0, "Shieldforged Assault derives its strength from current shield instead of a flat value");
-assert.equal(shieldforgedAssault.pityCost, 6, "Shieldforged Assault's pity cost accounts for its self-only shield conversion");
-assert.equal(shieldforgedAssault.failureEffect, "lose-shield", "Shieldforged Assault risks the shield it attempts to convert");
-assert.equal(shieldforgedAssault.failureValue, 2, "Shieldforged Assault loses up to 2 shield on failure");
-assert.equal(cardRules.getCardEffectLabel(shieldforgedAssault), "Empower yourself", "Shieldforged Assault's player-facing action type matches its self-only effect");
-assert.match(shieldforgedAssault.description, /half.*your current shield.*rounded down.*equal attack damage bonus.*your next attack.*your next turn/i, "Shieldforged Assault fully describes its self-only conversion, rounding, use, and expiry");
+assert.match(tank.hero.passiveText, /shields granted by Bram's Guard cards last for 2 turns/i, "Two-Turn Temper states its two-turn Guard duration");
+assert.equal(livingFortress.value, 4, "Two-Turn Bastion grants 4 base shield");
+assert.equal(livingFortress.pityCost, 6, "Two-Turn Bastion follows the Guard-card pity formula after its shield reduction");
+assert.equal(temperArmor.effect, "guard", "Tempered Phalanx is a Guard card");
+assert.equal(temperArmor.supportType, undefined, "Tempered Phalanx no longer carries a Support subtype");
+assert.equal(temperArmor.value, 3, "Tempered Phalanx grants 3 base shield");
+assert.equal(temperArmor.pityCost, 7, "Tempered Phalanx's pity cost accounts for team-wide, two-turn shield");
+assert.match(bramBrace.description, /expires at the end of your second turn/i, "Bram's common Guard card describes Two-Turn Temper's duration");
+assert.equal(shieldforgedAssault.name, "Bulwark to Blade", "Fortified March is renamed to match its shield conversion effect");
+assert.equal(shieldforgedAssault.supportType, "shield-to-attack", "Bulwark to Blade uses the shield conversion rule");
+assert.equal(shieldforgedAssault.target, "self", "Bulwark to Blade targets only Bram");
+assert.equal(shieldforgedAssault.value, 0, "Bulwark to Blade derives its strength from current shield instead of a flat value");
+assert.equal(shieldforgedAssault.pityCost, 6, "Bulwark to Blade's pity cost accounts for its self-only shield conversion");
+assert.equal(shieldforgedAssault.failureEffect, "lose-shield", "Bulwark to Blade risks the shield it attempts to convert");
+assert.equal(shieldforgedAssault.failureValue, 2, "Bulwark to Blade loses up to 2 shield on failure");
+assert.equal(cardRules.getCardEffectLabel(shieldforgedAssault), "Empower yourself", "Bulwark to Blade's player-facing action type matches its self-only effect");
+assert.match(shieldforgedAssault.description, /half.*your current shield.*rounded down.*equal attack damage bonus.*your next attack.*your next turn/i, "Bulwark to Blade fully describes its self-only conversion, rounding, use, and expiry");
 const guardGame = engine.createInitialGame(tankParty, engine.createAdventure("GUARD"), 30);
 guardGame.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
 guardGame.playerStates[tank.id].hand = [livingFortress.id];
 const allyGuarded = engine.resolveCardTurn(guardGame, tankParty, livingFortress.id, tankAlly.id, 20);
-assert.equal(allyGuarded.outcome.amount, 4, "Tempered Steel no longer increases Guard shield strength");
-assert.equal(allyGuarded.playerStates[tankAlly.id].shield, 4, "Living Fortress grants its updated 4 shield to the chosen ally");
+assert.equal(allyGuarded.outcome.amount, 4, "Two-Turn Temper no longer increases Guard shield strength");
+assert.equal(allyGuarded.playerStates[tankAlly.id].shield, 4, "Two-Turn Bastion grants its updated 4 shield to the chosen ally");
 engine.expireTimedEffectsAtTurnEnd(allyGuarded.playerStates[tankAlly.id]);
 assert.equal(allyGuarded.playerStates[tankAlly.id].shield, 4, "Bram's Guard shield remains after the target's first turn");
 engine.expireTimedEffectsAtTurnEnd(allyGuarded.playerStates[tankAlly.id]);
@@ -654,13 +707,13 @@ const temperGame = engine.createInitialGame(tankParty, engine.createAdventure("T
 temperGame.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
 temperGame.playerStates[tank.id].hand = [temperArmor.id];
 const teamTempered = engine.resolveCardTurn(temperGame, tankParty, temperArmor.id, tank.id, 20);
-assert.equal(teamTempered.outcome.effect, "guard", "Temper Armor resolves and synchronizes as a Guard card");
-assert.equal(teamTempered.outcome.amount, 3, "Temper Armor resolves at 3 shield per target");
-assert.deepEqual(teamTempered.outcome.targetIds.sort(), [tank.id, tankAlly.id].sort(), "Temper Armor targets every living ally, including Bram");
-assert.equal(teamTempered.playerStates[tank.id].shield, 3, "Temper Armor shields Bram");
-assert.equal(teamTempered.playerStates[tankAlly.id].shield, 3, "Temper Armor shields each living ally");
-assert.equal(teamTempered.playerStates[tankEnemy.id].shield, 0, "Temper Armor never shields enemies");
-assert.equal(teamTempered.playerStates[tankAlly.id].timedEffects.find((effect) => effect.kind === "shield").expiresAfterTurn - teamTempered.playerStates[tankAlly.id].completedPlayerTurns, 2, "Temper Armor shield remains for two target turns");
+assert.equal(teamTempered.outcome.effect, "guard", "Tempered Phalanx resolves and synchronizes as a Guard card");
+assert.equal(teamTempered.outcome.amount, 3, "Tempered Phalanx resolves at 3 shield per target");
+assert.deepEqual(teamTempered.outcome.targetIds.sort(), [tank.id, tankAlly.id].sort(), "Tempered Phalanx targets every living ally, including Bram");
+assert.equal(teamTempered.playerStates[tank.id].shield, 3, "Tempered Phalanx shields Bram");
+assert.equal(teamTempered.playerStates[tankAlly.id].shield, 3, "Tempered Phalanx shields each living ally");
+assert.equal(teamTempered.playerStates[tankEnemy.id].shield, 0, "Tempered Phalanx never shields enemies");
+assert.equal(teamTempered.playerStates[tankAlly.id].timedEffects.find((effect) => effect.kind === "shield").expiresAfterTurn - teamTempered.playerStates[tankAlly.id].completedPlayerTurns, 2, "Tempered Phalanx shield remains for two target turns");
 
 const conversionGame = engine.createInitialGame(tankParty, engine.createAdventure("SHIELDFORGED-ASSAULT"), 30);
 conversionGame.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
@@ -673,14 +726,14 @@ conversionGame.playerStates[tankAlly.id].timedEffects = [{ kind: "shield", value
 conversionGame.playerStates[tankEnemy.id].shield = 10;
 conversionGame.playerStates[tankEnemy.id].timedEffects = [{ kind: "shield", value: 10, expiresAfterTurn: 10 }];
 const shieldsForged = engine.resolveCardTurn(conversionGame, tankParty, shieldforgedAssault.id, tank.id, 20);
-assert.equal(shieldsForged.outcome.amount, 2, "Shieldforged Assault reports only Bram's converted shield");
-assert.deepEqual(shieldsForged.outcome.targetIds, [tank.id], "Shieldforged Assault synchronizes Bram as its only target");
-assert.equal(shieldsForged.playerStates[tank.id].shield, 3, "Shieldforged Assault rounds Bram's odd shield down before conversion");
+assert.equal(shieldsForged.outcome.amount, 2, "Bulwark to Blade reports only Bram's converted shield");
+assert.deepEqual(shieldsForged.outcome.targetIds, [tank.id], "Bulwark to Blade synchronizes Bram as its only target");
+assert.equal(shieldsForged.playerStates[tank.id].shield, 3, "Bulwark to Blade rounds Bram's odd shield down before conversion");
 assert.equal(shieldsForged.playerStates[tank.id].attackBuff, 2, "Bram gains attack damage equal to his converted shield");
-assert.equal(shieldsForged.playerStates[tankAlly.id].shield, 8, "Shieldforged Assault preserves allied shield");
-assert.equal(shieldsForged.playerStates[tankAlly.id].attackBuff, 0, "Shieldforged Assault never grants allies an attack bonus");
-assert.equal(shieldsForged.playerStates[tankEnemy.id].shield, 10, "Shieldforged Assault never converts enemy shield");
-assert.equal(shieldsForged.playerStates[tankEnemy.id].attackBuff, 0, "Shieldforged Assault never buffs enemies");
+assert.equal(shieldsForged.playerStates[tankAlly.id].shield, 8, "Bulwark to Blade preserves allied shield");
+assert.equal(shieldsForged.playerStates[tankAlly.id].attackBuff, 0, "Bulwark to Blade never grants allies an attack bonus");
+assert.equal(shieldsForged.playerStates[tankEnemy.id].shield, 10, "Bulwark to Blade never converts enemy shield");
+assert.equal(shieldsForged.playerStates[tankEnemy.id].attackBuff, 0, "Bulwark to Blade never buffs enemies");
 const forgedBramAttack = tank.skillDeck.find((card) => card.effect === "damage");
 shieldsForged.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
 shieldsForged.adventure.target = 8;
@@ -702,12 +755,12 @@ const failedConversionGame = structuredClone(conversionGame);
 failedConversionGame.adventure.target = 20;
 failedConversionGame.playerStates[tank.id].hand = [shieldforgedAssault.id];
 const failedConversion = engine.resolveCardTurn(failedConversionGame, tankParty, shieldforgedAssault.id, tank.id, 1);
-assert.equal(failedConversion.outcome.success, false, "a failed Shieldforged Assault performs no conversion");
+assert.equal(failedConversion.outcome.success, false, "a failed Bulwark to Blade performs no conversion");
 assert.equal(failedConversion.playerStates[tank.id].shield, 3, "failed conversion removes up to 2 of Bram's shield");
 assert.equal(failedConversion.playerStates[tankAlly.id].shield, 8, "failed conversion preserves allied shield");
 assert.equal(failedConversion.playerStates[tank.id].attackBuff, 0, "failed conversion grants no attack bonus");
-assert.equal(failedConversion.playerStates[tank.id].hp, tank.hero.maxHp, "Shieldforged Assault failure no longer damages Bram");
-assert.equal(failedConversion.playerStates[tankAlly.id].hp, tankAlly.hero.maxHp, "Shieldforged Assault failure no longer damages allies");
+assert.equal(failedConversion.playerStates[tank.id].hp, tank.hero.maxHp, "Bulwark to Blade failure no longer damages Bram");
+assert.equal(failedConversion.playerStates[tankAlly.id].hp, tankAlly.hero.maxHp, "Bulwark to Blade failure no longer damages allies");
 
 const teamHealGame = engine.createInitialGame(supportParty, engine.createAdventure("TEAM-HEAL"), 30);
 teamHealGame.turnOrder = [healer.id, supportEnemy.id, supportAlly.id];
@@ -715,12 +768,12 @@ teamHealGame.playerStates[healer.id].hand = [sharedBlessing.id];
 teamHealGame.playerStates[healer.id].hp = 5;
 teamHealGame.playerStates[supportAlly.id].hp = 2;
 const teamHealed = engine.resolveCardTurn(teamHealGame, supportParty, sharedBlessing.id, healer.id, 20);
-assert.equal(teamHealed.outcome.effect, "heal", "Shared Blessing resolves and synchronizes as a Heal card");
-assert.equal(teamHealed.outcome.amount, 6, "Shared Blessing reports the total HP restored across both living allies");
-assert.deepEqual(teamHealed.outcome.targetIds.sort(), [healer.id, supportAlly.id].sort(), "Shared Blessing targets every living ally, including Orren");
-assert.equal(teamHealed.playerStates[healer.id].hp, 8, "Shared Blessing restores 3 HP to Orren with Enduring Grace");
-assert.equal(teamHealed.playerStates[supportAlly.id].hp, 5, "Shared Blessing restores 3 HP to each living ally");
-assert.equal(teamHealed.playerStates[supportEnemy.id].hp, supportEnemy.hero.maxHp, "Shared Blessing never heals enemies");
+assert.equal(teamHealed.outcome.effect, "heal", "Shared Restoration resolves and synchronizes as a Heal card");
+assert.equal(teamHealed.outcome.amount, 6, "Shared Restoration reports the total HP restored across both living allies");
+assert.deepEqual(teamHealed.outcome.targetIds.sort(), [healer.id, supportAlly.id].sort(), "Shared Restoration targets every living ally, including Orren");
+assert.equal(teamHealed.playerStates[healer.id].hp, 8, "Shared Restoration restores 3 HP to Orren with Graceful Restoration");
+assert.equal(teamHealed.playerStates[supportAlly.id].hp, 5, "Shared Restoration restores 3 HP to each living ally");
+assert.equal(teamHealed.playerStates[supportEnemy.id].hp, supportEnemy.hero.maxHp, "Shared Restoration never heals enemies");
 
 const cappedBlessingGame = engine.createInitialGame(supportParty, engine.createAdventure("CAPPED-SHARED-BLESSING"), 30);
 cappedBlessingGame.turnOrder = [healer.id, supportEnemy.id, supportAlly.id];
@@ -728,9 +781,9 @@ cappedBlessingGame.playerStates[healer.id].hand = [sharedBlessing.id];
 cappedBlessingGame.playerStates[healer.id].hp = healer.hero.maxHp - 1;
 cappedBlessingGame.playerStates[supportAlly.id].hp = supportAlly.hero.maxHp - 2;
 const cappedBlessing = engine.resolveCardTurn(cappedBlessingGame, supportParty, sharedBlessing.id, healer.id, 20);
-assert.equal(cappedBlessing.playerStates[healer.id].hp, healer.hero.maxHp, "Shared Blessing cannot heal Orren above max HP");
-assert.equal(cappedBlessing.playerStates[supportAlly.id].hp, supportAlly.hero.maxHp, "Shared Blessing cannot heal an ally above max HP");
-assert.equal(cappedBlessing.outcome.amount, 3, "Shared Blessing reports only HP actually restored when targets are capped");
+assert.equal(cappedBlessing.playerStates[healer.id].hp, healer.hero.maxHp, "Shared Restoration cannot heal Orren above max HP");
+assert.equal(cappedBlessing.playerStates[supportAlly.id].hp, supportAlly.hero.maxHp, "Shared Restoration cannot heal an ally above max HP");
+assert.equal(cappedBlessing.outcome.amount, 3, "Shared Restoration reports only HP actually restored when targets are capped");
 
 const failedBlessingGame = engine.createInitialGame(supportParty, engine.createAdventure("FAILED-SHARED-BLESSING"), 30);
 failedBlessingGame.turnOrder = [healer.id, supportEnemy.id, supportAlly.id];
@@ -739,10 +792,10 @@ failedBlessingGame.playerStates[healer.id].hand = [sharedBlessing.id];
 failedBlessingGame.playerStates[healer.id].hp = 5;
 failedBlessingGame.playerStates[supportAlly.id].hp = 2;
 const failedBlessing = engine.resolveCardTurn(failedBlessingGame, supportParty, sharedBlessing.id, healer.id, 1);
-assert.equal(failedBlessing.outcome.success, false, "a failed Shared Blessing grants no healing");
-assert.equal(failedBlessing.playerStates[healer.id].hp, 4, "Shared Blessing retains its 1 team-damage failure for Orren");
-assert.equal(failedBlessing.playerStates[supportAlly.id].hp, 1, "Shared Blessing failure damages every living ally instead of healing them");
-assert.equal(failedBlessing.playerStates[supportEnemy.id].hp, supportEnemy.hero.maxHp, "Shared Blessing failure never damages enemies");
+assert.equal(failedBlessing.outcome.success, false, "a failed Shared Restoration grants no healing");
+assert.equal(failedBlessing.playerStates[healer.id].hp, 4, "Shared Restoration retains its 1 team-damage failure for Orren");
+assert.equal(failedBlessing.playerStates[supportAlly.id].hp, 1, "Shared Restoration failure damages every living ally instead of healing them");
+assert.equal(failedBlessing.playerStates[supportEnemy.id].hp, supportEnemy.hero.maxHp, "Shared Restoration failure never damages enemies");
 
 const commander = engine.createPlayerSession("Ione", 0, "Ione Mire", "commander");
 const diceAlly = engine.createPlayerSession("Dice ally", 2, "Dagan Flint", "dice-ally");
@@ -751,7 +804,7 @@ const diceParty = [commander, diceEnemy, diceAlly];
 const diceGame = engine.createInitialGame(diceParty, engine.createAdventure("DICE"), 30);
 diceGame.turnOrder = [commander.id, diceEnemy.id, diceAlly.id];
 const diceCard = commander.skillDeck.find((card) => card.supportType === "dice");
-assert.equal(diceCard.name, "Focus Order", "Focus Order is the only allied d20 buff card");
+assert.equal(diceCard.name, "Precision Order", "Precision Order is the only allied d20 buff card");
 diceGame.playerStates[commander.id].hand = [diceCard.id];
 const diceBuffed = engine.resolveCardTurn(diceGame, diceParty, diceCard.id, commander.id, 20);
 assert.equal(diceBuffed.playerStates[commander.id].diceBuff, 2);
@@ -773,21 +826,21 @@ const cursedEnemy = engine.createPlayerSession("Cursed enemy", 1, "Thorne Vale",
 const oracleAlly = engine.createPlayerSession("Oracle ally", 2, "Dagan Flint", "oracle-ally");
 const curseParty = [oracle, cursedEnemy, oracleAlly];
 const favorableOmen = oracle.skillDeck.find((card) => card.id === "sf-favor");
-assert.equal(favorableOmen.supportType, "zero-pity", "Favorable Omen grants a zero-pity card instead of shield or a d20 modifier");
-assert.equal(favorableOmen.target, "ally", "Favorable Omen chooses one living ally, including Sable Fen");
-assert.match(favorableOmen.description, /living ally.*including yourself.*next card.*next turn.*0 pity.*expires.*end of that turn/i, "Favorable Omen's description explains its complete updated effect");
-assert.doesNotMatch(favorableOmen.description, /third use|graveyard/i, "Favorable Omen no longer describes a use limit");
+assert.equal(favorableOmen.supportType, "zero-pity", "Foretold Success grants a zero-pity card instead of shield or a d20 modifier");
+assert.equal(favorableOmen.target, "ally", "Foretold Success chooses one living ally, including Sable Fen");
+assert.match(favorableOmen.description, /living ally.*including yourself.*next card.*next turn.*0 pity.*expires.*end of that turn/i, "Foretold Success's description explains its complete updated effect");
+assert.doesNotMatch(favorableOmen.description, /third use|graveyard/i, "Foretold Success no longer describes a use limit");
 const favorableGame = engine.createInitialGame(curseParty, engine.createAdventure("FAVOR"), 30);
 favorableGame.turnOrder = [oracle.id, cursedEnemy.id, oracleAlly.id];
 favorableGame.playerStates[oracle.id].hand = [favorableOmen.id];
 const favorableResult = engine.resolveCardTurn(favorableGame, curseParty, favorableOmen.id, oracleAlly.id, 20);
-assert.equal(favorableResult.playerStates[oracle.id].diceBuff, 0, "Favorable Omen cannot create a d20 buff");
-assert.equal(favorableResult.playerStates[oracleAlly.id].diceBuff, 0, "Favorable Omen cannot create allied d20 buffs");
-assert.equal(favorableResult.playerStates[oracle.id].shield, 0, "Favorable Omen no longer creates shield");
+assert.equal(favorableResult.playerStates[oracle.id].diceBuff, 0, "Foretold Success cannot create a d20 buff");
+assert.equal(favorableResult.playerStates[oracleAlly.id].diceBuff, 0, "Foretold Success cannot create allied d20 buffs");
+assert.equal(favorableResult.playerStates[oracle.id].shield, 0, "Foretold Success no longer creates shield");
 assert.equal(favorableResult.playerStates[oracleAlly.id].zeroPityUntilTurn, 1, "the chosen ally receives a zero-pity card for their next turn");
 const skippedOmenState = structuredClone(favorableResult.playerStates[oracleAlly.id]);
 engine.expireTimedEffectsAtTurnEnd(skippedOmenState);
-assert.equal(skippedOmenState.zeroPityUntilTurn, 0, "Favorable Omen expires if the chosen ally's next turn ends without a card play");
+assert.equal(skippedOmenState.zeroPityUntilTurn, 0, "Foretold Success expires if the chosen ally's next turn ends without a card play");
 favorableResult.turnOrder = [oracleAlly.id, cursedEnemy.id, oracle.id];
 favorableResult.activePlayerIndex = curseParty.findIndex((player) => player.id === oracleAlly.id);
 favorableResult.adventure.target = 16;
@@ -795,9 +848,9 @@ const omenAttack = oracleAlly.skillDeck.find((card) => card.effect === "damage" 
 favorableResult.playerStates[oracleAlly.id].hand = [omenAttack.id];
 const omenPlayed = engine.resolveCardTurn(favorableResult, curseParty, omenAttack.id, cursedEnemy.id, 1);
 assert.equal(omenPlayed.outcome.success, true, "the chosen ally's next played card succeeds automatically at 0 pity cost");
-assert.equal(omenPlayed.outcome.pityCost, 0, "Favorable Omen changes the next played card's effective pity cost to 0");
-assert.equal(omenPlayed.playerStates[oracleAlly.id].pityPoints, 0, "a Favorable Omen card neither spends nor gains pity");
-assert.equal(omenPlayed.playerStates[oracleAlly.id].zeroPityUntilTurn, 0, "Favorable Omen is consumed when the next card is played");
+assert.equal(omenPlayed.outcome.pityCost, 0, "Foretold Success changes the next played card's effective pity cost to 0");
+assert.equal(omenPlayed.playerStates[oracleAlly.id].pityPoints, 0, "a Foretold Success card neither spends nor gains pity");
+assert.equal(omenPlayed.playerStates[oracleAlly.id].zeroPityUntilTurn, 0, "Foretold Success is consumed when the next card is played");
 
 const failedFavorableGame = engine.createInitialGame(curseParty, engine.createAdventure("FAILED-FAVORABLE-OMEN"), 30);
 failedFavorableGame.turnOrder = [oracle.id, cursedEnemy.id, oracleAlly.id];
@@ -805,23 +858,23 @@ failedFavorableGame.adventure.target = 20;
 failedFavorableGame.playerStates[oracle.id].hp = 5;
 failedFavorableGame.playerStates[oracle.id].hand = [favorableOmen.id];
 const failedFavorable = engine.resolveCardTurn(failedFavorableGame, curseParty, favorableOmen.id, oracleAlly.id, 1);
-assert.equal(failedFavorable.outcome.success, false, "a failed Favorable Omen grants no zero-pity effect");
-assert.equal(failedFavorable.playerStates[oracleAlly.id].zeroPityUntilTurn, 0, "Favorable Omen cannot affect its target on failure");
-assert.equal(failedFavorable.playerStates[oracle.id].hp, 3, "Favorable Omen applies its rebalanced 2 self-damage failure");
+assert.equal(failedFavorable.outcome.success, false, "a failed Foretold Success grants no zero-pity effect");
+assert.equal(failedFavorable.playerStates[oracleAlly.id].zeroPityUntilTurn, 0, "Foretold Success cannot affect its target on failure");
+assert.equal(failedFavorable.playerStates[oracle.id].hp, 3, "Foretold Success applies its rebalanced 2 self-damage failure");
 
 const selfFavorableGame = engine.createInitialGame(curseParty, engine.createAdventure("FAVOR-SELF"), 30);
 selfFavorableGame.turnOrder = [oracle.id, cursedEnemy.id, oracleAlly.id];
 selfFavorableGame.playerStates[oracle.id].hand = [favorableOmen.id];
 const selfFavored = engine.resolveCardTurn(selfFavorableGame, curseParty, favorableOmen.id, oracle.id, 20);
 assert.equal(selfFavored.playerStates[oracle.id].completedPlayerTurns, 1);
-assert.equal(selfFavored.playerStates[oracle.id].zeroPityUntilTurn, 2, "self-targeted Favorable Omen survives its casting turn and applies on Sable's next turn");
+assert.equal(selfFavored.playerStates[oracle.id].zeroPityUntilTurn, 2, "self-targeted Foretold Success survives its casting turn and applies on Sable's next turn");
 selfFavored.turnOrder = [oracle.id, cursedEnemy.id, oracleAlly.id];
 selfFavored.activePlayerIndex = 0;
 selfFavored.adventure.target = 16;
 const selfOmenCard = oracle.skillDeck.find((card) => card.id === "sf-hex");
 selfFavored.playerStates[oracle.id].hand = [selfOmenCard.id];
 const selfOmenPlayed = engine.resolveCardTurn(selfFavored, curseParty, selfOmenCard.id, cursedEnemy.id, 1);
-assert.equal(selfOmenPlayed.outcome.success, true, "Sable can choose herself for Favorable Omen");
+assert.equal(selfOmenPlayed.outcome.success, true, "Sable can choose herself for Foretold Success");
 assert.equal(selfOmenPlayed.outcome.pityCost, 0);
 assert.equal(selfOmenPlayed.playerStates[oracle.id].zeroPityUntilTurn, 0);
 
@@ -837,13 +890,13 @@ for (let use = 1; use <= 4; use += 1) {
   favorableUseGame.playerStates[oracle.id].discardPile = favorableUseGame.playerStates[oracle.id].discardPile.filter((id) => id !== favorableOmen.id);
   favorableUseGame = engine.resolveCardTurn(favorableUseGame, curseParty, favorableOmen.id, oracleAlly.id, 20);
   assert.equal(favorableUseGame.playerStates[oracle.id].cardUses[favorableOmen.id], use);
-  assert(!favorableUseGame.playerStates[oracle.id].graveyard.includes(favorableOmen.id), `Favorable Omen remains reusable after use ${use}`);
+  assert(!favorableUseGame.playerStates[oracle.id].graveyard.includes(favorableOmen.id), `Foretold Success remains reusable after use ${use}`);
 }
-assert(favorableUseGame.playerStates[oracle.id].discardPile.includes(favorableOmen.id), "Favorable Omen returns to discard normally after repeated use");
+assert(favorableUseGame.playerStates[oracle.id].discardPile.includes(favorableOmen.id), "Foretold Success returns to discard normally after repeated use");
 const curseGame = engine.createInitialGame(curseParty, engine.createAdventure("CURSE"), 30);
 curseGame.turnOrder = [oracle.id, cursedEnemy.id, oracleAlly.id];
 const curseCard = oracle.skillDeck.find((card) => card.supportType === "enemy-dice");
-assert.equal(curseCard.name, "Dark Omen");
+assert.equal(curseCard.name, "Foretold Misfortune");
 curseGame.playerStates[oracle.id].hand = [curseCard.id];
 const cursed = engine.resolveCardTurn(curseGame, curseParty, curseCard.id, cursedEnemy.id, 20);
 assert.equal(cursed.playerStates[cursedEnemy.id].dicePenalty, 3);
@@ -863,14 +916,14 @@ sableReviveGame.playerStates[cursedEnemy.id].hand = [cursedAttack.id];
 const sableRevived = engine.resolveCardTurn(sableReviveGame, curseParty, cursedAttack.id, oracle.id, 20);
 assert.equal(sableRevived.playerStates[oracle.id].hp, Math.ceil(oracle.hero.maxHp / 2), "Sable revives with half max HP");
 assert.equal(sableRevived.playerStates[oracle.id].passiveReviveUsed, true, "Sable's passive revive is consumed once");
-assert.deepEqual(sableRevived.outcome.lifeEvents.map((event) => event.kind), ["defeat", "revive"], "Second Sight queues the defeat panel before the revival panel");
-assert.match(sableRevived.outcome.lifeEvents[1].reason, /Second Sight.*half HP/, "the revival panel explains Sable's passive");
+assert.deepEqual(sableRevived.outcome.lifeEvents.map((event) => event.kind), ["defeat", "revive"], "Foreseen Return queues the defeat panel before the revival panel");
+assert.match(sableRevived.outcome.lifeEvents[1].reason, /Foreseen Return.*half HP/, "the revival panel explains Sable's passive");
 sableRevived.playerStates[oracle.id].hp = 1;
 sableRevived.turnOrder = [cursedEnemy.id, oracle.id, oracleAlly.id];
 sableRevived.activePlayerIndex = 1;
 sableRevived.playerStates[cursedEnemy.id].hand = [cursedAttack.id];
 const sableDefeatedAgain = engine.resolveCardTurn(sableRevived, curseParty, cursedAttack.id, oracle.id, 20);
-assert.equal(sableDefeatedAgain.playerStates[oracle.id].hp, 0, "Sable cannot trigger Second Sight twice");
+assert.equal(sableDefeatedAgain.playerStates[oracle.id].hp, 0, "Sable cannot trigger Foreseen Return twice");
 
 const commanderGame = engine.createInitialGame([first, second, supportAlly], engine.createAdventure("ADVANCE"), 30);
 commanderGame.turnOrder = [first.id, second.id, supportAlly.id];
@@ -885,7 +938,7 @@ const tricksterAlly = engine.createPlayerSession("Nyx ally", 2, "Mira Ash", "tri
 const delayParty = [trickster, delayedEnemy, tricksterAlly];
 const delayGame = engine.createInitialGame(delayParty, engine.createAdventure("DELAY"), 30);
 const stealCard = trickster.skillDeck.find((card) => card.supportType === "steal-card");
-assert.match(stealCard.description, /random card.*hand.*preferring special cards.*discard pile.*Nyx's next turn ends/i, "Pilfered Chance's description explains its complete updated effect");
+assert.match(stealCard.description, /random card.*hand.*preferring special cards.*discard pile.*Nyx's next turn ends/i, "Borrowed Fate's description explains its complete updated effect");
 const stolenSpecial = delayedEnemy.skillDeck.find((card) => card.unique);
 const fallbackCommon = delayedEnemy.skillDeck.find((card) => !card.unique);
 const tricksterCommon = trickster.skillDeck.find((card) => !card.unique && card.effect === "none");
@@ -896,7 +949,7 @@ delayGame.playerStates[delayedEnemy.id].hand = [stolenSpecial.id, fallbackCommon
 delayGame.playerStates[delayedEnemy.id].drawPile = [];
 delayGame.playerStates[delayedEnemy.id].discardPile = [];
 const stolen = engine.resolveCardTurn(delayGame, delayParty, stealCard.id, delayedEnemy.id, 20);
-assert(stolen.playerStates[trickster.id].hand.includes(stolenSpecial.id), "Pilfered Chance prefers a special card from the enemy hand");
+assert(stolen.playerStates[trickster.id].hand.includes(stolenSpecial.id), "Borrowed Fate prefers a special card from the enemy hand");
 assert(stolen.playerStates[delayedEnemy.id].hand.includes(fallbackCommon.id), "a common card remains when a special card is available");
 assert(!stolen.playerStates[delayedEnemy.id].hand.includes(stolenSpecial.id), "the stolen special card leaves the enemy hand");
 assert.equal(stolen.playerStates[trickster.id].borrowedCards[0].ownerId, delayedEnemy.id);
@@ -921,29 +974,29 @@ fallbackStealGame.turnOrder = [trickster.id, delayedEnemy.id, tricksterAlly.id];
 fallbackStealGame.playerStates[trickster.id].hand = [stealCard.id];
 fallbackStealGame.playerStates[delayedEnemy.id].hand = [fallbackCommon.id];
 const fallbackStolen = engine.resolveCardTurn(fallbackStealGame, delayParty, stealCard.id, delayedEnemy.id, 20);
-assert(fallbackStolen.playerStates[trickster.id].hand.includes(fallbackCommon.id), "Pilfered Chance falls back to a common card when no special card is in hand");
+assert(fallbackStolen.playerStates[trickster.id].hand.includes(fallbackCommon.id), "Borrowed Fate falls back to a common card when no special card is in hand");
 
 const revivalGame = engine.createInitialGame(supportParty, engine.createAdventure("REVIVE"), 30);
 revivalGame.turnOrder = [healer.id, supportEnemy.id];
 revivalGame.roundOrder = [supportAlly.id, supportEnemy.id, healer.id];
 revivalGame.actedThisRound = [supportAlly.id, supportEnemy.id];
 const reviveCard = healer.skillDeck.find((card) => card.supportType === "revive");
-assert.match(reviveCard.description, /immediately.*one-third HP.*then.*graveyard/i, "Returning Light describes its immediate revival and one-use graveyard rule");
-assert.doesNotMatch(reviveCard.description, /next turn|current phase/i, "Returning Light no longer promises the revived ally an immediate bonus turn");
+assert.match(reviveCard.description, /immediately.*one-third HP.*then.*graveyard/i, "Immediate Resurrection describes its immediate revival and one-use graveyard rule");
+assert.doesNotMatch(reviveCard.description, /next turn|current phase/i, "Immediate Resurrection no longer promises the revived ally an immediate bonus turn");
 revivalGame.playerStates[supportAlly.id].hp = 0;
 revivalGame.playerStates[healer.id].hand = [reviveCard.id];
 const revived = engine.resolveCardTurn(revivalGame, supportParty, reviveCard.id, supportAlly.id, 20);
-assert.equal(revived.playerStates[supportAlly.id].reviveIn, 0, "Returning Light has no delayed countdown");
-assert.equal(revived.playerStates[supportAlly.id].hp, Math.ceil(supportAlly.hero.maxHp / 3), "Returning Light immediately restores one-third max HP");
-assert.equal(revived.turnOrder[0], supportEnemy.id, "Returning Light follows normal next-phase speed order instead of granting the revived ally the next turn");
+assert.equal(revived.playerStates[supportAlly.id].reviveIn, 0, "Immediate Resurrection has no delayed countdown");
+assert.equal(revived.playerStates[supportAlly.id].hp, Math.ceil(supportAlly.hero.maxHp / 3), "Immediate Resurrection immediately restores one-third max HP");
+assert.equal(revived.turnOrder[0], supportEnemy.id, "Immediate Resurrection follows normal next-phase speed order instead of granting the revived ally the next turn");
 assert.equal(revived.activePlayerIndex, supportParty.findIndex((player) => player.id === supportEnemy.id), "the normal fastest living player becomes active after the phase completes");
 assert.equal(revived.completedPhases, revivalGame.completedPhases + 1, "reviving an ally who already acted does not reopen the completed phase");
 assert.deepEqual(revived.roundOrder, [supportEnemy.id, healer.id, supportAlly.id], "the revived ally returns to normal speed order for the next phase");
-assert(revived.playerStates[healer.id].graveyard.includes(reviveCard.id), "Returning Light enters the graveyard after its first use");
+assert(revived.playerStates[healer.id].graveyard.includes(reviveCard.id), "Immediate Resurrection enters the graveyard after its first use");
 assert(![...revived.playerStates[healer.id].hand, ...revived.playerStates[healer.id].drawPile, ...revived.playerStates[healer.id].discardPile].includes(reviveCard.id), "graveyard cards cannot return to a reusable card zone");
 const returningLightEvent = revived.outcome.lifeEvents.find((event) => event.playerId === supportAlly.id && event.kind === "revive");
-assert(returningLightEvent, "Returning Light produces a synchronized revival event immediately");
-assert.match(returningLightEvent.reason, /Returning Light.*one-third HP/i, "the revival panel explains the immediately restored HP");
+assert(returningLightEvent, "Immediate Resurrection produces a synchronized revival event immediately");
+assert.match(returningLightEvent.reason, /Immediate Resurrection.*one-third HP/i, "the revival panel explains the immediately restored HP");
 assert.doesNotMatch(returningLightEvent.reason, /next turn/i, "the revival panel no longer claims an extra turn");
 
 const waitingRevivalGame = engine.createInitialGame(supportParty, engine.createAdventure("REVIVE-WAIT-NORMAL-ORDER"), 30);
@@ -956,11 +1009,11 @@ waitingRevivalGame.playerStates[healer.id].hand = [reviveCard.id];
 const waitingRevived = engine.resolveCardTurn(waitingRevivalGame, supportParty, reviveCard.id, supportAlly.id, 20);
 assert.equal(waitingRevived.turnOrder[0], supportEnemy.id, "a revived ally waits while the next unacted player takes their normal turn");
 assert(waitingRevived.actedThisRound.includes(supportAlly.id), "the revived ally is not owed an extra turn during the current phase");
-assert(waitingRevived.actedThisRound.includes(healer.id), "Orren's Returning Light still completes Orren's own turn");
+assert(waitingRevived.actedThisRound.includes(healer.id), "Orren's Immediate Resurrection still completes Orren's own turn");
 const enemyPhaseCard = supportEnemy.skillDeck.find((card) => card.effect === "none");
 waitingRevived.playerStates[supportEnemy.id].hand = [enemyPhaseCard.id];
 const phaseAfterRevival = engine.resolveCardTurn(waitingRevived, supportParty, enemyPhaseCard.id, supportEnemy.id, 20);
-assert.equal(phaseAfterRevival.completedPhases, waitingRevivalGame.completedPhases + 1, "the phase completes without duplicate turns after Returning Light");
+assert.equal(phaseAfterRevival.completedPhases, waitingRevivalGame.completedPhases + 1, "the phase completes without duplicate turns after Immediate Resurrection");
 assert.deepEqual(phaseAfterRevival.turnOrder, [supportEnemy.id, healer.id, supportAlly.id], "the revived ally rejoins normal speed order in the next phase");
 
 const noTargetGame = engine.createInitialGame([healer, supportEnemy], engine.createAdventure("NO-TARGET"), 30);
@@ -981,10 +1034,10 @@ assert.equal(controlled.playerStates[controlEnemy.id].skipTurns, 1, "oracle can 
 const commanderPurge = engine.createInitialGame([commander, diceEnemy], engine.createAdventure("PURGE"), 30);
 commanderPurge.turnOrder = [commander.id, diceEnemy.id];
 const purgeCard = commander.skillDeck.find((card) => card.supportType === "purge-card");
-assert.equal(purgeCard.target, "enemy", "Tactical Purge only exposes living enemies as targets");
-assert.equal(purgeCard.pityCost, 8, "unlimited Tactical Purge uses the highest control-effect pity tier");
-assert.match(purgeCard.description, /random card.*hand.*graveyard.*2 phases.*draw pile/i, "Tactical Purge's description explains its complete updated effect");
-assert.doesNotMatch(purgeCard.description, /third use|Ione's graveyard/i, "Tactical Purge no longer describes a use limit");
+assert.equal(purgeCard.target, "enemy", "Mirefield Seizure only exposes living enemies as targets");
+assert.equal(purgeCard.pityCost, 8, "unlimited Mirefield Seizure uses the highest control-effect pity tier");
+assert.match(purgeCard.description, /random card.*hand.*graveyard.*2 phases.*draw pile/i, "Mirefield Seizure's description explains its complete updated effect");
+assert.doesNotMatch(purgeCard.description, /third use|Ione's graveyard/i, "Mirefield Seizure no longer describes a use limit");
 const purgedEnemyCards = diceEnemy.skillDeck.filter((card) => card.unique);
 const purgeReplacement = diceEnemy.skillDeck.find((card) => !card.unique && card.effect === "none");
 const commanderBlank = commander.skillDeck.find((card) => !card.unique && card.effect === "none");
@@ -995,10 +1048,10 @@ commanderPurge.playerStates[diceEnemy.id].hand = [purgedEnemyCards[0].id];
 commanderPurge.playerStates[diceEnemy.id].drawPile = [purgeReplacement.id];
 commanderPurge.playerStates[diceEnemy.id].discardPile = [];
 const purged = engine.resolveCardTurn(commanderPurge, [commander, diceEnemy], purgeCard.id, diceEnemy.id, 20);
-assert(purged.playerStates[diceEnemy.id].graveyard.includes(purgedEnemyCards[0].id), "Tactical Purge moves a random enemy hand card to that enemy's graveyard");
+assert(purged.playerStates[diceEnemy.id].graveyard.includes(purgedEnemyCards[0].id), "Mirefield Seizure moves a random enemy hand card to that enemy's graveyard");
 assert(!purged.playerStates[diceEnemy.id].hand.includes(purgedEnemyCards[0].id), "the purged card immediately leaves the enemy hand");
 assert.deepEqual(purged.playerStates[diceEnemy.id].purgedCards, [{ cardId: purgedEnemyCards[0].id, returnAfterPhase: 2 }], "the purged card records a two-phase return boundary");
-assert(!purged.playerStates[commander.id].graveyard.includes(purgeCard.id), "Tactical Purge remains reusable after its first use");
+assert(!purged.playerStates[commander.id].graveyard.includes(purgeCard.id), "Mirefield Seizure remains reusable after its first use");
 
 const enemyPhaseOneCard = purged.playerStates[diceEnemy.id].hand[0];
 const afterOnePhase = engine.resolveCardTurn(purged, [commander, diceEnemy], enemyPhaseOneCard, diceEnemy.id, 20);
@@ -1036,15 +1089,15 @@ afterTwoPhases.activePlayerIndex = 0;
 afterTwoPhases.playerStates[commander.id].hand = [purgeCard.id];
 afterTwoPhases.playerStates[diceEnemy.id].hand = [purgedEnemyCards[1].id];
 const secondPurge = engine.resolveCardTurn(afterTwoPhases, [commander, diceEnemy], purgeCard.id, diceEnemy.id, 20);
-assert(!secondPurge.playerStates[commander.id].graveyard.includes(purgeCard.id), "Tactical Purge remains reusable after its second use");
+assert(!secondPurge.playerStates[commander.id].graveyard.includes(purgeCard.id), "Mirefield Seizure remains reusable after its second use");
 secondPurge.turnOrder = [commander.id, diceEnemy.id];
 secondPurge.activePlayerIndex = 0;
 secondPurge.playerStates[commander.id].hand = [purgeCard.id];
 secondPurge.playerStates[diceEnemy.id].hand = [purgedEnemyCards[2].id];
 const thirdPurge = engine.resolveCardTurn(secondPurge, [commander, diceEnemy], purgeCard.id, diceEnemy.id, 20);
-assert(!thirdPurge.playerStates[commander.id].graveyard.includes(purgeCard.id), "Tactical Purge remains reusable after its third use");
-assert([...thirdPurge.playerStates[commander.id].hand, ...thirdPurge.playerStates[commander.id].drawPile, ...thirdPurge.playerStates[commander.id].discardPile].includes(purgeCard.id), "Tactical Purge stays in Ione's reusable card zones after its third use");
-assert.equal(thirdPurge.playerStates[commander.id].cardUses[purgeCard.id], 3, "Tactical Purge still records its third use without retiring");
+assert(!thirdPurge.playerStates[commander.id].graveyard.includes(purgeCard.id), "Mirefield Seizure remains reusable after its third use");
+assert([...thirdPurge.playerStates[commander.id].hand, ...thirdPurge.playerStates[commander.id].drawPile, ...thirdPurge.playerStates[commander.id].discardPile].includes(purgeCard.id), "Mirefield Seizure stays in Ione's reusable card zones after its third use");
+assert.equal(thirdPurge.playerStates[commander.id].cardUses[purgeCard.id], 3, "Mirefield Seizure still records its third use without retiring");
 thirdPurge.turnOrder = [commander.id, diceEnemy.id];
 thirdPurge.activePlayerIndex = 0;
 thirdPurge.playerStates[commander.id].hand = [purgeCard.id];
@@ -1052,10 +1105,10 @@ thirdPurge.playerStates[commander.id].drawPile = thirdPurge.playerStates[command
 thirdPurge.playerStates[commander.id].discardPile = thirdPurge.playerStates[commander.id].discardPile.filter((id) => id !== purgeCard.id);
 thirdPurge.playerStates[diceEnemy.id].hand = [purgeReplacement.id];
 const fourthPurge = engine.resolveCardTurn(thirdPurge, [commander, diceEnemy], purgeCard.id, diceEnemy.id, 20);
-assert.equal(fourthPurge.playerStates[commander.id].cardUses[purgeCard.id], 4, "Tactical Purge resolves normally on its fourth use");
-assert(!fourthPurge.playerStates[commander.id].graveyard.includes(purgeCard.id), "Tactical Purge never retires from repeated use");
-assert(fourthPurge.playerStates[diceEnemy.id].graveyard.includes(purgeReplacement.id), "a fourth Tactical Purge still moves an enemy hand card to graveyard");
-assert(fourthPurge.playerStates[diceEnemy.id].purgedCards.some((entry) => entry.cardId === purgeReplacement.id), "a fourth Tactical Purge still records the two-phase return timer");
+assert.equal(fourthPurge.playerStates[commander.id].cardUses[purgeCard.id], 4, "Mirefield Seizure resolves normally on its fourth use");
+assert(!fourthPurge.playerStates[commander.id].graveyard.includes(purgeCard.id), "Mirefield Seizure never retires from repeated use");
+assert(fourthPurge.playerStates[diceEnemy.id].graveyard.includes(purgeReplacement.id), "a fourth Mirefield Seizure still moves an enemy hand card to graveyard");
+assert(fourthPurge.playerStates[diceEnemy.id].purgedCards.some((entry) => entry.cardId === purgeReplacement.id), "a fourth Mirefield Seizure still records the two-phase return timer");
 
 let resolvedSuccessCardCopies = 0;
 for (const option of options) {
@@ -1119,7 +1172,7 @@ for (const option of options) {
     assert.deepEqual([...matrixSuccess.outcome.targetIds].sort(), [...expectedTargetIds].sort(), `${matrixCard.name} must affect exactly its legal targets`);
     assert.equal(matrixSuccess.outcome.failureDetail, "", `${matrixCard.name} success must not publish or apply a failure impact`);
     assert.equal(matrixSuccess.playerStates[matrixActor.id].cardUses[matrixCard.id], 1, `${matrixCard.name} must record its successful use`);
-    if (matrixCard.id === "bo-return") assert(matrixSuccess.playerStates[matrixActor.id].graveyard.includes(matrixCard.id), "Returning Light enters the graveyard after successful use");
+    if (matrixCard.id === "bo-return") assert(matrixSuccess.playerStates[matrixActor.id].graveyard.includes(matrixCard.id), "Immediate Resurrection enters the graveyard after successful use");
     else assert(matrixSuccess.playerStates[matrixActor.id].discardPile.includes(matrixCard.id), `${matrixCard.name} cycles to discard after successful use`);
 
     if (matrixCard.effect === "damage" || matrixCard.effect === "aoe") {
@@ -1241,7 +1294,7 @@ assert.equal(failedStrongCard.history.at(-1).failureDetail, failedStrongCard.out
 const failureHealer = engine.createPlayerSession("Failure healer", 0, "Brother Orren", "failure-healer");
 const failureHealEnemy = engine.createPlayerSession("Failure heal enemy", 1, "Thorne Vale", "failure-heal-enemy");
 const failureHealAlly = engine.createPlayerSession("Failure heal ally", 2, "Elara Voss", "failure-heal-ally");
-const failedHealCard = failureHealer.skillDeck.find((card) => card.name === "Prayer of Life");
+const failedHealCard = failureHealer.skillDeck.find((card) => card.name === "Graceful Renewal");
 const failedHealGame = engine.createInitialGame([failureHealer, failureHealEnemy, failureHealAlly], engine.createAdventure("FAILURE-HEAL"), 30);
 failedHealGame.turnOrder = [failureHealer.id, failureHealEnemy.id, failureHealAlly.id];
 failedHealGame.adventure.target = 20;
@@ -1249,7 +1302,7 @@ failedHealGame.playerStates[failureHealer.id].hp = 5;
 failedHealGame.playerStates[failureHealAlly.id].hp = 2;
 failedHealGame.playerStates[failureHealer.id].hand = [failedHealCard.id];
 const failedHeal = engine.resolveCardTurn(failedHealGame, [failureHealer, failureHealEnemy, failureHealAlly], failedHealCard.id, failureHealAlly.id, 1);
-assert.equal(failedHeal.outcome.success, false, "a low Prayer of Life roll fails");
+assert.equal(failedHeal.outcome.success, false, "a low Graceful Renewal roll fails");
 assert.equal(failedHeal.playerStates[failureHealer.id].hp, 4, "a failed heal authoritatively damages its user");
 assert.equal(failedHeal.playerStates[failureHealAlly.id].hp, 2, "a failed heal never applies its healing effect");
 

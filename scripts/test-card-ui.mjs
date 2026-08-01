@@ -198,6 +198,9 @@ assert(!/UserCheck|local-session-icon|Your session/.test(lobby), "joined player 
 assert.match(lobby, /className=\{`ready-badge[\s\S]*aria-label=\{player\.ready \? "Ready" : "Not ready"\}[\s\S]*player\.ready \? <Check size=\{14\}\/> : <Clock3 size=\{14\}\/>/, "joined-player readiness must use compact ready and waiting icons with accessible labels");
 assert(!/shownHero\.(?:title|summary|impact)/.test(lobby), "lobby character previews must omit title/class subtitles, summary copy, and battle impact");
 assert(!/inspectedPlayer\.hero\.(?:title|summary|impact)/.test(gameApp), "battle character previews must omit title/class subtitles, summary copy, and battle impact");
+assert.match(lobby, /PASSIVE · <b className="passive-name-highlight">\{shownHero\.passiveName\}<\/b>/, "lobby character previews must highlight the passive name independently from its label");
+assert.match(gameApp, /PASSIVE · <b className="passive-name-highlight">\{inspectedPlayer\.hero\.passiveName\}<\/b>/, "battle character previews must highlight the passive name independently from its label");
+assert.match(styles, /\.passive-callout \.passive-name-highlight\s*\{[^}]*color:\s*#ffd76a\s*!important;[^}]*text-shadow:/, "passive names must use the dedicated gold highlight color in the final theme layer");
 assert.match(lobby, /className="joined-actions local-player-actions"[\s\S]*className="out-team-button"[\s\S]*Out team[\s\S]*onToggleReady/, "the local player action row must expose Out team and Ready controls");
 assert.match(lobby, /className="joined-actions remote-player-actions"[\s\S]*className="remove-player-button"[\s\S]*Remove/, "another player's action row must expose the expanded Remove control");
 assert.match(styles, /@media \(min-width: 721px\) \{[\s\S]*\.team-slot-player,\s*\.empty-team-slot \{\s*height: 118px;\s*min-height: 118px;/, "joined players and empty slots must keep equal desktop heights");

@@ -7279,6 +7279,11 @@ textarea::placeholder {
   border-color: #8d6b35 !important;
 }
 
+.passive-callout .passive-name-highlight {
+  color: #ffd76a !important;
+  text-shadow: 0 0 8px rgba(255, 196, 69, .48), 1px 1px 0 #000;
+}
+
 .special-skill-banner,
 .unique-card-banner,
 .public-deck-card > .unique-card-banner {
