@@ -1,8 +1,9 @@
 "use client";
 
 import { Check, Clock3, Crown, Eye, Flame, House, KeyRound, LogOut, Shield, Sparkles, Swords, UserMinus, UserPlus, Users } from "lucide-react";
-import { useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import type { CharacterOption, PlayerSession, TeamId } from "@/shared/types";
+import { preloadCardArtwork } from "../cardArtwork";
 import { CardFace } from "./CardFace";
 
 type Props = {
@@ -30,7 +31,8 @@ export function Lobby({ roomId, players, playerName, error, selectedPlayerId, lo
   const [roomIdCopied, setRoomIdCopied] = useState(false);
   const localPlayer = players.find((player) => player.id === localSessionId);
   const selected = players.find((player) => player.id === selectedPlayerId) ?? localPlayer;
-  const selectedOption = characterOptions.find((option) => option.hero.name === selectedHeroName);
+  const deferredSelectedHeroName = useDeferredValue(selectedHeroName);
+  const selectedOption = characterOptions.find((option) => option.hero.name === deferredSelectedHeroName);
   const reviewingOwnPick = !selected || selected.id === localSessionId;
   const randomPending = reviewingOwnPick ? (localPlayer?.randomHero ?? !selectedHeroName) : Boolean(selected?.randomHero);
   const shownHero = randomPending ? undefined : reviewingOwnPick ? selectedOption?.hero ?? localPlayer?.hero : selected?.hero;
@@ -45,6 +47,9 @@ export function Lobby({ roomId, players, playerName, error, selectedPlayerId, lo
   const canJoinSlot = !localPlayer && Boolean(playerName.trim()) && (Boolean(shownHero) || randomPending) && connectionStatus === "connected";
   const activeGroup = characterGroups.find((group) => group.id === activeCharacterGroup) ?? characterGroups[0];
   const visibleCharacterOptions = characterOptions.filter((option) => activeGroup.roles.includes(option.hero.role));
+  useEffect(() => {
+    preloadCardArtwork(visibleCharacterOptions.flatMap((option) => option.skillDeck));
+  }, [activeCharacterGroup, characterOptions]);
   const copyRoomId = async () => {
     try {
       await navigator.clipboard.writeText(roomId);
@@ -90,7 +95,7 @@ export function Lobby({ roomId, players, playerName, error, selectedPlayerId, lo
         <div className={`ready-gate ${canStart ? "all-ready" : ""}`}>{canStart ? <Check size={19}/> : <Shield size={19}/>}<div><strong>{canStart ? "Everyone is ready" : players.length < 2 ? "Waiting for another player" : !hasBothTeams ? "Both teams need a player" : "Waiting for all players"}</strong><span>{canStart ? "Start when ready." : !hasBothTeams && players.length >= 2 ? "Each team needs one player." : "Every player must be ready."}</span></div><button className="enter-game-button" onClick={onEnterGame} disabled={!canStart || connectionStatus !== "connected"}><Swords size={17}/> Enter the battle</button></div>
       </section>
       <aside className="character-panel">
-        <div className={`hero-picker ${characterPickLocked ? "is-locked" : ""}`}><div className="deck-heading"><div><span className="eyebrow">CHOOSE YOUR CHARACTER</span><strong>{characterPickLocked ? "Cancel ready to change" : "Optional before readying"}</strong></div><Users size={18}/></div><div className="hero-class-tabs" role="tablist" aria-label="Character classes">{characterGroups.map((group) => <button type="button" role="tab" aria-selected={activeCharacterGroup === group.id} className={activeCharacterGroup === group.id ? "active" : ""} onClick={() => setActiveCharacterGroup(group.id)} key={group.id}>{group.label}<span>{characterOptions.filter((option) => group.roles.includes(option.hero.role)).length}</span></button>)}</div><div className="hero-picker-grid" role="tabpanel" aria-label={`${activeGroup.label} characters`}>{visibleCharacterOptions.map((option) => <button type="button" key={option.hero.name} className={selectedHeroName === option.hero.name ? "selected" : ""} aria-pressed={selectedHeroName === option.hero.name} onClick={() => onHeroSelect(selectedHeroName === option.hero.name ? "" : option.hero.name)} disabled={characterPickLocked} title={characterPickLocked ? "Cancel ready to change." : option.hero.summary}><span style={{ "--hero-color": option.hero.color } as React.CSSProperties}>{option.hero.initials}</span><strong>{option.hero.name}</strong><small>{option.hero.className}</small></button>)}{!visibleCharacterOptions.length && <div className="empty-character-group"><Sparkles size={22}/><span>No characters in this class.</span></div>}</div></div>
+        <div className={`hero-picker ${characterPickLocked ? "is-locked" : ""}`}><div className="deck-heading"><div><span className="eyebrow">CHOOSE YOUR CHARACTER</span><strong>{characterPickLocked ? "Cancel ready to change" : "Optional before readying"}</strong></div><Users size={18}/></div><div className="hero-class-tabs" role="tablist" aria-label="Character classes">{characterGroups.map((group) => <button type="button" role="tab" aria-selected={activeCharacterGroup === group.id} className={activeCharacterGroup === group.id ? "active" : ""} onClick={() => setActiveCharacterGroup(group.id)} key={group.id}>{group.label}<span>{characterOptions.filter((option) => group.roles.includes(option.hero.role)).length}</span></button>)}</div><div className="hero-picker-grid" role="tabpanel" aria-label={`${activeGroup.label} characters`}>{visibleCharacterOptions.map((option) => <button type="button" key={option.hero.name} className={selectedHeroName === option.hero.name ? "selected" : ""} aria-pressed={selectedHeroName === option.hero.name} onPointerEnter={() => preloadCardArtwork(option.skillDeck)} onFocus={() => preloadCardArtwork(option.skillDeck)} onClick={() => onHeroSelect(selectedHeroName === option.hero.name ? "" : option.hero.name)} disabled={characterPickLocked} title={characterPickLocked ? "Cancel ready to change." : option.hero.summary}><span style={{ "--hero-color": option.hero.color } as React.CSSProperties}>{option.hero.initials}</span><strong>{option.hero.name}</strong><small>{option.hero.className}</small></button>)}{!visibleCharacterOptions.length && <div className="empty-character-group"><Sparkles size={22}/><span>No characters in this class.</span></div>}</div></div>
         {shownHero ? <div className="character-review-layout">
           <section className="character-info-column">
             <div className="character-banner"><div className="large-portrait" style={{ "--hero-color": shownHero.color } as React.CSSProperties}>{shownHero.initials}</div><div><span className="eyebrow">{reviewingOwnPick ? "YOUR CHARACTER PICK" : "SELECTED CHARACTER"}</span><h2>{shownHero.name}</h2></div></div>

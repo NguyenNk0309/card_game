@@ -39,6 +39,7 @@ assert.match(cardFace, /<CardDescription card=\{card\}\/>/, "the universal card 
 assert.match(cardFace, /defaultRows[\s\S]*describeCardSuccess\(card\)[\s\S]*describeCardFailure\(card\)/, "the universal card face must keep repository-backed success and failure rows");
 assert.match(cardFace, /<CardHoverPreview anchorRef=\{faceRef\} artwork=\{artwork\} card=\{card\} pityCostOverride=\{pityCostOverride\} rows=\{rows\}\/>/, "every universal card face must expose the shared full-content hover preview");
 assert.match(cardHoverPreview, /addEventListener\("mouseenter", show\)[\s\S]*addEventListener\("mouseleave", hide\)/, "card hover previews must open on mouse entry and disappear on mouse leave");
+assert(!/setPortalRoot|useState<HTMLElement \| null>/.test(cardHoverPreview), "closed card previews must not schedule an extra layout-time portal render for every mounted card");
 assert.match(cardHoverPreview, /classList\.contains\("history-card-detail"\) \? "right" : "top"/, "history-detail card previews must place their tooltip to the right while other cards prefer the top");
 assert.match(cardHoverPreview, /card\.unique \? "Special" : "Common"[\s\S]*Pity points[\s\S]*getCardEffectLabel\(card\)[\s\S]*EffectText text=\{card\.description\}[\s\S]*rows\.map/, "the hover preview must include rarity, pity, action type, full description, and every result row");
 assert.match(cardHoverPreview, /<small>\{getCardEffectLabel\(card\)\}<\/small>/, "the hover preview identity must show only the meaningful action label");
@@ -115,6 +116,8 @@ const listedCardAssets = (group) => readdirSync(new URL(`${group}/`, cardAssetRo
 assert.deepEqual(listedCardAssets("common"), commonSceneIds, "common artwork must not retain unused image files");
 assert.deepEqual(listedCardAssets("special"), [...specialSceneIds].sort(), "special artwork must not retain unused image files");
 assert.match(cardArtwork, /"lost momentum"[\s\S]*"broken plan"[\s\S]*"empty gesture"/, "the three approved reference cards must have explicit artwork mappings");
+assert.match(cardArtwork, /preloadCardArtwork[\s\S]*preloadedCardArtwork\.has\(source\)[\s\S]*image\.decoding = "async"[\s\S]*image\.decode\(\)/, "lobby artwork warming must deduplicate static assets and decode them asynchronously");
+assert.match(lobby, /useDeferredValue\(selectedHeroName\)[\s\S]*preloadCardArtwork\(visibleCharacterOptions\.flatMap[\s\S]*onPointerEnter=\{\(\) => preloadCardArtwork\(option\.skillDeck\)\}/, "character selection must acknowledge immediately while visible and hovered deck artwork warms before first use");
 assert(!/SPECIAL\s*·|SPECIAL CARD|toUpperCase\(\)\}\s*SKILL/.test(cardSurfaces), "special-card headers must not include a character or class name");
 assert.match(gameApp, /className="history-penalty-cell"><HighlightPlayerNames text=\{presentation\.penalty \|\| "—"\}/, "empty expanded-history penalties must display the same dash placeholder as other empty columns");
 

@@ -88,3 +88,18 @@ export const CARD_ARTWORK_KEYS = {
   common: Object.keys(COMMON_ARTWORK),
   special: Object.keys(SPECIAL_ARTWORK),
 };
+
+const preloadedCardArtwork = new Map<string, HTMLImageElement>();
+
+export function preloadCardArtwork(cards: readonly ActionCard[]) {
+  if (typeof Image === "undefined") return;
+  for (const card of cards) {
+    const source = getCardArtwork(card).scene;
+    if (!source || preloadedCardArtwork.has(source)) continue;
+    const image = new Image();
+    image.decoding = "async";
+    image.src = source;
+    preloadedCardArtwork.set(source, image);
+    void image.decode().catch(() => undefined);
+  }
+}

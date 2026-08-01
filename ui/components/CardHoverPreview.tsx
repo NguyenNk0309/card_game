@@ -2,7 +2,7 @@
 
 import { Crown } from "lucide-react";
 import type { RefObject } from "react";
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { getCardEffectLabel, getCardPityCost } from "@/shared/cardRules";
 import type { ActionCard } from "@/shared/types";
@@ -32,16 +32,11 @@ const hiddenPosition: PreviewPosition = { left: -10000, placement: "top", ready:
 
 export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, rows }: Props) {
   const [open, setOpen] = useState(false);
-  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
   const [position, setPosition] = useState<PreviewPosition>(hiddenPosition);
   const tooltipRef = useRef<HTMLElement>(null);
   const tooltipId = useId();
 
-  useLayoutEffect(() => {
-    setPortalRoot(document.body);
-  }, []);
-
-  useLayoutEffect(() => {
+  useEffect(() => {
     const anchor = anchorRef.current?.closest<HTMLElement>(".gothic-card");
     if (!anchor) return;
     const show = () => {
@@ -58,7 +53,7 @@ export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, r
   }, [anchorRef]);
 
   useLayoutEffect(() => {
-    if (!open || !portalRoot) return;
+    if (!open) return;
     const placePreview = () => {
       const anchor = anchorRef.current?.closest<HTMLElement>(".gothic-card");
       const tooltip = tooltipRef.current?.getBoundingClientRect();
@@ -79,8 +74,9 @@ export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, r
       window.removeEventListener("resize", placePreview);
       window.removeEventListener("scroll", placePreview, true);
     };
-  }, [anchorRef, open, portalRoot]);
+  }, [anchorRef, open]);
 
+  const portalRoot = open && typeof document !== "undefined" ? document.body : null;
   if (!open || !portalRoot) return null;
   const pityCost = pityCostOverride ?? getCardPityCost(card);
 
