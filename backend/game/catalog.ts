@@ -78,7 +78,7 @@ export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
   ],
   "Dagan Flint": [
     { id: "df-none", name: "None Left Standing", description: "Deal 3 damage to every living enemy (4 while Dagan is at half HP).", bonus: 0, effect: "aoe", target: "all-enemies", value: 3, failureEffect: "self-damage", failureValue: 2, pityCost: 7 },
-    { id: "df-cleave", name: "Cleave", description: "Deal 5 damage to one living enemy (6 while Dagan is at half HP).", bonus: 0, effect: "damage", target: "enemy", value: 5, failureEffect: "self-damage", failureValue: 3, pityCost: 8 },
+    { id: "df-cleave", name: "Cleave", description: "Deal 4 damage to one living enemy (5 while Dagan is at half HP).", bonus: 0, effect: "damage", target: "enemy", value: 4, failureEffect: "self-damage", failureValue: 3, pityCost: 7 },
     { id: "df-frenzy", name: "Blood Frenzy", description: "Gain +3 attack damage; expires at the end of your next turn.", bonus: 0, effect: "support", target: "self", value: 3, supportType: "attack", failureEffect: "self-damage", failureValue: 2, pityCost: 6 }
   ]
 };

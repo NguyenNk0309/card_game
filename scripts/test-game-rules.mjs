@@ -64,7 +64,7 @@ const expectedSpecialBalance = {
   "im-focus": { pityCost: 6, failureEffect: "team-damage", failureValue: 1 },
   "im-purge": { pityCost: 7, failureEffect: "enemy-shield", failureValue: 2 },
   "df-none": { pityCost: 7, failureEffect: "self-damage", failureValue: 2 },
-  "df-cleave": { pityCost: 8, failureEffect: "self-damage", failureValue: 3 },
+  "df-cleave": { pityCost: 7, failureEffect: "self-damage", failureValue: 3 },
   "df-frenzy": { pityCost: 6, failureEffect: "self-damage", failureValue: 2 }
 };
 const expectedCommonPityCosts = { slash: 3, heavy: 4, brace: 3, "second-wind": 4, "empty-gesture": 0, "broken-plan": 0, "lost-momentum": 0 };
@@ -497,6 +497,30 @@ shieldedCommonAttackGame.playerStates[kael.id].shield = 2;
 shieldedCommonAttackGame.playerStates[kael.id].hand = [kaelCommonAttack.id];
 const shieldedCommonAttackResult = engine.resolveCardTurn(shieldedCommonAttackGame, kaelParty, kaelCommonAttack.id, kaelTarget.id, 20);
 assert.equal(shieldedCommonAttackResult.outcome.amount, kaelCommonAttack.value, "No Guard is inactive for common Attack cards while Kael has shield");
+
+const dagan = engine.createPlayerSession("Dagan", 0, "Dagan Flint", "dagan-cleave");
+const daganTarget = engine.createPlayerSession("Cleave target", 1, "Elara Voss", "dagan-cleave-target");
+const daganParty = [dagan, daganTarget];
+const cleave = dagan.skillDeck.find((card) => card.id === "df-cleave");
+assert.equal(cleave.value, 4, "Cleave has 4 base damage");
+assert.equal(cleave.pityCost, 7, "Cleave's pity cost reflects its reduced damage tier");
+assert.match(cleave.description, /4 damage.*5 while Dagan is at half HP/i, "Cleave describes its base and Pain Makes Power damage");
+const cleaveHealthyGame = engine.createInitialGame(daganParty, engine.createAdventure("CLEAVE-HEALTHY"), 30);
+cleaveHealthyGame.turnOrder = [dagan.id, daganTarget.id];
+cleaveHealthyGame.adventure.target = 8;
+cleaveHealthyGame.playerStates[dagan.id].hp = dagan.hero.maxHp / 2 + 1;
+cleaveHealthyGame.playerStates[dagan.id].hand = [cleave.id];
+const cleaveHealthyResult = engine.resolveCardTurn(cleaveHealthyGame, daganParty, cleave.id, daganTarget.id, 20);
+assert.equal(cleaveHealthyResult.outcome.amount, 4, "Cleave deals exactly 4 damage while Dagan is above half HP");
+assert.equal(cleaveHealthyResult.playerStates[daganTarget.id].hp, daganTarget.hero.maxHp - 4, "Cleave applies its reduced base damage to synchronized target HP");
+const cleaveWoundedGame = engine.createInitialGame(daganParty, engine.createAdventure("CLEAVE-WOUNDED"), 30);
+cleaveWoundedGame.turnOrder = [dagan.id, daganTarget.id];
+cleaveWoundedGame.adventure.target = 8;
+cleaveWoundedGame.playerStates[dagan.id].hp = dagan.hero.maxHp / 2;
+cleaveWoundedGame.playerStates[dagan.id].hand = [cleave.id];
+const cleaveWoundedResult = engine.resolveCardTurn(cleaveWoundedGame, daganParty, cleave.id, daganTarget.id, 20);
+assert.equal(cleaveWoundedResult.outcome.amount, 5, "Pain Makes Power raises Cleave from 4 to 5 damage at half HP");
+assert.equal(cleaveWoundedResult.playerStates[daganTarget.id].hp, daganTarget.hero.maxHp - 5, "Cleave's half-HP bonus updates synchronized target HP");
 
 const healer = engine.createPlayerSession("Orren", 0, "Brother Orren", "healer");
 const supportAlly = engine.createPlayerSession("Support ally", 2, "Elara Voss", "support-ally");
