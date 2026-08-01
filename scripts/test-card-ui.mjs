@@ -45,6 +45,8 @@ for (const [heroName, fileName] of characterAvatars) {
 }
 assert.match(characterAvatar, /avatar \? <Image className="character-avatar-image"[\s\S]*: hero\.initials/, "character avatars must retain initials as a safe fallback");
 assert.match(lobby, /hero-picker-grid[\s\S]*<CharacterAvatar hero=\{option\.hero\}[\s\S]*character-banner[\s\S]*<CharacterAvatar hero=\{shownHero\}/, "lobby character selection and review must show the unique avatars");
+assert.match(lobby, /passive-callout[\s\S]*<CharacterAvatar hero=\{shownHero\} className="large-portrait lobby-character-avatar" sizes="\(min-height: 1200px\) 216px, \(min-height: 900px\) 162px, 112px"/, "the lobby passive section must be followed by the selected character's responsive avatar");
+assert.match(styles, /\.lobby-character-avatar\s*\{[^}]*width:\s*min\(100%, clamp\(112px, 15vh, 216px\)\);[^}]*height:\s*auto;[^}]*aspect-ratio:\s*1;/, "the lobby passive avatar must scale continuously from 720p through 1440p layouts");
 assert.match(gameApp, /turn-queue-list[\s\S]*<CharacterAvatar hero=\{player\.hero\}[\s\S]*character-detail-modal[\s\S]*<CharacterAvatar hero=\{inspectedPlayer\.hero\}/, "turn order and character detail must show the unique avatars");
 assert.match(partyRail, /portrait-button[\s\S]*<CharacterAvatar hero=\{hero\}/, "the battle roster must show each hero's unique avatar");
 assert(!/\b(?:strength|weakness)\s*:|character-(?:impact-grid|trait)|>Strength<|>Weakness</i.test([cardCatalog, sharedTypes, gameApp, lobby, styles].join("\n")), "Strength and Weakness data, sections, and styles must stay fully removed");

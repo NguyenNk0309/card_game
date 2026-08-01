@@ -5493,6 +5493,13 @@ button:focus-visible {
   flex: 0 0 auto;
 }
 
+.lobby-character-avatar {
+  width: min(100%, clamp(112px, 15vh, 216px));
+  height: auto;
+  aspect-ratio: 1;
+  margin: 12px auto 0;
+}
+
 .character-info-column .character-stats {
   flex: 0 0 auto;
   margin-bottom: 0;
