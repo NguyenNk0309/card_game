@@ -459,15 +459,17 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         detail = `${actor.displayName} restored ${amount} HP to ${target.displayName}.`;
       }
     } else if (card.effect === "guard") {
-      const target = targets[0];
-      if (target) {
-        amount = card.value + (actor.hero.classId === "tank" ? 2 : 0);
+      amount = card.value + (actor.hero.classId === "tank" ? 2 : actor.hero.name === "Elara Voss" ? 1 : 0);
+      for (const target of targets) {
         addTimedEffect(states[target.id], "shield", amount, target.id === actor.id);
-        detail = `${actor.displayName} granted ${amount} shield to ${target.displayName}.`;
       }
+      detail = targets.length > 1
+        ? `${actor.displayName} granted ${amount} shield to every living ally.`
+        : targets.length === 1
+          ? `${actor.displayName} granted ${amount} shield to ${targets[0].displayName}.`
+          : `${actor.displayName}'s Guard card had no valid target and no effect.`;
     } else if (card.effect === "support") {
-      const scalable = ["attack", "shield", "healing", "dice", "enemy-dice"].includes(card.supportType ?? "");
-      amount = card.value + (scalable && actor.hero.classId === "warden" ? 1 : 0);
+      amount = card.value;
       const reports: string[] = [];
       const supportTargets = card.target === "all-allies" ? allies : targets;
       for (const target of supportTargets) {
