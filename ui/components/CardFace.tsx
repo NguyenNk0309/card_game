@@ -23,6 +23,7 @@ type Props = {
   card: ActionCard;
   contextLabel?: ReactNode;
   pityCostOverride?: number;
+  previewTrigger?: "click" | "hover";
   resultRows?: CardResultRow[];
 };
 
@@ -31,7 +32,7 @@ const defaultRows = (card: ActionCard): CardResultRow[] => [
   { icon: <X/>, label: "FAILURE", result: describeCardFailure(card), tone: "failure" },
 ];
 
-export function CardFace({ card, contextLabel, pityCostOverride, resultRows }: Props) {
+export function CardFace({ card, contextLabel, pityCostOverride, previewTrigger = "click", resultRows }: Props) {
   const artwork = getCardArtwork(card);
   const rows = resultRows ?? defaultRows(card);
   const faceRef = useRef<HTMLDivElement>(null);
@@ -60,5 +61,5 @@ export function CardFace({ card, contextLabel, pityCostOverride, resultRows }: P
       </div>)}
     </div>
     <div className="gothic-card-gem" aria-hidden="true"/>
-  </div><CardHoverPreview anchorRef={faceRef} artwork={artwork} card={card} pityCostOverride={pityCostOverride} rows={rows}/></>;
+  </div><CardHoverPreview anchorRef={faceRef} artwork={artwork} card={card} pityCostOverride={pityCostOverride} rows={rows} trigger={previewTrigger}/></>;
 }

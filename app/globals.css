@@ -8590,6 +8590,8 @@ button:disabled :where(span, small, strong, b, p),
 .gothic-card .effect-number.shield { color: #539bd0; }
 .gothic-card .effect-number.speed { color: #e5b433; }
 
+.gothic-card.card-preview-click-trigger:not(:disabled) { cursor: pointer; }
+
 .card-hover-tooltip {
   --card-tooltip-accent: #d7ab54;
   position: fixed;

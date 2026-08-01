@@ -40,7 +40,7 @@ function GameNoticeIcon({ kind }: { kind: GameNotice["kind"] }) {
 }
 
 function HandCardContents({ card, pityCostOverride }: { card: ActionCard; pityCostOverride?: number }) {
-  return <CardFace card={card} pityCostOverride={pityCostOverride}/>;
+  return <CardFace card={card} pityCostOverride={pityCostOverride} previewTrigger="hover"/>;
 }
 
 function PublicDeck({ player, localPlayer }: { player: PlayerSession; localPlayer?: PlayerSession }) {
