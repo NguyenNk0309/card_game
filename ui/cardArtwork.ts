@@ -56,7 +56,7 @@ const SPECIAL_ARTWORK: Record<string, CardArtwork> = {
   "nc-pilfer": specialScene("nc-pilfer", "Nyx Calder", "enemy", "Nyx steals a card from one enemy hand."),
   "bc-fortress": specialScene("bc-fortress", "Bram Coalhand", "ally", "Bram becomes a living fortress for one ally."),
   "bc-temper": specialScene("bc-temper", "Bram Coalhand", "all-allies", "Bram tempers armor for every ally."),
-  "bc-march": specialScene("bc-march", "Bram Coalhand", "all-allies", "Bram leads every ally in a fortified march."),
+  "bc-march": specialScene("bc-march", "Bram Coalhand", "all-allies", "Bram forges every ally's shield into the force of an assault."),
   "sf-favor": specialScene("sf-favor", "Sable Fen", "ally", "Sable reveals a favorable omen for one ally's next card."),
   "sf-hex": specialScene("sf-hex", "Sable Fen", "enemy", "Sable casts a dark omen over one enemy's next roll."),
   "sf-stolen": specialScene("sf-stolen", "Sable Fen", "enemy", "Sable steals the moment of one enemy's next turn."),

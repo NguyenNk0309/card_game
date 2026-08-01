@@ -53,7 +53,9 @@ export function createSkillDeck(hero: Omit<Hero, "id" | "team" | "isYou">): Acti
   const commonCards = ACTION_CARDS.map(({ failureEffect: _failureEffect, failureValue: _failureValue, ...card }) => {
     const description = hero.classId === "assassin" && (card.effect === "damage" || card.effect === "aoe")
       ? `${card.description.replace(/\.$/, "")}, ignoring shield.`
-      : card.description;
+      : hero.name === "Bram Coalhand" && card.effect === "guard"
+        ? card.description.replace("your next turn", "your second turn")
+        : card.description;
     return { ...card, description, bonus: 0, id: `${prefix}-common-${card.id}` };
   });
   const specialCards = uniqueCards.map((card) => {
@@ -97,14 +99,14 @@ function normalizeTimedEffects(state: PlayerRunState) {
   return effects;
 }
 
-function addTimedEffect(state: PlayerRunState, kind: TimedEffectKind, value: number, appliedDuringOwnTurn: boolean) {
+function addTimedEffect(state: PlayerRunState, kind: TimedEffectKind, value: number, appliedDuringOwnTurn: boolean, durationTurns = 1) {
   if (value <= 0) return;
   const completedPlayerTurns = state.completedPlayerTurns ?? 0;
   state[kind] = (state[kind] ?? 0) + value;
   state.timedEffects = [...(state.timedEffects ?? []), {
     kind,
     value,
-    expiresAfterTurn: completedPlayerTurns + (appliedDuringOwnTurn ? 2 : 1)
+    expiresAfterTurn: completedPlayerTurns + Math.max(1, durationTurns) + (appliedDuringOwnTurn ? 1 : 0)
   }];
 }
 
@@ -459,9 +461,10 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         detail = `${actor.displayName} restored ${amount} HP to ${target.displayName}.`;
       }
     } else if (card.effect === "guard") {
-      amount = card.value + (actor.hero.classId === "tank" ? 2 : actor.hero.name === "Elara Voss" ? 1 : 0);
+      amount = card.value + (actor.hero.name === "Elara Voss" ? 1 : 0);
+      const durationTurns = actor.hero.name === "Bram Coalhand" ? 2 : 1;
       for (const target of targets) {
-        addTimedEffect(states[target.id], "shield", amount, target.id === actor.id);
+        addTimedEffect(states[target.id], "shield", amount, target.id === actor.id, durationTurns);
       }
       detail = targets.length > 1
         ? `${actor.displayName} granted ${amount} shield to every living ally.`
@@ -475,6 +478,15 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       for (const target of supportTargets) {
         if (card.supportType === "attack") addTimedEffect(states[target.id], "attackBuff", amount, target.id === actor.id);
         if (card.supportType === "shield") addTimedEffect(states[target.id], "shield", amount, target.id === actor.id);
+        if (card.supportType === "shield-to-attack") {
+          const converted = Math.floor(states[target.id].shield / 2);
+          removeTimedEffectAmount(states[target.id], "shield", converted);
+          addTimedEffect(states[target.id], "attackBuff", converted, target.id === actor.id);
+          amount += converted;
+          reports.push(converted > 0
+            ? `${target.displayName} converted ${converted} shield into +${converted} attack damage`
+            : `${target.displayName} had insufficient shield to convert`);
+        }
         if (card.supportType === "healing") {
           const before = states[target.id].hp;
           states[target.id].hp = Math.min(states[target.id].maxHp, states[target.id].hp + amount);
@@ -542,6 +554,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         }
       }
       if (card.supportType === "healing") detail = `${actor.displayName} healed the team: ${reports.join(", ")}.`;
+      else if (card.supportType === "shield-to-attack") detail = `${actor.displayName} forged allied shields into attack power: ${reports.join(", ")}.`;
       else if (card.supportType === "enemy-dice") detail = `${actor.displayName} gave ${selectedEnemy?.displayName} -${amount} to their next d20 result.`;
       else if (card.supportType === "delay-enemy") detail = `${actor.displayName} moved ${selectedEnemy?.displayName}'s turn to the end of the queue.`;
       else if (card.supportType === "advance-ally") detail = `${actor.displayName} moved ${selectedAlly?.displayName} to the next position in the turn queue.`;

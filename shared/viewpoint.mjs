@@ -227,10 +227,14 @@ function historyPenalty(entry) {
 }
 
 function historyDuration(entry, players) {
-  const card = players.flatMap((player) => player.skillDeck || []).find((candidate) => candidate.name === entry.cardName);
+  const actor = playerByIdOrName(players, entry?.actorId, entry?.actorName);
+  const card = actor?.skillDeck?.find((candidate) => candidate.name === entry.cardName)
+    || players.flatMap((player) => player.skillDeck || []).find((candidate) => candidate.name === entry.cardName);
   if (card?.supportType === 'purge-card') return '2 phases';
   if (card?.supportType === 'steal-card') return "Until actor's next turn ends";
   if (card?.supportType === 'skip-enemy') return '1 turn';
+  if (actor?.hero?.name === 'Bram Coalhand' && card?.effect === 'guard') return "Until target's second turn ends";
+  if (card?.supportType === 'shield-to-attack') return "Until target's next turn ends";
   if (['attack', 'shield', 'dice', 'enemy-dice', 'zero-pity'].includes(card?.supportType || '') || entry.kind === 'guard') return "Until target's next turn ends";
   const explicitDuration = String(entry.message || '').match(/\b\d+\s+(?:turns?|phases?)\b/i)?.[0];
   return explicitDuration || '—';

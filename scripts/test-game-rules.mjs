@@ -106,11 +106,11 @@ for (const [playerIndex, sourceIds] of [[0, zoneOneSources], [1, zoneTwoSources]
   assert.deepEqual(upgradedCards.map((card) => card.effect).sort(), ["damage", "guard", "heal"], "each upgrade transforms separately without affecting the other two");
 }
 const supportTypes = new Set(options.flatMap((option) => option.skillDeck.filter((card) => card.effect === "support").map((card) => card.supportType)));
-assert.deepEqual([...supportTypes].sort(), ["advance-ally", "attack", "dice", "dispel-enemy", "enemy-dice", "healing", "purge-card", "revive", "shield", "skip-enemy", "steal-card", "zero-pity"]);
+assert.deepEqual([...supportTypes].sort(), ["advance-ally", "attack", "dice", "dispel-enemy", "enemy-dice", "healing", "purge-card", "revive", "shield-to-attack", "skip-enemy", "steal-card", "zero-pity"]);
 const diceModifierCards = options.flatMap((option) => option.skillDeck).filter((card) => card.supportType === "dice" || card.supportType === "enemy-dice");
 assert.deepEqual(diceModifierCards.map((card) => card.name).sort(), ["Dark Omen", "Focus Order", "Gravity Hex"], "only the approved cards can create stored d20 modifiers");
 const durationCards = options.flatMap((option) => option.skillDeck).filter((card) =>
-  card.effect === "guard" || ["attack", "shield", "dice", "enemy-dice", "skip-enemy", "steal-card", "zero-pity"].includes(card.supportType)
+  card.effect === "guard" || ["attack", "shield", "shield-to-attack", "dice", "enemy-dice", "skip-enemy", "steal-card", "zero-pity"].includes(card.supportType)
 );
 assert(durationCards.every((card) => /expires at the end|effects expire normally|next turn ends/i.test(card.description)), "every buff and debuff card must state the target-turn expiry rule");
 for (const classId of ["warden", "healer", "tank", "oracle", "support"]) {
@@ -437,24 +437,101 @@ const tank = engine.createPlayerSession("Bram", 0, "Bram Coalhand", "tank");
 const tankAlly = engine.createPlayerSession("Tank ally", 2, "Mira Ash", "tank-ally");
 const tankEnemy = engine.createPlayerSession("Tank enemy", 1, "Nyx Calder", "tank-enemy");
 const tankParty = [tank, tankEnemy, tankAlly];
+const livingFortress = tank.skillDeck.find((card) => card.id === "bc-fortress");
+const temperArmor = tank.skillDeck.find((card) => card.id === "bc-temper");
+const shieldforgedAssault = tank.skillDeck.find((card) => card.id === "bc-march");
+const bramBrace = tank.skillDeck.find((card) => !card.unique && card.effect === "guard");
+assert.match(tank.hero.passiveText, /shield from Bram's Guard cards lasts for 2 turns/i, "Tempered Steel states its two-turn Guard duration");
+assert.equal(livingFortress.value, 4, "Living Fortress grants 4 base shield");
+assert.equal(livingFortress.pityCost, 6, "Living Fortress follows the Guard-card pity formula after its shield reduction");
+assert.equal(temperArmor.effect, "guard", "Temper Armor is a Guard card");
+assert.equal(temperArmor.supportType, undefined, "Temper Armor no longer carries a Support subtype");
+assert.equal(temperArmor.value, 3, "Temper Armor grants 3 base shield");
+assert.equal(temperArmor.pityCost, 5, "Temper Armor follows the Guard-card pity formula");
+assert.match(bramBrace.description, /expires at the end of your second turn/i, "Bram's common Guard card describes Tempered Steel's duration");
+assert.equal(shieldforgedAssault.name, "Shieldforged Assault", "Fortified March is renamed to match its shield conversion effect");
+assert.equal(shieldforgedAssault.supportType, "shield-to-attack", "Shieldforged Assault uses the shield conversion rule");
+assert.equal(shieldforgedAssault.value, 0, "Shieldforged Assault derives its strength from current shield instead of a flat value");
+assert.equal(shieldforgedAssault.pityCost, 6, "Shieldforged Assault preserves the special card's existing pity cost");
+assert.match(shieldforgedAssault.description, /half.*current shield.*rounded down.*equal attack damage bonus.*next attack.*next turn/i, "Shieldforged Assault fully describes conversion, rounding, use, and expiry");
 const guardGame = engine.createInitialGame(tankParty, engine.createAdventure("GUARD"), 30);
 guardGame.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
-const guardCard = tank.skillDeck.find((card) => card.effect === "guard");
-guardGame.playerStates[tank.id].hand = [guardCard.id];
-const allyGuarded = engine.resolveCardTurn(guardGame, tankParty, guardCard.id, tankAlly.id, 20);
-assert.equal(allyGuarded.playerStates[tankAlly.id].shield, 7, "tank passive strengthens shield placed on an ally");
-const allyBrace = tankAlly.skillDeck.find((card) => card.effect === "guard" && card.target === "self");
-allyGuarded.turnOrder = [tankAlly.id, tankEnemy.id, tank.id];
-allyGuarded.activePlayerIndex = 2;
-allyGuarded.playerStates[tankAlly.id].hand = [allyBrace.id];
-const layeredShield = engine.resolveCardTurn(allyGuarded, tankParty, allyBrace.id, tankAlly.id, 20);
-assert.equal(layeredShield.playerStates[tankAlly.id].shield, 3, "an ally's older shield expires at target turn end while a self-shield created that turn survives");
-const allyBlank = tankAlly.skillDeck.find((card) => card.effect === "none");
-layeredShield.turnOrder = [tankAlly.id, tankEnemy.id, tank.id];
-layeredShield.activePlayerIndex = 2;
-layeredShield.playerStates[tankAlly.id].hand = [allyBlank.id];
-const selfShieldExpired = engine.resolveCardTurn(layeredShield, tankParty, allyBlank.id, tankAlly.id, 20);
-assert.equal(selfShieldExpired.playerStates[tankAlly.id].shield, 0, "a self-shield expires at the end of the owner's next active turn");
+guardGame.playerStates[tank.id].hand = [livingFortress.id];
+const allyGuarded = engine.resolveCardTurn(guardGame, tankParty, livingFortress.id, tankAlly.id, 20);
+assert.equal(allyGuarded.outcome.amount, 4, "Tempered Steel no longer increases Guard shield strength");
+assert.equal(allyGuarded.playerStates[tankAlly.id].shield, 4, "Living Fortress grants its updated 4 shield to the chosen ally");
+engine.expireTimedEffectsAtTurnEnd(allyGuarded.playerStates[tankAlly.id]);
+assert.equal(allyGuarded.playerStates[tankAlly.id].shield, 4, "Bram's Guard shield remains after the target's first turn");
+engine.expireTimedEffectsAtTurnEnd(allyGuarded.playerStates[tankAlly.id]);
+assert.equal(allyGuarded.playerStates[tankAlly.id].shield, 0, "Bram's Guard shield expires after the target's second turn");
+
+const bramBraceGame = engine.createInitialGame(tankParty, engine.createAdventure("BRAM-BRACE"), 30);
+bramBraceGame.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
+bramBraceGame.playerStates[tank.id].hand = [bramBrace.id];
+const bramBraced = engine.resolveCardTurn(bramBraceGame, tankParty, bramBrace.id, tank.id, 20);
+assert.equal(bramBraced.playerStates[tank.id].shield, 3, "Bram's common Guard card keeps its base shield value");
+engine.expireTimedEffectsAtTurnEnd(bramBraced.playerStates[tank.id]);
+assert.equal(bramBraced.playerStates[tank.id].shield, 3, "a self-applied Bram Guard remains through Bram's next turn");
+engine.expireTimedEffectsAtTurnEnd(bramBraced.playerStates[tank.id]);
+assert.equal(bramBraced.playerStates[tank.id].shield, 0, "a self-applied Bram Guard expires after Bram's second future turn");
+
+const temperGame = engine.createInitialGame(tankParty, engine.createAdventure("TEMPER-ARMOR"), 30);
+temperGame.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
+temperGame.playerStates[tank.id].hand = [temperArmor.id];
+const teamTempered = engine.resolveCardTurn(temperGame, tankParty, temperArmor.id, tank.id, 20);
+assert.equal(teamTempered.outcome.effect, "guard", "Temper Armor resolves and synchronizes as a Guard card");
+assert.equal(teamTempered.outcome.amount, 3, "Temper Armor resolves at 3 shield per target");
+assert.deepEqual(teamTempered.outcome.targetIds.sort(), [tank.id, tankAlly.id].sort(), "Temper Armor targets every living ally, including Bram");
+assert.equal(teamTempered.playerStates[tank.id].shield, 3, "Temper Armor shields Bram");
+assert.equal(teamTempered.playerStates[tankAlly.id].shield, 3, "Temper Armor shields each living ally");
+assert.equal(teamTempered.playerStates[tankEnemy.id].shield, 0, "Temper Armor never shields enemies");
+assert.equal(teamTempered.playerStates[tankAlly.id].timedEffects.find((effect) => effect.kind === "shield").expiresAfterTurn - teamTempered.playerStates[tankAlly.id].completedPlayerTurns, 2, "Temper Armor shield remains for two target turns");
+
+const conversionGame = engine.createInitialGame(tankParty, engine.createAdventure("SHIELDFORGED-ASSAULT"), 30);
+conversionGame.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
+conversionGame.adventure.target = 8;
+conversionGame.playerStates[tank.id].hand = [shieldforgedAssault.id];
+conversionGame.playerStates[tank.id].shield = 5;
+conversionGame.playerStates[tank.id].timedEffects = [{ kind: "shield", value: 5, expiresAfterTurn: 10 }];
+conversionGame.playerStates[tankAlly.id].shield = 8;
+conversionGame.playerStates[tankAlly.id].timedEffects = [{ kind: "shield", value: 8, expiresAfterTurn: 10 }];
+conversionGame.playerStates[tankEnemy.id].shield = 10;
+conversionGame.playerStates[tankEnemy.id].timedEffects = [{ kind: "shield", value: 10, expiresAfterTurn: 10 }];
+const shieldsForged = engine.resolveCardTurn(conversionGame, tankParty, shieldforgedAssault.id, tank.id, 20);
+assert.equal(shieldsForged.outcome.amount, 6, "Shieldforged Assault reports the total shield converted across allies");
+assert.equal(shieldsForged.playerStates[tank.id].shield, 3, "Shieldforged Assault rounds Bram's odd shield down before conversion");
+assert.equal(shieldsForged.playerStates[tank.id].attackBuff, 2, "Bram gains attack damage equal to his converted shield");
+assert.equal(shieldsForged.playerStates[tankAlly.id].shield, 4, "Shieldforged Assault removes half of an ally's even shield");
+assert.equal(shieldsForged.playerStates[tankAlly.id].attackBuff, 4, "the ally gains attack damage equal to converted shield");
+assert.equal(shieldsForged.playerStates[tankEnemy.id].shield, 10, "Shieldforged Assault never converts enemy shield");
+assert.equal(shieldsForged.playerStates[tankEnemy.id].attackBuff, 0, "Shieldforged Assault never buffs enemies");
+const forgedAllyAttack = tankAlly.skillDeck.find((card) => card.effect === "damage");
+shieldsForged.turnOrder = [tankAlly.id, tankEnemy.id, tank.id];
+shieldsForged.adventure.target = 8;
+shieldsForged.playerStates[tankAlly.id].hand = [forgedAllyAttack.id];
+shieldsForged.playerStates[tankEnemy.id].shield = 0;
+shieldsForged.playerStates[tankEnemy.id].timedEffects = [];
+const forgedAttack = engine.resolveCardTurn(shieldsForged, tankParty, forgedAllyAttack.id, tankEnemy.id, 20);
+assert.equal(forgedAttack.playerStates[tankEnemy.id].hp, tankEnemy.hero.maxHp - forgedAllyAttack.value - 4, "converted shield adds damage to the ally's next real attack");
+assert.equal(forgedAttack.playerStates[tankAlly.id].attackBuff, 0, "the converted attack bonus is consumed by that attack");
+
+const expiringConversionGame = structuredClone(conversionGame);
+expiringConversionGame.playerStates[tank.id].hand = [shieldforgedAssault.id];
+const expiringConversion = engine.resolveCardTurn(expiringConversionGame, tankParty, shieldforgedAssault.id, tank.id, 20);
+engine.expireTimedEffectsAtTurnEnd(expiringConversion.playerStates[tankAlly.id]);
+assert.equal(expiringConversion.playerStates[tankAlly.id].attackBuff, 0, "an unused converted attack bonus expires after the ally's next turn");
+
+const failedConversionGame = structuredClone(conversionGame);
+failedConversionGame.adventure.target = 20;
+failedConversionGame.playerStates[tank.id].hand = [shieldforgedAssault.id];
+const failedConversion = engine.resolveCardTurn(failedConversionGame, tankParty, shieldforgedAssault.id, tank.id, 1);
+assert.equal(failedConversion.outcome.success, false, "a failed Shieldforged Assault performs no conversion");
+assert.equal(failedConversion.playerStates[tank.id].shield, 5, "failed conversion preserves Bram's shield");
+assert.equal(failedConversion.playerStates[tankAlly.id].shield, 8, "failed conversion preserves allied shield");
+assert.equal(failedConversion.playerStates[tank.id].attackBuff, 0, "failed conversion grants no attack bonus");
+assert.equal(failedConversion.playerStates[tank.id].hp, tank.hero.maxHp - 2, "Shieldforged Assault retains Fortified March's team-damage failure");
+assert.equal(failedConversion.playerStates[tankAlly.id].hp, tankAlly.hero.maxHp - 2, "Shieldforged Assault failure damages every living ally");
+assert.equal(failedConversion.playerStates[tankEnemy.id].hp, tankEnemy.hero.maxHp, "Shieldforged Assault failure never damages enemies");
 
 const teamHealGame = engine.createInitialGame(supportParty, engine.createAdventure("TEAM-HEAL"), 30);
 teamHealGame.turnOrder = [healer.id, supportEnemy.id, supportAlly.id];
@@ -466,15 +543,6 @@ const teamHealed = engine.resolveCardTurn(teamHealGame, supportParty, teamHealCa
 assert.equal(teamHealed.playerStates[healer.id].hp, 7);
 assert.equal(teamHealed.playerStates[supportAlly.id].hp, 4);
 assert.equal(teamHealed.playerStates[supportEnemy.id].hp, supportEnemy.hero.maxHp);
-
-const teamShieldGame = engine.createInitialGame(tankParty, engine.createAdventure("TEAM-SHIELD"), 30);
-teamShieldGame.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
-const teamShieldCard = tank.skillDeck.find((card) => card.supportType === "shield");
-teamShieldGame.playerStates[tank.id].hand = [teamShieldCard.id];
-const teamShielded = engine.resolveCardTurn(teamShieldGame, tankParty, teamShieldCard.id, tank.id, 20);
-assert.equal(teamShielded.playerStates[tank.id].shield, 2);
-assert.equal(teamShielded.playerStates[tankAlly.id].shield, 2);
-assert.equal(teamShielded.playerStates[tankEnemy.id].shield, 0);
 
 const commander = engine.createPlayerSession("Ione", 0, "Ione Mire", "commander");
 const diceAlly = engine.createPlayerSession("Dice ally", 2, "Dagan Flint", "dice-ally");

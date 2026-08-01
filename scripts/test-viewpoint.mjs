@@ -149,6 +149,34 @@ assert.equal(targetHistory.changes, "3 damage");
 assert.equal(targetHistory.penalty, "");
 assert.equal(targetHistory.duration, "—");
 assert.equal(targetHistory.details, "Rowan dealt 3 damage to Mira with Slash.");
+const bram = player("bram", "Bram Player", "veil");
+bram.hero.name = "Bram Coalhand";
+bram.skillDeck = [
+  { id: "bc-fortress", name: "Living Fortress", effect: "guard" },
+  { id: "bc-march", name: "Shieldforged Assault", effect: "support", supportType: "shield-to-attack" }
+];
+const bramHistoryPlayers = [bram, mira];
+const bramGuardHistory = {
+  ...historyEntry,
+  id: "bram-guard-history",
+  kind: "guard",
+  actorId: bram.id,
+  actorName: bram.displayName,
+  targetName: bram.displayName,
+  cardName: "Living Fortress",
+  message: "Bram Player granted 4 shield to Bram Player.",
+  amount: 4
+};
+assert.equal(formatHistoryPresentation(bramGuardHistory, bramHistoryPlayers).duration, "Until target's second turn ends", "Bram's Guard history shows Tempered Steel's two-turn duration");
+const shieldforgedHistory = {
+  ...bramGuardHistory,
+  id: "shieldforged-history",
+  kind: "support",
+  cardName: "Shieldforged Assault",
+  message: "Bram Player converted 2 shield into +2 attack damage.",
+  amount: 2
+};
+assert.equal(formatHistoryPresentation(shieldforgedHistory, bramHistoryPlayers).duration, "Until target's next turn ends", "Shieldforged Assault history shows its one-turn attack-buff duration");
 const failedHistory = { ...historyEntry, id: "history-failure", success: false, failureDetail: "Rowan took 2 backlash damage." };
 assert.equal(formatHistoryPresentation(failedHistory, players).penalty, "Rowan took 2 backlash damage.");
 const legacyFailedHistory = { ...failedHistory, id: "history-legacy-failure", failureDetail: undefined, message: "Rowan used Slash — The attack failed. Rowan took 2 backlash damage." };
