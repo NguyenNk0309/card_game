@@ -990,8 +990,8 @@ button:focus-visible {
 }
 
 .action-hand {
-  --hand-card-gap: 8px;
-  --hand-card-width: calc((100% - 24px) / 4);
+  --hand-card-gap: 16px;
+  --hand-card-width: calc((100% - 48px) / 4);
   display: grid;
   grid-template-columns: none;
   grid-template-rows: minmax(0, 1fr);
@@ -1581,7 +1581,7 @@ button:focus-visible {
   }
 
   .action-hand {
-    --hand-card-width: calc((100% - 8px) / 2);
+    --hand-card-width: calc((100% - 16px) / 2);
     grid-template-columns: none;
   }
 
@@ -2404,11 +2404,6 @@ button:focus-visible {
 
 .joined-name strong {
   font: 500 14px Georgia, "Times New Roman", serif;
-}
-
-.local-session-icon {
-  flex: 0 0 auto;
-  color: var(--gold);
 }
 
 .joined-name span,
@@ -5051,12 +5046,12 @@ button:focus-visible {
 
 /* Keep character details and the complete personal deck side by side when space allows. */
 .lobby-grid {
-  grid-template-columns: minmax(680px, .95fr) minmax(720px, 1.05fr);
+  grid-template-columns: minmax(650px, .85fr) minmax(780px, 1.15fr);
 }
 
 .character-review-layout {
   display: grid;
-  grid-template-columns: minmax(300px, .8fr) minmax(430px, 1.2fr);
+  grid-template-columns: minmax(220px, .58fr) minmax(0, 1.42fr);
   align-items: start;
   gap: 18px;
 }
@@ -5292,7 +5287,7 @@ button:focus-visible {
   .character-review-layout {
     height: 100%;
     min-height: 0;
-    grid-template-columns: minmax(270px, .78fr) minmax(400px, 1.22fr);
+    grid-template-columns: minmax(220px, .58fr) minmax(0, 1.42fr);
     align-items: stretch;
     gap: 13px;
   }
@@ -7498,8 +7493,40 @@ button:disabled :where(span, small, strong, b, p),
 }
 
 .team-slot-player .lobby-player-status {
-  min-width: 82px;
+  min-width: 52px;
   align-content: center;
+}
+
+.team-slot-player .joined-main > div:nth-child(2) {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.team-slot-player .joined-name {
+  flex-wrap: nowrap;
+}
+
+.team-slot-player .joined-name strong {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.team-slot-player .ready-badge {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+  justify-self: end;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .025);
+}
+
+.team-slot-player .ready-badge.is-waiting {
+  color: var(--pixel-text-secondary) !important;
 }
 
 .pile-review-actions {
@@ -7534,6 +7561,14 @@ button:disabled :where(span, small, strong, b, p),
   .empty-team-slot {
     height: 92px;
     min-height: 92px;
+  }
+
+  .team-slot-player .joined-actions {
+    padding: 3px 7px 5px;
+  }
+
+  .team-slot-player .joined-actions button {
+    min-height: 28px;
   }
 }
 
@@ -7940,6 +7975,11 @@ button:disabled :where(span, small, strong, b, p),
   filter: brightness(1.12);
 }
 
+.home-create-room:hover:not(:disabled),
+.home-join-room button:hover:not(:disabled) {
+  cursor: pointer;
+}
+
 .home-play-button:disabled,
 .home-create-room:disabled,
 .home-join-room button:disabled,
@@ -8098,3 +8138,611 @@ button:disabled :where(span, small, strong, b, p),
 .game-shell .card-description::-webkit-scrollbar { width: 5px; }
 .game-shell .card-description::-webkit-scrollbar-track { background: rgba(255, 255, 255, .06); }
 .game-shell .card-description::-webkit-scrollbar-thumb { background: rgba(212, 181, 110, .65); }
+
+/* -------------------------------------------------------------------------- */
+/* UNIVERSAL GOTHIC CARD FAMILY                                               */
+/* One 2:3 geometry now owns every playable card and every card preview.       */
+/* All dimensions inside the face are proportional to the rendered width.      */
+/* -------------------------------------------------------------------------- */
+
+.gothic-card {
+  --card-antique-gold: #b98531;
+  --card-bright-gold: #e6bd65;
+  --card-bone: #e1d2bd;
+  --card-ink: #070708;
+  position: relative !important;
+  isolation: isolate;
+  box-sizing: border-box;
+  width: 100%;
+  height: auto !important;
+  min-width: 0;
+  min-height: 0 !important;
+  aspect-ratio: 2 / 3;
+  padding: 0 !important;
+  overflow: visible !important;
+  color: var(--card-bone);
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  clip-path: none !important;
+  container-type: inline-size;
+  text-align: left;
+  transform-origin: 50% 100%;
+}
+
+.gothic-card.no-effect-card { filter: none; border-style: solid; }
+.gothic-card.selected::after { display: none !important; }
+.gothic-card > .gothic-card-face { pointer-events: none; }
+
+/* Earlier application-wide readability rules target every span/strong inside
+   legacy cards. The shared face owns its own proportional typography. */
+.game-shell .gothic-card .gothic-card-rarity-banner > span,
+.game-shell .gothic-card .card-description > span,
+.game-shell .gothic-card .gothic-card-result-text > span {
+  font: inherit !important;
+}
+.game-shell .gothic-card strong.effect-number {
+  min-height: 0;
+  margin: 0;
+  font: inherit !important;
+  font-weight: 900 !important;
+}
+
+.gothic-card-face {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  color: var(--card-bone);
+  background:
+    radial-gradient(circle at 50% 44%, rgba(105, 57, 32, .17), transparent 32%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, .018) 0 1px, transparent 1px 5px),
+    linear-gradient(180deg, #171318, #050506 56%, #090708);
+  box-shadow:
+    inset 0 0 0 1.1cqw #120c08,
+    inset 0 0 0 1.8cqw #9b6722,
+    inset 0 0 0 2.35cqw #1b110a,
+    inset 0 0 0 2.75cqw #d1a34e,
+    inset 0 0 0 3.2cqw #080606,
+    0 1.6cqw 2.7cqw rgba(0, 0, 0, .72);
+  font-family: Georgia, "Times New Roman", serif;
+  text-shadow: .35cqw .35cqw 0 #000;
+  clip-path: polygon(0 2.5%, 2.2% 2.5%, 2.2% 0, 97.8% 0, 97.8% 2.5%, 100% 2.5%, 100% 97.5%, 97.8% 97.5%, 97.8% 100%, 2.2% 100%, 2.2% 97.5%, 0 97.5%);
+}
+
+.gothic-card-face::before,
+.gothic-card-face::after {
+  content: "";
+  position: absolute;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.gothic-card-face::before {
+  inset: 2.35cqw;
+  border: .5cqw solid rgba(225, 176, 79, .76);
+  box-shadow:
+    inset 0 0 0 .45cqw rgba(17, 9, 6, .94),
+    inset 0 0 2.8cqw rgba(0, 0, 0, .85),
+    0 0 0 .35cqw rgba(29, 17, 10, .9);
+  clip-path: polygon(0 2.2%, 2.2% 2.2%, 2.2% 0, 97.8% 0, 97.8% 2.2%, 100% 2.2%, 100% 97.8%, 97.8% 97.8%, 97.8% 100%, 2.2% 100%, 2.2% 97.8%, 0 97.8%);
+}
+
+.gothic-card-face::after {
+  inset: 3.7cqw 3.7cqw 3.55cqw;
+  border: .25cqw solid rgba(226, 176, 74, .48);
+  background:
+    linear-gradient(135deg, #d8a84c 0 1.1cqw, transparent 1.15cqw) top left,
+    linear-gradient(225deg, #d8a84c 0 1.1cqw, transparent 1.15cqw) top right,
+    linear-gradient(45deg, #d8a84c 0 1.1cqw, transparent 1.15cqw) bottom left,
+    linear-gradient(315deg, #d8a84c 0 1.1cqw, transparent 1.15cqw) bottom right;
+  background-repeat: no-repeat;
+  background-size: 4cqw 4cqw;
+}
+
+.gothic-card-art {
+  position: absolute;
+  z-index: 1;
+  top: 2.8%;
+  left: 3.4%;
+  width: 93.2%;
+  height: 53.4%;
+  overflow: hidden;
+  background: #0b0b0e;
+  border: .35cqw solid #5f4728;
+  box-shadow: inset 0 0 3cqw #000, 0 .5cqw 0 #040303;
+}
+
+.gothic-card-art-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(4, 5, 8, .06), rgba(4, 4, 6, .3)),
+    url("/art/moonfall-citadel.png") center / cover no-repeat;
+  filter: grayscale(.08) brightness(.82) contrast(1.08) saturate(.82);
+  transform: scale(1.04);
+}
+
+.gothic-card-scene {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  image-rendering: pixelated;
+  filter: brightness(1.08) contrast(1.08) saturate(.96);
+}
+
+.gothic-card-effect-wash {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 -5cqw 6cqw #050506, inset 0 0 4cqw rgba(0, 0, 0, .62);
+  mix-blend-mode: screen;
+  opacity: .34;
+}
+.gothic-card-effect-wash.effect-damage,
+.gothic-card-effect-wash.effect-aoe { background: radial-gradient(circle at 73% 64%, rgba(188, 55, 32, .75), transparent 24%); }
+.gothic-card-effect-wash.effect-heal { background: radial-gradient(circle at 68% 66%, rgba(63, 163, 88, .72), transparent 25%); }
+.gothic-card-effect-wash.effect-guard { background: radial-gradient(circle at 70% 62%, rgba(55, 137, 188, .75), transparent 25%); }
+.gothic-card-effect-wash.effect-support { background: radial-gradient(circle at 70% 62%, rgba(193, 146, 47, .65), transparent 25%); }
+.gothic-card-effect-wash.effect-none { background: linear-gradient(rgba(18, 20, 24, .48), rgba(0, 0, 0, .56)); }
+
+.gothic-card-art-missing {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 1cqw;
+  text-align: center;
+}
+.gothic-card-art-missing span { color: #b58b48; font-size: 14cqw; }
+.gothic-card-art-missing small { color: #a89b86; font: 700 3.2cqw/1 var(--pixel-font); letter-spacing: .08em; }
+
+.gothic-card-rarity-banner {
+  position: absolute;
+  z-index: 24;
+  top: 1.15%;
+  left: 29%;
+  width: 42%;
+  height: 6.15%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.4cqw;
+  color: #dac5ab !important;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, .018) 0 .7cqw, transparent .7cqw 1.4cqw),
+    #0b0a0b !important;
+  border: .45cqw solid #9a6b2b !important;
+  box-shadow: inset 0 0 0 .35cqw #24150c, 0 .7cqw 0 rgba(0, 0, 0, .72);
+  clip-path: polygon(6% 0, 94% 0, 100% 50%, 94% 100%, 6% 100%, 0 50%);
+  font-size: 4.2cqw !important;
+  font-weight: 500;
+  letter-spacing: .13em;
+  line-height: 1;
+  text-align: center;
+}
+.gothic-card-rarity-banner svg { width: 4cqw; height: 4cqw; color: var(--hero-color, #cf9e45); }
+.gothic-card-face[data-rarity="special"] .gothic-card-rarity-banner { border-color: color-mix(in srgb, var(--hero-color, #b98531) 58%, #d3a958) !important; }
+
+.gothic-card .pity-cost-badge {
+  position: absolute;
+  z-index: 26;
+  top: 1.35% !important;
+  right: auto !important;
+  left: 1.4%;
+  width: 19cqw;
+  min-width: 0;
+  height: 19cqw;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #efe5d4 !important;
+  border: .7cqw solid #8f5e28 !important;
+  border-radius: 50% !important;
+  background:
+    radial-gradient(circle, rgba(116, 30, 24, .32), transparent 56%),
+    repeating-conic-gradient(from 0deg, #25100e 0 9deg, #120a09 9deg 18deg) !important;
+  box-shadow:
+    inset 0 0 0 1cqw #110807,
+    inset 0 0 0 1.45cqw #9a682b,
+    inset 0 0 3.6cqw #000,
+    0 .9cqw 0 rgba(0, 0, 0, .76);
+  text-shadow: .5cqw .5cqw 0 #000, 0 0 1.3cqw rgba(255, 211, 149, .38);
+}
+.gothic-card .pity-cost-badge > b {
+  display: block;
+  color: inherit !important;
+  font: 500 11cqw/1 Georgia, "Times New Roman", serif !important;
+}
+.game-shell .gothic-card .pity-cost-badge > b { font-size: 11cqw !important; line-height: 1 !important; }
+
+.gothic-card-action-icon {
+  position: relative;
+  z-index: 23;
+  width: 8cqw;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  place-self: center;
+  color: #c9bdab;
+  border: .55cqw solid #9a6b2e;
+  background: linear-gradient(135deg, #1c1717, #070708);
+  box-shadow: inset 0 0 0 .65cqw #160d09, 0 1.1cqw 0 rgba(0, 0, 0, .75);
+  transform: rotate(45deg);
+}
+.gothic-card-action-icon svg { width: 49%; height: 49%; transform: rotate(-45deg); stroke-width: 1.7; }
+.gothic-card-action-icon.effect-damage,
+.gothic-card-action-icon.effect-aoe { color: #da6542; }
+.gothic-card-action-icon.effect-heal { color: #65b978; }
+.gothic-card-action-icon.effect-guard { color: #5e9fc4; }
+.gothic-card-action-icon.effect-support { color: #d0a44f; }
+.gothic-card-action-icon.effect-none { color: #bbb4aa; }
+
+.gothic-card-context {
+  position: absolute;
+  z-index: 19;
+  top: 49.3%;
+  left: 8%;
+  max-width: 84%;
+  min-height: 5.4%;
+  padding: .9cqw 1.8cqw;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1cqw;
+  color: #f0d38e !important;
+  border: .3cqw solid rgba(209, 161, 69, .65);
+  background: rgba(8, 7, 8, .88);
+  box-shadow: 0 .6cqw 0 #000;
+  font: 800 2.7cqw/1.15 var(--pixel-font);
+  letter-spacing: .055em;
+  text-transform: uppercase;
+  white-space: normal;
+}
+.gothic-card-context svg { width: 3cqw; height: 3cqw; }
+
+.gothic-card-copy {
+  position: absolute;
+  z-index: 12;
+  top: 53%;
+  left: 5.6%;
+  width: 88.8%;
+  height: 23.75%;
+  display: grid;
+  grid-template-rows: 6.8cqw 10.8cqw 17.32cqw;
+  gap: .35cqw;
+  align-items: stretch;
+  min-width: 0;
+  text-align: center;
+}
+
+.gothic-card-title {
+  min-width: 0;
+  min-height: 0;
+  max-height: 2.12em;
+  margin: 0 !important;
+  display: -webkit-box !important;
+  overflow: hidden;
+  color: #dfd1bf !important;
+  align-self: center;
+  font: 500 6.8cqw/.98 Georgia, "Times New Roman", serif !important;
+  letter-spacing: -.025em;
+  text-align: center;
+  text-wrap: balance;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.game-shell .gothic-card .gothic-card-title {
+  min-height: 0 !important;
+  max-height: 11.3cqw;
+  margin: 0 !important;
+  font-size: 6.8cqw !important;
+  line-height: .98 !important;
+}
+
+.game-shell .gothic-card .card-description {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 4.88em !important;
+  height: 4.88em !important;
+  max-height: 4.88em !important;
+  margin: 0 !important;
+  padding: 0 .5em;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden !important;
+  color: #d7c3ad !important;
+  font: 400 3.55cqw/1.22 Georgia, "Times New Roman", serif !important;
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: none;
+  overflow-wrap: normal;
+  word-break: normal;
+  scrollbar-width: none;
+}
+.game-shell .gothic-card .card-description > span {
+  width: 100%;
+  min-width: 0;
+  display: block;
+}
+.game-shell .gothic-card .card-description::-webkit-scrollbar { display: none; }
+
+.gothic-card-results {
+  --result-row-count: 2;
+  position: absolute;
+  z-index: 13;
+  top: 76.8%;
+  left: 5.3%;
+  width: 89.4%;
+  height: 19.25%;
+  display: grid;
+  grid-template-rows: repeat(var(--result-row-count), minmax(0, 1fr));
+  overflow: hidden;
+  border: .36cqw solid #60441f;
+  background:
+    repeating-linear-gradient(120deg, rgba(255, 255, 255, .012) 0 .5cqw, transparent .5cqw 1.2cqw),
+    rgba(9, 8, 9, .96);
+  box-shadow: inset 0 0 0 .45cqw rgba(0, 0, 0, .8);
+}
+
+.gothic-card-result-row {
+  min-width: 0;
+  min-height: 0;
+  padding: 1.2cqw 2cqw;
+  display: grid;
+  grid-template-columns: 9cqw 29% minmax(0, 1fr);
+  align-items: center;
+  gap: 1.5cqw;
+  color: #cfc2b0;
+  border: 0;
+  background: transparent;
+}
+.gothic-card-result-row + .gothic-card-result-row { border-top: .28cqw solid rgba(133, 89, 38, .5); }
+
+.gothic-card-result-icon {
+  width: 9cqw;
+  aspect-ratio: 1;
+  display: grid !important;
+  place-items: center;
+  color: #d9ccc0 !important;
+  border: .45cqw solid #756a5e;
+  border-radius: 50%;
+  background: radial-gradient(circle, #262126, #080708 68%);
+  box-shadow: inset 0 0 0 .45cqw #060506, 0 .55cqw 0 #000;
+}
+.gothic-card-result-icon svg { width: 56%; height: 56%; stroke-width: 3; }
+.gothic-card-result-row.success .gothic-card-result-icon { color: #e46a38 !important; border-color: #a04f28; }
+.gothic-card-result-row.failure .gothic-card-result-icon { color: #b8afa6 !important; filter: grayscale(1); }
+
+.gothic-card-result-row > b {
+  min-width: 0;
+  color: #b9aa99 !important;
+  font: 500 4.25cqw/1 Georgia, "Times New Roman", serif !important;
+  letter-spacing: .035em;
+  text-align: left;
+  white-space: nowrap;
+}
+.game-shell .gothic-card .gothic-card-result-row > b { font-size: 4.25cqw !important; line-height: 1 !important; }
+.gothic-card-result-row.success > b { color: #de6136 !important; }
+
+.gothic-card-result-text {
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 2.44em;
+  height: 2.44em;
+  max-height: 2.44em;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  color: #ddd0bf !important;
+  font: 400 3.55cqw/1.22 Georgia, "Times New Roman", serif !important;
+  letter-spacing: 0;
+  text-align: left;
+  text-transform: none;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+.gothic-card-result-text > span {
+  width: 100%;
+  min-width: 0;
+  display: block;
+}
+.game-shell .gothic-card .gothic-card-result-text { font-size: 3.55cqw !important; line-height: 1.22 !important; }
+
+.card-copy-measure {
+  position: fixed !important;
+  z-index: -1 !important;
+  top: 0 !important;
+  left: -200vw !important;
+  min-height: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  contain: none !important;
+}
+
+.gothic-card-gem {
+  position: absolute;
+  z-index: 45;
+  left: 47%;
+  bottom: .8%;
+  width: 6%;
+  aspect-ratio: 1;
+  border: .48cqw solid #9a682c;
+  background: radial-gradient(circle at 38% 32%, #f08a52, #9b211c 42%, #2b0909 72%);
+  box-shadow: inset 0 0 0 .4cqw #1a0b08, 0 0 2.3cqw rgba(195, 57, 32, .55);
+  transform: rotate(45deg);
+}
+.gothic-card-gem::before,
+.gothic-card-gem::after {
+  content: "";
+  position: absolute;
+  top: 45%;
+  width: 210%;
+  height: .35cqw;
+  background: linear-gradient(90deg, transparent, #ad792d);
+}
+.gothic-card-gem::before { right: 90%; }
+.gothic-card-gem::after { left: 90%; transform: scaleX(-1); }
+
+.gothic-card .effect-number { text-shadow: 0 0 1cqw color-mix(in srgb, currentColor 48%, transparent); }
+.gothic-card .effect-number.damage { color: #e95c36; }
+.gothic-card .effect-number.heal { color: #62b862; }
+.gothic-card .effect-number.shield { color: #539bd0; }
+.gothic-card .effect-number.speed { color: #e5b433; }
+
+.gothic-card:focus-visible {
+  outline: .8cqw solid #f4d67e !important;
+  outline-offset: .75cqw !important;
+  box-shadow: 0 0 0 .6cqw #24150d, 0 0 4cqw rgba(243, 204, 102, .62) !important;
+}
+.gothic-card:hover:not(:disabled) {
+  transform: translateY(-.4cqw) !important;
+  box-shadow: 0 1.9cqw 3cqw rgba(0, 0, 0, .82), 0 0 2.8cqw rgba(209, 157, 60, .28) !important;
+}
+.action-hand > .gothic-card.selected:not(:disabled):hover {
+  transform: none !important;
+}
+.gothic-card.selected {
+  outline: .75cqw solid #f0ce70 !important;
+  outline-offset: .55cqw;
+  box-shadow: 0 0 0 .5cqw #6e4c1e, 0 0 4cqw rgba(224, 179, 74, .58) !important;
+}
+.action-hand > .gothic-card.selected,
+.action-hand > .gothic-card.selected:not(:disabled):hover,
+.world-event-choice-card.gothic-card.selected,
+.world-event-choice-card.gothic-card.selected:hover:not(:disabled) {
+  outline: 0 !important;
+  outline-offset: 0 !important;
+  transform: none !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.card-motion.hand-from-zone.gothic-card.selected {
+  outline: 0 !important;
+  outline-offset: 0 !important;
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.action-hand > .gothic-card.selected::before,
+.world-event-choice-card.gothic-card.selected::before,
+.card-motion.hand-from-zone.gothic-card.selected::before {
+  content: "";
+  position: absolute;
+  z-index: 60;
+  inset: .5cqw;
+  pointer-events: none;
+  border: 1.4cqw solid #e14b3f;
+  clip-path: polygon(0 2.2%, 2.2% 2.2%, 2.2% 0, 97.8% 0, 97.8% 2.2%, 100% 2.2%, 100% 97.8%, 97.8% 97.8%, 97.8% 100%, 2.2% 100%, 2.2% 97.8%, 0 97.8%);
+}
+.gothic-card:disabled .gothic-card-face {
+  filter: grayscale(.42) saturate(.62) brightness(.76);
+}
+
+/* The surrounding views choose only the overall card width; the 2:3 face owns
+   every internal proportion, so equal-width cards are always equal-height. */
+.action-hand {
+  --hand-card-width: min(260px, calc((100% - 48px) / 4));
+  grid-template-rows: auto;
+  justify-content: center;
+  align-items: end;
+  padding: 20px 10px 22px;
+}
+.action-hand > .gothic-card { align-self: end; }
+
+.lobby-skill-deck {
+  grid-template-columns: repeat(2, minmax(0, 282px)) !important;
+  grid-auto-rows: max-content !important;
+  justify-content: center;
+  align-items: start;
+  gap: 14px;
+  padding-block: 18px 22px;
+  scroll-padding-block: 18px 22px;
+}
+.lobby-skill-deck .skill-card.gothic-card { width: 100%; height: auto !important; min-height: 0; display: block; }
+
+.character-deck-panel .public-character-deck > div:last-child,
+.public-character-deck > div:last-child {
+  grid-template-columns: repeat(2, minmax(0, 280px));
+  justify-content: center;
+  gap: 14px;
+}
+.character-deck-panel .public-character-deck > div:last-child {
+  padding-top: 24px;
+  scroll-padding-top: 24px;
+}
+.public-deck-card.gothic-card { display: block; width: 100%; max-width: 280px; padding: 0; overflow: visible; }
+
+.pile-card-grid {
+  grid-template-columns: repeat(2, minmax(0, 275px));
+  justify-content: center;
+  align-items: start;
+  gap: 14px;
+}
+.pile-review-card.gothic-card { width: 100%; max-width: 275px; padding: 0; display: block; gap: 0; }
+
+.history-card-detail.gothic-card {
+  width: min(360px, calc(100vw - 56px));
+  max-width: 360px;
+  margin-inline: auto;
+  display: block;
+  align-items: initial;
+  gap: 0;
+  text-align: left;
+}
+
+.world-event-choice-card.gothic-card {
+  width: 100%;
+  min-height: 0;
+  display: block;
+}
+.world-event-choice-card-grid { grid-auto-columns: 270px; align-items: start; }
+
+@media (max-width: 900px) {
+  .action-hand { --hand-card-width: min(240px, calc((100% - 48px) / 4)); }
+  .character-deck-panel .public-character-deck > div:last-child,
+  .public-character-deck > div:last-child { grid-template-columns: repeat(2, minmax(0, 250px)); }
+}
+
+@media (min-width: 2200px) and (min-height: 1200px) {
+  .lobby-skill-deck { grid-template-columns: repeat(3, minmax(0, 260px)) !important; }
+  .character-deck-panel .public-character-deck > div:last-child,
+  .public-character-deck > div:last-child { grid-template-columns: repeat(3, minmax(0, 260px)); }
+  .pile-card-grid { grid-template-columns: repeat(3, minmax(0, 260px)); }
+}
+
+@media (max-width: 720px) {
+  .action-hand {
+    --hand-card-width: min(260px, 80vw);
+    justify-content: start;
+    padding: 18px 12px 20px;
+  }
+  .lobby-skill-deck { grid-template-columns: minmax(0, 280px) !important; }
+  .character-deck-panel .public-character-deck > div:last-child,
+  .public-character-deck > div:last-child { grid-template-columns: minmax(0, 260px); }
+  .pile-card-grid { grid-template-columns: minmax(0, 260px); }
+  .world-event-choice-card-grid { grid-auto-columns: minmax(240px, 80vw); }
+  .history-card-detail.gothic-card { width: min(340px, calc(100vw - 44px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gothic-card,
+  .gothic-card-face { transition: none !important; }
+}

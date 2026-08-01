@@ -1,5 +1,10 @@
 import type { ActionCard } from "@/shared/types";
 
+export type EffectTextSegment = {
+  text: string;
+  tone?: string;
+};
+
 function numberTone(text: string, index: number, length: number, card?: ActionCard) {
   const before = text.slice(Math.max(0, index - 28), index).toLowerCase();
   const after = text.slice(index + length, Math.min(text.length, index + length + 32)).toLowerCase();
@@ -27,23 +32,29 @@ function numberTone(text: string, index: number, length: number, card?: ActionCa
   return "value";
 }
 
-export function EffectText({ text, card }: { text: string; card?: ActionCard }) {
+export function getEffectTextSegments(text: string, card?: ActionCard): EffectTextSegment[] {
   const matches = [...text.matchAll(/(heavy attack card|shield card|heal card|[+-]?\d+(?:\/\d+)?|one-third|half)/gi)]
     .filter((match) => !(match[0] === "20" && text[(match.index ?? 0) - 1]?.toLowerCase() === "d"));
-  if (!matches.length) return <>{text}</>;
-  const parts: React.ReactNode[] = [];
+  if (!matches.length) return [{ text }];
+  const parts: EffectTextSegment[] = [];
   let cursor = 0;
-  matches.forEach((match, matchIndex) => {
+  matches.forEach((match) => {
     const index = match.index ?? 0;
-    if (index > cursor) parts.push(text.slice(cursor, index));
+    if (index > cursor) parts.push({ text: text.slice(cursor, index) });
     const phrase = match[0].toLowerCase();
     const tone = phrase === "heavy attack card" ? "damage"
       : phrase === "shield card" ? "shield"
       : phrase === "heal card" ? "heal"
       : numberTone(text, index, match[0].length, card);
-    parts.push(<strong className={`effect-number ${tone}`} key={`${index}-${matchIndex}`}>{match[0]}</strong>);
+    parts.push({ text: match[0], tone });
     cursor = index + match[0].length;
   });
-  if (cursor < text.length) parts.push(text.slice(cursor));
-  return <>{parts}</>;
+  if (cursor < text.length) parts.push({ text: text.slice(cursor) });
+  return parts;
+}
+
+export function EffectText({ text, card }: { text: string; card?: ActionCard }) {
+  return <>{getEffectTextSegments(text, card).map((part, index) => part.tone
+    ? <strong className={`effect-number ${part.tone}`} key={`${index}-${part.text}`}>{part.text}</strong>
+    : part.text)}</>;
 }

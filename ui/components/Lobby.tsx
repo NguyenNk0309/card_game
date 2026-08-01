@@ -1,13 +1,9 @@
 "use client";
 
-import { Check, Crown, Eye, Flame, House, KeyRound, LogOut, Shield, Sparkles, Swords, UserCheck, UserMinus, UserPlus, Users, X } from "lucide-react";
+import { Check, Clock3, Crown, Eye, Flame, House, KeyRound, LogOut, Shield, Sparkles, Swords, UserMinus, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
-import { describeCardFailure, describeCardSuccess } from "@/shared/cardRules";
 import type { CharacterOption, PlayerSession, TeamId } from "@/shared/types";
-import { CardEffectIcon } from "./CardEffectIcon";
-import { CardDescription } from "./CardDescription";
-import { EffectText } from "./EffectText";
-import { PityCostBadge } from "./PityCost";
+import { CardFace } from "./CardFace";
 
 type Props = {
   roomId: string;
@@ -70,8 +66,8 @@ export function Lobby({ roomId, players, playerName, error, selectedPlayerId, lo
         {members.map((player, index) => <article className={`joined-player team-slot-player ${selected?.id === player.id ? "selected" : ""}`} key={player.id}>
           <button className="joined-main" onClick={() => onSelectPlayer(player.id)}>
             <div className="portrait" style={{ "--hero-color": player.randomHero ? "#d4b56e" : player.hero.color } as React.CSSProperties}>{player.randomHero ? "?" : player.hero.initials}</div>
-            <div><div className="joined-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{player.displayName}</strong>{player.id === localSessionId && <UserCheck className="local-session-icon" size={14} aria-label="Your session"/>}</div>{!player.randomHero && <p>{player.hero.name} · {player.hero.className}</p>}</div>
-            <div className="lobby-player-status"><span>Slot {index + 1}</span><span className={`ready-badge ${player.ready ? "is-ready" : ""}`}>{player.ready && <Check size={13}/>} {player.ready ? "Ready" : "Not ready"}</span></div>
+            <div><div className="joined-name"><strong className={`player-name-highlight ${relationClass(player)}`} title={player.displayName}>{player.displayName}</strong></div>{!player.randomHero && <p>{player.hero.name} · {player.hero.className}</p>}</div>
+            <div className="lobby-player-status"><span>Slot {index + 1}</span><span className={`ready-badge ${player.ready ? "is-ready" : "is-waiting"}`} aria-label={player.ready ? "Ready" : "Not ready"} title={player.ready ? "Ready" : "Not ready"}>{player.ready ? <Check size={14}/> : <Clock3 size={14}/>}</span></div>
           </button>
           {player.id === localSessionId ? <div className="joined-actions local-player-actions"><button className="out-team-button" onClick={() => onLeave(player.id)} aria-label={`Leave team as ${player.displayName}`}><LogOut size={14}/> Out team</button><button className={player.ready ? "unready-button" : "ready-button"} onClick={() => onToggleReady(player.id)}>{player.ready ? "Cancel ready" : "Ready"}</button></div> : <div className="joined-actions remote-player-actions">{localPlayer ? <button className="remove-player-button" onClick={() => onRemovePlayer(player.id)}><UserMinus size={14}/> Remove</button> : <span className="remote-player-label">Another browser</span>}</div>}
         </article>)}
@@ -103,7 +99,7 @@ export function Lobby({ roomId, players, playerName, error, selectedPlayerId, lo
           </section>
           <section className="character-deck-column">
             <div className="deck-heading"><div><span className="eyebrow">PERSONAL SKILL DECK</span></div><Sparkles size={18}/></div>
-            <div className="lobby-skill-deck">{shownDeck.map((card) => <article className={`skill-card card-with-header effect-${card.effect} ${card.unique ? "hero-unique-card" : "common-skill-card"} ${card.effect === "none" ? "no-effect-card" : ""}`} key={card.id} style={{ "--hero-color": shownHero.color } as React.CSSProperties}><PityCostBadge card={card}/><div className={`unique-card-banner ${card.unique ? "" : "common-card-banner"}`}>{card.unique ? <><Crown size={13}/> SPECIAL</> : "COMMON"}</div><div className={`card-sigil effect-${card.effect}`}><CardEffectIcon card={card}/></div><span className="skill-kind">{card.unique ? "Class skill" : card.effect === "none" ? "No-effect common card" : "Common action card"}</span><strong>{card.name}</strong><CardDescription card={card}/><div className="card-outcome-lines"><p className="card-success-line"><Check size={13}/><span><b>SUCCESS</b><EffectText text={describeCardSuccess(card)} card={card}/></span></p><p className="card-failure-line"><X size={13}/><span><b>FAILURE</b><EffectText text={describeCardFailure(card)} card={card}/></span></p></div></article>)}</div>
+            <div className="lobby-skill-deck">{shownDeck.map((card) => <article className={`skill-card gothic-card effect-${card.effect} ${card.unique ? "hero-unique-card" : "common-skill-card"} ${card.effect === "none" ? "no-effect-card" : ""}`} key={card.id} style={{ "--hero-color": shownHero.color } as React.CSSProperties}><CardFace card={card}/></article>)}</div>
           </section>
         </div> : randomPending ? <div className="no-character"><Sparkles size={32}/><h2>No character selected</h2><p>A random character joins at battle start.</p></div> : <div className="no-character"><Sparkles size={28}/><h2>Your character awaits</h2><p>Choose one to review skills.</p></div>}</aside>
     </div>

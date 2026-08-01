@@ -16,9 +16,7 @@ import type {
   PlayerSession,
   WorldEventOutcome,
 } from "@/shared/types";
-import { CardEffectIcon } from "./CardEffectIcon";
-import { CardDescription } from "./CardDescription";
-import { PityCostBadge } from "./PityCost";
+import { CardFace } from "./CardFace";
 
 const DIALOG_FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -337,7 +335,7 @@ export function ShatteredTributeChoicePanel({
               : `${entry.card?.name ?? "Owned common card"}, ${entry.zoneLabel}, ${selected ? "selected" : "not selected"}`;
             return <button
               type="button"
-              className={`world-event-choice-card action-card ${entry.card ? `effect-${entry.card.effect}` : ""} common-action-card ${selected ? "selected" : ""} ${entry.borrowed ? "borrowed" : ""}`.trim()}
+              className={`world-event-choice-card action-card ${entry.card ? `gothic-card effect-${entry.card.effect}` : ""} common-action-card ${selected ? "selected" : ""} ${entry.borrowed ? "borrowed" : ""}`.trim()}
               aria-label={cardLabel}
               aria-pressed={entry.eligible ? selected : undefined}
               ref={entry.slotKey === firstEligibleSlotKey ? firstEligibleRef : undefined}
@@ -345,22 +343,12 @@ export function ShatteredTributeChoicePanel({
               onClick={() => toggleCard(entry.id)}
               key={entry.slotKey}
             >
-              {entry.card ? <>
-                <PityCostBadge card={entry.card}/>
-                <span className="special-skill-banner common-card-banner">COMMON</span>
-                <div className={`card-sigil effect-${entry.card.effect}`}><CardEffectIcon card={entry.card}/></div>
-                <span>Common card · {entry.zoneLabel}</span>
-                <strong>{entry.card.name}</strong>
-                <CardDescription card={entry.card}/>
-              </> : <>
+              {entry.card ? <CardFace card={entry.card} contextLabel={<>{entry.borrowed
+                ? <><LockKeyhole/> Borrowed · unavailable</>
+                : selected ? <><Check/> Selected</> : `${entry.zoneLabel} · Available`}</>}/> : <>
                 <div className="card-sigil"><LockKeyhole size={18}/></div>
                 <strong>Borrowed card</strong>
               </>}
-              <span className="world-event-card-selection-state">
-                {entry.borrowed
-                  ? <><LockKeyhole size={14}/> Borrowed · unavailable</>
-                  : selected ? <><Check size={14}/> Selected</> : `${entry.zoneLabel} · Available`}
-              </span>
             </button>;
           })}
           {!eligibleCards.length && <p className="world-event-no-choice-cards">No eligible owned common cards.</p>}
