@@ -17,6 +17,7 @@ import type {
   WorldEventOutcome,
 } from "@/shared/types";
 import { CardFace } from "./CardFace";
+import { HighlightCardNames } from "./HighlightCardNames";
 
 const DIALOG_FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -79,9 +80,11 @@ function useEventCountdown(deadlineAt: number, serverTimeOffsetMs: number) {
 
 export type WorldEventLibraryProps = {
   className?: string;
+  cardNames?: readonly string[];
+  onInspectCard?: (name: string) => void;
 };
 
-export function WorldEventLibrary({ className = "" }: WorldEventLibraryProps) {
+export function WorldEventLibrary({ className = "", cardNames = [], onInspectCard }: WorldEventLibraryProps) {
   const headingId = useId();
 
   return <section className={`world-event-library ${className}`.trim()} aria-labelledby={headingId}>
@@ -110,7 +113,7 @@ export function WorldEventLibrary({ className = "" }: WorldEventLibraryProps) {
                   <h3>{event.title}</h3>
                 </div>
               </div>
-              <p>{event.fullDescription}</p>
+              <p><HighlightCardNames text={event.fullDescription} cardNames={cardNames} onInspectCard={onInspectCard}/></p>
             </article>)}
           </div>
         </section>;
@@ -135,8 +138,10 @@ export type ShatteredTributeChoicePanelProps = {
   localState?: PlayerRunState;
   /** Card definitions for the local hand, including borrowed cards when present. */
   handCards?: ActionCard[];
+  cardNames?: readonly string[];
   serverTimeOffsetMs?: number;
   connectionError?: string;
+  onInspectCard?: (name: string) => void;
   onSubmit: (eventId: string, selectedCardIds: string[]) => boolean | void | Promise<boolean | void>;
 };
 
@@ -146,8 +151,10 @@ export function ShatteredTributeChoicePanel({
   localPlayer,
   localState,
   handCards = [],
+  cardNames = [],
   serverTimeOffsetMs = 0,
   connectionError = "",
+  onInspectCard,
   onSubmit,
 }: ShatteredTributeChoicePanelProps) {
   const titleId = useId();
@@ -297,7 +304,7 @@ export function ShatteredTributeChoicePanel({
         </time>
       </header>
 
-      <p className="world-event-rule" id={descriptionId}>{fullRule}</p>
+      <p className="world-event-rule" id={descriptionId}><HighlightCardNames text={fullRule} cardNames={cardNames} onInspectCard={onInspectCard}/></p>
 
       <div className="world-event-submission-progress" id={progressId} role="status" aria-live="polite" aria-atomic="true">
         <span>{submittedCount} of {requiredIds.length} required players submitted</span>
@@ -372,7 +379,9 @@ export type ResolvedWorldEventPanelProps = {
   event: WorldEventOutcome;
   players: PlayerSession[];
   localPlayerId?: string;
+  cardNames?: readonly string[];
   className?: string;
+  onInspectCard?: (name: string) => void;
   onClose: () => void;
 };
 
@@ -380,7 +389,9 @@ export function ResolvedWorldEventPanel({
   event,
   players,
   localPlayerId,
+  cardNames = [],
   className = "",
+  onInspectCard,
   onClose,
 }: ResolvedWorldEventPanelProps) {
   const titleId = useId();
@@ -410,11 +421,11 @@ export function ResolvedWorldEventPanel({
     <span className="eyebrow">WORLD EVENT · PHASE {event.phase} · LEVEL {event.level}</span>
     <h2 id={titleId}>{event.title}</h2>
     <span className={`world-event-intensity ${intensityClass(event.intensity)}`}>{event.intensity}</span>
-    <p className="modal-lead world-event-rule" id={descriptionId}>{fullRule}</p>
+    <p className="modal-lead world-event-rule" id={descriptionId}><HighlightCardNames text={fullRule} cardNames={cardNames} onInspectCard={onInspectCard}/></p>
 
     {localResult && <section className="world-event-private-result" aria-label="Your private World Event result">
       <span><LockKeyhole size={15}/> YOUR PRIVATE RESULT</span>
-      <strong>{formatViewpointText(localResult.privateSummary || localResult.publicSummary, players, localPlayerId, { involvedPlayerIds: [localResult.playerId] })}</strong>
+      <strong><HighlightCardNames text={formatViewpointText(localResult.privateSummary || localResult.publicSummary, players, localPlayerId, { involvedPlayerIds: [localResult.playerId] })} cardNames={cardNames} onInspectCard={onInspectCard}/></strong>
       {localResult.autoResolved && <small>Auto-resolved at the deadline.</small>}
     </section>}
 
