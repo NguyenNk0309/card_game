@@ -426,7 +426,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   let amount = 0;
   let defeated = false;
   let detail = `${actor.displayName} used ${card.name} but did not meet target ${game.adventure.target}.`;
-  let immediateReviveId = "";
+  let revivedTargetId = "";
 
   if (success) {
     if (needsTarget && !targets.length) {
@@ -452,14 +452,20 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       if (targets.length) clearTimedEffect(states[actor.id], "attackBuff");
       detail = reports.length ? `${reports.join("; ")}.` : `${actor.displayName}'s attack had no valid target and no effect.`;
     } else if (card.effect === "heal") {
-      const target = targets[0];
-      if (target) {
-        const power = card.value + (actor.hero.classId === "healer" ? 2 : 0);
+      const power = card.value + (actor.hero.name === "Brother Orren" ? 1 : 0);
+      const reports: string[] = [];
+      for (const target of targets) {
         const before = states[target.id].hp;
         states[target.id].hp = Math.min(states[target.id].maxHp, states[target.id].hp + power);
-        amount = states[target.id].hp - before;
-        detail = `${actor.displayName} restored ${amount} HP to ${target.displayName}.`;
+        const restored = states[target.id].hp - before;
+        amount += restored;
+        reports.push(`${target.displayName} +${restored} HP`);
       }
+      detail = targets.length > 1
+        ? `${actor.displayName} restored HP to every living ally: ${reports.join(", ")}.`
+        : targets.length === 1
+          ? `${actor.displayName} restored ${amount} HP to ${targets[0].displayName}.`
+          : `${actor.displayName}'s Heal card had no valid target and no effect.`;
     } else if (card.effect === "guard") {
       amount = card.value + (actor.hero.name === "Elara Voss" ? 1 : 0);
       const durationTurns = actor.hero.name === "Bram Coalhand" ? 2 : 1;
@@ -507,10 +513,10 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         const revivedState = states[selectedDefeatedAlly.id];
         revivedState.hp = Math.max(1, Math.ceil(revivedState.maxHp / 3));
         revivedState.reviveIn = 0;
-        immediateReviveId = selectedDefeatedAlly.id;
+        revivedTargetId = selectedDefeatedAlly.id;
         amount = revivedState.hp;
-        reports.push(`${selectedDefeatedAlly.displayName} revived immediately with one-third HP (${revivedState.hp}/${revivedState.maxHp}) and will take the next turn after ${actor.displayName} in this phase`);
-        lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-returning-light-${selectedDefeatedAlly.id}`, kind: "revive", playerId: selectedDefeatedAlly.id, playerName: selectedDefeatedAlly.displayName, reason: `${selectedDefeatedAlly.displayName} returned immediately through Returning Light with one-third HP and will take the next turn after ${actor.displayName} in this phase.` });
+        reports.push(`${selectedDefeatedAlly.displayName} revived immediately with one-third HP (${revivedState.hp}/${revivedState.maxHp})`);
+        lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-returning-light-${selectedDefeatedAlly.id}`, kind: "revive", playerId: selectedDefeatedAlly.id, playerName: selectedDefeatedAlly.displayName, reason: `${selectedDefeatedAlly.displayName} returned immediately through Returning Light with one-third HP.` });
       }
       if (card.supportType === "skip-enemy" && selectedEnemy) {
         states[selectedEnemy.id].skipTurns = (states[selectedEnemy.id].skipTurns ?? 0) + 1;
@@ -629,17 +635,13 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   }
   let nextTurnOrder = rotateTurnOrder(turnOrder, actor.id, states);
   if (success && card.supportType === "delay-enemy" && selectedEnemy) nextTurnOrder = moveTurnTarget(nextTurnOrder, selectedEnemy.id, "delay");
-  if (immediateReviveId) nextTurnOrder = [immediateReviveId, ...nextTurnOrder.filter((id) => id !== immediateReviveId)];
-  let actedThisRound = [...new Set([...(game.actedThisRound ?? []), actor.id])].filter((id) => (states[id]?.hp ?? 0) > 0);
-  if (immediateReviveId) actedThisRound = actedThisRound.filter((id) => id !== immediateReviveId);
+  if (revivedTargetId && !nextTurnOrder.includes(revivedTargetId)) nextTurnOrder.push(revivedTargetId);
+  let actedThisRound = [...new Set([...(game.actedThisRound ?? []), actor.id, ...(revivedTargetId ? [revivedTargetId] : [])])]
+    .filter((id) => (states[id]?.hp ?? 0) > 0);
   let completedPhases = game.completedPhases ?? Math.max(0, (game.roundNumber ?? 1) - 1);
   let roundNumber = game.roundNumber ?? completedPhases + 1;
   let roundOrder = (game.roundOrder?.length ? game.roundOrder : speedOrder(players, states)).filter((id) => (states[id]?.hp ?? 0) > 0);
-  if (immediateReviveId) {
-    roundOrder = roundOrder.filter((id) => id !== immediateReviveId);
-    const actorRoundIndex = roundOrder.indexOf(actor.id);
-    roundOrder.splice(actorRoundIndex >= 0 ? actorRoundIndex + 1 : 0, 0, immediateReviveId);
-  }
+  if (revivedTargetId && !roundOrder.includes(revivedTargetId)) roundOrder.push(revivedTargetId);
   const livingIds = speedOrder(players, states);
   let phaseCompleted = false;
   if (livingIds.length && livingIds.every((id) => actedThisRound.includes(id))) {

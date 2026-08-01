@@ -413,13 +413,12 @@ function completeRoundTurn(game, actorId) {
 
 function deriveAuthoritativePlayedPhase(previousGame, incomingGame, actor) {
   const livingIds = speedOrder(incomingGame);
-  let actedThisRound = [...new Set([...(previousGame.actedThisRound || []), actor.id])]
-    .filter((id) => livingIds.includes(id));
   const outcome = incomingGame.outcome;
   const card = room.players.flatMap((player) => player.skillDeck || []).find((item) => item.id === outcome?.cardId)
     || room.players.flatMap((player) => player.skillDeck || []).find((item) => item.name === outcome?.cardName);
-  const immediateReviveId = outcome?.success && card?.supportType === 'revive' ? String(outcome.targetIds?.[0] || '') : '';
-  if (immediateReviveId) actedThisRound = actedThisRound.filter((id) => id !== immediateReviveId);
+  const revivedTargetId = outcome?.success && card?.supportType === 'revive' ? String(outcome.targetIds?.[0] || '') : '';
+  const actedThisRound = [...new Set([...(previousGame.actedThisRound || []), actor.id, ...(revivedTargetId ? [revivedTargetId] : [])])]
+    .filter((id) => livingIds.includes(id));
   const phaseCompleted = livingIds.length > 0 && livingIds.every((id) => actedThisRound.includes(id));
   const previousCompletedPhases = Number(previousGame.completedPhases || 0);
   const completedPhases = previousCompletedPhases + (phaseCompleted ? 1 : 0);

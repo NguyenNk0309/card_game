@@ -34,6 +34,7 @@ const targetLabels: Record<ActionCard["target"], string> = {
 
 export function getCardEffectLabel(card: ActionCard) {
   if (card.effect === "heal" && card.target === "self") return "Heal yourself";
+  if (card.effect === "heal" && card.target === "all-allies") return "Heal all allies";
   if (card.effect === "guard" && card.target === "self") return "Shield yourself";
   return effectLabels[card.effect];
 }
