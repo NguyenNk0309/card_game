@@ -910,7 +910,8 @@ const commanderPurge = engine.createInitialGame([commander, diceEnemy], engine.c
 commanderPurge.turnOrder = [commander.id, diceEnemy.id];
 const purgeCard = commander.skillDeck.find((card) => card.supportType === "purge-card");
 assert.equal(purgeCard.target, "enemy", "Tactical Purge only exposes living enemies as targets");
-assert.match(purgeCard.description, /random card.*hand.*graveyard.*2 phases.*draw pile.*third use/i, "Tactical Purge's description explains its complete updated effect");
+assert.match(purgeCard.description, /random card.*hand.*graveyard.*2 phases.*draw pile/i, "Tactical Purge's description explains its complete updated effect");
+assert.doesNotMatch(purgeCard.description, /third use|Ione's graveyard/i, "Tactical Purge no longer describes a use limit");
 const purgedEnemyCards = diceEnemy.skillDeck.filter((card) => card.unique);
 const purgeReplacement = diceEnemy.skillDeck.find((card) => !card.unique && card.effect === "none");
 const commanderBlank = commander.skillDeck.find((card) => !card.unique && card.effect === "none");
@@ -968,8 +969,20 @@ secondPurge.activePlayerIndex = 0;
 secondPurge.playerStates[commander.id].hand = [purgeCard.id];
 secondPurge.playerStates[diceEnemy.id].hand = [purgedEnemyCards[2].id];
 const thirdPurge = engine.resolveCardTurn(secondPurge, [commander, diceEnemy], purgeCard.id, diceEnemy.id, 20);
-assert(thirdPurge.playerStates[commander.id].graveyard.includes(purgeCard.id), "Tactical Purge enters Ione's graveyard after its third use");
-assert(![...thirdPurge.playerStates[commander.id].hand, ...thirdPurge.playerStates[commander.id].drawPile, ...thirdPurge.playerStates[commander.id].discardPile].includes(purgeCard.id), "Tactical Purge cannot be drawn after entering the graveyard");
+assert(!thirdPurge.playerStates[commander.id].graveyard.includes(purgeCard.id), "Tactical Purge remains reusable after its third use");
+assert([...thirdPurge.playerStates[commander.id].hand, ...thirdPurge.playerStates[commander.id].drawPile, ...thirdPurge.playerStates[commander.id].discardPile].includes(purgeCard.id), "Tactical Purge stays in Ione's reusable card zones after its third use");
+assert.equal(thirdPurge.playerStates[commander.id].cardUses[purgeCard.id], 3, "Tactical Purge still records its third use without retiring");
+thirdPurge.turnOrder = [commander.id, diceEnemy.id];
+thirdPurge.activePlayerIndex = 0;
+thirdPurge.playerStates[commander.id].hand = [purgeCard.id];
+thirdPurge.playerStates[commander.id].drawPile = thirdPurge.playerStates[commander.id].drawPile.filter((id) => id !== purgeCard.id);
+thirdPurge.playerStates[commander.id].discardPile = thirdPurge.playerStates[commander.id].discardPile.filter((id) => id !== purgeCard.id);
+thirdPurge.playerStates[diceEnemy.id].hand = [purgeReplacement.id];
+const fourthPurge = engine.resolveCardTurn(thirdPurge, [commander, diceEnemy], purgeCard.id, diceEnemy.id, 20);
+assert.equal(fourthPurge.playerStates[commander.id].cardUses[purgeCard.id], 4, "Tactical Purge resolves normally on its fourth use");
+assert(!fourthPurge.playerStates[commander.id].graveyard.includes(purgeCard.id), "Tactical Purge never retires from repeated use");
+assert(fourthPurge.playerStates[diceEnemy.id].graveyard.includes(purgeReplacement.id), "a fourth Tactical Purge still moves an enemy hand card to graveyard");
+assert(fourthPurge.playerStates[diceEnemy.id].purgedCards.some((entry) => entry.cardId === purgeReplacement.id), "a fourth Tactical Purge still records the two-phase return timer");
 
 for (const option of options) {
   for (const templateCard of option.skillDeck.filter((card) => card.unique)) {

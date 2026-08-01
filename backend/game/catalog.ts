@@ -74,7 +74,7 @@ export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
   "Ione Mire": [
     { id: "im-command", name: "Attack Order", description: "All living allies, including yourself, gain +2 attack damage; expires at the end of each target's next turn.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "attack", failureEffect: "team-damage", failureValue: 1, pityCost: 6 },
     { id: "im-focus", name: "Focus Order", description: "All living allies, including yourself, gain +2 d20; expires at the end of each target's next turn.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "dice", failureEffect: "team-damage", failureValue: 1, pityCost: 6 },
-    { id: "im-purge", name: "Tactical Purge", description: "Move 1 random card from an enemy hand to their graveyard for 2 phases, then return it to their draw pile; after its third use, this card enters Ione's graveyard.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "purge-card", failureEffect: "enemy-shield", failureValue: 2, pityCost: 7 }
+    { id: "im-purge", name: "Tactical Purge", description: "Move 1 random card from an enemy hand to their graveyard for 2 phases, then return it to their draw pile.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "purge-card", failureEffect: "enemy-shield", failureValue: 2, pityCost: 7 }
   ],
   "Dagan Flint": [
     { id: "df-none", name: "None Left Standing", description: "Deal 3 damage to every living enemy (4 while Dagan is at half HP).", bonus: 0, effect: "aoe", target: "all-enemies", value: 3, failureEffect: "self-damage", failureValue: 2, pityCost: 7 },
