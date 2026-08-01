@@ -163,6 +163,12 @@ export function getPassiveDiceBonus(player: PlayerSession, card: ActionCard, sta
   return player.hero.classId === "support" ? 1 : 0;
 }
 
+export function getThorneValePassiveDamageBonus(player: PlayerSession, card: ActionCard, state: PlayerRunState) {
+  if (player.hero.name !== "Thorne Vale" || card.effect !== "damage") return 0;
+  const currentPlayerTurn = (state.completedPlayerTurns ?? 0) + 1;
+  return currentPlayerTurn % 2 === 0 ? 2 : 0;
+}
+
 function drawOneOrRecycleDiscard(state: PlayerRunState, handIndex = state.hand.length): PlayerRunState {
   let drawPile = [...state.drawPile];
   let discardPile = [...state.discardPile];
@@ -424,8 +430,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     if (needsTarget && !targets.length) {
       detail = `${actor.displayName} succeeded with ${card.name}, but no valid target was available. The card had no effect.`;
     } else if (card.effect === "damage" || card.effect === "aoe") {
-      let passive = 0;
-      if (actor.hero.classId === "ranger" && card.effect === "damage") passive += 1;
+      let passive = getThorneValePassiveDamageBonus(actor, card, actorState);
       if (actor.hero.classId === "mage" && card.effect === "aoe") passive += 1;
       if (actor.hero.classId === "duelist" && actorState.shield === 0) passive += 1;
       if (actor.hero.classId === "berserker" && actorState.hp <= actorState.maxHp / 2) passive += 1;

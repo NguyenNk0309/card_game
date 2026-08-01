@@ -181,6 +181,7 @@ try {
   assert.equal(forcedSkipped.game.turnOrder[0], thirdId);
   assert.deepEqual(forcedOwnerView.game.playerStates[secondId].hand, [`card-${secondId}`], "forced skip preserves the affected player's hand");
   assert.equal(forcedOwnerView.game.playerStates[secondId].skipTurns, 0);
+  assert.equal(forcedOwnerView.game.playerStates[secondId].completedPlayerTurns, 1, "a forced skip counts toward recurring passives in polling play");
   assert.deepEqual(
     ["shield", "attackBuff", "diceBuff", "dicePenalty"].map((field) => forcedOwnerView.game.playerStates[secondId][field]),
     [0, 0, 0, 0],
@@ -196,6 +197,7 @@ try {
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].drawPile, [], "manual skip preserves the draw pile");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].discardPile, [], "manual skip preserves the discard pile");
   assert.equal(manuallySkipped.game.playerStates[thirdId].shield, 0, "a manual polling skip still expires shield at turn end");
+  assert.equal(manuallySkipped.game.playerStates[thirdId].completedPlayerTurns, 1, "a manual skip counts toward recurring passives in polling play");
   assert.equal(manuallySkipped.game.turnOrder[0], secondId, "a new polling phase resets to the fastest living player");
   assert.deepEqual(manuallySkipped.game.outcome.notices.map((notice) => notice.kind), ["phase-start"], "completing a polling phase emits only the next-phase notice");
   assert.equal(manuallySkipped.game.outcome.notices[0].title, "Phase 2 started");

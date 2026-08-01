@@ -249,6 +249,36 @@ const exactTargetResult = engine.resolveCardTurn(exactTargetGame, [first, second
 assert.equal(exactTargetResult.outcome.success, true, "a d20 total exactly equal to the target must succeed");
 assert.equal(exactTargetResult.outcome.total, exactTargetResult.outcome.target);
 
+const thorne = engine.createPlayerSession("Thorne", 0, "Thorne Vale", "thorne-passive");
+const thorneTarget = engine.createPlayerSession("Deadeye target", 1, "Bram Coalhand", "thorne-target");
+const thorneParty = [thorne, thorneTarget];
+const markedArrow = thorne.skillDeck.find((card) => card.id === "tv-mark");
+const thorneBlank = thorne.skillDeck.find((card) => card.effect === "none");
+assert.match(thorne.hero.passiveText, /every second turn.*\+2 damage.*count starts when battle begins.*restarts on the turn after Deadeye triggers/i, "Deadeye explains its damage and full recurring cadence");
+assert.match(markedArrow.description, /6 when Deadeye triggers/i, "Marked Arrow states its triggered Deadeye damage");
+assert.match(thorne.skillDeck.find((card) => card.id === "tv-pierce").description, /5 when Deadeye triggers/i, "Piercing Arrow states its triggered Deadeye damage");
+const thorneCadenceState = engine.createInitialGame(thorneParty, engine.createAdventure("DEADEYE-CADENCE"), 30).playerStates[thorne.id];
+assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 0, "Deadeye is inactive on Thorne's first battle turn");
+engine.expireTimedEffectsAtTurnEnd(thorneCadenceState);
+assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 2, "a completed first turn makes Deadeye active on Thorne's second turn");
+engine.expireTimedEffectsAtTurnEnd(thorneCadenceState);
+assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 0, "Deadeye restarts its count on the turn after it triggers");
+engine.expireTimedEffectsAtTurnEnd(thorneCadenceState);
+assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 2, "Deadeye triggers again on Thorne's fourth turn");
+assert.equal(engine.getThorneValePassiveDamageBonus(thorne, thorneBlank, thorneCadenceState), 0, "Deadeye only adds damage to single-target attacks");
+const deadeyeGame = engine.createInitialGame(thorneParty, engine.createAdventure("DEADEYE-DAMAGE"), 30);
+deadeyeGame.turnOrder = [thorne.id, thorneTarget.id];
+deadeyeGame.adventure.target = 8;
+deadeyeGame.playerStates[thorne.id].completedPlayerTurns = 1;
+deadeyeGame.playerStates[thorne.id].attackBuff = 2;
+deadeyeGame.playerStates[thorne.id].hand = [markedArrow.id];
+deadeyeGame.playerStates[thorneTarget.id].hp = 14;
+deadeyeGame.playerStates[thorneTarget.id].maxHp = 14;
+const deadeyeAttack = engine.resolveCardTurn(deadeyeGame, thorneParty, markedArrow.id, thorneTarget.id, 20);
+assert.equal(deadeyeAttack.outcome.amount, 8, "a second-turn Marked Arrow deals its 4 base damage, +2 Deadeye damage, and +2 attack buff");
+assert.equal(deadeyeAttack.playerStates[thorneTarget.id].hp, 6, "Deadeye's bonus changes synchronized target HP in actual card resolution");
+assert.equal(deadeyeAttack.playerStates[thorne.id].completedPlayerTurns, 2, "the triggering turn completes before Deadeye's cadence restarts");
+
 const healer = engine.createPlayerSession("Orren", 0, "Brother Orren", "healer");
 const supportAlly = engine.createPlayerSession("Support ally", 2, "Elara Voss", "support-ally");
 const supportEnemy = engine.createPlayerSession("Support enemy", 1, "Thorne Vale", "support-enemy");

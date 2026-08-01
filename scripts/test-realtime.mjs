@@ -272,6 +272,7 @@ try {
   assert.equal(forcedSkipped.game.completedPhases, 0, "a phase remains open until every player has acted");
   assert.deepEqual(forcedSkippedOwnerView.game.playerStates[secondId].hand, [`card-${secondId}`], "forced skip preserves the affected player's private hand");
   assert.equal(forcedSkippedOwnerView.game.playerStates[secondId].skipTurns, 0);
+  assert.equal(forcedSkippedOwnerView.game.playerStates[secondId].completedPlayerTurns, 1, "a forced skip counts toward recurring passives in realtime play");
   assert.deepEqual(
     ["shield", "attackBuff", "diceBuff", "dicePenalty"].map((field) => forcedSkippedOwnerView.game.playerStates[secondId][field]),
     [0, 0, 0, 0],
@@ -284,6 +285,7 @@ try {
   assert.equal(manuallySkipped.game.history.at(-1).kind, "skip");
   assert.equal(manuallySkipped.game.completedPhases, 1, "the phase completes after all three players act");
   assert.equal(manuallySkipped.game.playerStates[thirdId].shield, 0, "a manual skip still expires shield at turn end");
+  assert.equal(manuallySkipped.game.playerStates[thirdId].completedPlayerTurns, 1, "a manual skip counts toward recurring passives in realtime play");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].hand, [`card-${thirdId}`], "manual skip preserves the hand");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].drawPile, [], "manual skip preserves the draw pile");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].discardPile, [], "manual skip preserves the discard pile");
