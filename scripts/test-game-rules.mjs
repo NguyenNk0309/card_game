@@ -122,7 +122,7 @@ for (const classId of ["ranger", "mage", "assassin", "duelist", "berserker"]) {
   assert.equal(option.skillDeck.filter((card) => card.unique && ["damage", "aoe"].includes(card.effect)).length, 2, `${classId} must have exactly two damage specials and one role utility special`);
 }
 assert.equal(options.find((option) => option.hero.classId === "tank").hero.maxHp, 14);
-assert.equal(options.find((option) => option.hero.classId === "mage").hero.maxHp, 7);
+assert.equal(options.find((option) => option.hero.classId === "mage").hero.maxHp, 9);
 assert.deepEqual([...options].sort((a, b) => b.hero.speed - a.hero.speed).map((option) => option.hero.name), ["Nyx Calder", "Thorne Vale", "Kael Rook", "Sable Fen", "Ione Mire", "Mira Ash", "Brother Orren", "Elara Voss", "Dagan Flint", "Bram Coalhand"]);
 
 const first = engine.createPlayerSession("An", 0, options[0].hero.name, "first");
@@ -278,6 +278,28 @@ const deadeyeAttack = engine.resolveCardTurn(deadeyeGame, thorneParty, markedArr
 assert.equal(deadeyeAttack.outcome.amount, 8, "a second-turn Marked Arrow deals its 4 base damage, +2 Deadeye damage, and +2 attack buff");
 assert.equal(deadeyeAttack.playerStates[thorneTarget.id].hp, 6, "Deadeye's bonus changes synchronized target HP in actual card resolution");
 assert.equal(deadeyeAttack.playerStates[thorne.id].completedPlayerTurns, 2, "the triggering turn completes before Deadeye's cadence restarts");
+
+const mira = engine.createPlayerSession("Mira", 0, "Mira Ash", "mira-inferno");
+const infernoTargetOne = engine.createPlayerSession("Inferno target one", 1, "Bram Coalhand", "inferno-target-one");
+const infernoTargetTwo = engine.createPlayerSession("Inferno target two", 1, "Sable Fen", "inferno-target-two");
+const infernoAlly = engine.createPlayerSession("Inferno ally", 0, "Elara Voss", "inferno-ally");
+const infernoParty = [mira, infernoTargetOne, infernoTargetTwo, infernoAlly];
+const inferno = mira.skillDeck.find((card) => card.id === "ma-inferno");
+assert.equal(mira.hero.hp, 9, "Mira Ash's printed HP is 9");
+assert.equal(mira.hero.maxHp, 9, "Mira Ash begins battle with 9 max HP");
+assert.equal(inferno.value, 3, "Inferno has 3 base damage");
+assert.equal(inferno.pityCost, 6, "Inferno's pity cost follows the existing AOE balance formula after its damage increase");
+assert.match(inferno.description, /3 damage.*4 with Spreading Flame/i, "Inferno describes its base and passive-enhanced damage");
+const infernoGame = engine.createInitialGame(infernoParty, engine.createAdventure("INFERNO-DAMAGE"), 30);
+infernoGame.turnOrder = [mira.id, infernoTargetOne.id, infernoTargetTwo.id, infernoAlly.id];
+infernoGame.adventure.target = 8;
+infernoGame.playerStates[mira.id].hand = [inferno.id];
+infernoGame.playerStates[infernoTargetOne.id].shield = 1;
+const infernoResult = engine.resolveCardTurn(infernoGame, infernoParty, inferno.id, infernoTargetOne.id, 20);
+assert.equal(infernoResult.outcome.amount, 7, "Inferno deals 4 damage per enemy with Spreading Flame, reduced normally by shield");
+assert.equal(infernoResult.playerStates[infernoTargetOne.id].hp, infernoTargetOne.hero.maxHp - 3, "shield blocks one point of Inferno's passive-enhanced damage");
+assert.equal(infernoResult.playerStates[infernoTargetTwo.id].hp, infernoTargetTwo.hero.maxHp - 4, "Inferno deals 3 base plus 1 Spreading Flame damage to each unshielded enemy");
+assert.equal(infernoResult.playerStates[infernoAlly.id].hp, infernoAlly.hero.maxHp, "Inferno never damages Mira's allies");
 
 const healer = engine.createPlayerSession("Orren", 0, "Brother Orren", "healer");
 const supportAlly = engine.createPlayerSession("Support ally", 2, "Elara Voss", "support-ally");
