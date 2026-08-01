@@ -130,7 +130,9 @@ assert.match(cardArtwork, /"lost momentum"[\s\S]*"broken plan"[\s\S]*"empty gest
 assert.match(cardArtwork, /preloadCardArtwork[\s\S]*preloadedCardArtwork\.has\(source\)[\s\S]*image\.decoding = "async"[\s\S]*image\.decode\(\)/, "lobby artwork warming must deduplicate static assets and decode them asynchronously");
 assert.match(lobby, /useDeferredValue\(selectedHeroName\)[\s\S]*preloadCardArtwork\(visibleCharacterOptions\.flatMap[\s\S]*onPointerEnter=\{\(\) => preloadCardArtwork\(option\.skillDeck\)\}/, "character selection must acknowledge immediately while visible and hovered deck artwork warms before first use");
 assert(!/SPECIAL\s*·|SPECIAL CARD|toUpperCase\(\)\}\s*SKILL/.test(cardSurfaces), "special-card headers must not include a character or class name");
-assert.match(gameApp, /className="history-penalty-cell"><HighlightPlayerNames text=\{presentation\.penalty \|\| "—"\}/, "empty expanded-history penalties must display the same dash placeholder as other empty columns");
+assert.match(gameApp, /className="history-penalty-cell"><HighlightPlayerNames text=\{presentation\.penalty \|\| "—"\}[^>]*useActualNames/, "expanded-history penalties must use real player names and display the standard empty placeholder");
+assert.match(gameApp, /function HistoryMessage[\s\S]*useActualNames/, "history details must preserve real player names");
+assert.match(gameApp, /presentation\.actor[\s\S]*useActualNames[\s\S]*presentation\.target[\s\S]*useActualNames/, "expanded-history actor and target cells must preserve real player names");
 
 assert.match(partyRail, /<em>\{buff\.tooltipValue \?\? buff\.value\}<\/em>\{buff\.durationLabel && <><i aria-hidden="true">-<\/i><b>\{buff\.durationLabel\}<\/b><\/>\}/, "timed status tooltips must show value - full duration");
 assert.match(partyRail, /<span>\{hero\.name\}<\/span>/, "battle roster subtitles must show only the character name");

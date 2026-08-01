@@ -22,7 +22,7 @@ export function viewerRelation(player?: PlayerSession | null, viewer?: PlayerSes
 export function playerReference(player?: PlayerSession | null, viewer?: PlayerSession | null, options?: { possessive?: boolean; includeRelation?: boolean; capitalize?: boolean }): string;
 export function formatViewpointText(text: string, players: PlayerSession[], viewerId?: string, options?: ViewpointTextOptions): string;
 export function formatOutcomePresentation(outcome: GameOutcome, players: PlayerSession[], viewerId?: string): OutcomePresentation;
-export function formatHistoryPresentation(entry: GameHistoryEntry, players: PlayerSession[], viewerId?: string): HistoryPresentation;
+export function formatHistoryPresentation(entry: GameHistoryEntry, players: PlayerSession[]): HistoryPresentation;
 export function formatLifeEventPresentation(event: PlayerLifeEvent, players: PlayerSession[], viewerId?: string): LifeEventPresentation;
 export function getStatusPresentations(player: PlayerSession, state: PlayerRunState, players: PlayerSession[], viewerId?: string, currentPhase?: number): StatusPresentation[];
 export function sanitizeCommunicationGame(game: SyncedGameState | null, players: PlayerSession[], viewerId?: string): SyncedGameState | null;

@@ -184,28 +184,25 @@ export function formatOutcomePresentation(outcome, players, viewerId = '') {
   };
 }
 
-function historyContext(entry, players, viewerId) {
+function historyContext(entry, players) {
   const actor = playerByIdOrName(players, entry?.actorId, entry?.actorName);
   const targets = players.filter((player) => String(entry?.targetName || '').split(',').map((name) => name.trim()).includes(player.displayName));
   const involvedIds = unique([actor?.id, ...targets.map((target) => target.id)]);
-  const viewer = players.find((player) => player.id === viewerId) || null;
-  return { actor, targets, viewer, involvedIds, viewerIsActor: actor?.id === viewerId, viewerIsTarget: targets.some((target) => target.id === viewerId) };
+  return { actor, targets, involvedIds };
 }
 
-function historyType(entry, context) {
-  const relation = viewerRelation(context.actor, context.viewer);
-  const prefix = context.viewerIsActor ? 'My' : context.viewerIsTarget ? '' : relation === 'ally' ? 'Ally' : relation === 'enemy' ? 'Enemy' : '';
-  const type = entry.kind === 'damage' || entry.kind === 'aoe' ? (context.viewerIsTarget ? 'Attack received' : 'attack')
-    : entry.kind === 'heal' ? (context.viewerIsTarget ? 'Healing received' : 'healing')
-      : entry.kind === 'guard' ? (context.viewerIsTarget ? 'Shield received' : 'shield')
-        : entry.kind === 'support' ? (context.viewerIsTarget ? 'Effect received' : 'support')
+function historyType(entry) {
+  const type = entry.kind === 'damage' || entry.kind === 'aoe' ? 'attack'
+    : entry.kind === 'heal' ? 'healing'
+      : entry.kind === 'guard' ? 'shield'
+        : entry.kind === 'support' ? 'support'
           : entry.kind === 'discard' ? 'discard'
             : entry.kind === 'skip' ? 'pass'
               : entry.kind === 'timeout' ? 'timeout'
                 : entry.kind === 'forced-skip' ? 'forced skip'
                   : entry.kind === 'world' ? 'World event'
                     : 'System';
-  return prefix ? `${prefix} ${type}` : capitalize(type);
+  return capitalize(type);
 }
 
 function historyChanges(entry) {
@@ -239,20 +236,12 @@ function historyDuration(entry, players) {
   return explicitDuration || '—';
 }
 
-export function formatHistoryPresentation(entry, players, viewerId = '') {
-  const context = historyContext(entry, players, viewerId);
-  const viewerInvolved = context.involvedIds.includes(viewerId);
-  const actor = playerReference(context.actor, context.viewer, { includeRelation: !viewerInvolved, capitalize: true });
-  const target = entry.targetName
-    ? formatViewpointText(entry.targetName, players, viewerId, { involvedPlayerIds: context.involvedIds })
-    : '—';
-  const textOptions = {
-    involvedPlayerIds: context.involvedIds,
-    emphasizedPlayerIds: context.actor ? [context.actor.id] : [],
-    pronounPlayerId: context.targets.length === 1 ? context.targets[0]?.id : undefined
-  };
-  const details = formatViewpointText(entry.message, players, viewerId, textOptions);
-  const penalty = formatViewpointText(historyPenalty(entry), players, viewerId, textOptions);
+export function formatHistoryPresentation(entry, players) {
+  const context = historyContext(entry, players);
+  const actor = context.actor?.displayName || entry.actorName || 'Player';
+  const target = entry.targetName || '—';
+  const details = entry.message || '';
+  const penalty = historyPenalty(entry);
   const result = entry.kind === 'discard' ? 'Discarded'
     : entry.kind === 'skip' ? 'Passed'
       : entry.kind === 'timeout' ? 'Timed out'
@@ -260,7 +249,7 @@ export function formatHistoryPresentation(entry, players, viewerId = '') {
           : entry.kind === 'world' || entry.kind === 'system' ? 'Resolved'
             : entry.success ? 'Success' : 'Failure';
   return {
-    type: historyType(entry, context),
+    type: historyType(entry),
     actor,
     target,
     card: entry.cardName || (entry.kind === 'discard' ? 'Hidden card' : entry.kind === 'world' ? 'World Event' : '—'),

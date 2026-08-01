@@ -119,7 +119,7 @@ function ConfirmedTopAction({ className, icon, label, title, detail, onConfirm }
   </div>;
 }
 
-function HighlightPlayerNames({ text = "", players, localPlayer, onInspect }: { text?: string; players: PlayerSession[]; localPlayer?: PlayerSession; onInspect?: (id: string) => void }) {
+function HighlightPlayerNames({ text = "", players, localPlayer, onInspect, useActualNames = false }: { text?: string; players: PlayerSession[]; localPlayer?: PlayerSession; onInspect?: (id: string) => void; useActualNames?: boolean }) {
   const playerByName = new Map(players.map((player) => [player.displayName.toLocaleLowerCase(), player]));
   const names = [...playerByName.keys()].sort((left, right) => right.length - left.length);
   if (!text || !names.length) return <>{text}</>;
@@ -131,7 +131,7 @@ function HighlightPlayerNames({ text = "", players, localPlayer, onInspect }: { 
     const player = playerByName.get(rawName.toLocaleLowerCase());
     if (!player) return part;
     const className = `inline-player-name ${playerRelationClass(player, localPlayer)}`;
-    const label = player.id === localPlayer?.id ? possessive ? "YOUR" : "YOU" : part;
+    const label = useActualNames || player.id !== localPlayer?.id ? part : possessive ? "YOUR" : "YOU";
     return onInspect
       ? <button type="button" className={`${className} history-player-link`} title={player.hero.name} aria-label={`View ${label}, ${player.hero.name}`} onClick={() => onInspect(player.id)} key={`${part}-${index}`}>{label}</button>
       : <span className={className} key={`${part}-${index}`}>{label}</span>;
@@ -150,12 +150,12 @@ function LocalTurnActionPanel({ outcome, players, localPlayer, onContinue }: { o
 }
 
 function HistoryMessage({ entry, text, players, localPlayer, onInspectPlayer, onInspectCard }: { entry: GameHistoryEntry; text: string; players: PlayerSession[]; localPlayer?: PlayerSession; onInspectPlayer: (id: string) => void; onInspectCard: (name: string) => void }) {
-  if (!entry.cardName) return <HighlightPlayerNames text={text} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer}/>;
+  if (!entry.cardName) return <HighlightPlayerNames text={text} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer} useActualNames/>;
   const escapedCardName = entry.cardName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const parts = text.split(new RegExp(`(${escapedCardName})`, "gi"));
   return <>{parts.map((part, index) => part.toLocaleLowerCase() === entry.cardName!.toLocaleLowerCase()
     ? <button type="button" className="history-card-link" title={`View ${entry.cardName}`} onClick={() => onInspectCard(entry.cardName!)} key={`${part}-${index}`}>{part}</button>
-    : <HighlightPlayerNames text={part} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer} key={`${part}-${index}`}/>)}</>;
+    : <HighlightPlayerNames text={part} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer} useActualNames key={`${part}-${index}`}/>)}</>;
 }
 
 type HistoryFilter = "all" | "mine" | "affecting" | "allies" | "enemies" | "attacks" | "healing" | "buffs" | "debuffs" | "discards" | "passes" | "forced-skips" | "life" | "successes" | "failures" | "world" | "card-movement";
@@ -207,7 +207,7 @@ function HistoryEntries({ entries, players, localPlayer, expanded = false, onIns
   const [filter, setFilter] = useState<HistoryFilter>("all");
   const filteredEntries = expanded ? entries.filter((entry) => matchesHistoryFilter(entry, filter, players, localPlayer)) : entries.slice(-1);
   const renderEntry = (entry: GameHistoryEntry) => {
-    const presentation = formatHistoryPresentation(entry, players, localPlayer?.id);
+    const presentation = formatHistoryPresentation(entry, players);
     const visibleDiceBonus = visibleDiceModifier(entry.diceBonus, entry.actorName, localPlayer?.displayName);
     const visibleDicePenalty = visibleDiceModifier(entry.dicePenalty, entry.actorName, localPlayer?.displayName);
     return <article className={`history-entry ${entry.kind} ${entry.success ? "success" : "failure"}`} key={entry.id}><span className={entry.kind === "world" ? "history-event-label" : ""}>{entry.kind === "world" && <Zap size={12}/>} {entry.kind === "world" ? `WORLD EVENT · PHASE ${entry.phase ?? entry.turn}` : `Turn ${entry.turn} · ${presentation.type}`}</span><p><HistoryMessage entry={entry} text={presentation.details} players={players} localPlayer={localPlayer} onInspectPlayer={onInspectPlayer} onInspectCard={onInspectCard}/></p>{entry.diceRoll != null && (entry.resolution === "roll" && entry.pityCost === 0 ? <div className="history-dice automatic"><span>d20: {entry.diceRoll} · ignored</span><strong>Automatic success · zero-pity card</strong></div> : <div className="history-dice"><span>d20: {entry.diceRoll}</span><span>Active/passive bonus: +{visibleDiceBonus}</span>{Boolean(entry.dicePenalty) && <span>Penalty: -{visibleDicePenalty}</span>}<strong>Total {entry.diceTotal} / target {entry.diceTarget}</strong></div>)}{entry.resolution === "pity" && <div className="history-pity"><PityIcon size={13}/><span>Guaranteed success · spent {entry.pityCost ?? 0}</span><strong>{entry.pityBefore ?? 0} → {entry.pityAfter ?? 0} pity</strong></div>}</article>;
@@ -222,7 +222,7 @@ function HistoryEntries({ entries, players, localPlayer, expanded = false, onIns
     else phaseGroups.push({ phase, entries: [entry] });
   }
   const renderTableRow = (entry: GameHistoryEntry, phase: number | string, phaseRowSpan: number, firstInPhase: boolean) => {
-    const presentation = formatHistoryPresentation(entry, players, localPlayer?.id);
+    const presentation = formatHistoryPresentation(entry, players);
     const roll = entry.resolution === "pity" ? (
       <span className="history-roll-summary">
         <span>result: guaranteed</span>
@@ -239,7 +239,7 @@ function HistoryEntries({ entries, players, localPlayer, expanded = false, onIns
         <span>target: —</span>
       </span>
     );
-    return <tr className={`${entry.kind} ${entry.success ? "success" : "failure"}`} key={entry.id}>{firstInPhase && <th className="history-phase-cell" scope="rowgroup" rowSpan={phaseRowSpan} aria-label={`Phase ${phase}`}>{phase}</th>}<td>{entry.turn}</td><td>{presentation.type}</td><td><HighlightPlayerNames text={presentation.actor} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer}/></td><td><HighlightPlayerNames text={presentation.target} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer}/></td><td>{entry.cardName ? <button type="button" className="history-card-link" onClick={() => onInspectCard(entry.cardName!)}>{presentation.card}</button> : presentation.card}</td><td><b className={`history-result ${presentation.result.toLocaleLowerCase().replace(/\s+/g, "-")}`}>{presentation.result}</b></td><td>{presentation.changes}</td><td className="history-penalty-cell"><HighlightPlayerNames text={presentation.penalty || "—"} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer}/></td><td>{presentation.duration}</td><td>{roll}</td><td><HistoryMessage entry={entry} text={presentation.details} players={players} localPlayer={localPlayer} onInspectPlayer={onInspectPlayer} onInspectCard={onInspectCard}/></td></tr>;
+    return <tr className={`${entry.kind} ${entry.success ? "success" : "failure"}`} key={entry.id}>{firstInPhase && <th className="history-phase-cell" scope="rowgroup" rowSpan={phaseRowSpan} aria-label={`Phase ${phase}`}>{phase}</th>}<td>{entry.turn}</td><td>{presentation.type}</td><td><HighlightPlayerNames text={presentation.actor} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer} useActualNames/></td><td><HighlightPlayerNames text={presentation.target} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer} useActualNames/></td><td>{entry.cardName ? <button type="button" className="history-card-link" onClick={() => onInspectCard(entry.cardName!)}>{presentation.card}</button> : presentation.card}</td><td><b className={`history-result ${presentation.result.toLocaleLowerCase().replace(/\s+/g, "-")}`}>{presentation.result}</b></td><td>{presentation.changes}</td><td className="history-penalty-cell"><HighlightPlayerNames text={presentation.penalty || "—"} players={players} localPlayer={localPlayer} onInspect={onInspectPlayer} useActualNames/></td><td>{presentation.duration}</td><td>{roll}</td><td><HistoryMessage entry={entry} text={presentation.details} players={players} localPlayer={localPlayer} onInspectPlayer={onInspectPlayer} onInspectCard={onInspectCard}/></td></tr>;
   };
   return <div className="viewpoint-history"><label className="history-filter-control"><span>VIEW</span><select value={filter} onChange={(event) => setFilter(event.target.value as HistoryFilter)}>{historyFilters.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label><div className="history-table-scroll"><table className="history-table"><thead><tr><th>Phase</th><th>Turn</th><th>Type</th><th>Actor</th><th>Target</th><th>Card or event</th><th>Result</th><th>Changes</th><th>Penalty</th><th>Duration</th><th>Roll</th><th>Details</th></tr></thead><tbody>{phaseGroups.flatMap((group) => group.entries.map((entry, index) => renderTableRow(entry, group.phase, group.entries.length, index === 0)))}</tbody></table>{!rows.length && <p className="empty-history">No events match this view.</p>}</div></div>;
 }

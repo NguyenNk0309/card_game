@@ -141,21 +141,18 @@ const historyEntry = {
   amount: 3,
   createdAt: 1
 };
-const targetHistory = formatHistoryPresentation(historyEntry, players, mira.id);
-assert.equal(targetHistory.type, "Attack received");
+const targetHistory = formatHistoryPresentation(historyEntry, players);
+assert.equal(targetHistory.type, "Attack");
 assert.equal(targetHistory.actor, "Rowan");
-assert.equal(targetHistory.target, "You");
+assert.equal(targetHistory.target, "Mira");
 assert.equal(targetHistory.changes, "3 damage");
 assert.equal(targetHistory.penalty, "");
 assert.equal(targetHistory.duration, "—");
-assert.equal(targetHistory.details, "Rowan dealt 3 damage to you with Slash.");
-assert.equal(formatHistoryPresentation(historyEntry, players, elias.id).actor, "Your ally Rowan");
-assert.equal(formatHistoryPresentation(historyEntry, players, nyx.id).actor, "Enemy Rowan");
+assert.equal(targetHistory.details, "Rowan dealt 3 damage to Mira with Slash.");
 const failedHistory = { ...historyEntry, id: "history-failure", success: false, failureDetail: "Rowan took 2 backlash damage." };
-assert.equal(formatHistoryPresentation(failedHistory, players, rowan.id).penalty, "You took 2 backlash damage.");
-assert.equal(formatHistoryPresentation(failedHistory, players, elias.id).penalty, "Your ally Rowan took 2 backlash damage.");
+assert.equal(formatHistoryPresentation(failedHistory, players).penalty, "Rowan took 2 backlash damage.");
 const legacyFailedHistory = { ...failedHistory, id: "history-legacy-failure", failureDetail: undefined, message: "Rowan used Slash — The attack failed. Rowan took 2 backlash damage." };
-assert.equal(formatHistoryPresentation(legacyFailedHistory, players, rowan.id).penalty, "You took 2 backlash damage.");
+assert.equal(formatHistoryPresentation(legacyFailedHistory, players).penalty, "Rowan took 2 backlash damage.");
 
 const lifeEvent = {
   id: "life-1",
