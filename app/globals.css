@@ -8624,20 +8624,9 @@ button:disabled :where(span, small, strong, b, p),
   aspect-ratio: 1;
   border: .48cqw solid #9a682c;
   background: radial-gradient(circle at 38% 32%, #f08a52, #9b211c 42%, #2b0909 72%);
-  box-shadow: inset 0 0 0 .4cqw #1a0b08, 0 0 2.3cqw rgba(195, 57, 32, .55);
+  box-shadow: inset 0 0 0 .4cqw #1a0b08;
   transform: rotate(45deg);
 }
-.gothic-card-gem::before,
-.gothic-card-gem::after {
-  content: "";
-  position: absolute;
-  top: 45%;
-  width: 210%;
-  height: .35cqw;
-  background: linear-gradient(90deg, transparent, #ad792d);
-}
-.gothic-card-gem::before { right: 90%; }
-.gothic-card-gem::after { left: 90%; transform: scaleX(-1); }
 
 .gothic-card .effect-number { text-shadow: 0 0 1cqw color-mix(in srgb, currentColor 48%, transparent); }
 .gothic-card .effect-number.damage { color: #e95c36; }

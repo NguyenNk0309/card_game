@@ -56,6 +56,9 @@ assert.match(cardDescription, /maxLines=\{4\}[\s\S]*text=\{card\.description\}/,
 assert.match(cardFace, /className="gothic-card-result-text" maxLines=\{2\}/, "result text must use the shared two-line truncator");
 assert(!/gothic-card-type/.test(cardFace), "card faces must omit the redundant Common or Special type strip");
 assert.match(cardFace, /className="gothic-card-copy">[\s\S]*gothic-card-action-icon[\s\S]*gothic-card-title/, "the compact action icon must occupy the former type-strip row below the artwork");
+assert.match(cardFace, /className="gothic-card-gem" aria-hidden="true"/, "card faces must retain the static divider diamond");
+assert.match(styles, /\.gothic-card-gem\s*\{[^}]*box-shadow:\s*inset 0 0 0 \.4cqw #1a0b08;[^}]*transform:\s*rotate\(45deg\);/, "the divider diamond must retain only its static inset edge");
+assert(!/\.gothic-card-gem::(?:before|after)/.test(styles), "the divider diamond must not render flickering flare rays");
 assert(!/>PITY</.test(pityCost), "the pity badge must show its number without a redundant PITY caption");
 assert.match(truncatedEffectText, /trimEnd\(\)\}\.\.\./, "truncation must use exactly three ASCII periods");
 assert(!truncatedEffectText.includes("…"), "truncation must never use the single ellipsis character");
