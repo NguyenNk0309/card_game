@@ -135,7 +135,7 @@ export function upgradePlayerCardsAfterPhaseFive(players: PlayerSession[], compl
 }
 
 export const REALMS: Realm[] = [
-  { id: "arena", name: "Oathbound Arena", region: "The final battle line", weather: "No retreat", objective: "Defeat the enemy team by phase 30.", threat: "The opposing team", accent: "#d4b56e", sceneClass: "scene-arena" }
+  { id: "arena", name: "Oathbound Arena", region: "The final battle line", weather: "No retreat", objective: "Defeat the enemy team or have a player end the battle.", threat: "The opposing team", accent: "#d4b56e", sceneClass: "scene-arena" }
 ];
 
 export const STORY_BEATS = [
@@ -143,7 +143,7 @@ export const STORY_BEATS = [
   "A warrior chooses the next target.",
   "HP and shield decide who stands.",
   "Defeat the enemy or fall.",
-  "Phase 30 approaches."
+  "The battle continues until one side falls."
 ];
 
 export const EVENTS = [

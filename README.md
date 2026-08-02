@@ -28,7 +28,7 @@ Open `http://localhost:3000`.
 1. Each browser chooses any character (duplicates are allowed), enters a saved player name, and clicks one of five slots on Veilbound or Embercourt to join.
 2. Every character has a public 10-card deck: 3 character specials, 2 common attacks, 1 common shield, 1 common heal, and 3 no-effect cards. Private card-zone contents and order remain visible only to their owner.
 3. Before pressing Ready, a player may switch teams by clicking an empty slot on the other side. Ready locks the player’s team. The battle can start only when every player is ready and each team has at least one player.
-4. Living players act from highest Speed to lowest. After every living player resolves a turn, the next phase begins. The match lasts 30 phases. Server-authoritative World Events resolve before phases 3, 7, 12, 17, 22, and 27.
+4. Living players act from highest Speed to lowest. After every living player resolves a turn, the next phase begins. Battles have no phase limit. The 30-cell phase timeline stops changing after phase 30, while the phase count continues as `PHASE 31 / ∞`, `PHASE 32 / ∞`, and so on. Server-authoritative World Events resolve before phases 3, 7, 12, 17, 22, and 27; no World Event can occur after phase 30.
 5. Every active turn starts with no card selected. Click a card to select it, click it again to unselect it, then choose a target when required. Inactive hands cannot select cards.
 6. Roll against the fresh random target for that turn. A modified total equal to or above the target succeeds. Each failed normal roll immediately grants 1 cumulative pity point.
 7. Every card shows a pity cost. **Pity Roll** spends that cost to guarantee the selected card succeeds; no-effect cards cost 0. Every buff and debuff expires at the end of its target's next turn, including a pity, discarded, skipped, cancelled, or timed-out turn.
@@ -39,7 +39,7 @@ Open `http://localhost:3000`.
 12. Foretold Success gives one living ally, including Sable Fen, a 0-pity card on their next turn. The effect expires if that turn ends without a card being played.
 13. Before phase 3, Shattered Tribute pauses normal turns for up to 60 seconds. Each living player privately sacrifices two owned common cards from hand, draw, or discard; special and borrowed cards are excluded. Removed hand cards are replaced using normal discard recycling if needed. The server resolves missing choices.
 14. Later World Events randomly select one phase-specific event from a three-event pool. Their intensity rises from Minor at phase 7 to Catastrophic at phase 27. Hidden-card mutations and random selection are resolved only by the authoritative server and sanitized separately for each viewer.
-15. Eliminate the opposing team to win immediately. Otherwise, after phase 30, the team with more total HP wins, with living players, shield, and influence used for ties.
+15. A battle ends only when one team is defeated or a joined player presses **End battle**. A manual end settles the winner from current total HP, then living players, shield, influence, and the ending player's team for a complete tie.
 
 The shared room is authoritative and in-memory: separate browser sessions see
 the same players, readiness, start event, turns, dice results, and story state in

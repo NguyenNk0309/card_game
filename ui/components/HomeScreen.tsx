@@ -28,7 +28,7 @@ export function HomeScreen({ busy, error, onCreateRoom, onJoinRoom }: {
       <div className="home-sigil" aria-hidden="true"><Shield/><Crown/><Swords/></div>
       <span className="home-kicker">A SHARED OATH AWAITS</span>
       <h1>SHATTERED<br/><em>OATH</em></h1>
-      <p>Gather your warriors. Choose a side. Survive thirty phases of cards, consequences, and shifting fate.</p>
+      <p>Gather your warriors. Choose a side. Survive an unlimited battle of cards, consequences, and shifting fate.</p>
 
       <div className={`home-play-panel ${playOpen ? "is-open" : ""}`}>
         <button

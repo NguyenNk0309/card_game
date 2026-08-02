@@ -271,8 +271,8 @@ export type SyncedGameState = {
   turnStartedAt: number;
   turnDeadline: number;
   turnSeconds: number;
-  maxTurns: number;
-  maxPhases: number;
+  maxTurns: number; // 0 means unlimited.
+  maxPhases: number; // 0 means unlimited.
   ended: boolean;
   endReason: string | null;
   winnerTeam: TeamId | null;

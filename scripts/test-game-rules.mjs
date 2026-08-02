@@ -17,6 +17,8 @@ const lioraRules = await import(lioraRulesUrl);
 const pityCostUrl = new URL("../shared/pityCost.mjs", import.meta.url).href;
 const pityCostRules = await import(pityCostUrl);
 const bulwarkRules = await import(new URL("../shared/bulwarkToBlade.mjs", import.meta.url).href);
+const battlePhasesUrl = new URL("../shared/battlePhases.mjs", import.meta.url).href;
+const battlePhases = await import(battlePhasesUrl);
 const cardRulesSource = await readFile(new URL("../shared/cardRules.ts", import.meta.url), "utf8");
 const compiledCardRules = compile(cardRulesSource, "cardRules.ts").replace('from "./pityCost.mjs"', `from "${pityCostUrl}"`);
 const cardRules = await import(`data:text/javascript;base64,${Buffer.from(compiledCardRules).toString("base64")}`);
@@ -26,7 +28,8 @@ const engineSource = await readFile(new URL("../backend/game/engine.ts", import.
 const compiledEngine = compile(engineSource, "engine.ts")
   .replace('from "./catalog"', `from "${catalogUrl}"`)
   .replace('from "@/shared/pityCost.mjs"', `from "${pityCostUrl}"`)
-  .replace('from "@/shared/lioraVenn.mjs"', `from "${lioraRulesUrl}"`);
+  .replace('from "@/shared/lioraVenn.mjs"', `from "${lioraRulesUrl}"`)
+  .replace('from "@/shared/battlePhases.mjs"', `from "${battlePhasesUrl}"`);
 const engine = await import(`data:text/javascript;base64,${Buffer.from(compiledEngine).toString("base64")}`);
 
 const sampledTargets = Array.from({ length: 256 }, () => engine.randomDiceTarget());
@@ -38,6 +41,10 @@ assert(sampledRolls.every((value) => Number.isInteger(value) && value >= 1 && va
 assert(new Set(sampledTargets).size > 1, "target sampling must not return a fixed value");
 assert(new Set(sampledRolls).size > 1, "d20 sampling must not return a fixed value");
 assert.equal(engine.BATTLE_TURN_SECONDS, 60, "the exported battle-turn duration stays synchronized with created games");
+assert.equal(battlePhases.getCurrentBattlePhase(30), 31, "phase counting continues beyond the 30-cell timeline");
+assert.equal(battlePhases.getVisualizedCompletedPhases(31), 30, "the phase visualization freezes after its first 30 phases");
+assert.equal(battlePhases.getPhaseCountDenominator(30), "30");
+assert.equal(battlePhases.getPhaseCountDenominator(31), "\u221e", "phase 31 and later display an unlimited denominator");
 assert.equal(engine.randomIntInclusive(5, 5), 5, "inclusive random ranges support a single valid value");
 assert.throws(() => engine.randomIntInclusive(2, 1), RangeError, "invalid random ranges fail explicitly");
 assert.match(engine.createSeed(), /^[A-Z0-9]{0,6}$/, "generated adventure seeds use the compact uppercase format");
@@ -310,8 +317,8 @@ for (const option of options.filter((candidate) => candidate.hero.classId !== "s
 const game = engine.createInitialGame([first, second], engine.createAdventure("RULES"), 30);
 assert.equal(game.turnOrder[0], second.id, "the faster character acts first");
 game.turnOrder = [first.id, second.id];
-assert.equal(game.maxTurns, 30);
-assert.equal(game.maxPhases, 30);
+assert.equal(game.maxTurns, 0, "the synchronized turn limit uses zero to represent an unlimited battle");
+assert.equal(game.maxPhases, 0, "the synchronized phase limit uses zero to represent an unlimited battle");
 assert.equal(game.completedPhases, 0);
 assert.equal(game.playerStates[first.id].pityPoints, 0, "every player begins with zero pity");
 assert.equal(game.playerStates[first.id].sanguineRecompense, false, "every player begins without a Sanguine Recompense charge");
@@ -1735,11 +1742,22 @@ finalGame.playerStates[first.id].maxHp = 50;
 finalGame.playerStates[second.id].hp = 15;
 finalGame.playerStates[second.id].maxHp = 30;
 finalGame.playerStates[first.id].hand = [attack.id];
+finalGame.playerStates[first.id].drawPile = [emptyCard.id];
+const secondPhaseCard = second.skillDeck.find((card) => card.effect === "none");
+finalGame.playerStates[second.id].hand = [secondPhaseCard.id];
 const finalTurn = engine.resolveCardTurn(finalGame, [first, second], attack.id, second.id, 20);
-assert.equal(finalTurn.ended, true);
-assert.equal(finalTurn.winnerTeam, "veil");
+assert.equal(finalTurn.ended, false, "finishing phase 30 does not end a battle while both teams still live");
+assert.equal(finalTurn.winnerTeam, null);
 assert.equal(finalTurn.completedPhases, 30);
-assert(finalTurn.playerStates[second.id].hp > 0, "phase-30 winner is decided by team HP while both teams still live");
+assert.equal(finalTurn.history.at(-1).phase, 30, "the final action in phase 30 keeps its actual phase number");
+assert.equal(finalTurn.adventure.chapter, 30, "the legacy 30-cell adventure visualization stays frozen after phase 30");
+assert(finalTurn.playerStates[second.id].hp > 0, "a living opposing team keeps the battle active after phase 30");
+const phaseThirtyOneFirstTurn = engine.resolveCardTurn(finalTurn, [first, second], secondPhaseCard.id, second.id, 20);
+assert.equal(phaseThirtyOneFirstTurn.history.at(-1).phase, 31, "phase-31 actions use the uncapped phase number");
+const phaseThirtyOneComplete = engine.resolveCardTurn(phaseThirtyOneFirstTurn, [first, second], emptyCard.id, first.id, 20);
+assert.equal(phaseThirtyOneComplete.completedPhases, 31, "the shared turn resolver continues into phase 32");
+assert.equal(phaseThirtyOneComplete.ended, false, "later phases do not trigger a total-HP ending");
+assert.equal(phaseThirtyOneComplete.winnerTeam, null);
 
 const deadGame = engine.createInitialGame([first, second], engine.createAdventure("DEAD"), 30);
 deadGame.turnOrder = [first.id, second.id];

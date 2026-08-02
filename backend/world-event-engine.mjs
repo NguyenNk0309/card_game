@@ -3,6 +3,7 @@ import {
   getWorldEventScheduleEntry,
   WORLD_EVENT_SCHEDULE
 } from '../shared/worldEvents.mjs';
+import { LAST_WORLD_EVENT_PHASE } from '../shared/battlePhases.mjs';
 
 export const WORLD_EVENT_CHOICE_SECONDS = 60;
 const TIMED_FIELDS = ['shield', 'attackBuff', 'diceBuff', 'dicePenalty'];
@@ -439,7 +440,7 @@ function teamTotals(game, players, team) {
   };
 }
 
-function decideWinner(game, players, lastTeam, finalPhase = false) {
+function decideWinner(game, players, lastTeam) {
   const veil = teamTotals(game, players, 'veil');
   const ember = teamTotals(game, players, 'ember');
   if (!veil.alive && ember.alive) return 'ember';
@@ -450,18 +451,11 @@ function decideWinner(game, players, lastTeam, finalPhase = false) {
     if (veilInfluence !== emberInfluence) return veilInfluence > emberInfluence ? 'veil' : 'ember';
     return lastTeam || 'veil';
   }
-  if (!finalPhase) return null;
-  if (veil.hp !== ember.hp) return veil.hp > ember.hp ? 'veil' : 'ember';
-  if (veil.alive !== ember.alive) return veil.alive > ember.alive ? 'veil' : 'ember';
-  if (veil.shield !== ember.shield) return veil.shield > ember.shield ? 'veil' : 'ember';
-  const veilInfluence = game.adventure?.veilInfluence || 0;
-  const emberInfluence = game.adventure?.emberInfluence || 0;
-  if (veilInfluence !== emberInfluence) return veilInfluence > emberInfluence ? 'veil' : 'ember';
-  return lastTeam || 'veil';
+  return null;
 }
 
 function updateVictory(game, players, lastTeam) {
-  const winner = decideWinner(game, players, lastTeam, (game.completedPhases || 0) >= 30);
+  const winner = decideWinner(game, players, lastTeam);
   game.ended = Boolean(winner);
   game.winnerTeam = winner;
   if (winner) {
@@ -916,6 +910,7 @@ export function triggerWorldEventAfterPhase(game, players, previousCompletedPhas
   if (completed !== previous + 1) return { triggered: false, status: 'none', reason: 'no-single-phase-transition', event: null };
   if (game.ended || game.pendingWorldEvent) return { triggered: false, status: 'none', reason: game.ended ? 'battle-ended' : 'event-pending', event: null };
   const upcomingPhase = completed + 1;
+  if (upcomingPhase > LAST_WORLD_EVENT_PHASE) return { triggered: false, status: 'none', reason: 'past-world-event-limit', event: null };
   const schedule = getWorldEventScheduleEntry(upcomingPhase);
   if (!schedule) return { triggered: false, status: 'none', reason: 'unscheduled-phase', event: null };
   const alreadyResolved = (game.worldEventHistory || []).some((event) => event.phase === upcomingPhase)

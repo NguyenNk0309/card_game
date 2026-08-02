@@ -22,6 +22,7 @@ import { sanitizeCommunicationGame } from '../shared/viewpoint.mjs';
 import { calculateRuntimePityCost, isTestModeEnabled } from '../shared/pityCost.mjs';
 import { normalizeBulwarkToBladeCards, reconcileBulwarkToBladeImpact } from '../shared/bulwarkToBlade.mjs';
 import { normalizeLioraVennCards, reconcileLioraVennImpact } from '../shared/lioraVenn.mjs';
+import { getCurrentBattlePhase, PHASE_TIMELINE_LENGTH, UNLIMITED_BATTLE_PHASES } from '../shared/battlePhases.mjs';
 
 function testModeFromEnvironment() {
   if (process.env.TEST_MODE !== undefined) return isTestModeEnabled(process.env.TEST_MODE);
@@ -222,13 +223,13 @@ function teamTotals(game, team) {
   };
 }
 
-function decideWinner(game, lastTeam, finalTurn = false) {
+function decideWinner(game, lastTeam, settleCurrentTotals = false) {
   const veil = teamTotals(game, 'veil');
   const ember = teamTotals(game, 'ember');
   if (!veil.alive && ember.alive) return 'ember';
   if (!ember.alive && veil.alive) return 'veil';
   if (!veil.alive && !ember.alive) return game.adventure.veilInfluence !== game.adventure.emberInfluence ? (game.adventure.veilInfluence > game.adventure.emberInfluence ? 'veil' : 'ember') : lastTeam;
-  if (!finalTurn) return null;
+  if (!settleCurrentTotals) return null;
   if (veil.hp !== ember.hp) return veil.hp > ember.hp ? 'veil' : 'ember';
   if (veil.alive !== ember.alive) return veil.alive > ember.alive ? 'veil' : 'ember';
   if (veil.shield !== ember.shield) return veil.shield > ember.shield ? 'veil' : 'ember';
@@ -301,7 +302,7 @@ function gameNoticeScope(game) {
 
 function appendPhaseStartNotice(game) {
   if (!game || game.ended || isWorldEventBlocking(game)) return;
-  const phase = Math.min(30, Math.max(1, Number(game.completedPhases || 0) + 1));
+  const phase = getCurrentBattlePhase(game.completedPhases || 0);
   const activeId = game.turnOrder?.[0] || room.players[game.activePlayerIndex]?.id;
   const activePlayer = room.players.find((player) => player.id === activeId);
   appendOutcomeNotice(game, {
@@ -350,7 +351,8 @@ function normalizeServerTurnOrder(game) {
   normalizeWorldEventState(game);
   if (!Number.isFinite(game.completedPhases)) game.completedPhases = Math.max(0, (game.roundNumber || 1) - 1);
   upgradePhaseFiveCards(game);
-  game.maxPhases = 30;
+  game.maxTurns = UNLIMITED_BATTLE_PHASES;
+  game.maxPhases = UNLIMITED_BATTLE_PHASES;
   for (const state of Object.values(game.playerStates || {})) {
     state.graveyard ||= [];
     state.cardUses ||= {};
@@ -400,7 +402,8 @@ function completeRoundTurn(game, actorId) {
   const livingIds = speedOrder(game);
   let acted = [...new Set([...(game.actedThisRound || []), actorId])].filter((id) => livingIds.includes(id));
   game.completedPhases ??= Math.max(0, (game.roundNumber || 1) - 1);
-  game.maxPhases = 30;
+  game.maxTurns = UNLIMITED_BATTLE_PHASES;
+  game.maxPhases = UNLIMITED_BATTLE_PHASES;
   game.roundNumber ||= game.completedPhases + 1;
   game.roundOrder = (game.roundOrder?.length ? game.roundOrder : livingIds).filter((id) => livingIds.includes(id));
   let phaseCompleted = false;
@@ -762,7 +765,7 @@ function removePlayerFromRoom(targetId, removedBy) {
           detail: `Removed by ${removedBy}; next turn starts.`,
           actorName: removedBy
         };
-        room.game.history = [...(room.game.history || []), { id: `remove-${Date.now()}`, turn: room.game.completedTurns, phase: Math.min(30, (room.game.completedPhases || 0) + 1), kind: 'system', actorName: removedBy, message: `${removedBy} removed ${removedPlayer.displayName} from the battle.`, success: true, createdAt: Date.now() }].slice(-80);
+        room.game.history = [...(room.game.history || []), { id: `remove-${Date.now()}`, turn: room.game.completedTurns, phase: getCurrentBattlePhase(room.game.completedPhases || 0), kind: 'system', actorName: removedBy, message: `${removedBy} removed ${removedPlayer.displayName} from the battle.`, success: true, createdAt: Date.now() }].slice(-80);
       }
       const fallbackTeam = room.players[0]?.hero.team || removedPlayer.hero.team;
       const winner = decideWinner(room.game, fallbackTeam, false);
@@ -814,7 +817,7 @@ function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', discard
   const order = normalizeServerTurnOrder(game);
   const passingPlayer = room.players.find((player) => player.id === order[0]) || room.players[game.activePlayerIndex];
   const completedTurns = game.completedTurns + 1;
-  const actionPhase = Math.min(30, (game.completedPhases || 0) + 1);
+  const actionPhase = getCurrentBattlePhase(game.completedPhases || 0);
   if (passingPlayer) expireTimedEffectsAtTurnEnd(game.playerStates[passingPlayer.id]);
   if (passingPlayer) returnBorrowedCards(game, passingPlayer.id);
   const revived = tickPendingRevives(game);
@@ -838,9 +841,9 @@ function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', discard
     returnExpiredPurgedCards(game, game.completedPhases);
     upgradePhaseFiveCards(game);
   }
-  game.adventure = { ...game.adventure, chapter: Math.min(30, (game.completedPhases || 0) + 1) };
+  game.adventure = { ...game.adventure, chapter: Math.min(PHASE_TIMELINE_LENGTH, getCurrentBattlePhase(game.completedPhases || 0)) };
   if (phaseCompleted) resetPhaseTurnOrder(game);
-  const winner = decideWinner(game, passingPlayer?.hero.team || 'veil', (game.completedPhases || 0) >= 30);
+  const winner = decideWinner(game, passingPlayer?.hero.team || 'veil', false);
   game.ended = Boolean(winner);
   game.winnerTeam = winner;
   const veil = teamTotals(game, 'veil'); const ember = teamTotals(game, 'ember');
@@ -1082,7 +1085,7 @@ function handleMessage(socket, rawMessage) {
     message.game.completedPhases = authoritativePhase.completedPhases;
     message.game.roundNumber = authoritativePhase.roundNumber;
     message.game.actedThisRound = authoritativePhase.actedThisRound;
-    message.game.adventure = { ...message.game.adventure, chapter: Math.min(30, authoritativePhase.completedPhases + 1) };
+    message.game.adventure = { ...message.game.adventure, chapter: Math.min(PHASE_TIMELINE_LENGTH, getCurrentBattlePhase(authoritativePhase.completedPhases)) };
     for (const [id, state] of Object.entries(room.game.playerStates || {})) {
       const incomingState = message.game.playerStates?.[id];
       if (!incomingState) continue;
@@ -1113,7 +1116,7 @@ function handleMessage(socket, rawMessage) {
     if (message.game.outcome?.kind === 'card') message.game.outcome.nextTarget = message.game.adventure.target;
     room.game = message.game;
     room.game.turnSeconds = TURN_SECONDS;
-    const actionWinner = decideWinner(room.game, activePlayer.hero.team, (room.game.completedPhases || 0) >= 30);
+    const actionWinner = decideWinner(room.game, activePlayer.hero.team, false);
     room.game.ended = Boolean(actionWinner);
     room.game.winnerTeam = actionWinner;
     const veil = teamTotals(room.game, 'veil');

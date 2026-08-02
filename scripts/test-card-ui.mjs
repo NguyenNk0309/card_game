@@ -25,6 +25,7 @@ const lobby = read("ui/components/Lobby.tsx");
 const worldEvents = read("ui/components/WorldEventPanels.tsx");
 const highlightCardNames = read("ui/components/HighlightCardNames.tsx");
 const partyRail = read("ui/components/PartyRail.tsx");
+const battlePhases = read("shared/battlePhases.mjs");
 const roomSocket = read("ui/hooks/useRoomSocket.ts");
 const gameAudio = read("ui/hooks/useGameAudio.ts");
 const cardZoneMotion = read("ui/cardZoneMotion.ts");
@@ -224,6 +225,10 @@ assert.match(gameApp, /teamJoinSoundSequence > 0\) playEffect\("team-join"\)/, "
 
 assert.match(homeScreen, /Play game[\s\S]*placeholder="Enter room ID"[\s\S]*> Join<[\s\S]*Create a new room/, "the home screen must reveal join and create room actions from Play game");
 assert(!/home-oath-card|Stand together|Fall remembered/.test(homeScreen), "the home screen must omit the decorative oath quote card");
+assert.match(battlePhases, /PHASE_TIMELINE_LENGTH = 30[\s\S]*UNLIMITED_BATTLE_PHASES = 0[\s\S]*LAST_WORLD_EVENT_PHASE = 30/, "shared phase rules separate the frozen 30-cell visualization from the unlimited battle duration and World Event cutoff");
+assert.match(gameApp, /getCurrentBattlePhase\(completedPhases\)[\s\S]*getVisualizedCompletedPhases\(completedPhases\)[\s\S]*getPhaseCountDenominator\(currentPhase\)[\s\S]*Array\.from\(\{ length: PHASE_TIMELINE_LENGTH \}\)/, "battle status keeps counting after phase 30 while rendering only the fixed timeline");
+assert.match(gameApp, /TEAM BATTLE ARENA · UNLIMITED-PHASE MATCH[\s\S]*Defeat the enemy team, or press End battle to settle the current result\./, "battle UI explains the unlimited ending contract");
+assert.doesNotMatch([gameApp, homeScreen, cardCatalog].join("\n"), /lead in HP after phase 30|30-PHASE MATCH|Survive thirty phases|Defeat the enemy team by phase 30/, "player-facing UI and catalog copy must not advertise the removed phase-30 ending");
 assert.match(gameApp, /activeRoomId[\s\S]*<RoomGame roomId=\{activeRoomId\}[\s\S]*<HomeScreen/, "the bare app must enter through the home screen before rendering a room");
 assert.match(roomSocket, /\/api\/room\?\$\{query\.toString\(\)\}/, "room polling must include the selected room ID");
 assert.match(roomSocket, /\/ws\?roomId=\$\{encodeURIComponent\(roomId\)\}/, "room WebSockets must include the selected room ID");

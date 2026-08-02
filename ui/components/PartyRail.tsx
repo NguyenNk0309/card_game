@@ -5,6 +5,7 @@ import { useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
 import { getStatusPresentations } from "@/shared/viewpoint.mjs";
+import { getCurrentBattlePhase } from "@/shared/battlePhases.mjs";
 import { CharacterAvatar } from "./CharacterAvatar";
 import { fitTooltipToViewport } from "./tooltipPosition";
 
@@ -167,7 +168,7 @@ export function PartyRail({ players, game, localSessionId, onInspectPlayer }: {
 }) {
   const localPlayer = players.find((player) => player.id === localSessionId);
   const relationClass = (player: PlayerSession) => localPlayer ? (player.hero.team === localPlayer.hero.team ? "ally" : "enemy") : "neutral";
-  const currentPhase = Math.min(30, (game?.completedPhases ?? 0) + 1);
+  const currentPhase = getCurrentBattlePhase(game?.completedPhases ?? 0);
   const statusIcon = (kind: ReturnType<typeof getStatusPresentations>[number]["kind"]) => kind === "shield" ? <Shield size={11}/>
     : kind === "attackBuff" ? <Swords size={11}/>
       : kind === "diceBuff" || kind === "dicePenalty" ? <Dices size={11}/>

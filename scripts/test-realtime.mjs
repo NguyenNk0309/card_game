@@ -206,8 +206,8 @@ try {
     turnStartedAt: Date.now(),
     turnDeadline: Date.now() + 400,
     turnSeconds: 1,
-    maxTurns: 30,
-    maxPhases: 30,
+    maxTurns: 0,
+    maxPhases: 0,
     ended: false,
     endReason: null,
     winnerTeam: null,
@@ -299,7 +299,7 @@ try {
 
   second.send({ type: "end-game", sessionId: secondId });
   const manuallyEnded = await first.waitFor((state) => state.game?.ended === true);
-  assert.equal(manuallyEnded.game.winnerTeam, "ember", "manual end uses the phase-30 judgment and the ending player's team resolves a complete tie");
+  assert.equal(manuallyEnded.game.winnerTeam, "ember", "manual end settles current totals and the ending player's team resolves a complete tie");
   assert.match(manuallyEnded.game.endReason, /Embercourt wins\. Total HP: Veilbound 8 — Embercourt 8\./);
   second.send({ type: "leave-game", sessionId: secondId });
   await first.waitFor((state) => !state.players.some((item) => item.id === secondId));
@@ -315,6 +315,52 @@ try {
   first.send({ type: "ready", sessionId: firstId, ready: true });
   second.send({ type: "ready", sessionId: secondId, ready: true });
   await first.waitFor((state) => state.players.length === 2 && state.players.every((item) => item.ready));
+
+  const unlimitedGame = structuredClone(game);
+  delete unlimitedGame.playerStates[thirdId];
+  Object.assign(unlimitedGame, {
+    completedTurns: 59,
+    completedPhases: 29,
+    roundNumber: 30,
+    activePlayerIndex: 0,
+    turnOrder: [firstId, secondId],
+    roundOrder: [secondId, firstId],
+    actedThisRound: [secondId],
+    outcome: null,
+    history: [],
+    worldEvent: null,
+    worldEventHistory: [],
+    pendingWorldEvent: null,
+    ended: false,
+    winnerTeam: null,
+    endReason: null,
+    adventure: { ...unlimitedGame.adventure, chapter: 30 }
+  });
+  second.send({ type: "start", game: unlimitedGame });
+  const unlimitedStarted = await first.waitForNext((state) => state.phase === "game" && state.game?.completedPhases === 29);
+  assert.equal(unlimitedStarted.game.maxPhases, 0, "the realtime authority normalizes battles to unlimited phases");
+  assert.equal(unlimitedStarted.game.outcome.notices.at(-1).title, "Phase 30 started");
+  first.send({ type: "skip-turn", sessionId: firstId });
+  const phaseThirtyComplete = await first.waitForNext((state) => state.game?.completedPhases === 30 && state.game?.outcome?.kind === "skip");
+  assert.equal(phaseThirtyComplete.game.ended, false, "the realtime authority does not settle living teams after phase 30");
+  assert.equal(phaseThirtyComplete.game.winnerTeam, null);
+  assert.equal(phaseThirtyComplete.game.pendingWorldEvent, null, "phase 31 starts without a World Event");
+  assert.equal(phaseThirtyComplete.game.outcome.notices.at(-1).title, "Phase 31 started");
+  second.send({ type: "skip-turn", sessionId: secondId });
+  await first.waitForNext((state) => state.game?.completedTurns === 61 && state.game?.outcome?.kind === "skip");
+  first.send({ type: "skip-turn", sessionId: firstId });
+  const phaseThirtyOneComplete = await first.waitForNext((state) => state.game?.completedPhases === 31 && state.game?.outcome?.kind === "skip");
+  assert.equal(phaseThirtyOneComplete.game.ended, false, "realtime gameplay advances through phase 31");
+  assert.equal(phaseThirtyOneComplete.game.history.at(-1).phase, 31, "realtime history retains phase numbers beyond 30");
+  assert.equal(phaseThirtyOneComplete.game.pendingWorldEvent, null, "later unlimited phases do not create World Events");
+  second.send({ type: "end-game", sessionId: secondId });
+  await first.waitForNext((state) => state.game?.ended === true);
+  first.send({ type: "return:lobby" });
+  await first.waitForNext((state) => state.phase === "lobby");
+  first.send({ type: "ready", sessionId: firstId, ready: true });
+  second.send({ type: "ready", sessionId: secondId, ready: true });
+  await first.waitFor((state) => state.players.length === 2 && state.players.every((item) => item.ready));
+
   const initialPhaseFiveGame = structuredClone(game);
   delete initialPhaseFiveGame.playerStates[thirdId];
   initialPhaseFiveGame.completedTurns = 10;

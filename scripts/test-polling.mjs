@@ -111,8 +111,8 @@ try {
     turnStartedAt: Date.now(),
     turnDeadline: Date.now() + 300,
     turnSeconds: 1,
-    maxTurns: 30,
-    maxPhases: 30,
+    maxTurns: 0,
+    maxPhases: 0,
     ended: false,
     endReason: null,
     winnerTeam: null,
@@ -210,7 +210,7 @@ try {
 
   const ended = await command(secondId, { type: "end-game" });
   assert.equal(ended.game.ended, true);
-  assert.equal(ended.game.winnerTeam, "ember", "manual polling end uses the phase-30 judgment and the ending player's team resolves a complete tie");
+  assert.equal(ended.game.winnerTeam, "ember", "manual polling end settles current totals and the ending player's team resolves a complete tie");
   assert.match(ended.game.endReason, /Embercourt wins\. Total HP: Veilbound 8 — Embercourt 8\./);
   const left = await command(secondId, { type: "leave-game" });
   assert(!left.players.some((item) => item.id === secondId));
@@ -220,6 +220,46 @@ try {
   assert.deepEqual(upgradeZoneIds.map((id) => resetDeck.find((card) => card.id === id).name).sort(), ["Broken Plan", "Empty Gesture", "Lost Momentum"], "the restored polling cards recover their original names and appearance");
 
   await command(secondId, { type: "join", player: player(secondId, `Second ${runId}`, "ember") });
+  await command(firstId, { type: "ready", ready: true });
+  await command(secondId, { type: "ready", ready: true });
+
+  const unlimitedGame = structuredClone(game);
+  delete unlimitedGame.playerStates[thirdId];
+  Object.assign(unlimitedGame, {
+    completedTurns: 59,
+    completedPhases: 29,
+    roundNumber: 30,
+    activePlayerIndex: 0,
+    turnOrder: [firstId, secondId],
+    roundOrder: [secondId, firstId],
+    actedThisRound: [secondId],
+    outcome: null,
+    history: [],
+    worldEvent: null,
+    worldEventHistory: [],
+    pendingWorldEvent: null,
+    ended: false,
+    winnerTeam: null,
+    endReason: null,
+    adventure: { ...unlimitedGame.adventure, chapter: 30 }
+  });
+  const unlimitedStarted = await command(secondId, { type: "start", game: unlimitedGame });
+  assert.equal(unlimitedStarted.game.maxPhases, 0, "the polling authority normalizes battles to unlimited phases");
+  assert.equal(unlimitedStarted.game.outcome.notices.at(-1).title, "Phase 30 started");
+  const phaseThirtyComplete = await command(firstId, { type: "skip-turn" });
+  assert.equal(phaseThirtyComplete.game.completedPhases, 30);
+  assert.equal(phaseThirtyComplete.game.ended, false, "the polling authority does not settle living teams after phase 30");
+  assert.equal(phaseThirtyComplete.game.winnerTeam, null);
+  assert.equal(phaseThirtyComplete.game.pendingWorldEvent, null, "phase 31 starts without a World Event");
+  assert.equal(phaseThirtyComplete.game.outcome.notices.at(-1).title, "Phase 31 started");
+  await command(secondId, { type: "skip-turn" });
+  const phaseThirtyOneComplete = await command(firstId, { type: "skip-turn" });
+  assert.equal(phaseThirtyOneComplete.game.completedPhases, 31, "polling gameplay advances through phase 31");
+  assert.equal(phaseThirtyOneComplete.game.ended, false);
+  assert.equal(phaseThirtyOneComplete.game.history.at(-1).phase, 31, "polling history retains phase numbers beyond 30");
+  assert.equal(phaseThirtyOneComplete.game.pendingWorldEvent, null, "later unlimited phases do not create World Events");
+  await command(secondId, { type: "end-game" });
+  await command(firstId, { type: "return:lobby" });
   await command(firstId, { type: "ready", ready: true });
   await command(secondId, { type: "ready", ready: true });
 

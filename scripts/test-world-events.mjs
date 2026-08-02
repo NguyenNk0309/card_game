@@ -82,7 +82,7 @@ const EXPECTED_KEYS = [
   const guideEnd = gameAppSource.indexOf("function ConfirmedTopAction", guideStart);
   const guideSource = gameAppSource.slice(guideStart, guideEnd);
   assert.equal((guideSource.match(/<article><strong>/g) || []).length, 7, "the quick guide keeps seven concise guidance items");
-  assert.match(guideSource, /6 · World Events occur before phases 3, 7, 12, 17, 22, and 27\.[\s\S]*7 · Eliminate the enemy team, or lead in HP after phase 30\./, "World Events are guidance 6 and victory is guidance 7");
+  assert.match(guideSource, /6 · World Events occur before phases 3, 7, 12, 17, 22, and 27\.[\s\S]*7 · Defeat the enemy team, or press End battle to settle the current result\./, "World Events are guidance 6 and the unlimited-battle ending rule is guidance 7");
   assert.doesNotMatch(guideSource, /<article><strong>[^<]+<\/strong><p>|WorldEventLibrary|World Event system/, "guidance uses one-sentence headers without World Event detail");
   assert.doesNotMatch(gameAppSource, /guide-world-event-library|tutorial-world-event-library/, "guidance surfaces do not embed the World Event library");
   assert.doesNotMatch(gameAppSource, /getWorldEventsForPhase|possibleEventDetails/, "phase tooltips must not list every possible World Event");
@@ -199,8 +199,8 @@ const makeGame = (players, overrides = {}) => {
     turnStartedAt: 1_000,
     turnDeadline: 61_000,
     turnSeconds: 60,
-    maxTurns: 30,
-    maxPhases: 30,
+    maxTurns: 0,
+    maxPhases: 0,
     ended: false,
     endReason: null,
     winnerTeam: null,
@@ -847,6 +847,9 @@ const fourPlayers = [veilFast, emberFast, veilSlow, emberSlow];
   assert.equal(noJump.reason, "no-single-phase-transition", "impossible phase jumps cannot trigger an event");
   const noEventAfterTwentySeven = worldEventEngine.triggerWorldEventAfterPhase(game, players, 26, 27, eventOptions());
   assert.equal(noEventAfterTwentySeven.triggered, false, "completing phase 27 does not trigger a later event");
+  const noEventAfterThirty = worldEventEngine.triggerWorldEventAfterPhase(game, players, 29, 30, eventOptions());
+  assert.equal(noEventAfterThirty.triggered, false, "completing phase 30 cannot trigger a phase-31 World Event");
+  assert.equal(noEventAfterThirty.reason, "past-world-event-limit");
 }
 
 {
