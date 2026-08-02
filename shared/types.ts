@@ -107,9 +107,11 @@ export type PlayerLifeEvent = {
 
 export type GameNotice = {
   id: string;
-  kind: "card-transform" | "phase-start";
+  kind: "card-transform" | "phase-start" | "shop-use";
   title: string;
   detail: string;
+  actorId?: string;
+  shopOfferId?: string;
 };
 
 export type GameOutcome = {

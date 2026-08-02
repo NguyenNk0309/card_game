@@ -115,6 +115,29 @@ function appendShopHistory(game, player, message, now = Date.now()) {
   }].slice(-80);
 }
 
+function appendShopUseNotice(game, player, offer, now = Date.now()) {
+  if (!game || !player || !offer) return;
+  const notice = {
+    id: `shop-use-${player.id}-${offer.id}-${now}-${game.history?.length || 0}`,
+    kind: 'shop-use',
+    title: `${player.displayName} used ${offer.name}`,
+    detail: offer.description,
+    actorId: player.id,
+    shopOfferId: offer.id
+  };
+  game.outcome ||= {
+    id: `shop-notice-${player.id}-${now}`,
+    kind: 'system',
+    success: true,
+    total: 0,
+    target: game.adventure?.target || 0,
+    label: notice.title,
+    detail: notice.detail
+  };
+  game.outcome.notices ||= [];
+  if (!game.outcome.notices.some((item) => item.id === notice.id)) game.outcome.notices.push(notice);
+}
+
 function offerActivationError(state, offerId) {
   if (offerId === 'shield-potion' && state.shopShieldUntilTurn > (state.completedPlayerTurns || 0)) return 'Aegis Tonic is already active.';
   if (offerId === 'attack-potion' && (state.shopAttackBonus > 0 || state.attackBuff > 0)) return 'A next-attack damage buff is already active.';
@@ -161,6 +184,7 @@ export function purchaseShopOffer(game, players, playerId, offerId, now = Date.n
     state.externalCardsPurchased += 1;
   }
   appendShopHistory(game, player, `${player.displayName} bought ${offer.name} for ${formatGoldUnits(priceUnits)} Gold.`, now);
+  if (offer.category === 'potion') appendShopUseNotice(game, player, offer, now);
   return { ok: true, offer, priceUnits };
 }
 
@@ -207,6 +231,7 @@ export function useShopItem(game, players, playerId, itemId, now = Date.now()) {
     game.roundOrder = [...new Set([...(game.roundOrder || []), player.id])];
   }
   appendShopHistory(game, player, `${player.displayName} used ${offer.name}.`, now);
+  appendShopUseNotice(game, player, offer, now);
   return { ok: true, offer };
 }
 

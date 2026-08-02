@@ -781,7 +781,7 @@ button:focus-visible {
   border-color: rgba(106, 165, 131, 0.55);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.46);
   backdrop-filter: blur(12px);
-  animation: rise 250ms ease-out, notice-expire 250ms ease-in 4.75s forwards;
+  animation: rise 250ms ease-out, notice-expire 250ms ease-in 9.75s forwards;
 }
 
 .game-notice-stack .game-notice > svg { flex: 0 0 auto; }
@@ -790,6 +790,13 @@ button:focus-visible {
 .game-notice-stack .game-notice span { font-size: 11px; line-height: 1.35; }
 .game-notice-stack .card-transform { color: var(--gold); border-color: rgba(212, 181, 110, 0.58); }
 .game-notice-stack .phase-start { color: #80bfd2; border-color: rgba(90, 160, 184, 0.58); }
+.game-notice-stack .shop-use { color: #d8c68c; border-color: rgba(194, 158, 75, 0.68); }
+.shop-notice-offer {
+  font-weight: 700;
+  text-shadow: 0 0 8px color-mix(in srgb, currentColor 45%, transparent);
+}
+.shop-notice-offer.potion { color: #73d7a0; }
+.shop-notice-offer.item { color: #f1bc58; }
 
 .discard-summary-content {
   min-height: 150px;
@@ -6987,6 +6994,7 @@ textarea::placeholder { color: #716b61; }
 }
 .game-notice.phase-start { border-left-color: #5d8e88; }
 .game-notice.card-transform { border-left-color: #d2a64b; }
+.game-notice.shop-use { border-left-color: #bc8738; }
 
 /* World Events */
 .world-event-choice-panel,

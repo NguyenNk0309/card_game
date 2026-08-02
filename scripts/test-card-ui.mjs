@@ -24,6 +24,7 @@ const homeScreen = read("ui/components/HomeScreen.tsx");
 const lobby = read("ui/components/Lobby.tsx");
 const worldEvents = read("ui/components/WorldEventPanels.tsx");
 const shopPanel = read("ui/components/ShopPanel.tsx");
+const sharedShop = read("shared/shop.mjs");
 const highlightCardNames = read("ui/components/HighlightCardNames.tsx");
 const partyRail = read("ui/components/PartyRail.tsx");
 const battlePhases = read("shared/battlePhases.mjs");
@@ -237,6 +238,11 @@ assert.match(gameApp, /showTurnSummary && outcome && outcomePresentation \?[^\n]
 assert.match(gameApp, /showLifeEvent && activeLifeEvent && activeLifePresentation \?[^\n]*activeLifePresentation\.title[^\n]*cardNames=\{panelCardNames\}[^\n]*activeLifePresentation\.detail[^\n]*cardNames=\{panelCardNames\}/, "defeat and revival panels must link card names in their explanations");
 assert.match(gameApp, /showRunComplete \?[^\n]*<HighlightInteractiveNames[^\n]*cardNames=\{panelCardNames\}[^\n]*onInspectCard=\{inspectCard\}/, "battle-result panels must preserve interactive card names if the end reason names a card");
 assert.match(worldEvents, /WorldEventLibrary[\s\S]*HighlightCardNames text=\{event\.fullDescription\}[\s\S]*ShatteredTributeChoicePanel[\s\S]*HighlightCardNames text=\{fullRule\}[\s\S]*ResolvedWorldEventPanel[\s\S]*HighlightCardNames text=\{formatViewpointText\(localResult\.privateSummary/, "World Event reference, choice, and result panels must link visible card names");
+assert.match(sharedTypes, /kind:\s*"card-transform" \| "phase-start" \| "shop-use";[\s\S]*actorId\?: string;[\s\S]*shopOfferId\?: string;/, "Shop-use notices must carry stable actor and catalog identities");
+assert.match(sharedShop, /function appendShopUseNotice[\s\S]*kind: 'shop-use'[\s\S]*actorId: player\.id[\s\S]*shopOfferId: offer\.id[\s\S]*if \(offer\.category === 'potion'\) appendShopUseNotice[\s\S]*export function useShopItem[\s\S]*appendShopUseNotice\(game, player, offer, now\)/, "Potions must toast on immediate activation and Items only when used");
+assert.match(gameApp, /GAME_NOTICE_DURATION_MS = 10_000[\s\S]*\["card-transform", "phase-start", "shop-use"\][\s\S]*GAME_NOTICE_DURATION_MS/, "all supported battle toasts must remain visible for ten seconds");
+assert.match(gameApp, /function GameNoticeTitle[\s\S]*actor\.displayName[\s\S]*shop-notice-offer[\s\S]*offer\.name[\s\S]*<GameNoticeTitle notice=\{notice\}[\s\S]*HighlightPlayerNames text=\{notice\.detail\}[^>]*useActualNames/, "toasts must preserve real player names and color the activated Potion or Item name separately");
+assert.match(styles, /notice-expire 250ms ease-in 9\.75s forwards;[\s\S]*\.shop-notice-offer\.potion\s*\{[^}]*color:[^}]*\}[\s\S]*\.shop-notice-offer\.item\s*\{[^}]*color:/, "toast exit timing and distinct Potion/Item highlight colors must match the UI contract");
 
 assert.match(partyRail, /<em>\{buff\.tooltipValue \?\? buff\.value\}<\/em>\{buff\.durationLabel && <><i aria-hidden="true">-<\/i><b>\{buff\.durationLabel\}<\/b><\/>\}/, "timed status tooltips must show value - full duration");
 assert.match(partyRail, /<span>\{hero\.name\}<\/span>/, "battle roster subtitles must show only the character name");

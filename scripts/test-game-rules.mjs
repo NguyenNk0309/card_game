@@ -1796,13 +1796,25 @@ const shieldPotion = shopRules.purchaseShopOffer(shopGame, [shopFirst, shopSecon
 assert.equal(shieldPotion.ok, true, "a living player can buy a potion at any time");
 assert.equal(shopState.shield, 3, "Aegis Tonic applies immediately");
 assert.equal(shopState.goldUnits, shopRules.MAX_GOLD_UNITS - 4, "the authoritative Shop deducts half-unit Gold prices");
+assert.deepEqual(
+  { kind: shopGame.outcome.notices.at(-1).kind, actorId: shopGame.outcome.notices.at(-1).actorId, shopOfferId: shopGame.outcome.notices.at(-1).shopOfferId, title: shopGame.outcome.notices.at(-1).title },
+  { kind: "shop-use", actorId: shopFirst.id, shopOfferId: "shield-potion", title: `${shopFirst.displayName} used Aegis Tonic` },
+  "an immediately activated Potion emits an authoritative use toast with actor and offer identity"
+);
 assert.equal(shopRules.purchaseShopOffer(shopGame, [shopFirst, shopSecond], shopFirst.id, "shield-potion", 1001).ok, false, "identical active potion effects cannot stack");
 assert.equal(shopState.goldUnits, shopRules.MAX_GOLD_UNITS - 4, "a rejected purchase spends no Gold");
 
+const potionNoticeCount = shopGame.outcome.notices.length;
 assert.equal(shopRules.purchaseShopOffer(shopGame, [shopFirst, shopSecond], shopFirst.id, "additional-die", 1002).ok, true);
 assert.equal(shopRules.purchaseShopOffer(shopGame, [shopFirst, shopSecond], shopFirst.id, "lucky-die", 1003).ok, true);
+assert.equal(shopGame.outcome.notices.length, potionNoticeCount, "buying an inventory Item does not claim that it was used");
 assert.equal(shopRules.useShopItem(shopGame, [shopFirst, shopSecond], shopFirst.id, "additional-die", 1004).ok, true);
 assert.equal(shopState.additionalDieActive, true);
+assert.deepEqual(
+  { kind: shopGame.outcome.notices.at(-1).kind, actorId: shopGame.outcome.notices.at(-1).actorId, shopOfferId: shopGame.outcome.notices.at(-1).shopOfferId, title: shopGame.outcome.notices.at(-1).title },
+  { kind: "shop-use", actorId: shopFirst.id, shopOfferId: "additional-die", title: `${shopFirst.displayName} used Twin-Fate Die` },
+  "activating an inventory Item emits the shared authoritative use toast"
+);
 assert.equal(shopRules.useShopItem(shopGame, [shopFirst, shopSecond], shopFirst.id, "lucky-die", 1005).ok, false, "Twin-Fate Die and Lucky Die cannot be active together");
 
 shopState.goldUnits = shopRules.MAX_GOLD_UNITS;

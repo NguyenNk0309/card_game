@@ -10,7 +10,7 @@ import { getCurrentBattlePhase, getPhaseCountDenominator, getVisualizedCompleted
 import { visibleDiceModifier } from "@/shared/diceVisibility";
 import { isValidRoomId, normalizeRoomId } from "@/shared/roomId.mjs";
 import { getWorldEventDefinition, getWorldEventScheduleEntry, isWorldEventPhase } from "@/shared/worldEvents.mjs";
-import { formatGoldUnits, SHOP_CATALOG } from "@/shared/shop.mjs";
+import { formatGoldUnits, getShopOffer, SHOP_CATALOG } from "@/shared/shop.mjs";
 import { formatHistoryPresentation, formatLifeEventPresentation, formatOutcomePresentation, formatViewpointText, getStatusPresentations, playerReference, viewerRelation } from "@/shared/viewpoint.mjs";
 import type { ActionCard, GameHistoryEntry, GameNotice, GameOutcome, PlayerLifeEvent, PlayerSession, SyncedGameState, TeamId, WorldEventOutcome } from "@/shared/types";
 import { DiceRoller } from "./components/DiceRoller";
@@ -30,6 +30,7 @@ import { getCardZoneChanges } from "./cardZoneMotion";
 
 const teamName: Record<TeamId, string> = { veil: "Veilbound", ember: "Embercourt" };
 const PLAYER_NAME_STORAGE_KEY = "shattered-oath-player-name";
+const GAME_NOTICE_DURATION_MS = 10_000;
 type PresentationQueueItem =
   | { id: string; kind: "world"; event: WorldEventOutcome }
   | { id: string; kind: "life"; lifeEvent: PlayerLifeEvent }
@@ -42,6 +43,7 @@ function AutomaticSuccessNotice({ roll }: { roll?: number }) {
 
 function GameNoticeIcon({ kind }: { kind: GameNotice["kind"] }) {
   if (kind === "phase-start") return <Zap size={19}/>;
+  if (kind === "shop-use") return <ShoppingBag size={19}/>;
   return <Sparkles size={19}/>;
 }
 
@@ -143,6 +145,13 @@ function HighlightPlayerNames({ text = "", players, localPlayer, onInspect, useA
       ? <button type="button" className={`${className} history-player-link`} title={player.hero.name} aria-label={`View ${label}, ${player.hero.name}`} onClick={() => onInspect(player.id)} key={`${part}-${index}`}>{label}</button>
       : <span className={className} key={`${part}-${index}`}>{label}</span>;
   })}</>;
+}
+
+function GameNoticeTitle({ notice, players, localPlayer }: { notice: GameNotice; players: PlayerSession[]; localPlayer?: PlayerSession }) {
+  const actor = notice.actorId ? players.find((player) => player.id === notice.actorId) : undefined;
+  const offer = notice.shopOfferId ? getShopOffer(notice.shopOfferId) : undefined;
+  if (notice.kind !== "shop-use" || !actor || !offer) return <HighlightPlayerNames text={notice.title} players={players} localPlayer={localPlayer} useActualNames/>;
+  return <><b className={`inline-player-name ${playerRelationClass(actor, localPlayer)}`}>{actor.displayName}</b> used <b className={`shop-notice-offer ${offer.category}`}>{offer.name}</b></>;
 }
 
 function HighlightInteractiveNames({ text = "", cardNames, players, localPlayer, onInspectCard, onInspectPlayer, useActualNames = false }: { text?: string; cardNames: readonly string[]; players: PlayerSession[]; localPlayer?: PlayerSession; onInspectCard?: (name: string) => void; onInspectPlayer?: (id: string) => void; useActualNames?: boolean }) {
@@ -648,7 +657,7 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
     return () => window.clearTimeout(timer);
   }, [activeAutoPanel, queuedPresentation?.id, outcomeKey]);
   useEffect(() => {
-    const freshNotices = (outcome?.notices ?? []).filter((notice) => ["card-transform", "phase-start"].includes(notice.kind) && !seenNoticeIdsRef.current.has(notice.id));
+    const freshNotices = (outcome?.notices ?? []).filter((notice) => ["card-transform", "phase-start", "shop-use"].includes(notice.kind) && !seenNoticeIdsRef.current.has(notice.id));
     if (!freshNotices.length) return;
     freshNotices.forEach((notice) => seenNoticeIdsRef.current.add(notice.id));
     setVisibleNotices((current) => [...current, ...freshNotices]);
@@ -656,7 +665,7 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
       const timer = window.setTimeout(() => {
         setVisibleNotices((current) => current.filter((item) => item.id !== notice.id));
         noticeTimersRef.current.delete(notice.id);
-      }, 5000);
+      }, GAME_NOTICE_DURATION_MS);
       noticeTimersRef.current.set(notice.id, timer);
     });
   }, [outcome?.notices]);
@@ -871,7 +880,7 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
     if (showRunComplete) send({ type: "return:lobby" });
   };
 
-  return <main className="game-shell arena-focus"><div className="grain"/>{visibleNotices.length > 0 && <section className="game-notice-stack" aria-live="polite" aria-label="Battle notices">{visibleNotices.map((notice) => <article className={`outcome-toast game-notice ${notice.kind}`} key={notice.id}><GameNoticeIcon kind={notice.kind}/><div><strong>{notice.title}</strong><span><HighlightPlayerNames text={notice.detail} players={players} localPlayer={localPlayer}/></span></div></article>)}</section>}{showBattleVfx && vfxCard && <div className={`battle-card-vfx effect-${vfxCard.effect} ${outcome?.success ? "success" : "failure"}`} aria-hidden="true"><i/><i/><i/><div><CardEffectIcon card={vfxCard}/><strong>{vfxCard.name}</strong></div></div>}{cardZoneMotion && localPlayer && !panelOverlayOpen && <CardZoneVfx key={cardZoneMotion.id} motion={cardZoneMotion} player={localPlayer} playable={activePlayer?.id === sessionId && !runComplete && (localState?.hp ?? 0) > 0}/>} {showGuide && <DetailedGuide onClose={() => setShowGuide(false)}/>} {showPendingWorldEventChoice && pendingWorldEvent && <ShatteredTributeChoicePanel pendingEvent={pendingWorldEvent} players={players} localPlayer={localPlayer} localState={localState} handCards={localHand} cardNames={panelCardNames} serverTimeOffsetMs={serverTimeOffsetMs} connectionError={roomError} onInspectCard={inspectCard} onSubmit={submitWorldEventChoice}/>}
+  return <main className="game-shell arena-focus"><div className="grain"/>{visibleNotices.length > 0 && <section className="game-notice-stack" aria-live="polite" aria-label="Battle notices">{visibleNotices.map((notice) => <article className={`outcome-toast game-notice ${notice.kind}`} key={notice.id}><GameNoticeIcon kind={notice.kind}/><div><strong><GameNoticeTitle notice={notice} players={players} localPlayer={localPlayer}/></strong><span><HighlightPlayerNames text={notice.detail} players={players} localPlayer={localPlayer} useActualNames/></span></div></article>)}</section>}{showBattleVfx && vfxCard && <div className={`battle-card-vfx effect-${vfxCard.effect} ${outcome?.success ? "success" : "failure"}`} aria-hidden="true"><i/><i/><i/><div><CardEffectIcon card={vfxCard}/><strong>{vfxCard.name}</strong></div></div>}{cardZoneMotion && localPlayer && !panelOverlayOpen && <CardZoneVfx key={cardZoneMotion.id} motion={cardZoneMotion} player={localPlayer} playable={activePlayer?.id === sessionId && !runComplete && (localState?.hp ?? 0) > 0}/>} {showGuide && <DetailedGuide onClose={() => setShowGuide(false)}/>} {showPendingWorldEventChoice && pendingWorldEvent && <ShatteredTributeChoicePanel pendingEvent={pendingWorldEvent} players={players} localPlayer={localPlayer} localState={localState} handCards={localHand} cardNames={panelCardNames} serverTimeOffsetMs={serverTimeOffsetMs} connectionError={roomError} onInspectCard={inspectCard} onSubmit={submitWorldEventChoice}/>}
     <header className="topbar"><div className="brand"><div className="brand-mark"><Crown size={20}/></div><div><strong>SHATTERED OATH</strong><span>Two teams. One victor.</span></div></div>
       {phase === "game" ? <RunStatus completedPhases={game?.completedPhases ?? Math.max(0, (game?.roundNumber ?? 1) - 1)} secondsLeft={secondsLeft} worldEvents={game?.worldEventHistory ?? []} worldEventPlan={game?.worldEventPlan} pendingEvent={pendingWorldEvent} onOpenWorldEvents={() => setExpandedPanel("world-events")}/> : <div className="lobby-top-status"><Users size={16}/> {players.length}/10 players · {players.filter((player) => player.ready).length} ready</div>}
       <div className="top-actions"><div className="audio-controls"><button className={`icon-button music-toggle ${musicOn ? "playing" : ""}`} onClick={() => void toggleMusic()} aria-label={musicOn ? "Pause medieval music" : "Play medieval music"} title={musicOn ? "Pause medieval music" : "Play medieval music"}>{musicOn ? <Volume2 size={18}/> : <AudioLines size={18}/>}</button><label className="volume-control" title={`Audio volume ${volume}%`}><input type="range" min="0" max="100" value={volume} style={{ "--audio-volume": `${volume}%` } as React.CSSProperties} onChange={(event) => setVolume(Number(event.target.value))} aria-label="Game audio volume"/><output>{volume}%</output></label></div><button className="text-button" onClick={() => setShowGuide(true)}><CircleHelp size={16}/> How to play</button>{phase === "game" && localPlayer && <ConfirmedTopAction className="leave-game-control" icon={<LogOut size={16}/>} label="Leave battle" title="Leave this battle?" detail="Your player leaves the battle." onConfirm={() => send({ type: "leave-game", sessionId })}/>} {phase === "game" && localPlayer && !runComplete && <ConfirmedTopAction className="end-game-control" icon={<Octagon size={16}/>} label="End battle" title="End this battle?" detail="Current team totals decide the result." onConfirm={() => send({ type: "end-game", sessionId })}/>} {runComplete && !presentationQueue.some((item) => item.kind === "battle") && <button className="text-button" onClick={() => { if (battleResultKey) setPresentationQueue((current) => [...current, { id: `battle:reopen:${battleResultKey}`, kind: "battle", battleKey: battleResultKey }]); }}><Crown size={16}/> Battle result</button>}{phase === "game" && <button className="icon-button mobile-party-button" onClick={() => setMobileParty(true)} aria-label="Open player list"><Users size={18}/></button>}</div>
