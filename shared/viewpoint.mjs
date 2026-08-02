@@ -338,6 +338,7 @@ export function getStatusPresentations(player, state, players, viewerId = '', cu
     const turns = remainingTurns(state, 'dicePenalty');
     add({ kind: 'dicePenalty', label: `${owner.possessive} roll penalty`, displayValue: `−${state.dicePenalty}`, value: `−${state.dicePenalty}`, duration: `${turns}T`, durationLabel: turnLabel(turns), tooltip: `Next d20: −${state.dicePenalty} · ${turns}T.`, negative: true });
   }
+  if (state.sanguineRecompense) add({ kind: 'sanguineRecompense', label: `${owner.possessive} Sanguine Recompense`, displayValue: '+1 team heal', value: '+1 HP', duration: '', tooltip: 'Next successful Heal card restores 1 additional HP to every living ally.' });
   const zeroPityTurns = Math.max(0, Number(state.zeroPityUntilTurn || 0) - Number(state.completedPlayerTurns || 0));
   if (zeroPityTurns > 0) add({ kind: 'zeroPity', label: `${owner.possessive} next-card pity cost`, displayValue: '0', value: '0 pity', duration: `${zeroPityTurns}T`, durationLabel: turnLabel(zeroPityTurns), tooltip: `Next card costs 0 pity · ${zeroPityTurns}T.` });
   if (state.skipTurns > 0) add({ kind: 'skipTurns', label: `${owner.possessive} skipped turns`, displayValue: `${state.skipTurns}T`, value: `${state.skipTurns} ${state.skipTurns === 1 ? 'turn' : 'turns'}`, tooltipValue: 'Skip', duration: `${state.skipTurns}T`, durationLabel: turnLabel(state.skipTurns), tooltip: `Miss ${state.skipTurns} ${state.skipTurns === 1 ? 'turn' : 'turns'}.`, negative: true });

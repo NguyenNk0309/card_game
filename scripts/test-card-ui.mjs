@@ -11,7 +11,11 @@ const characterAvatar = read("ui/components/CharacterAvatar.tsx");
 const cardArtwork = read("ui/cardArtwork.ts");
 const cardCatalog = read("backend/game/catalog.ts");
 const gameEngine = read("backend/game/engine.ts");
+const nodeServer = read("backend/server.mjs");
+const realtimeWorker = read("backend/realtime-worker.js");
 const sharedTypes = read("shared/types.ts");
+const lioraRules = read("shared/lioraVenn.mjs");
+const diceRoller = read("ui/components/DiceRoller.tsx");
 const pityCost = read("ui/components/PityCost.tsx");
 const truncatedEffectText = read("ui/components/TruncatedEffectText.tsx");
 const effectText = read("ui/components/EffectText.tsx");
@@ -32,6 +36,7 @@ const characterAvatars = [
   ["Thorne Vale", "thorne-vale.webp"],
   ["Mira Ash", "mira-ash.webp"],
   ["Brother Orren", "brother-orren.webp"],
+  ["Liora Venn", "liora-venn.webp"],
   ["Nyx Calder", "nyx-calder.webp"],
   ["Bram Coalhand", "bram-coalhand.webp"],
   ["Sable Fen", "sable-fen.webp"],
@@ -44,6 +49,13 @@ for (const [heroName, fileName] of characterAvatars) {
   assert(existsSync(new URL(`../public/art/characters/${fileName}`, import.meta.url)), `${heroName}'s avatar asset must exist`);
 }
 assert.match(characterAvatar, /avatar \? <Image className="character-avatar-image"[\s\S]*: hero\.initials/, "character avatars must retain initials as a safe fallback");
+assert.match(gameApp, /canPayLioraVennHealthCost\(activeCard, localState\?\.hp\)[\s\S]*canPlaySelectedCard=\{activeCardCanBePlayed\}[\s\S]*selectedCardBlockReason=\{activeCardBlockReason\}/, "low-HP blood cards must disable Roll and Pity through the shared health-cost rule");
+assert.match(gameApp, /Requires at least \$\{LIORA_VENN_MINIMUM_HP\} HP to play; you can still discard it\./, "low-HP blood cards must remain selectable for discarding with a clear explanation");
+assert.match(diceRoller, /className="roll-button"[\s\S]*!canPlaySelectedCard[\s\S]*className="pity-button"[\s\S]*!canPlaySelectedCard[\s\S]*className="discard-card-button"[\s\S]*disabled=\{rolling \|\| disabled \|\| !hasSelectedCard\}/, "the health requirement blocks Roll and Pity without blocking the existing discard action");
+for (const authority of [nodeServer, realtimeWorker]) {
+  assert.match(authority, /normalizeLioraVennCards[\s\S]*reconcileLioraVennImpact[\s\S]*sanguineRecompense/, "each realtime authority must normalize Liora's cards and reconcile her passive state");
+}
+assert.match(lioraRules, /LIORA_VENN_MINIMUM_HP = 4[\s\S]*LIORA_VENN_HEALTH_COST = 3|LIORA_VENN_HEALTH_COST = 3[\s\S]*LIORA_VENN_MINIMUM_HP = 4/, "the shared Liora rules must retain the approved 4 HP requirement and 3 HP cost");
 assert.match(lobby, /hero-picker-grid[\s\S]*<CharacterAvatar hero=\{option\.hero\}[\s\S]*character-banner[\s\S]*<CharacterAvatar hero=\{shownHero\}/, "lobby character selection and review must show the unique avatars");
 assert.match(lobby, /character-profile"><CharacterAvatar hero=\{shownHero\} className="large-portrait lobby-character-avatar" sizes="\(min-height: 1200px\) 216px, \(min-height: 900px\) 162px, 112px"\/><div className="passive-callout">/, "the selected character's responsive lobby avatar must appear above the character information section");
 assert.match(styles, /\.lobby-character-avatar\s*\{[^}]*width:\s*min\(100%, clamp\(112px, 15vh, 216px\)\);[^}]*height:\s*auto;[^}]*aspect-ratio:\s*1;[^}]*margin:\s*0 auto;/, "the lobby character avatar must scale continuously above its information from 720p through 1440p layouts");
@@ -170,7 +182,7 @@ assert.deepEqual(
   "roster tooltips and their arrows must move to the trigger's left when the right side cannot fit"
 );
 const specialSceneIds = [...cardArtwork.matchAll(/specialScene\("([^"]+)"/g)].map((match) => match[1]);
-assert.equal(specialSceneIds.length, 30, "every character-specific special card must have an explicit integrated-scene mapping");
+assert.equal(specialSceneIds.length, 33, "every character-specific special card must have an explicit integrated-scene mapping");
 for (const id of specialSceneIds) assert(existsSync(new URL(`../public/art/cards/special/${id}.webp`, import.meta.url)), `${id} must have a project-bound integrated-scene asset`);
 assert(!/kind:\s*"sprite"|spriteColumn|spriteRow|\/characters\//.test(cardArtwork), "special-card artwork must not retain sprite-sheet rendering data");
 assert(!/gothic-card-sprite-crop|gothic-card-targets/.test(styles), "obsolete sprite and synthetic-target composition styles must stay removed");

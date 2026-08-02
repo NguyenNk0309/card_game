@@ -7,6 +7,7 @@ const CHARACTER_AVATARS: Record<string, string> = {
   "Thorne Vale": "/art/characters/thorne-vale.webp",
   "Mira Ash": "/art/characters/mira-ash.webp",
   "Brother Orren": "/art/characters/brother-orren.webp",
+  "Liora Venn": "/art/characters/liora-venn.webp",
   "Nyx Calder": "/art/characters/nyx-calder.webp",
   "Bram Coalhand": "/art/characters/bram-coalhand.webp",
   "Sable Fen": "/art/characters/sable-fen.webp",

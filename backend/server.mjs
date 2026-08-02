@@ -21,6 +21,7 @@ import { createRoomId, isValidRoomId, normalizeRoomId, roomExpiresAt, roomIsExpi
 import { sanitizeCommunicationGame } from '../shared/viewpoint.mjs';
 import { calculateRuntimePityCost, isTestModeEnabled } from '../shared/pityCost.mjs';
 import { normalizeBulwarkToBladeCards, reconcileBulwarkToBladeImpact } from '../shared/bulwarkToBlade.mjs';
+import { normalizeLioraVennCards, reconcileLioraVennImpact } from '../shared/lioraVenn.mjs';
 
 function testModeFromEnvironment() {
   if (process.env.TEST_MODE !== undefined) return isTestModeEnabled(process.env.TEST_MODE);
@@ -359,6 +360,7 @@ function normalizeServerTurnOrder(game) {
       : { ...entry, expiresAfterBorrowerTurn: (state.completedPlayerTurns || 0) + 1 });
     state.zeroPityUntilTurn = Math.max(0, Math.floor(Number(state.zeroPityUntilTurn) || 0));
     state.pityPoints = Math.max(0, Math.floor(Number(state.pityPoints) || 0));
+    state.sanguineRecompense = Boolean(state.sanguineRecompense);
   }
   const validIds = new Set(room.players.map((player) => player.id));
   const currentId = room.players[game.activePlayerIndex]?.id;
@@ -1061,6 +1063,7 @@ function handleMessage(socket, rawMessage) {
     if (!message.game?.adventure) return reject(socket, 'The turn update is incomplete.');
     if ((room.game.playerStates[activePlayer.id]?.hp || 0) <= 0) return reject(socket, 'A defeated player cannot play a card.');
     normalizeBulwarkToBladeCards(room.players);
+    normalizeLioraVennCards(room.players);
     const previousGame = room.game;
     const acknowledgedWorldEventId = message.game.worldEvent?.id || null;
     const authoritativeWorldEventId = previousGame.worldEvent?.id || null;
@@ -1086,6 +1089,7 @@ function handleMessage(socket, rawMessage) {
       incomingState.purgedCards = [...(state.purgedCards || [])];
       incomingState.borrowedCards = [...(state.borrowedCards || [])];
       incomingState.zeroPityUntilTurn = state.zeroPityUntilTurn || 0;
+      incomingState.sanguineRecompense = Boolean(state.sanguineRecompense);
       if (id !== activePlayer.id) {
         incomingState.hand = [...(state.hand || [])];
         incomingState.drawPile = [...(state.drawPile || [])];
@@ -1098,6 +1102,8 @@ function handleMessage(socket, rawMessage) {
     if (message.game.outcome) message.game.outcome.notices = [];
     const pityError = reconcilePityPoints(previousGame, message.game, activePlayer);
     if (pityError) return reject(socket, pityError);
+    const lioraError = reconcileLioraVennImpact(previousGame, message.game, activePlayer, room.players);
+    if (lioraError) return reject(socket, lioraError);
     const bulwarkError = reconcileBulwarkToBladeImpact(previousGame, message.game, activePlayer, room.players);
     if (bulwarkError) return reject(socket, bulwarkError);
     reconcileFailureImpact(previousGame, message.game, activePlayer);

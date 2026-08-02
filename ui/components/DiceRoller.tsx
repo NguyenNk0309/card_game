@@ -7,7 +7,7 @@ import { PityIcon } from "./PityCost";
 
 type ConfirmAction = "skip" | "discard" | null;
 
-export function DiceRoller({ roll, rolling, target, passiveBonus = 0, diceBuff = 0, dicePenalty = 0, pityPoints = 0, pityCost = 0, hasSelectedCard = false, onRoll, onPity, onSkip, onDiscard, disabled = false }: { roll: number | null; rolling: boolean; target: number; passiveBonus?: number; diceBuff?: number; dicePenalty?: number; pityPoints?: number; pityCost?: number; hasSelectedCard?: boolean; onRoll: () => void; onPity: () => void; onSkip: () => void; onDiscard: () => void; disabled?: boolean; }) {
+export function DiceRoller({ roll, rolling, target, passiveBonus = 0, diceBuff = 0, dicePenalty = 0, pityPoints = 0, pityCost = 0, hasSelectedCard = false, canPlaySelectedCard = true, selectedCardBlockReason = "", onRoll, onPity, onSkip, onDiscard, disabled = false }: { roll: number | null; rolling: boolean; target: number; passiveBonus?: number; diceBuff?: number; dicePenalty?: number; pityPoints?: number; pityCost?: number; hasSelectedCard?: boolean; canPlaySelectedCard?: boolean; selectedCardBlockReason?: string; onRoll: () => void; onPity: () => void; onSkip: () => void; onDiscard: () => void; disabled?: boolean; }) {
   const modifier = passiveBonus + diceBuff - dicePenalty;
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [popoverPosition, setPopoverPosition] = useState({ top: 8, left: 8 });
@@ -73,8 +73,8 @@ export function DiceRoller({ roll, rolling, target, passiveBonus = 0, diceBuff =
   return <section className="dice-panel">
     <div className={`d20 ${rolling ? "rolling" : ""}`} aria-label={rolling ? "Rolling d20" : roll === null ? "D20" : `D20 rolled ${roll}`}><span aria-hidden="true">?</span></div>
     <div className="dice-copy"><span className="eyebrow">ACTION CHECK</span><strong>Target <b>{target}</b></strong><small>d20{passiveBonus ? ` + ${passiveBonus} Marshal's Fortune` : ""}{diceBuff ? ` + ${diceBuff} Precision Order` : ""}{dicePenalty ? ` - ${dicePenalty} omen/hex` : ""}</small><em>Total modifier: <b>{modifier >= 0 ? "+" : ""}{modifier}</b></em></div>
-    <button className="roll-button" onClick={onRoll} disabled={rolling || disabled || !hasSelectedCard}>{rolling ? <Sparkles size={17}/> : <Dices size={18}/>}<span>{rolling ? "Rolling..." : !hasSelectedCard && !disabled ? "Select a card" : "Roll the die"}</span></button>
-    <button className="pity-button" onClick={onPity} disabled={rolling || disabled || !hasSelectedCard || pityPoints < pityCost} title={!hasSelectedCard ? "Select a card" : pityPoints < pityCost ? `Need ${pityCost - pityPoints} pity` : `Spend ${pityCost} pity to succeed`}><PityIcon size={18}/><span>Pity roll<small>{pityPoints} available · cost {pityCost}</small></span></button>
+    <button className="roll-button" onClick={onRoll} disabled={rolling || disabled || !hasSelectedCard || !canPlaySelectedCard} title={selectedCardBlockReason || undefined}>{rolling ? <Sparkles size={17}/> : <Dices size={18}/>}<span>{rolling ? "Rolling..." : !hasSelectedCard && !disabled ? "Select a card" : selectedCardBlockReason || "Roll the die"}</span></button>
+    <button className="pity-button" onClick={onPity} disabled={rolling || disabled || !hasSelectedCard || !canPlaySelectedCard || pityPoints < pityCost} title={!hasSelectedCard ? "Select a card" : selectedCardBlockReason || (pityPoints < pityCost ? `Need ${pityCost - pityPoints} pity` : `Spend ${pityCost} pity to succeed`)}><PityIcon size={18}/><span>Pity roll<small>{pityPoints} available · cost {pityCost}</small></span></button>
     <div className="turn-action-buttons" ref={controlsRef}>
       <div className="turn-action-control">
         <button ref={skipButtonRef} className="skip-turn-button" onClick={() => setConfirmAction("skip")} disabled={rolling || disabled} aria-expanded={confirmAction === "skip"}><SkipForward size={17}/><span>Skip</span></button>

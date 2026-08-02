@@ -15,6 +15,7 @@ import { createRoomId, isValidRoomId, normalizeRoomId, roomExpiresAt, roomIsExpi
 import { sanitizeCommunicationGame } from '../shared/viewpoint.mjs';
 import { calculateRuntimePityCost, isTestModeEnabled } from '../shared/pityCost.mjs';
 import { normalizeBulwarkToBladeCards, reconcileBulwarkToBladeImpact } from '../shared/bulwarkToBlade.mjs';
+import { normalizeLioraVennCards, reconcileLioraVennImpact } from '../shared/lioraVenn.mjs';
 
 const LEGACY_ROOM_ID = 'shared-room';
 const emptyRoom = (roomId = '', createdAt = 0) => ({
@@ -277,6 +278,7 @@ function normalizeServerTurnOrder(game) {
       : { ...entry, expiresAfterBorrowerTurn: (state.completedPlayerTurns || 0) + 1 });
     state.zeroPityUntilTurn = Math.max(0, Math.floor(Number(state.zeroPityUntilTurn) || 0));
     state.pityPoints = Math.max(0, Math.floor(Number(state.pityPoints) || 0));
+    state.sanguineRecompense = Boolean(state.sanguineRecompense);
   }
   const validIds = new Set(room.players.map((player) => player.id));
   const currentId = room.players[game.activePlayerIndex]?.id;
@@ -926,6 +928,7 @@ async function applyCommand(ownerId, message, deadlineAdvanced = false) {
     if (!message.game?.adventure) return 'The turn update is incomplete.';
     if ((room.game.playerStates[activePlayer.id]?.hp || 0) <= 0) return 'A defeated player cannot play a card.';
     normalizeBulwarkToBladeCards(room.players);
+    normalizeLioraVennCards(room.players);
     const previousGame = room.game;
     const acknowledgedWorldEventId = message.game.worldEvent?.id || null;
     const authoritativeWorldEventId = previousGame.worldEvent?.id || null;
@@ -952,6 +955,7 @@ async function applyCommand(ownerId, message, deadlineAdvanced = false) {
       incomingState.purgedCards = [...(state.purgedCards || [])];
       incomingState.borrowedCards = [...(state.borrowedCards || [])];
       incomingState.zeroPityUntilTurn = state.zeroPityUntilTurn || 0;
+      incomingState.sanguineRecompense = Boolean(state.sanguineRecompense);
       if (id !== activePlayer.id) {
         incomingState.hand = [...(state.hand || [])];
         incomingState.drawPile = [...(state.drawPile || [])];
@@ -964,6 +968,8 @@ async function applyCommand(ownerId, message, deadlineAdvanced = false) {
     if (message.game.outcome) message.game.outcome.notices = [];
     const pityError = reconcilePityPoints(previousGame, message.game, activePlayer);
     if (pityError) return pityError;
+    const lioraError = reconcileLioraVennImpact(previousGame, message.game, activePlayer, room.players);
+    if (lioraError) return lioraError;
     const bulwarkError = reconcileBulwarkToBladeImpact(previousGame, message.game, activePlayer, room.players);
     if (bulwarkError) return bulwarkError;
     reconcileFailureImpact(previousGame, message.game, activePlayer);

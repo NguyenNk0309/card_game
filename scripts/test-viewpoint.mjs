@@ -203,6 +203,7 @@ const statusState = {
   attackBuff: 2,
   diceBuff: 2,
   dicePenalty: 1,
+  sanguineRecompense: true,
   zeroPityUntilTurn: 5,
   skipTurns: 1,
   reviveIn: 2,
@@ -224,6 +225,9 @@ assert.equal(`${ownStatuses.find((status) => status.kind === "shield").value} - 
 assert.equal(ownStatuses.find((status) => status.kind === "shield").tooltip, "3 shield · 2T or until depleted.");
 assert.equal(ownStatuses.find((status) => status.kind === "diceBuff").value, "+2");
 assert.equal(ownStatuses.find((status) => status.kind === "dicePenalty").value, "−1");
+assert.equal(ownStatuses.find((status) => status.kind === "sanguineRecompense").label, "Your Sanguine Recompense");
+assert.equal(ownStatuses.find((status) => status.kind === "sanguineRecompense").displayValue, "+1 team heal");
+assert.equal(ownStatuses.find((status) => status.kind === "sanguineRecompense").tooltip, "Next successful Heal card restores 1 additional HP to every living ally.");
 assert.equal(ownStatuses.find((status) => status.kind === "zeroPity").duration, "1T");
 assert.equal(ownStatuses.find((status) => status.kind === "zeroPity").durationLabel, "1 Turn");
 assert.equal(ownStatuses.find((status) => status.kind === "skipTurns").duration, "1T");

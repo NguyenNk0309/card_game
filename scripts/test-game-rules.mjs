@@ -8,8 +8,12 @@ const compile = (source, fileName) => ts.transpileModule(source, {
 }).outputText;
 
 const catalogSource = await readFile(new URL("../backend/game/catalog.ts", import.meta.url), "utf8");
-const catalogUrl = `data:text/javascript;base64,${Buffer.from(compile(catalogSource, "catalog.ts")).toString("base64")}`;
+const lioraRulesUrl = new URL("../shared/lioraVenn.mjs", import.meta.url).href;
+const compiledCatalog = compile(catalogSource, "catalog.ts")
+  .replace('from "@/shared/lioraVenn.mjs"', `from "${lioraRulesUrl}"`);
+const catalogUrl = `data:text/javascript;base64,${Buffer.from(compiledCatalog).toString("base64")}`;
 const catalog = await import(catalogUrl);
+const lioraRules = await import(lioraRulesUrl);
 const pityCostUrl = new URL("../shared/pityCost.mjs", import.meta.url).href;
 const pityCostRules = await import(pityCostUrl);
 const bulwarkRules = await import(new URL("../shared/bulwarkToBlade.mjs", import.meta.url).href);
@@ -21,7 +25,8 @@ const diceVisibility = await import(`data:text/javascript;base64,${Buffer.from(c
 const engineSource = await readFile(new URL("../backend/game/engine.ts", import.meta.url), "utf8");
 const compiledEngine = compile(engineSource, "engine.ts")
   .replace('from "./catalog"', `from "${catalogUrl}"`)
-  .replace('from "@/shared/pityCost.mjs"', `from "${pityCostUrl}"`);
+  .replace('from "@/shared/pityCost.mjs"', `from "${pityCostUrl}"`)
+  .replace('from "@/shared/lioraVenn.mjs"', `from "${lioraRulesUrl}"`);
 const engine = await import(`data:text/javascript;base64,${Buffer.from(compiledEngine).toString("base64")}`);
 
 const sampledTargets = Array.from({ length: 256 }, () => engine.randomDiceTarget());
@@ -44,10 +49,10 @@ assert.deepEqual(maximumParty.map((hero) => hero.team), ["veil", "ember", "veil"
 assert.deepEqual(maximumParty.map((hero) => hero.isYou), [true, false, false, false, false, false, false, false, false, false], "only the first generated hero is the local preview hero");
 
 const options = engine.getCharacterOptions();
-assert.equal(options.length, 10);
+assert.equal(options.length, 11);
 assert.deepEqual(options.map((option) => option.hero.name), catalog.HERO_TEMPLATES.map((hero) => hero.name), "character options expose every catalog hero in canonical order");
 assert.equal(catalog.ACTION_CARDS.length, 7, "the reusable common-card catalog contains exactly seven cards");
-assert.equal(Object.values(catalog.CHARACTER_SKILL_CARDS).flat().length, 30, "the special-card catalog contains exactly thirty cards");
+assert.equal(Object.values(catalog.CHARACTER_SKILL_CARDS).flat().length, 33, "the special-card catalog contains exactly thirty-three cards");
 assert.equal(catalog.REALMS.length, 1, "the current battle uses one authoritative realm definition");
 assert.equal(catalog.STORY_BEATS.length, catalog.EVENTS.length, "story and event narration catalogs remain index-compatible");
 const helperAdventure = engine.createAdventure("HELPERS");
@@ -64,6 +69,7 @@ const expectedPassiveNames = {
   "Thorne Vale": "Second-Beat Deadeye",
   "Mira Ash": "Wildfire Reach",
   "Brother Orren": "Graceful Restoration",
+  "Liora Venn": "Sanguine Recompense",
   "Nyx Calder": "Veilpiercer",
   "Bram Coalhand": "Two-Turn Temper",
   "Sable Fen": "Foreseen Return",
@@ -84,6 +90,9 @@ const expectedSpecialNames = {
   "bo-prayer": "Graceful Renewal",
   "bo-blessing": "Shared Restoration",
   "bo-return": "Immediate Resurrection",
+  "lv-verdict": "Crimson Verdict",
+  "lv-remedy": "Bloodbound Remedy",
+  "lv-communion": "Red Communion",
   "nc-knife": "Veilpiercing Knife",
   "nc-execute": "Veilpiercing Execution",
   "nc-pilfer": "Borrowed Fate",
@@ -103,15 +112,15 @@ const expectedSpecialNames = {
   "df-cleave": "Bloodied Cleave",
   "df-frenzy": "Flintblood Fury"
 };
-assert.equal(Object.keys(expectedPassiveNames).length, 10, "the naming contract must cover all ten character passives");
-assert.equal(Object.keys(expectedSpecialNames).length, 30, "the naming contract must cover all thirty special cards");
+assert.equal(Object.keys(expectedPassiveNames).length, 11, "the naming contract must cover all eleven character passives");
+assert.equal(Object.keys(expectedSpecialNames).length, 33, "the naming contract must cover all thirty-three special cards");
 for (const option of options) {
   assert.equal(option.hero.passiveName, expectedPassiveNames[option.hero.name], `${option.hero.name} must use its effect-aligned passive name`);
   assert.equal(option.hero.skill, option.skillDeck[0].name, `${option.hero.name}'s featured skill name must match their first special card`);
 }
 for (const card of everyCard.filter((candidate) => candidate.unique)) assert.equal(card.name, expectedSpecialNames[card.id], `${card.id} must use its effect-aligned special-card name`);
-assert.equal(new Set(Object.values(expectedPassiveNames)).size, 10, "every passive name must be unique");
-assert.equal(new Set(Object.values(expectedSpecialNames)).size, 30, "every special-card name must be unique");
+assert.equal(new Set(Object.values(expectedPassiveNames)).size, 11, "every passive name must be unique");
+assert.equal(new Set(Object.values(expectedSpecialNames)).size, 33, "every special-card name must be unique");
 const expectedSpecialBalance = {
   "ev-aegis": { pityCost: 5, failureEffect: "team-damage", failureValue: 1 },
   "ev-ward": { pityCost: 5, failureEffect: "lose-shield", failureValue: 2 },
@@ -125,6 +134,9 @@ const expectedSpecialBalance = {
   "bo-prayer": { pityCost: 5, failureEffect: "self-damage", failureValue: 1 },
   "bo-blessing": { pityCost: 6, failureEffect: "team-damage", failureValue: 1 },
   "bo-return": { pityCost: 8, failureEffect: "team-damage", failureValue: 2 },
+  "lv-verdict": { pityCost: 6, failureEffect: "self-damage", failureValue: 2 },
+  "lv-remedy": { pityCost: 7, failureEffect: "self-damage", failureValue: 2 },
+  "lv-communion": { pityCost: 7, failureEffect: "team-damage", failureValue: 1 },
   "nc-knife": { pityCost: 6, failureEffect: "self-damage", failureValue: 2 },
   "nc-execute": { pityCost: 7, failureEffect: "self-damage", failureValue: 3 },
   "nc-pilfer": { pityCost: 7, failureEffect: "enemy-shield", failureValue: 2 },
@@ -152,8 +164,8 @@ const expectedReducedCommonBalance = {
   "second-wind": { name: "Second Wind", description: "Restore 3 HP to yourself; cannot revive.", value: 3, pityCost: 3 }
 };
 const specialCards = everyCard.filter((card) => card.unique);
-assert.equal(Object.keys(expectedSpecialBalance).length, 30, "the rebalance contract must cover all 30 special cards");
-assert.equal(specialCards.length, 30, "the live catalog must expose all 30 special cards");
+assert.equal(Object.keys(expectedSpecialBalance).length, 33, "the rebalance contract must cover all 33 special cards");
+assert.equal(specialCards.length, 33, "the live catalog must expose all 33 special cards");
 for (const card of specialCards) {
   assert.deepEqual(
     { pityCost: card.pityCost, failureEffect: card.failureEffect, failureValue: card.failureValue },
@@ -276,10 +288,13 @@ for (const classId of ["ranger", "mage", "assassin", "duelist", "berserker"]) {
   const option = options.find((candidate) => candidate.hero.classId === classId);
   assert.equal(option.skillDeck.filter((card) => card.unique && ["damage", "aoe"].includes(card.effect)).length, 2, `${classId} must have exactly two damage specials and one role utility special`);
 }
+const bloodweaver = options.find((candidate) => candidate.hero.classId === "bloodweaver");
+assert.equal(bloodweaver.skillDeck.filter((card) => card.unique && ["damage", "aoe"].includes(card.effect)).length, 2, "Liora must have two health-exchange attacks");
+assert.equal(bloodweaver.skillDeck.filter((card) => card.unique && card.effect === "heal").length, 1, "Liora must have one team-healing special");
 assert.equal(options.find((option) => option.hero.classId === "tank").skillDeck.filter((card) => card.unique && ["damage", "aoe"].includes(card.effect)).length, 1, "Bram has one shield-powered damage special alongside two Guard specials");
 assert.equal(options.find((option) => option.hero.classId === "tank").hero.maxHp, 14);
 assert.equal(options.find((option) => option.hero.classId === "mage").hero.maxHp, 9);
-assert.deepEqual([...options].sort((a, b) => b.hero.speed - a.hero.speed).map((option) => option.hero.name), ["Nyx Calder", "Thorne Vale", "Kael Rook", "Sable Fen", "Ione Mire", "Mira Ash", "Brother Orren", "Elara Voss", "Dagan Flint", "Bram Coalhand"]);
+assert.deepEqual([...options].sort((a, b) => b.hero.speed - a.hero.speed).map((option) => option.hero.name), ["Nyx Calder", "Thorne Vale", "Kael Rook", "Sable Fen", "Ione Mire", "Mira Ash", "Brother Orren", "Elara Voss", "Liora Venn", "Dagan Flint", "Bram Coalhand"]);
 
 const first = engine.createPlayerSession("An", 0, options[0].hero.name, "first");
 const second = engine.createPlayerSession("Binh", 1, options[1].hero.name, "second");
@@ -299,6 +314,7 @@ assert.equal(game.maxTurns, 30);
 assert.equal(game.maxPhases, 30);
 assert.equal(game.completedPhases, 0);
 assert.equal(game.playerStates[first.id].pityPoints, 0, "every player begins with zero pity");
+assert.equal(game.playerStates[first.id].sanguineRecompense, false, "every player begins without a Sanguine Recompense charge");
 assert.equal(game.playerStates[first.id].hand.length + game.playerStates[first.id].drawPile.length + game.playerStates[first.id].discardPile.length + game.playerStates[first.id].graveyard.length, 10, "all cards begin in reusable zones with an empty graveyard");
 assert.equal(engine.createInitialGame([first, second], engine.createAdventure("TIMER"), 5).turnSeconds, 60, "battle turns always last exactly 60 seconds");
 assert(game.adventure.target >= 8 && game.adventure.target <= 16, "the initial target is randomly selected from the balanced target range");
@@ -1214,6 +1230,219 @@ assert(!fourthPurge.playerStates[commander.id].graveyard.includes(purgeCard.id),
 assert(fourthPurge.playerStates[diceEnemy.id].graveyard.includes(purgeReplacement.id), "a fourth Mirefield Seizure still moves an enemy hand card to graveyard");
 assert(fourthPurge.playerStates[diceEnemy.id].purgedCards.some((entry) => entry.cardId === purgeReplacement.id), "a fourth Mirefield Seizure still records the two-phase return timer");
 
+const lioraOption = options.find((option) => option.hero.name === lioraRules.LIORA_VENN_NAME);
+assert(lioraOption, "Liora Venn must be available in the character catalog");
+assert.deepEqual(
+  { role: lioraOption.hero.role, classId: lioraOption.hero.classId, hp: lioraOption.hero.hp, maxHp: lioraOption.hero.maxHp, speed: lioraOption.hero.speed },
+  { role: "Healer", classId: "bloodweaver", hp: 12, maxHp: 12, speed: 3 },
+  "Liora must retain her approved healer identity and base stats"
+);
+const lioraVerdictTemplate = lioraOption.skillDeck.find((card) => card.id === "lv-verdict");
+const lioraRemedyTemplate = lioraOption.skillDeck.find((card) => card.id === "lv-remedy");
+const lioraCommunionTemplate = lioraOption.skillDeck.find((card) => card.id === "lv-communion");
+assert.deepEqual(
+  [lioraVerdictTemplate, lioraRemedyTemplate, lioraCommunionTemplate].map((card) => ({ id: card.id, effect: card.effect, target: card.target, value: card.value, pityCost: card.pityCost })),
+  [
+    { id: "lv-verdict", effect: "damage", target: "enemy", value: 4, pityCost: 6 },
+    { id: "lv-remedy", effect: "heal", target: "all-allies", value: 4, pityCost: 7 },
+    { id: "lv-communion", effect: "aoe", target: "all-enemies", value: 3, pityCost: 7 }
+  ],
+  "Liora's three special cards must retain their approved targets, values, and pity costs"
+);
+assert.equal(lioraVerdictTemplate.description, "Requires at least 4 HP. On success, lose 3 HP, then deal 4 damage to one living enemy.");
+assert.equal(lioraRemedyTemplate.description, "All living allies, including yourself, restore 4 HP (5 with Sanguine Recompense); cannot revive.");
+assert.equal(lioraCommunionTemplate.description, "Requires at least 4 HP. On success, lose 3 HP, then deal 3 damage to every living enemy.");
+assert.equal(lioraOption.hero.passiveText, "After Liora pays HP to use Crimson Verdict or Red Communion, her next successful Heal card restores 1 additional HP to every living ally; does not stack.");
+
+const liora = engine.createPlayerSession("Liora", 0, "Liora Venn", "liora-rules");
+const lioraEnemy = engine.createPlayerSession("Liora enemy", 1, "Elara Voss", "liora-enemy");
+const lioraAlly = engine.createPlayerSession("Liora ally", 2, "Brother Orren", "liora-ally");
+const lioraDeadAlly = engine.createPlayerSession("Liora fallen ally", 4, "Mira Ash", "liora-dead-ally");
+const lioraVerdict = liora.skillDeck.find((card) => card.id === "lv-verdict");
+const lioraRemedy = liora.skillDeck.find((card) => card.id === "lv-remedy");
+const lioraCommunion = liora.skillDeck.find((card) => card.id === "lv-communion");
+const lioraSecondWind = liora.skillDeck.find((card) => card.id.endsWith("-common-second-wind"));
+const lioraSlash = liora.skillDeck.find((card) => card.id.endsWith("-common-slash"));
+const prepareLioraGame = (seed, party = [liora, lioraEnemy, lioraAlly]) => {
+  const prepared = engine.createInitialGame(party, engine.createAdventure(seed), 30);
+  prepared.turnOrder = party.map((player) => player.id);
+  prepared.adventure.target = 8;
+  return prepared;
+};
+
+const exactCostGame = prepareLioraGame("LIORA-EXACT-COST", [liora, lioraEnemy]);
+Object.assign(exactCostGame.playerStates[liora.id], { hp: 4, shield: 6, attackBuff: 2, hand: [lioraVerdict.id] });
+exactCostGame.playerStates[liora.id].timedEffects = [
+  { kind: "shield", value: 6, expiresAfterTurn: 99 },
+  { kind: "attackBuff", value: 2, expiresAfterTurn: 99 }
+];
+Object.assign(exactCostGame.playerStates[lioraEnemy.id], { shield: 3 });
+exactCostGame.playerStates[lioraEnemy.id].timedEffects = [{ kind: "shield", value: 3, expiresAfterTurn: 99 }];
+const exactCostResult = engine.resolveCardTurn(exactCostGame, [liora, lioraEnemy], lioraVerdict.id, lioraEnemy.id, 20);
+assert.equal(exactCostResult.playerStates[liora.id].hp, 1, "Crimson Verdict must allow exactly 4 HP and leave Liora at 1 HP");
+assert.equal(exactCostResult.playerStates[liora.id].shield, 6, "the 3 HP payment must ignore and preserve Liora's shield");
+assert.equal(exactCostResult.playerStates[liora.id].attackBuff, 0, "a successful Crimson Verdict consumes the existing attack buff normally");
+assert.equal(exactCostResult.playerStates[liora.id].sanguineRecompense, true, "a successful Crimson Verdict primes Sanguine Recompense");
+assert.equal(exactCostResult.playerStates[lioraEnemy.id].hp, lioraEnemy.hero.maxHp - 3, "Crimson Verdict damage plus attack buff must still respect enemy shield");
+assert.equal(exactCostResult.playerStates[lioraEnemy.id].shield, 0, "enemy shield must absorb Crimson Verdict before HP damage");
+assert.equal(exactCostResult.outcome.amount, 3, "Crimson Verdict reports only enemy HP damage, not Liora's health payment");
+assert.match(exactCostResult.outcome.detail, /paid 3 HP/, "the synchronized outcome explains Liora's health payment");
+
+const lowHpGame = prepareLioraGame("LIORA-LOW-HP", [liora, lioraEnemy]);
+Object.assign(lowHpGame.playerStates[liora.id], { hp: 3, pityPoints: lioraVerdict.pityCost, hand: [lioraVerdict.id] });
+assert.equal(engine.resolveCardTurn(lowHpGame, [liora, lioraEnemy], lioraVerdict.id, lioraEnemy.id, 20), lowHpGame, "Crimson Verdict cannot roll below its 4 HP requirement");
+assert.equal(engine.resolveCardTurn(lowHpGame, [liora, lioraEnemy], lioraVerdict.id, lioraEnemy.id, 0, true), lowHpGame, "Pity cannot bypass Crimson Verdict's 4 HP requirement");
+
+const failedVerdictGame = prepareLioraGame("LIORA-FAILED-VERDICT", [liora, lioraEnemy]);
+failedVerdictGame.adventure.target = 20;
+Object.assign(failedVerdictGame.playerStates[liora.id], { hp: 4, shield: 5, hand: [lioraVerdict.id] });
+failedVerdictGame.playerStates[liora.id].timedEffects = [{ kind: "shield", value: 5, expiresAfterTurn: 99 }];
+const failedVerdict = engine.resolveCardTurn(failedVerdictGame, [liora, lioraEnemy], lioraVerdict.id, lioraEnemy.id, 1);
+assert.equal(failedVerdict.playerStates[liora.id].hp, 2, "failed Crimson Verdict applies only its 2 backlash damage, not its 3 HP success cost");
+assert.equal(failedVerdict.playerStates[liora.id].shield, 5, "Crimson Verdict failure backlash bypasses shield without consuming it");
+assert.equal(failedVerdict.playerStates[liora.id].sanguineRecompense, false, "failed Crimson Verdict cannot prime Sanguine Recompense");
+assert.equal(failedVerdict.playerStates[lioraEnemy.id].hp, lioraEnemy.hero.maxHp, "failed Crimson Verdict cannot damage its target");
+
+const pityVerdictGame = prepareLioraGame("LIORA-PITY", [liora, lioraEnemy]);
+Object.assign(pityVerdictGame.playerStates[liora.id], { hp: 4, pityPoints: lioraVerdict.pityCost, hand: [lioraVerdict.id] });
+const pityVerdict = engine.resolveCardTurn(pityVerdictGame, [liora, lioraEnemy], lioraVerdict.id, lioraEnemy.id, 0, true);
+assert.equal(pityVerdict.playerStates[liora.id].hp, 1, "a Pity success still pays Crimson Verdict's full 3 HP cost");
+assert.equal(pityVerdict.playerStates[liora.id].pityPoints, 0, "Crimson Verdict spends its exact Pity cost");
+assert.equal(pityVerdict.playerStates[liora.id].sanguineRecompense, true, "a Pity success primes Sanguine Recompense");
+
+const communionParty = [liora, lioraEnemy, engine.createPlayerSession("Second enemy", 3, "Thorne Vale", "liora-enemy-two"), lioraAlly];
+const communionGame = prepareLioraGame("LIORA-COMMUNION", communionParty);
+Object.assign(communionGame.playerStates[liora.id], { hp: 4, sanguineRecompense: true, hand: [lioraCommunion.id] });
+communionGame.playerStates[communionParty[1].id].shield = 1;
+communionGame.playerStates[communionParty[2].id].shield = 2;
+const communionResult = engine.resolveCardTurn(communionGame, communionParty, lioraCommunion.id, liora.id, 20);
+assert.equal(communionResult.playerStates[liora.id].hp, 1, "Red Communion pays its 3 HP cost once regardless of enemy count");
+assert.equal(communionResult.playerStates[liora.id].sanguineRecompense, true, "using a second blood attack cannot stack beyond one ready Sanguine Recompense charge");
+assert.equal(communionResult.playerStates[communionParty[1].id].hp, communionParty[1].hero.maxHp - 2, "Red Communion applies its 3 damage through the first enemy's shield");
+assert.equal(communionResult.playerStates[communionParty[2].id].hp, communionParty[2].hero.maxHp - 1, "Red Communion independently applies shield to every living enemy");
+
+const failedCommunionGame = prepareLioraGame("LIORA-FAILED-COMMUNION", [liora, lioraEnemy, lioraAlly]);
+failedCommunionGame.adventure.target = 20;
+Object.assign(failedCommunionGame.playerStates[liora.id], { hp: 4, sanguineRecompense: true, hand: [lioraCommunion.id] });
+const failedCommunion = engine.resolveCardTurn(failedCommunionGame, [liora, lioraEnemy, lioraAlly], lioraCommunion.id, liora.id, 1);
+assert.equal(failedCommunion.playerStates[liora.id].hp, 3, "failed Red Communion applies only its 1 team backlash");
+assert.equal(failedCommunion.playerStates[lioraAlly.id].hp, lioraAlly.hero.maxHp - 1, "failed Red Communion damages every living ally");
+assert.equal(failedCommunion.playerStates[liora.id].sanguineRecompense, true, "failed Red Communion neither creates nor consumes the existing passive charge");
+
+const remedyParty = [liora, lioraEnemy, lioraAlly, lioraDeadAlly];
+const remedyGame = prepareLioraGame("LIORA-REMEDY", remedyParty);
+Object.assign(remedyGame.playerStates[liora.id], { hp: 1, sanguineRecompense: true, hand: [lioraRemedy.id] });
+remedyGame.playerStates[lioraAlly.id].hp = 1;
+remedyGame.playerStates[lioraDeadAlly.id].hp = 0;
+const remedyResult = engine.resolveCardTurn(remedyGame, remedyParty, lioraRemedy.id, liora.id, 20);
+assert.equal(remedyResult.playerStates[liora.id].hp, 6, "Sanguine Recompense increases Bloodbound Remedy to 5 HP for Liora");
+assert.equal(remedyResult.playerStates[lioraAlly.id].hp, 6, "Sanguine Recompense increases Bloodbound Remedy to 5 HP for every living ally");
+assert.equal(remedyResult.playerStates[lioraDeadAlly.id].hp, 0, "Bloodbound Remedy cannot revive a defeated ally");
+assert.deepEqual(remedyResult.outcome.targetIds.sort(), [liora.id, lioraAlly.id].sort(), "Bloodbound Remedy targets every living ally and excludes defeated allies");
+assert.equal(remedyResult.outcome.amount, 10, "Bloodbound Remedy reports the total HP actually restored");
+assert.equal(remedyResult.playerStates[liora.id].sanguineRecompense, false, "a successful Bloodbound Remedy consumes Sanguine Recompense once after all targets resolve");
+
+const cappedRemedyGame = prepareLioraGame("LIORA-CAPPED-REMEDY", [liora, lioraEnemy, lioraAlly]);
+Object.assign(cappedRemedyGame.playerStates[liora.id], { hp: 11, sanguineRecompense: true, hand: [lioraRemedy.id] });
+cappedRemedyGame.playerStates[lioraAlly.id].hp = lioraAlly.hero.maxHp;
+const cappedRemedy = engine.resolveCardTurn(cappedRemedyGame, [liora, lioraEnemy, lioraAlly], lioraRemedy.id, liora.id, 20);
+assert.equal(cappedRemedy.playerStates[liora.id].hp, 12, "Bloodbound Remedy caps Liora at maximum HP");
+assert.equal(cappedRemedy.playerStates[lioraAlly.id].hp, lioraAlly.hero.maxHp, "Bloodbound Remedy cannot exceed an ally's maximum HP");
+assert.equal(cappedRemedy.outcome.amount, 1, "capped Bloodbound Remedy reports only HP actually restored");
+assert.equal(cappedRemedy.playerStates[liora.id].sanguineRecompense, false, "a successful Heal card consumes the passive even when healing is capped");
+
+const secondWindParty = [liora, lioraEnemy, lioraAlly, lioraDeadAlly];
+const secondWindGame = prepareLioraGame("LIORA-SECOND-WIND", secondWindParty);
+Object.assign(secondWindGame.playerStates[liora.id], { hp: 5, sanguineRecompense: true, hand: [lioraSecondWind.id] });
+secondWindGame.playerStates[lioraAlly.id].hp = 5;
+secondWindGame.playerStates[lioraDeadAlly.id].hp = 0;
+const lioraSecondWindResult = engine.resolveCardTurn(secondWindGame, secondWindParty, lioraSecondWind.id, liora.id, 20);
+assert.equal(lioraSecondWindResult.playerStates[liora.id].hp, 9, "Sanguine Recompense increases the common Second Wind heal from 3 to 4 HP");
+assert.equal(lioraSecondWindResult.playerStates[lioraAlly.id].hp, 6, "Sanguine Recompense restores 1 HP to every other living ally when Second Wind succeeds");
+assert.equal(lioraSecondWindResult.playerStates[lioraEnemy.id].hp, lioraEnemy.hero.maxHp, "Sanguine Recompense never heals enemies");
+assert.equal(lioraSecondWindResult.playerStates[lioraDeadAlly.id].hp, 0, "Sanguine Recompense cannot revive a defeated ally through Second Wind");
+assert.deepEqual(lioraSecondWindResult.outcome.targetIds, [liora.id], "Second Wind remains self-targeted even though Sanguine Recompense pulses across living allies");
+assert.equal(lioraSecondWindResult.outcome.amount, 5, "Second Wind reports Liora's 4 restored HP plus 1 HP restored to her living ally");
+assert.equal(lioraSecondWindResult.playerStates[liora.id].sanguineRecompense, false, "a successful common Heal card consumes Sanguine Recompense");
+
+const failedRemedyGame = prepareLioraGame("LIORA-FAILED-REMEDY", [liora, lioraEnemy, lioraAlly]);
+failedRemedyGame.adventure.target = 20;
+Object.assign(failedRemedyGame.playerStates[liora.id], { hp: 7, sanguineRecompense: true, hand: [lioraRemedy.id] });
+failedRemedyGame.playerStates[lioraAlly.id].hp = 1;
+const failedRemedy = engine.resolveCardTurn(failedRemedyGame, [liora, lioraEnemy, lioraAlly], lioraRemedy.id, liora.id, 1);
+assert.equal(failedRemedy.playerStates[liora.id].hp, 5, "failed Bloodbound Remedy applies its 2 self backlash");
+assert.equal(failedRemedy.playerStates[lioraAlly.id].hp, 1, "failed Bloodbound Remedy never heals an ally");
+assert.equal(failedRemedy.playerStates[liora.id].sanguineRecompense, true, "a failed Heal card preserves Sanguine Recompense");
+
+const retainedChargeGame = prepareLioraGame("LIORA-RETAINED-CHARGE", [liora, lioraEnemy]);
+Object.assign(retainedChargeGame.playerStates[liora.id], { sanguineRecompense: true, hand: [lioraSlash.id] });
+const retainedCharge = engine.resolveCardTurn(retainedChargeGame, [liora, lioraEnemy], lioraSlash.id, lioraEnemy.id, 20);
+assert.equal(retainedCharge.playerStates[liora.id].sanguineRecompense, true, "non-Heal cards do not consume Sanguine Recompense");
+
+const borrowedLiora = engine.createPlayerSession("Borrowed Liora", 2, "Liora Venn", "borrowed-liora-owner");
+const borrowedActor = engine.createPlayerSession("Borrowing Nyx", 0, "Nyx Calder", "borrowed-liora-actor");
+const borrowedTarget = engine.createPlayerSession("Borrowed target", 1, "Elara Voss", "borrowed-liora-target");
+const borrowedVerdict = borrowedLiora.skillDeck.find((card) => card.id === "lv-verdict");
+const borrowedParty = [borrowedActor, borrowedTarget, borrowedLiora];
+const borrowedGame = engine.createInitialGame(borrowedParty, engine.createAdventure("LIORA-BORROWED"), 30);
+borrowedGame.turnOrder = borrowedParty.map((player) => player.id);
+borrowedGame.adventure.target = 8;
+Object.assign(borrowedGame.playerStates[borrowedActor.id], {
+  hp: 4,
+  hand: [borrowedVerdict.id],
+  borrowedCards: [{ cardId: borrowedVerdict.id, ownerId: borrowedLiora.id, borrowedAtTurn: 0, expiresAfterBorrowerTurn: 2 }]
+});
+for (const zone of ["hand", "drawPile", "discardPile"]) borrowedGame.playerStates[borrowedLiora.id][zone] = borrowedGame.playerStates[borrowedLiora.id][zone].filter((id) => id !== borrowedVerdict.id);
+borrowedGame.playerStates[borrowedTarget.id].shield = 5;
+const borrowedResult = engine.resolveCardTurn(borrowedGame, borrowedParty, borrowedVerdict.id, borrowedTarget.id, 20);
+assert.equal(borrowedResult.playerStates[borrowedActor.id].hp, 1, "a non-Liora user must still pay a stolen blood card's 3 HP cost");
+assert.equal(borrowedResult.playerStates[borrowedActor.id].sanguineRecompense, false, "a stolen Liora attack cannot grant another character Liora's passive");
+assert.equal(borrowedResult.playerStates[borrowedTarget.id].hp, borrowedTarget.hero.maxHp - 4, "Nyx's shield-piercing passive still applies to a stolen Crimson Verdict");
+assert.equal(borrowedResult.playerStates[borrowedLiora.id].discardPile.includes(borrowedVerdict.id), true, "a stolen Crimson Verdict returns to its owner's discard pile after use");
+
+const forgedLiora = structuredClone(liora);
+const forgedVerdict = forgedLiora.skillDeck.find((card) => card.id === "lv-verdict");
+Object.assign(forgedVerdict, { value: 99, pityCost: 0, description: "Forged" });
+assert.equal(lioraRules.normalizeLioraVennCards([forgedLiora]), true, "realtime normalization repairs forged Liora card definitions");
+const normalizedVerdict = forgedLiora.skillDeck.find((card) => card.id === "lv-verdict");
+assert.deepEqual(
+  { value: normalizedVerdict.value, pityCost: normalizedVerdict.pityCost, description: normalizedVerdict.description },
+  { value: 4, pityCost: 6, description: lioraVerdict.description },
+  "realtime normalization restores Crimson Verdict's authoritative contract"
+);
+assert.equal(lioraRules.normalizeLioraVennCards([forgedLiora]), false, "canonical Liora cards do not produce repeated normalization changes");
+
+const reconciledCost = structuredClone(exactCostResult);
+Object.assign(reconciledCost.playerStates[liora.id], { hp: 12, sanguineRecompense: false });
+assert.equal(lioraRules.reconcileLioraVennImpact(exactCostGame, reconciledCost, liora, [liora, lioraEnemy]), "", "realtime reconciliation accepts a legal Crimson Verdict");
+assert.equal(reconciledCost.playerStates[liora.id].hp, 1, "realtime reconciliation restores Crimson Verdict's authoritative 3 HP cost");
+assert.equal(reconciledCost.playerStates[liora.id].sanguineRecompense, true, "realtime reconciliation restores the authoritative passive charge");
+
+const forgedLowHpUpdate = structuredClone(lowHpGame);
+forgedLowHpUpdate.outcome = { kind: "card", success: true, cardId: lioraVerdict.id, cardName: lioraVerdict.name, targetIds: [lioraEnemy.id] };
+assert.match(lioraRules.reconcileLioraVennImpact(lowHpGame, forgedLowHpUpdate, liora, [liora, lioraEnemy]), /requires at least 4 HP/, "both realtime authorities reject forged low-HP blood-card updates");
+
+const reconciledRemedy = structuredClone(remedyResult);
+Object.assign(reconciledRemedy.playerStates[liora.id], { hp: 12, sanguineRecompense: true });
+reconciledRemedy.playerStates[lioraAlly.id].hp = lioraAlly.hero.maxHp;
+reconciledRemedy.outcome.amount = 999;
+assert.equal(lioraRules.reconcileLioraVennImpact(remedyGame, reconciledRemedy, liora, remedyParty), "", "realtime reconciliation accepts legal Sanguine Recompense healing");
+assert.equal(reconciledRemedy.playerStates[liora.id].hp, 6, "realtime reconciliation restores Liora's exact enhanced healing");
+assert.equal(reconciledRemedy.playerStates[lioraAlly.id].hp, 6, "realtime reconciliation restores every living ally's exact enhanced healing");
+assert.equal(reconciledRemedy.playerStates[liora.id].sanguineRecompense, false, "realtime reconciliation consumes the passive exactly once");
+assert.equal(reconciledRemedy.outcome.amount, 10, "realtime reconciliation repairs the reported healing total");
+
+const reconciledSecondWind = structuredClone(lioraSecondWindResult);
+reconciledSecondWind.playerStates[liora.id].hp = 12;
+reconciledSecondWind.playerStates[lioraAlly.id].hp = lioraAlly.hero.maxHp;
+reconciledSecondWind.outcome.amount = 999;
+assert.equal(lioraRules.reconcileLioraVennImpact(secondWindGame, reconciledSecondWind, liora, secondWindParty), "", "realtime reconciliation accepts a legal team-wide Second Wind pulse");
+assert.equal(reconciledSecondWind.playerStates[liora.id].hp, 9, "realtime reconciliation restores Second Wind's 3 plus 1 healing on Liora");
+assert.equal(reconciledSecondWind.playerStates[lioraAlly.id].hp, 6, "realtime reconciliation restores Second Wind's 1 HP pulse on every other living ally");
+assert.equal(reconciledSecondWind.playerStates[lioraDeadAlly.id].hp, 0, "realtime reconciliation leaves defeated allies defeated");
+assert.equal(reconciledSecondWind.playerStates[liora.id].sanguineRecompense, false, "realtime reconciliation consumes the team-wide healing charge once");
+assert.equal(reconciledSecondWind.outcome.amount, 5, "realtime reconciliation repairs Second Wind's combined healing total");
+
 let resolvedSuccessCardCopies = 0;
 for (const option of options) {
   for (const templateCard of option.skillDeck) {
@@ -1286,6 +1515,10 @@ for (const option of options) {
       });
       assert.equal(matrixSuccess.outcome.amount, expectedDamage.reduce((sum, value) => sum + value, 0), `${matrixCard.name} must apply its exact total attack damage`);
       expectedTargetIds.forEach((id, index) => assert.equal(matrixSuccess.playerStates[id].hp, beforeSuccess.playerStates[id].hp - expectedDamage[index], `${matrixCard.name} must update each target's authoritative HP`));
+      if (lioraRules.isLioraVennHealthExchangeCard(matrixCard)) {
+        assert.equal(matrixSuccess.playerStates[matrixActor.id].hp, beforeSuccess.playerStates[matrixActor.id].hp - lioraRules.LIORA_VENN_HEALTH_COST, `${matrixCard.name} must charge its exact HP cost once`);
+        assert.equal(matrixSuccess.playerStates[matrixActor.id].sanguineRecompense, true, `${matrixCard.name} must prime Liora's non-stacking heal bonus`);
+      }
     } else if (matrixCard.effect === "heal") {
       const healPower = matrixCard.value + (matrixActor.hero.name === "Brother Orren" ? 1 : 0);
       const expectedHealing = expectedTargetIds.map((id) => Math.min(healPower, beforeSuccess.playerStates[id].maxHp - beforeSuccess.playerStates[id].hp));
@@ -1322,7 +1555,7 @@ for (const option of options) {
     resolvedSuccessCardCopies += 1;
   }
 }
-assert.equal(resolvedSuccessCardCopies, 100, "the success matrix must execute every card in all ten character decks");
+assert.equal(resolvedSuccessCardCopies, 110, "the success matrix must execute every card in all eleven character decks");
 
 for (const option of options) {
   for (const templateCard of option.skillDeck.filter((card) => card.unique)) {
@@ -1533,4 +1766,4 @@ assert.deepEqual(nextSpeedRound.actedThisRound, []);
 if (originalTestMode === undefined) delete process.env.TEST_MODE;
 else process.env.TEST_MODE = originalTestMode;
 
-console.log("Game-rule test passed: all 100 character-deck card success paths, all 30 special-card failures, all 10 passives, helper contracts, pity, support effects, turn order, history, victory, and defeated-player lockout.");
+console.log("Game-rule test passed: all 110 character-deck card success paths, all 33 special-card failures, all 11 passives, helper contracts, pity, support effects, turn order, history, victory, and defeated-player lockout.");

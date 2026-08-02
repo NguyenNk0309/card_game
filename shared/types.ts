@@ -246,6 +246,7 @@ export type PlayerRunState = {
   pityPoints: number;
   reviveIn: number;
   passiveReviveUsed: boolean;
+  sanguineRecompense: boolean;
   skipTurns: number;
   completedPlayerTurns: number;
   zeroPityUntilTurn: number;

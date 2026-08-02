@@ -1,5 +1,6 @@
 import { ACTION_CARDS, calculatePityCost, CHARACTER_SKILL_CARDS, EVENTS, HERO_TEMPLATES, REALMS, STORY_BEATS } from "./catalog";
 import { calculateRuntimePityCost, isTestModeEnabled } from "@/shared/pityCost.mjs";
+import { canPayLioraVennHealthCost, isLioraVennHealthExchangeCard, LIORA_VENN_HEALTH_COST, LIORA_VENN_NAME } from "@/shared/lioraVenn.mjs";
 import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, Hero, PlayerLifeEvent, PlayerRunState, PlayerSession, SyncedGameState, TeamId, TimedEffectKind } from "@/shared/types";
 
 export function randomIntInclusive(minimum: number, maximum: number) {
@@ -83,7 +84,7 @@ export function createPlayerSession(displayName: string, seatIndex: number, hero
 
 function createRunState(player: PlayerSession): PlayerRunState {
   const drawPile = shuffle(player.skillDeck.map((card) => card.id));
-  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, pityPoints: 0, reviveIn: 0, passiveReviveUsed: false, skipTurns: 0, completedPlayerTurns: 0, zeroPityUntilTurn: 0, timedEffects: [], borrowedCards: [], purgedCards: [], cardUses: {}, hand: drawPile.splice(0, 4), drawPile, discardPile: [], graveyard: [] };
+  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, pityPoints: 0, reviveIn: 0, passiveReviveUsed: false, sanguineRecompense: false, skipTurns: 0, completedPlayerTurns: 0, zeroPityUntilTurn: 0, timedEffects: [], borrowedCards: [], purgedCards: [], cardUses: {}, hand: drawPile.splice(0, 4), drawPile, discardPile: [], graveyard: [] };
 }
 
 const timedField = (kind: TimedEffectKind) => kind;
@@ -374,13 +375,14 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const card = players.flatMap((player) => player.skillDeck).find((item) => item.id === cardId);
   const pityCost = card ? calculateRuntimePityCost(card, hasFavorableOmen(actorState) || isTestModeEnabled(process.env.TEST_MODE)) : 0;
   const pityBefore = actorState?.pityPoints ?? 0;
-  if (!actor || !actorState || actorState.hp <= 0 || !card || !actorState.hand.includes(card.id) || game.ended || game.pendingWorldEvent || (usePity && pityBefore < pityCost)) return game;
+  if (!actor || !actorState || actorState.hp <= 0 || !card || !actorState.hand.includes(card.id) || game.ended || game.pendingWorldEvent || (usePity && pityBefore < pityCost) || !canPayLioraVennHealthCost(card, actorState.hp)) return game;
 
   const states = Object.fromEntries(Object.entries(game.playerStates).map(([id, state]) => [id, {
     ...state,
     pityPoints: state.pityPoints ?? 0,
     reviveIn: state.reviveIn ?? 0,
     passiveReviveUsed: state.passiveReviveUsed ?? false,
+    sanguineRecompense: state.sanguineRecompense ?? false,
     skipTurns: state.skipTurns ?? 0,
     completedPlayerTurns: state.completedPlayerTurns ?? 0,
     zeroPityUntilTurn: state.zeroPityUntilTurn ?? 0,
@@ -440,16 +442,22 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     } else if (card.effect === "damage" || card.effect === "aoe") {
       const sacrificedShield = card.id === BULWARK_TO_BLADE_CARD_ID ? Math.max(0, states[actor.id].shield) : 0;
       if (card.id === BULWARK_TO_BLADE_CARD_ID) removeTimedEffectAmount(states[actor.id], "shield", sacrificedShield);
-      let passive = getThorneValePassiveDamageBonus(actor, card, actorState);
+      const paidHealth = isLioraVennHealthExchangeCard(card) && targets.length ? LIORA_VENN_HEALTH_COST : 0;
+      if (paidHealth) {
+        states[actor.id].hp = Math.max(1, states[actor.id].hp - paidHealth);
+        if (actor.hero.name === LIORA_VENN_NAME) states[actor.id].sanguineRecompense = true;
+      }
+      const resolvingActorState = states[actor.id];
+      let passive = getThorneValePassiveDamageBonus(actor, card, resolvingActorState);
       if (actor.hero.classId === "mage" && card.effect === "aoe") passive += 1;
-      if (actor.hero.classId === "berserker" && actorState.hp <= actorState.maxHp / 2) passive += 1;
+      if (actor.hero.classId === "berserker" && resolvingActorState.hp <= resolvingActorState.maxHp / 2) passive += 1;
       const ignoresShield = Boolean(card.ignoresShield || actor.hero.classId === "assassin");
       const reports: string[] = [];
       for (const target of targets) {
         const state = states[target.id];
-        const kaelPassive = getKaelRookPassiveDamageBonus(actor, card, actorState, state);
+        const kaelPassive = getKaelRookPassiveDamageBonus(actor, card, resolvingActorState, state);
         const basePower = card.id === BULWARK_TO_BLADE_CARD_ID ? sacrificedShield : card.value;
-        const power = basePower + actorState.attackBuff + passive + kaelPassive;
+        const power = basePower + resolvingActorState.attackBuff + passive + kaelPassive;
         const blocked = ignoresShield ? 0 : Math.min(state.shield, power);
         removeTimedEffectAmount(state, "shield", blocked);
         const damage = power - blocked;
@@ -460,23 +468,38 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       }
       if (targets.length) clearTimedEffect(states[actor.id], "attackBuff");
       detail = reports.length
-        ? `${card.id === BULWARK_TO_BLADE_CARD_ID ? `${actor.displayName} removed ${sacrificedShield} shield. ` : ""}${reports.join("; ")}.`
+        ? `${paidHealth ? `${actor.displayName} paid ${paidHealth} HP. ` : ""}${card.id === BULWARK_TO_BLADE_CARD_ID ? `${actor.displayName} removed ${sacrificedShield} shield. ` : ""}${reports.join("; ")}.`
         : `${actor.displayName}'s attack had no valid target and no effect.`;
     } else if (card.effect === "heal") {
+      const recompenseActive = actor.hero.name === LIORA_VENN_NAME && states[actor.id].sanguineRecompense;
       const power = card.value + (actor.hero.name === "Brother Orren" ? 1 : 0);
-      const reports: string[] = [];
+      const restoredByTarget = new Map<string, number>();
       for (const target of targets) {
         const before = states[target.id].hp;
         states[target.id].hp = Math.min(states[target.id].maxHp, states[target.id].hp + power);
         const restored = states[target.id].hp - before;
         amount += restored;
-        reports.push(`${target.displayName} +${restored} HP`);
+        restoredByTarget.set(target.id, restored);
       }
-      detail = targets.length > 1
-        ? `${actor.displayName} restored HP to every living ally: ${reports.join(", ")}.`
-        : targets.length === 1
-          ? `${actor.displayName} restored ${amount} HP to ${targets[0].displayName}.`
-          : `${actor.displayName}'s Heal card had no valid target and no effect.`;
+      if (targets.length && recompenseActive) {
+        for (const ally of allies) {
+          const before = states[ally.id].hp;
+          states[ally.id].hp = Math.min(states[ally.id].maxHp, states[ally.id].hp + 1);
+          const restored = states[ally.id].hp - before;
+          amount += restored;
+          restoredByTarget.set(ally.id, (restoredByTarget.get(ally.id) ?? 0) + restored);
+        }
+        states[actor.id].sanguineRecompense = false;
+      }
+      const reportTargets = targets.length && recompenseActive ? allies : targets;
+      const reports = reportTargets.map((target) => `${target.displayName} +${restoredByTarget.get(target.id) ?? 0} HP`);
+      detail = targets.length && recompenseActive
+        ? `${actor.displayName} restored HP: ${reports.join(", ")}. Sanguine Recompense restored +1 HP to every living ally and was consumed.`
+        : targets.length > 1
+          ? `${actor.displayName} restored HP to every living ally: ${reports.join(", ")}.`
+          : targets.length === 1
+            ? `${actor.displayName} restored ${amount} HP to ${targets[0].displayName}.`
+            : `${actor.displayName}'s Heal card had no valid target and no effect.`;
     } else if (card.effect === "guard") {
       amount = card.value + (actor.hero.name === "Elara Voss" ? 1 : 0);
       const durationTurns = actor.hero.name === "Bram Coalhand" ? 2 : 1;
