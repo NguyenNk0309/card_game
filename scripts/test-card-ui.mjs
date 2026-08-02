@@ -318,6 +318,15 @@ assert.deepEqual(
   ],
   "a multi-card redraw must animate every changed hand position"
 );
+assert.deepEqual(
+  getCardZoneChanges(["played", "kept"], ["played", "draw-two", "draw-three", "kept"], [0]),
+  [
+    { slotIndex: 0, discardedId: "played", drawnId: "played" },
+    { slotIndex: 1, discardedId: undefined, drawnId: "draw-two" },
+    { slotIndex: 2, discardedId: undefined, drawnId: "draw-three" },
+  ],
+  "a three-card refill must animate every draw even when the played card is immediately recycled"
+);
 assert.match(gameApp, /motion\.items\.flatMap/, "the replacement VFX must render every changed card slot");
 assert.match(gameApp, /selectedHandMotions = cardIds\.flatMap/, "multi-card World Event choices must preserve every selected hand slot");
 assert.match(styles, /\.card-motion\.hand-from-zone\s*\{[^}]*animation:\s*hand-card-fade-out 1\.05s ease-in-out both;/, "every outgoing card must retain the discard animation");

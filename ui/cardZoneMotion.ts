@@ -22,17 +22,18 @@ function unmatchedIndexes(source: string[], target: string[]) {
 
 export function getCardZoneChanges(previousHand: string[], nextHand: string[], forcedDiscardSlots: number[] = []): CardZoneChange[] {
   const sameSize = previousHand.length === nextHand.length;
+  const forcedIndexes = forcedDiscardSlots.filter((index) => index >= 0 && index < previousHand.length);
+  const forced = new Set(forcedIndexes);
+  const retainedPreviousHand = previousHand.filter((_, index) => !forced.has(index));
   const outgoingIndexes = sameSize
     ? previousHand.flatMap((cardId, index) => cardId !== nextHand[index] ? [index] : [])
     : unmatchedIndexes(previousHand, nextHand);
   const incomingIndexes = sameSize
-    ? [...outgoingIndexes]
-    : unmatchedIndexes(nextHand, previousHand);
-  const forcedIndexes = forcedDiscardSlots.filter((index) => index >= 0 && index < previousHand.length);
+    ? [...new Set([...outgoingIndexes, ...forcedIndexes.filter((index) => index < nextHand.length)])]
+    : unmatchedIndexes(nextHand, retainedPreviousHand);
   const changedIndexes = [...new Set([...outgoingIndexes, ...incomingIndexes, ...forcedIndexes])].sort((left, right) => left - right);
   const outgoing = new Set(outgoingIndexes);
   const incoming = new Set(incomingIndexes);
-  const forced = new Set(forcedIndexes);
 
   return changedIndexes.flatMap((slotIndex) => {
     const discardedId = outgoing.has(slotIndex) || forced.has(slotIndex) ? previousHand[slotIndex] : undefined;

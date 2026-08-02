@@ -19,6 +19,7 @@ export function randomIntInclusive(minimum: number, maximum: number) {
 const pick = <T,>(items: T[], index = randomIntInclusive(0, items.length - 1)) => items[Math.abs(index) % items.length];
 const teamName = (team: TeamId) => team === "veil" ? "Veilbound" : "Embercourt";
 const BULWARK_TO_BLADE_CARD_ID = "bc-march";
+const MINIMUM_HAND_SIZE = 4;
 export const BATTLE_TURN_SECONDS = 60;
 
 export function randomDiceTarget() {
@@ -196,13 +197,16 @@ function drawOneOrRecycleDiscard(state: PlayerRunState, handIndex = state.hand.l
   return { ...state, drawPile, discardPile, hand };
 }
 
-function drawReplacement(state: PlayerRunState, playedCardId: string): PlayerRunState {
-  const playedIndex = state.hand.indexOf(playedCardId);
-  return drawOneOrRecycleDiscard({
-    ...state,
-    hand: state.hand.filter((cardId) => cardId !== playedCardId),
-    discardPile: [...state.discardPile, playedCardId]
-  }, playedIndex >= 0 ? playedIndex : state.hand.length);
+function refillHandToMinimum(state: PlayerRunState, handIndex = state.hand.length): PlayerRunState {
+  let refilled = state;
+  let insertionIndex = Math.min(Math.max(0, handIndex), state.hand.length);
+  while (refilled.hand.length < MINIMUM_HAND_SIZE) {
+    const previousLength = refilled.hand.length;
+    refilled = drawOneOrRecycleDiscard(refilled, insertionIndex);
+    if (refilled.hand.length === previousLength) break;
+    insertionIndex += 1;
+  }
+  return refilled;
 }
 
 function removeCardFromZones(state: PlayerRunState, cardId: string) {
@@ -211,12 +215,12 @@ function removeCardFromZones(state: PlayerRunState, cardId: string) {
   state.discardPile = state.discardPile.filter((id) => id !== cardId);
 }
 
-function moveCardToGraveyard(state: PlayerRunState, cardId: string) {
+function moveCardToGraveyard(state: PlayerRunState, cardId: string, refillHand = true) {
   const handIndex = state.hand.indexOf(cardId);
   removeCardFromZones(state, cardId);
   if (!state.graveyard.includes(cardId)) state.graveyard.push(cardId);
-  if (handIndex >= 0) {
-    const cycled = drawOneOrRecycleDiscard(state, handIndex);
+  if (refillHand && handIndex >= 0) {
+    const cycled = refillHandToMinimum(state, handIndex);
     state.hand = cycled.hand;
     state.drawPile = cycled.drawPile;
     state.discardPile = cycled.discardPile;
@@ -230,30 +234,29 @@ function temporarilyPurgeHandCard(state: PlayerRunState, cardId: string, returnA
   return true;
 }
 
-function drawWithoutDiscard(state: PlayerRunState, handIndex = state.hand.length) {
-  return drawOneOrRecycleDiscard(state, handIndex);
-}
-
 function finishPlayedCard(states: Record<string, PlayerRunState>, actorId: string, cardId: string) {
   const actorState = states[actorId];
+  const playedIndex = actorState.hand.indexOf(cardId);
   const borrowed = (actorState.borrowedCards ?? []).find((entry) => entry.cardId === cardId);
   if (!borrowed) {
     const useCount = (actorState.cardUses[cardId] ?? 0) + 1;
     actorState.cardUses[cardId] = useCount;
     if (cardId === "bo-return" && useCount >= 1) {
-      moveCardToGraveyard(actorState, cardId);
+      moveCardToGraveyard(actorState, cardId, false);
       states[actorId] = actorState;
-      return;
+      return playedIndex;
     }
-    states[actorId] = drawReplacement(actorState, cardId);
-    return;
+    actorState.hand = actorState.hand.filter((id) => id !== cardId);
+    actorState.discardPile = [...actorState.discardPile, cardId];
+    states[actorId] = actorState;
+    return playedIndex;
   }
-  const playedIndex = actorState.hand.indexOf(cardId);
   removeCardFromZones(actorState, cardId);
   actorState.borrowedCards = actorState.borrowedCards.filter((entry) => entry.cardId !== cardId);
   const owner = states[borrowed.ownerId];
   if (owner && !owner.discardPile.includes(cardId)) owner.discardPile.push(cardId);
-  states[actorId] = drawWithoutDiscard(actorState, playedIndex);
+  states[actorId] = actorState;
+  return playedIndex;
 }
 
 function returnExpiredBorrowedCards(states: Record<string, PlayerRunState>, completedBorrowerId: string) {
@@ -262,15 +265,12 @@ function returnExpiredBorrowedCards(states: Record<string, PlayerRunState>, comp
   const returning = (borrower.borrowedCards ?? []).filter((entry) =>
     (entry.expiresAfterBorrowerTurn ?? borrower.completedPlayerTurns + 1) <= borrower.completedPlayerTurns
   );
-  let removedFromHand = false;
   for (const entry of returning) {
-    if (borrower.hand.includes(entry.cardId)) removedFromHand = true;
     removeCardFromZones(borrower, entry.cardId);
     const owner = states[entry.ownerId];
     if (owner && !owner.discardPile.includes(entry.cardId)) owner.discardPile.push(entry.cardId);
   }
   borrower.borrowedCards = (borrower.borrowedCards ?? []).filter((entry) => !returning.includes(entry));
-  if (removedFromHand) states[completedBorrowerId] = drawWithoutDiscard(borrower);
 }
 
 function returnExpiredPurgedCards(states: Record<string, PlayerRunState>, completedPhases: number) {
@@ -614,7 +614,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         states[actor.id].markedTargetBonus = amount;
         reports.push(`${actor.displayName} gains +${amount} on their next attack roll against ${selectedEnemy.displayName}`);
       }
-      if (card.supportType === "discard-random-card" && selectedEnemy) reports.push(`${selectedEnemy.displayName} discards one random hand card and draws a replacement`);
+      if (card.supportType === "discard-random-card" && selectedEnemy) reports.push(`${selectedEnemy.displayName} discards one random hand card, then refills their hand to 4 if needed`);
       if (card.supportType === "steal-gold" && selectedEnemy) {
         const available = Math.max(0, states[selectedEnemy.id].goldUnits);
         const capacity = Math.max(0, MAX_GOLD_UNITS - states[actor.id].goldUnits);
@@ -695,9 +695,10 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-card-defeat-${player.id}`, kind: "defeat", playerId: player.id, playerName: player.displayName, reason });
   }
 
-  finishPlayedCard(states, actor.id, card.id);
+  const playedCardIndex = finishPlayedCard(states, actor.id, card.id);
   expireTimedEffectsAtTurnEnd(states[actor.id]);
   returnExpiredBorrowedCards(states, actor.id);
+  states[actor.id] = refillHandToMinimum(states[actor.id], playedCardIndex >= 0 ? playedCardIndex : states[actor.id].hand.length);
   const revivedIds = tickRevival(states, revivingAtTurnStart);
   if (revivedIds.length) {
     const revivedNames = revivedIds.map((id) => players.find((player) => player.id === id)?.displayName ?? "An ally");

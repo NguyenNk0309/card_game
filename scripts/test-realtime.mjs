@@ -379,7 +379,10 @@ try {
   initialPhaseFiveGame.outcome = null;
   initialPhaseFiveGame.history = [];
   initialPhaseFiveGame.worldEvent = null;
-  initialPhaseFiveGame.playerStates[firstId].discardPile = [upgradeZoneIds[0]];
+  initialPhaseFiveGame.playerStates[firstId].hand = [`card-${firstId}`, `${firstId}-common-heavy`];
+  initialPhaseFiveGame.playerStates[firstId].drawPile = [];
+  initialPhaseFiveGame.playerStates[firstId].discardPile = [upgradeZoneIds[0], upgradeZoneIds[1], `${firstId}-common-brace`];
+  initialPhaseFiveGame.playerStates[firstId].graveyard = [upgradeZoneIds[2]];
   second.send({ type: "start", game: initialPhaseFiveGame });
   const initialPhaseFiveState = await first.waitForNext((state) => state.phase === "game" && state.game?.completedPhases === 5);
   const initialPhaseFiveDeck = initialPhaseFiveState.players.find((item) => item.id === firstId).skillDeck;
@@ -391,8 +394,8 @@ try {
   const reshuffledAfterDiscard = await first.waitForNext((state) => state.game?.outcome?.kind === "discard");
   const observerDiscardState = await observerDiscardStatePromise;
   const realtimeRefillState = reshuffledAfterDiscard.game.playerStates[firstId];
-  assert.equal(realtimeRefillState.hand.length, 1, "realtime empty-draw recycling draws exactly one replacement");
-  assert.equal(realtimeRefillState.drawPile.length, 1, "realtime recycling leaves other discarded cards in draw");
+  assert.equal(realtimeRefillState.hand.length, 4, "realtime manual discard refills the ending hand to 4");
+  assert.equal(realtimeRefillState.drawPile.length, 1, "realtime recycling stops once the hand reaches 4");
   assert.equal(realtimeRefillState.discardPile.length, 0, "realtime recycling moves the entire discard pile to draw");
   assert.deepEqual(reshuffledAfterDiscard.game.outcome.notices ?? [], [], "realtime empty-draw recycling does not emit a toast");
   assert.equal(reshuffledAfterDiscard.game.outcome.cardName, "Test Skill", "the realtime card owner sees their discarded card identity");
@@ -693,8 +696,10 @@ try {
   pilferAuthorityGame.playerStates[firstId].timedEffects = [];
   pilferAuthorityGame.playerStates[firstId].borrowedCards = [];
   pilferAuthorityGame.playerStates[firstId].purgedCards = [];
-  pilferAuthorityGame.playerStates[firstId].hand = [`pilfer-${firstId}`];
-  pilferAuthorityGame.playerStates[firstId].drawPile = [`${firstId}-common-second-wind`];
+  const pilferOwnedHand = [`${firstId}-common-second-wind`, `${firstId}-common-empty-gesture`, `${firstId}-common-broken-plan`];
+  const pilferRefillCard = `${firstId}-common-lost-momentum`;
+  pilferAuthorityGame.playerStates[firstId].hand = [`pilfer-${firstId}`, ...pilferOwnedHand];
+  pilferAuthorityGame.playerStates[firstId].drawPile = [pilferRefillCard];
   pilferAuthorityGame.playerStates[firstId].discardPile = [];
   pilferAuthorityGame.playerStates[firstId].graveyard = [];
   pilferAuthorityGame.playerStates[secondId].completedPlayerTurns = 1;
@@ -716,7 +721,7 @@ try {
   pilferAction.roundOrder = [secondId, firstId];
   pilferAction.actedThisRound = [];
   pilferAction.playerStates[firstId].completedPlayerTurns = 1;
-  pilferAction.playerStates[firstId].hand = [`${firstId}-common-second-wind`];
+  pilferAction.playerStates[firstId].hand = [...pilferOwnedHand, pilferRefillCard];
   pilferAction.playerStates[firstId].drawPile = [];
   pilferAction.playerStates[firstId].discardPile = [`pilfer-${firstId}`];
   pilferAction.outcome = { kind: "card", success: true, total: 20, target: pilferAction.adventure.target, label: `${firstName} used Borrowed Fate`, detail: "Borrowed Fate resolved.", actorName: firstName, cardId: `pilfer-${firstId}`, cardName: "Borrowed Fate", effect: "support", supportType: "steal-card", targetIds: [secondId], targetName: secondName, resolution: "roll" };
@@ -726,6 +731,8 @@ try {
   first.send({ type: "game:update", game: pilferAction });
   const [pilferActorView, pilferTargetView] = await Promise.all([pilferActorPromise, pilferTargetPromise]);
   assert(pilferActorView.game.playerStates[firstId].hand.includes(`card-${secondId}`), "Borrowed Fate prefers a special card from the target's private hand");
+  assert.equal(pilferActorView.game.playerStates[firstId].hand.length, 4, "the realtime authority removes the now-unneeded refill when Borrowed Fate supplies Nyx's fourth card");
+  assert(pilferActorView.game.playerStates[firstId].drawPile.includes(pilferRefillCard), "the unneeded Borrowed Fate refill remains available in Nyx's draw pile");
   assert.deepEqual(pilferActorView.game.playerStates[firstId].borrowedCards, [{ cardId: `card-${secondId}`, ownerId: secondId, borrowedAtTurn: 1, expiresAfterBorrowerTurn: 2 }], "the realtime authority binds the stolen card to the end of Nyx's next turn");
   assert(!pilferTargetView.game.playerStates[secondId].hand.includes(`card-${secondId}`), "the stolen special card leaves the target's hand");
   assert(pilferTargetView.game.playerStates[secondId].hand.includes(`${secondId}-common-empty-gesture`), "a special card is preferred over an available common card");
@@ -743,6 +750,7 @@ try {
   first.send({ type: "skip-turn", sessionId: firstId });
   const [pilferReturnedActor, pilferReturnedTarget] = await Promise.all([pilferReturnedActorPromise, pilferReturnedTargetPromise]);
   assert(!pilferReturnedActor.game.playerStates[firstId].hand.includes(`card-${secondId}`), "the unplayed stolen card leaves Nyx's hand when Nyx's next turn ends");
+  assert.equal(pilferReturnedActor.game.playerStates[firstId].hand.length, 4, "the realtime authority refills after the borrowed card returns without over-drawing a fifth card");
   assert.equal(pilferReturnedActor.game.playerStates[firstId].borrowedCards.length, 0, "the expired borrowed-card marker is cleared");
   assert(pilferReturnedTarget.game.playerStates[secondId].discardPile.includes(`card-${secondId}`), "the stolen card returns to its original target's discard pile");
   assert(!pilferReturnedTarget.game.playerStates[secondId].hand.includes(`card-${secondId}`), "the returned card does not jump back into the target's hand");

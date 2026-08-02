@@ -130,7 +130,7 @@ export function formatOutcomePresentation(outcome, players, viewerId = '') {
       category: context.viewerIsActor ? 'YOUR ACTION' : 'TURN SUMMARY',
       title: context.viewerIsActor ? `You discarded ${card}` : `${actorLabel} discarded a card`,
       detail: context.viewerIsActor
-        ? `${outcome.cardName || 'The card'} entered discard; replacement drawn if available.`
+        ? `${outcome.cardName || 'The card'} entered discard; hand refilled to 4 if needed.`
         : `${actorLabel} voluntarily discarded a card.`,
       involvedPlayerIds: context.involvedIds
     };
@@ -377,7 +377,7 @@ export function sanitizeCommunicationGame(game, players, viewerId = '') {
     delete outcome.cardId;
     delete outcome.cardName;
     outcome.label = `${actor?.displayName || outcome.actorName || 'Player'} discarded a card`;
-    outcome.detail = 'A card entered discard; replacement drawn if available.';
+    outcome.detail = 'A card entered discard; hand refilled to 4 if needed.';
   }
   if (outcome?.supportType === 'steal-card' && !viewerCanSeeHiddenCard) {
     outcome.detail = String(outcome.detail || '').replace(/one random (?:special )?card/gi, 'a card');
@@ -388,7 +388,7 @@ export function sanitizeCommunicationGame(game, players, viewerId = '') {
       return {
         ...entry,
         cardName: undefined,
-        message: `${entry.actorName} discarded a card; replacement drawn if available.`
+        message: `${entry.actorName} discarded a card; hand refilled to 4 if needed.`
       };
     }
     const card = players.flatMap((player) => player.skillDeck || []).find((candidate) => candidate.name === entry.cardName);

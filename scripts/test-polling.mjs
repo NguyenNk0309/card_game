@@ -494,9 +494,9 @@ try {
   initialPhaseFiveGame.worldEvent = null;
   initialPhaseFiveGame.worldEventHistory = [];
   initialPhaseFiveGame.pendingWorldEvent = null;
-  initialPhaseFiveGame.playerStates[firstId].hand = [upgradeZoneIds[0]];
+  initialPhaseFiveGame.playerStates[firstId].hand = [upgradeZoneIds[0], `card-${firstId}`];
   initialPhaseFiveGame.playerStates[firstId].drawPile = [];
-  initialPhaseFiveGame.playerStates[firstId].discardPile = [upgradeZoneIds[1]];
+  initialPhaseFiveGame.playerStates[firstId].discardPile = [upgradeZoneIds[1], `${firstId}-common-brace`, `${firstId}-common-heavy`];
   initialPhaseFiveGame.playerStates[firstId].graveyard = [upgradeZoneIds[2]];
   const initialPhaseFiveState = await command(secondId, { type: "start", game: initialPhaseFiveGame });
   const initialPhaseFiveDeck = initialPhaseFiveState.players.find((item) => item.id === firstId).skillDeck;
@@ -506,14 +506,14 @@ try {
   const initialPhaseFiveOwner = await readRoom(firstId);
   assert.deepEqual(
     [initialPhaseFiveOwner.game.playerStates[firstId].hand, initialPhaseFiveOwner.game.playerStates[firstId].discardPile, initialPhaseFiveOwner.game.playerStates[firstId].graveyard],
-    [[upgradeZoneIds[0]], [upgradeZoneIds[1]], [upgradeZoneIds[2]]],
+    [[upgradeZoneIds[0], `card-${firstId}`], [upgradeZoneIds[1], `${firstId}-common-brace`, `${firstId}-common-heavy`], [upgradeZoneIds[2]]],
     "initial phase-5 normalization preserves upgraded card IDs in every private zone"
   );
   const hydratedPhaseFiveState = await readRoom(firstId);
   assert.deepEqual(upgradeZoneIds.map((id) => hydratedPhaseFiveState.players.find((item) => item.id === firstId).skillDeck.find((card) => card.id === id).effect).sort(), ["damage", "guard", "heal"], "a hydrated polling phase-5 snapshot remains normalized");
   const reshuffledAfterDiscard = await command(firstId, { type: "discard-card", cardId: upgradeZoneIds[0] });
   const pollingRefillState = reshuffledAfterDiscard.game.playerStates[firstId];
-  assert.equal(pollingRefillState.hand.length, 1, "polling empty-draw recycling draws exactly one replacement");
+  assert.equal(pollingRefillState.hand.length, 4, "polling manual discard refills the ending hand to 4");
   assert.equal(pollingRefillState.drawPile.length, 1, "polling recycling leaves the other discarded card in draw");
   assert.equal(pollingRefillState.discardPile.length, 0, "polling recycling moves the entire discard pile to draw");
   assert.deepEqual(reshuffledAfterDiscard.game.outcome.notices ?? [], [], "polling empty-draw recycling does not emit a toast");

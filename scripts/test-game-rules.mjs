@@ -1024,7 +1024,7 @@ for (let use = 1; use <= 4; use += 1) {
   assert.equal(favorableUseGame.playerStates[oracle.id].cardUses[favorableOmen.id], use);
   assert(!favorableUseGame.playerStates[oracle.id].graveyard.includes(favorableOmen.id), `Foretold Success remains reusable after use ${use}`);
 }
-assert(favorableUseGame.playerStates[oracle.id].discardPile.includes(favorableOmen.id), "Foretold Success returns to discard normally after repeated use");
+assert([...favorableUseGame.playerStates[oracle.id].hand, ...favorableUseGame.playerStates[oracle.id].drawPile, ...favorableUseGame.playerStates[oracle.id].discardPile].includes(favorableOmen.id), "Foretold Success remains in a reusable card zone after repeated use and refill recycling");
 const curseGame = engine.createInitialGame(curseParty, engine.createAdventure("CURSE"), 30);
 curseGame.turnOrder = [oracle.id, cursedEnemy.id, oracleAlly.id];
 const curseCard = oracle.skillDeck.find((card) => card.supportType === "enemy-dice");
@@ -1074,32 +1074,37 @@ assert.match(stealCard.description, /random card.*hand.*preferring special cards
 const stolenSpecial = delayedEnemy.skillDeck.find((card) => card.unique);
 const fallbackCommon = delayedEnemy.skillDeck.find((card) => !card.unique);
 const tricksterCommon = trickster.skillDeck.find((card) => !card.unique && card.effect === "none");
-delayGame.playerStates[trickster.id].hand = [stealCard.id];
-delayGame.playerStates[trickster.id].drawPile = [tricksterCommon.id];
+const tricksterOwnedHand = trickster.skillDeck.filter((card) => card.id !== stealCard.id).slice(0, 3).map((card) => card.id);
+const tricksterRefillCard = trickster.skillDeck.find((card) => card.id !== stealCard.id && !tricksterOwnedHand.includes(card.id));
+const delayedEnemyCommons = delayedEnemy.skillDeck.filter((card) => !card.unique).slice(0, 5);
+delayGame.playerStates[trickster.id].hand = [stealCard.id, ...tricksterOwnedHand];
+delayGame.playerStates[trickster.id].drawPile = [tricksterRefillCard.id];
 delayGame.playerStates[trickster.id].discardPile = [];
-delayGame.playerStates[delayedEnemy.id].hand = [stolenSpecial.id, fallbackCommon.id];
-delayGame.playerStates[delayedEnemy.id].drawPile = [];
+delayGame.playerStates[delayedEnemy.id].hand = [stolenSpecial.id, ...delayedEnemyCommons.slice(0, 3).map((card) => card.id)];
+delayGame.playerStates[delayedEnemy.id].drawPile = delayedEnemyCommons.slice(3).map((card) => card.id);
 delayGame.playerStates[delayedEnemy.id].discardPile = [];
 const stolen = engine.resolveCardTurn(delayGame, delayParty, stealCard.id, delayedEnemy.id, 20);
 assert(stolen.playerStates[trickster.id].hand.includes(stolenSpecial.id), "Borrowed Fate prefers a special card from the enemy hand");
 assert(stolen.playerStates[delayedEnemy.id].hand.includes(fallbackCommon.id), "a common card remains when a special card is available");
 assert(!stolen.playerStates[delayedEnemy.id].hand.includes(stolenSpecial.id), "the stolen special card leaves the enemy hand");
+assert.equal(stolen.playerStates[trickster.id].hand.length, 4, "Borrowed Fate supplies the fourth card itself, so Nyx draws no extra card");
+assert.deepEqual(stolen.playerStates[trickster.id].drawPile, [tricksterRefillCard.id], "Borrowed Fate does not consume the draw pile when Nyx already ends with 4 cards");
 assert.equal(stolen.playerStates[trickster.id].borrowedCards[0].ownerId, delayedEnemy.id);
 assert.equal(stolen.playerStates[trickster.id].borrowedCards[0].expiresAfterBorrowerTurn, 2, "the stolen card is tied to the end of Nyx's next turn");
 stolen.turnOrder = [delayedEnemy.id, tricksterAlly.id, trickster.id];
 stolen.activePlayerIndex = 1;
 const targetAction = fallbackCommon;
-stolen.playerStates[delayedEnemy.id].hand = [targetAction.id];
 const afterTargetTurn = engine.resolveCardTurn(stolen, delayParty, targetAction.id, trickster.id, 20);
 assert(afterTargetTurn.playerStates[trickster.id].hand.includes(stolenSpecial.id), "the target's turn does not return the stolen card");
+assert.equal(afterTargetTurn.playerStates[delayedEnemy.id].hand.length, 4, "Borrowed Fate's target draws two cards after playing from a three-card hand, restoring the general four-card minimum");
 afterTargetTurn.turnOrder = [trickster.id, tricksterAlly.id, delayedEnemy.id];
 afterTargetTurn.activePlayerIndex = 0;
 const nyxNextCard = afterTargetTurn.playerStates[trickster.id].hand.find((id) => id !== stolenSpecial.id) ?? tricksterCommon.id;
-afterTargetTurn.playerStates[trickster.id].hand = [nyxNextCard, stolenSpecial.id];
 const returned = engine.resolveCardTurn(afterTargetTurn, delayParty, nyxNextCard, delayedEnemy.id, 20);
 assert(!returned.playerStates[trickster.id].hand.includes(stolenSpecial.id), "an unplayed stolen card returns when Nyx's next turn ends");
 assert(returned.playerStates[delayedEnemy.id].discardPile.includes(stolenSpecial.id), "the stolen card returns to the target's discard pile");
 assert.equal(returned.playerStates[trickster.id].borrowedCards.length, 0);
+assert.equal(returned.playerStates[trickster.id].hand.length, 4, "Nyx refills only after the borrowed card leaves, ending with exactly 4 cards rather than 5");
 
 const fallbackStealGame = engine.createInitialGame(delayParty, engine.createAdventure("STEAL-FALLBACK"), 30);
 fallbackStealGame.turnOrder = [trickster.id, delayedEnemy.id, tricksterAlly.id];
@@ -1471,11 +1476,11 @@ for (const option of options) {
     const actorState = matrixGame.playerStates[matrixActor.id];
     const allyState = matrixGame.playerStates[matrixAlly.id];
     const enemyOneState = matrixGame.playerStates[matrixEnemyOne.id];
-    const actorReplacement = matrixActor.skillDeck.find((card) => card.id !== matrixCard.id);
+    const actorReplacements = matrixActor.skillDeck.filter((card) => card.id !== matrixCard.id).slice(0, 4);
     const enemyCandidate = matrixEnemyOne.skillDeck.find((card) => card.unique);
     const enemyReplacement = matrixEnemyOne.skillDeck.find((card) => card.id !== enemyCandidate.id);
     actorState.hand = [matrixCard.id];
-    actorState.drawPile = [actorReplacement.id];
+    actorState.drawPile = actorReplacements.map((card) => card.id);
     actorState.discardPile = [];
     actorState.graveyard = [];
     if (matrixCard.effect === "heal") {
@@ -1677,12 +1682,13 @@ const emptyGame = engine.createInitialGame([first, second], engine.createAdventu
 emptyGame.turnOrder = [first.id, second.id];
 const emptyCard = first.skillDeck.find((card) => card.effect === "none");
 emptyGame.playerStates[first.id].hand = [emptyCard.id];
-emptyGame.playerStates[first.id].drawPile = [attack.id];
+emptyGame.playerStates[first.id].drawPile = first.skillDeck.filter((card) => card.id !== emptyCard.id).slice(0, 4).map((card) => card.id);
 const emptyResult = engine.resolveCardTurn(emptyGame, [first, second], emptyCard.id, first.id, 20);
 assert.equal(emptyResult.playerStates[first.id].hp, emptyGame.playerStates[first.id].hp);
 assert.equal(emptyResult.playerStates[second.id].hp, emptyGame.playerStates[second.id].hp);
 assert.equal(emptyResult.playerStates[first.id].shield, emptyGame.playerStates[first.id].shield);
 assert(emptyResult.playerStates[first.id].discardPile.includes(emptyCard.id), "played no-effect card still cycles normally");
+assert.equal(emptyResult.playerStates[first.id].hand.length, 4, "a one-card hand draws enough available cards to end the turn at 4");
 assert.match(emptyResult.history.at(-1).message, /had no effect/);
 
 const cycleGame = engine.createInitialGame([first, second], engine.createAdventure("CYCLE"), 30);
@@ -1690,25 +1696,27 @@ cycleGame.turnOrder = [first.id, second.id];
 const guard = first.skillDeck.find((card) => card.effect === "guard");
 const heal = first.skillDeck.find((card) => card.effect === "heal");
 cycleGame.playerStates[first.id].hand = [guard.id, heal.id, attack.id];
-cycleGame.playerStates[first.id].drawPile = [emptyCard.id];
+const cycleDraws = first.skillDeck.filter((card) => ![guard.id, heal.id, attack.id].includes(card.id)).slice(0, 2).map((card) => card.id);
+cycleGame.playerStates[first.id].drawPile = cycleDraws;
 cycleGame.playerStates[first.id].discardPile = [];
 const cycled = engine.resolveCardTurn(cycleGame, [first, second], attack.id, second.id, 20);
 assert(cycled.playerStates[first.id].hand.includes(guard.id) && cycled.playerStates[first.id].hand.includes(heal.id), "unplayed hand cards stay in hand");
-assert(cycled.playerStates[first.id].hand.includes(emptyCard.id), "a replacement is drawn only after a card is played");
-assert.equal(cycled.playerStates[first.id].hand[2], emptyCard.id, "a replacement occupies the exact slot of the played card");
+assert(cycleDraws.every((cardId) => cycled.playerStates[first.id].hand.includes(cardId)), "a two-card hand draws exactly two cards to reach 4");
+assert.equal(cycled.playerStates[first.id].hand.length, 4, "the end-of-turn refill stops at 4 cards");
 assert.deepEqual(cycled.playerStates[first.id].discardPile, [attack.id], "only the played card enters discard");
 
 cycled.playerStates[first.id].hand = [guard.id, heal.id];
 cycled.playerStates[first.id].drawPile = [];
-cycled.playerStates[first.id].discardPile = [attack.id, emptyCard.id];
+const recycledSources = first.skillDeck.filter((card) => ![guard.id, heal.id].includes(card.id)).slice(0, 4).map((card) => card.id);
+cycled.playerStates[first.id].discardPile = recycledSources;
 cycled.activePlayerIndex = 0;
 cycled.turnOrder = [first.id, second.id];
 const reshuffled = engine.resolveCardTurn(cycled, [first, second], guard.id, first.id, 20);
-assert.equal(reshuffled.playerStates[first.id].hand.length, 2, "an empty draw pile still replaces exactly one played card while other cards remain in hand");
+assert.equal(reshuffled.playerStates[first.id].hand.length, 4, "an empty draw pile recycles discard and continues drawing until the hand reaches 4");
 assert(reshuffled.playerStates[first.id].hand.includes(heal.id), "unplayed cards remain in hand when discard refills an empty draw pile");
-assert.equal(reshuffled.playerStates[first.id].drawPile.length, 2, "recycled cards not selected as the one random replacement remain in draw");
+assert.equal(reshuffled.playerStates[first.id].drawPile.length, 2, "recycled cards not needed for the four-card hand remain in draw");
 assert.equal(reshuffled.playerStates[first.id].discardPile.length, 0, "all discarded cards move to draw as soon as an empty draw pile needs a replacement");
-assert.deepEqual(new Set([...reshuffled.playerStates[first.id].hand, ...reshuffled.playerStates[first.id].drawPile]), new Set([attack.id, emptyCard.id, guard.id, heal.id]), "the immediate recycle preserves every reusable card across hand and draw");
+assert.deepEqual(new Set([...reshuffled.playerStates[first.id].hand, ...reshuffled.playerStates[first.id].drawPile]), new Set([...recycledSources, guard.id, heal.id]), "the refill recycle preserves every reusable card across hand and draw");
 
 const fiveCardCycle = engine.createInitialGame([first, second], engine.createAdventure("FIVE-CARD-CYCLE"), 30);
 fiveCardCycle.turnOrder = [first.id, second.id];
@@ -1717,10 +1725,20 @@ fiveCardCycle.playerStates[first.id].hand = [fiveReusableCards[4]];
 fiveCardCycle.playerStates[first.id].drawPile = [];
 fiveCardCycle.playerStates[first.id].discardPile = fiveReusableCards.slice(0, 4);
 const fiveCardRefill = engine.resolveCardTurn(fiveCardCycle, [first, second], fiveReusableCards[4], first.id, 20);
-assert.equal(fiveCardRefill.playerStates[first.id].hand.length, 1, "an empty draw pile always draws one replacement instead of dealing four cards");
-assert.equal(fiveCardRefill.playerStates[first.id].drawPile.length, 4, "the other four recycled cards remain in draw");
+assert.equal(fiveCardRefill.playerStates[first.id].hand.length, 4, "a depleted one-card hand refills to 4 from recycled discard");
+assert.equal(fiveCardRefill.playerStates[first.id].drawPile.length, 1, "recycling stops drawing as soon as the hand reaches 4");
 assert.equal(fiveCardRefill.playerStates[first.id].discardPile.length, 0, "all discarded cards move out of discard when draw is refilled");
-assert.deepEqual(new Set([...fiveCardRefill.playerStates[first.id].hand, ...fiveCardRefill.playerStates[first.id].drawPile]), new Set(fiveReusableCards), "the one-card refill preserves every reusable card across hand and draw");
+assert.deepEqual(new Set([...fiveCardRefill.playerStates[first.id].hand, ...fiveCardRefill.playerStates[first.id].drawPile]), new Set(fiveReusableCards), "the four-card refill preserves every reusable card across hand and draw");
+
+const noDrawGame = engine.createInitialGame([first, second], engine.createAdventure("NO-DRAW-AT-FOUR"), 30);
+noDrawGame.turnOrder = [first.id, second.id];
+const noDrawCards = first.skillDeck.slice(0, 7).map((card) => card.id);
+noDrawGame.playerStates[first.id].hand = noDrawCards.slice(0, 6);
+noDrawGame.playerStates[first.id].drawPile = [noDrawCards[6]];
+noDrawGame.playerStates[first.id].discardPile = [];
+const noDrawResult = engine.resolveCardTurn(noDrawGame, [first, second], noDrawCards[0], second.id, 20);
+assert.equal(noDrawResult.playerStates[first.id].hand.length, 5, "a hand that remains above 4 after playing a card draws nothing");
+assert.deepEqual(noDrawResult.playerStates[first.id].drawPile, [noDrawCards[6]], "the draw pile is untouched when the ending hand already has at least 4 cards");
 
 const eventGame = engine.createInitialGame([first, second], engine.createAdventure("EVENT"), 30);
 eventGame.turnOrder = [first.id, second.id];
@@ -1993,7 +2011,8 @@ assert.equal(stealGoldResult.playerStates[first.id].goldUnits, actorGoldBeforeSt
 const serverAuthoritySource = await readFile(new URL("../backend/server.mjs", import.meta.url), "utf8");
 const workerAuthoritySource = await readFile(new URL("../backend/realtime-worker.js", import.meta.url), "utf8");
 for (const [label, source] of [["Node", serverAuthoritySource], ["Worker", workerAuthoritySource]]) {
-  assert.match(source, /card\.supportType === 'discard-random-card'[\s\S]*drawOneOrRecycleDiscard\(targetState, handIndex\)/, `${label} authority resolves Control Cards against the target's private hand`);
+  assert.match(source, /card\.supportType === 'discard-random-card'[\s\S]*refillHandToMinimum\(targetState, handIndex\)/, `${label} authority resolves Control Cards with the shared four-card minimum against the target's private hand`);
+  assert.match(source, /returnBorrowedCards\(game, passingPlayer\.id\);[\s\S]*refillHandToMinimum\(game\.playerStates\[passingPlayer\.id\]\)/, `${label} authority refills only after borrowed cards return at turn end`);
   assert.match(source, /purchaseShopOffer[\s\S]*exchangePityForGold[\s\S]*useShopItem/, `${label} authority exposes all three Shop command families`);
 }
 

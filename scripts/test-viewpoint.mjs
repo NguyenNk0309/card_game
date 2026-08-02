@@ -248,7 +248,7 @@ const discardOutcome = {
   total: 0,
   target: 0,
   label: "Rowan discarded Quiet Step",
-  detail: "Rowan discarded Quiet Step and drew a replacement.",
+  detail: "Rowan discarded Quiet Step; hand refilled to 4 if needed.",
   actorId: rowan.id,
   actorName: rowan.displayName,
   cardId: "rowan-discard",
@@ -261,7 +261,7 @@ const discardHistory = {
   kind: "discard",
   actorName: rowan.displayName,
   cardName: "Quiet Step",
-  message: "Rowan discarded Quiet Step and drew a replacement.",
+  message: "Rowan discarded Quiet Step; hand refilled to 4 if needed.",
   success: true,
   createdAt: 2
 };

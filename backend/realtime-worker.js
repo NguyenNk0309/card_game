@@ -169,6 +169,7 @@ const secureRandomInt = (minimum, maximum) => {
 };
 const randomDiceTarget = () => secureRandomInt(8, 16);
 const TURN_SECONDS = 60;
+const MINIMUM_HAND_SIZE = 4;
 function teamTotals(game, team) { const members = room.players.filter((player) => player.hero.team === team); return { hp: members.reduce((sum, player) => sum + (game.playerStates[player.id]?.hp || 0), 0), alive: members.filter((player) => (game.playerStates[player.id]?.hp || 0) > 0).length, shield: members.reduce((sum, player) => sum + (game.playerStates[player.id]?.shield || 0) + (game.playerStates[player.id]?.goldenShield || 0), 0) }; }
 function decideWinner(game, lastTeam, settleCurrentTotals = false) {
   const veil = teamTotals(game, 'veil'); const ember = teamTotals(game, 'ember');
@@ -382,12 +383,34 @@ function drawOneOrRecycleDiscard(state, handIndex = (state.hand || []).length) {
   }
 }
 
+function refillHandToMinimum(state, handIndex = (state.hand || []).length) {
+  state.hand ||= [];
+  let insertionIndex = Math.min(Math.max(0, handIndex), state.hand.length);
+  while (state.hand.length < MINIMUM_HAND_SIZE) {
+    const previousLength = state.hand.length;
+    drawOneOrRecycleDiscard(state, insertionIndex);
+    if (state.hand.length === previousLength) break;
+    insertionIndex += 1;
+  }
+}
+
+function findAddedHandCardIndex(hand, baselineHand) {
+  const remaining = new Map();
+  for (const cardId of baselineHand) remaining.set(cardId, (remaining.get(cardId) || 0) + 1);
+  return (hand || []).findIndex((cardId) => {
+    const count = remaining.get(cardId) || 0;
+    if (count <= 0) return true;
+    remaining.set(cardId, count - 1);
+    return false;
+  });
+}
+
 function moveCardToGraveyard(state, cardId) {
   const handIndex = (state.hand || []).indexOf(cardId);
   removeCardFromZones(state, cardId);
   state.graveyard ||= [];
   if (!state.graveyard.includes(cardId)) state.graveyard.push(cardId);
-  if (handIndex >= 0) drawOneOrRecycleDiscard(state, handIndex);
+  if (handIndex >= 0) refillHandToMinimum(state, handIndex);
 }
 
 function temporarilyPurgeHandCard(state, cardId, returnAfterPhase) {
@@ -421,9 +444,7 @@ function returnBorrowedCards(game, completedBorrowerId) {
   const returning = (borrower.borrowedCards || []).filter((entry) =>
     (entry.expiresAfterBorrowerTurn ?? borrower.completedPlayerTurns + 1) <= borrower.completedPlayerTurns
   );
-  let removedFromHand = false;
   for (const entry of returning) {
-    if ((borrower.hand || []).includes(entry.cardId)) removedFromHand = true;
     removeCardFromZones(borrower, entry.cardId);
     const owner = game.playerStates[entry.ownerId];
     if (owner) {
@@ -432,7 +453,6 @@ function returnBorrowedCards(game, completedBorrowerId) {
     }
   }
   borrower.borrowedCards = (borrower.borrowedCards || []).filter((entry) => !returning.includes(entry));
-  if (removedFromHand) drawOneOrRecycleDiscard(borrower);
   return returning;
 }
 
@@ -592,11 +612,32 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
   returnBorrowedCards(incomingGame, actor.id);
   const card = room.players.flatMap((player) => player.skillDeck || []).find((item) => item.id === outcome?.cardId)
     || room.players.flatMap((player) => player.skillDeck || []).find((item) => item.name === outcome?.cardName);
-  if (!outcome?.success || card?.effect !== 'support') return;
+  const actorState = incomingGame.playerStates?.[actor.id];
+  const refillActorHand = () => {
+    if (actorState) refillHandToMinimum(actorState);
+  };
+  if (!outcome?.success || card?.effect !== 'support') {
+    refillActorHand();
+    return;
+  }
   const targetName = String(outcome.targetName || '').split(', ')[0];
   const target = room.players.find((player) => player.id === outcome.targetIds?.[0]) || room.players.find((player) => player.displayName === targetName);
   const targetState = target && incomingGame.playerStates[target.id];
-  if (!target || !targetState) return;
+  if (!target || !targetState) {
+    refillActorHand();
+    return;
+  }
+  const previousActorState = previousGame.playerStates?.[actor.id];
+  let borrowedFateRefillIndex = -1;
+  if (card.supportType === 'steal-card' && actorState && previousActorState) {
+    const completedPlayerTurns = actorState.completedPlayerTurns || 0;
+    const returningIds = (previousActorState.borrowedCards || [])
+      .filter((entry) => (entry.expiresAfterBorrowerTurn ?? completedPlayerTurns + 1) <= completedPlayerTurns)
+      .map((entry) => entry.cardId);
+    const baselineHand = (previousActorState.hand || [])
+      .filter((cardId) => cardId !== outcome.cardId && !returningIds.includes(cardId));
+    if (baselineHand.length < MINIMUM_HAND_SIZE) borrowedFateRefillIndex = findAddedHandCardIndex(actorState.hand, baselineHand);
+  }
   let replacementDetail = '';
   if (card.supportType === 'purge-card' && target.id !== actor.id && target.hero.team !== actor.hero.team && (previousGame.playerStates?.[target.id]?.hp || 0) > 0) {
     const candidates = (targetState.hand || []).filter((id) => target.skillDeck.some((item) => item.id === id));
@@ -613,7 +654,6 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
     const stolenId = preferredCandidates[Math.floor(Math.random() * preferredCandidates.length)];
     if (stolenId) {
       targetState.hand = targetState.hand.filter((id) => id !== stolenId);
-      const actorState = incomingGame.playerStates[actor.id];
       actorState.hand.push(stolenId);
       actorState.borrowedCards = [...(actorState.borrowedCards || []), {
         cardId: stolenId,
@@ -621,6 +661,13 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
         borrowedAtTurn: incomingGame.completedTurns,
         expiresAfterBorrowerTurn: (actorState.completedPlayerTurns || 0) + 1
       }];
+      if (borrowedFateRefillIndex >= 0) {
+        const [unneededRefill] = actorState.hand.splice(borrowedFateRefillIndex, 1);
+        if (unneededRefill) {
+          actorState.drawPile ||= [];
+          actorState.drawPile.push(unneededRefill);
+        }
+      }
       replacementDetail = `${actor.displayName} stole one random ${specialCandidates.length ? 'special ' : ''}card from ${target.displayName}; it will return to ${target.displayName}'s discard pile when ${actor.displayName}'s next turn ends.`;
     } else replacementDetail = `${target.displayName} had no eligible card in hand, so Borrowed Fate had no effect.`;
   }
@@ -636,8 +683,12 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
         const owner = incomingGame.playerStates[borrowed.ownerId];
         if (owner && !(owner.discardPile || []).includes(removedId)) owner.discardPile.push(removedId);
       } else if (!(targetState.discardPile || []).includes(removedId)) targetState.discardPile.push(removedId);
-      drawOneOrRecycleDiscard(targetState, handIndex);
-      replacementDetail = `${target.displayName} discarded one random hand card and drew a replacement.`;
+      const handSizeBeforeRefill = targetState.hand.length;
+      refillHandToMinimum(targetState, handIndex);
+      const drawn = targetState.hand.length - handSizeBeforeRefill;
+      replacementDetail = drawn > 0
+        ? `${target.displayName} discarded one random hand card and drew ${drawn} ${drawn === 1 ? 'card' : 'cards'} to refill their hand to 4.`
+        : `${target.displayName} discarded one random hand card; their hand still had at least 4 cards, so they drew no card.`;
     } else replacementDetail = `${target.displayName} had no card in hand, so Control Cards had no effect.`;
   }
   if (card.supportType === 'zero-pity' && target.hero.team === actor.hero.team && (previousGame.playerStates?.[target.id]?.hp || 0) > 0) {
@@ -652,6 +703,7 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
     const entry = incomingGame.history?.at(-1);
     if (entry?.kind !== 'world') entry.message = `${actor.displayName} used ${card.name} — ${replacementDetail}`;
   }
+  refillActorHand();
 }
 function removePlayerFromRoom(targetId, removedBy) {
   const removingIndex = room.players.findIndex((player) => player.id === targetId);
@@ -738,6 +790,7 @@ async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', d
   const actionPhase = getCurrentBattlePhase(game.completedPhases || 0);
   if (passingPlayer) expireTimedEffectsAtTurnEnd(game.playerStates[passingPlayer.id]);
   if (passingPlayer) returnBorrowedCards(game, passingPlayer.id);
+  if (passingPlayer) refillHandToMinimum(game.playerStates[passingPlayer.id]);
   const revived = tickPendingRevives(game);
   const playerName = passingPlayer?.displayName || 'Player';
   const timedOut = kind === 'timeout';
@@ -746,12 +799,12 @@ async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', d
   const outcomeId = `${kind}-${completedTurns}-${now}`;
   game.completedTurns = completedTurns;
   game.adventure = { ...game.adventure, target: randomDiceTarget() };
-  game.outcome = { id: outcomeId, kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered discard; replacement drawn if available. Effects expired.` : forced ? 'A support effect skipped this turn; cards preserved and effects expired.' : timedOut ? 'Time expired; cards preserved and effects expired.' : 'Turn skipped; cards preserved and effects expired.', actorId: passingPlayer?.id, actorName: playerName, cardId: discardedCardId || undefined, cardName: discardedCardName || undefined, lifeEvents: revived.map((player) => ({ id: `life-${completedTurns}-${now}-returning-light-${player.id}`, kind: 'revive', playerId: player.id, playerName: player.displayName, reason: `${player.displayName} returned through Immediate Resurrection with one-third HP.` })) };
+  game.outcome = { id: outcomeId, kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered discard; hand refilled to 4 if needed. Effects expired.` : forced ? 'A support effect skipped this turn; no card was discarded, the hand refilled to 4 if needed, and effects expired.' : timedOut ? 'Time expired; no card was discarded, the hand refilled to 4 if needed, and effects expired.' : 'Turn skipped; no card was discarded, the hand refilled to 4 if needed, and effects expired.', actorId: passingPlayer?.id, actorName: playerName, cardId: discardedCardId || undefined, cardName: discardedCardName || undefined, lifeEvents: revived.map((player) => ({ id: `life-${completedTurns}-${now}-returning-light-${player.id}`, kind: 'revive', playerId: player.id, playerName: player.displayName, reason: `${player.displayName} returned through Immediate Resurrection with one-third HP.` })) };
   if (passingPlayer) {
     applyGoldReward(game.playerStates[passingPlayer.id], game.outcome);
     if (game.outcome.goldChange) game.outcome.detail += ` Earned ${game.outcome.goldChange} Gold.`;
   }
-  game.history = [...(game.history || []), { id: outcomeId, turn: completedTurns, phase: actionPhase, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} discarded ${discardedCardName}; replacement drawn if available. Effects expired.` : forced ? `A support effect skipped ${playerName}; cards preserved and effects expired.` : timedOut ? `${playerName} timed out; cards preserved and effects expired.` : `${playerName} skipped; cards preserved and effects expired.`, success: false, createdAt: now }];
+  game.history = [...(game.history || []), { id: outcomeId, turn: completedTurns, phase: actionPhase, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} discarded ${discardedCardName}; hand refilled to 4 if needed. Effects expired.` : forced ? `A support effect skipped ${playerName}; no card was discarded, the hand refilled to 4 if needed, and effects expired.` : timedOut ? `${playerName} timed out; no card was discarded, the hand refilled to 4 if needed, and effects expired.` : `${playerName} skipped; no card was discarded, the hand refilled to 4 if needed, and effects expired.`, success: false, createdAt: now }];
   if (game.outcome.goldChange) Object.assign(game.history.at(-1), { goldBefore: game.outcome.goldBefore, goldChange: game.outcome.goldChange, goldAfter: game.outcome.goldAfter, message: `${game.history.at(-1).message} Earned ${game.outcome.goldChange} Gold.` });
   if (revived.length) game.history.push({ id: `revive-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind: 'system', actorName: 'Immediate Resurrection', message: `${revived.map((player) => player.displayName).join(', ')} revived with one-third HP.`, success: true, createdAt: now });
   game.roll = null;
@@ -1068,7 +1121,6 @@ async function applyCommand(ownerId, message, deadlineAdvanced = false) {
     if (!state.hand.includes(message.cardId)) return 'Choose a card from your hand to discard.';
     const card = activePlayer.skillDeck.find((item) => item.id === message.cardId);
     const borrowed = (state.borrowedCards || []).find((entry) => entry.cardId === message.cardId);
-    const discardedIndex = state.hand.indexOf(message.cardId);
     state.hand = state.hand.filter((id) => id !== message.cardId);
     if (borrowed) {
       state.borrowedCards = state.borrowedCards.filter((entry) => entry.cardId !== message.cardId);
@@ -1077,7 +1129,6 @@ async function applyCommand(ownerId, message, deadlineAdvanced = false) {
         owner.discardPile.push(message.cardId);
       }
     } else state.discardPile.push(message.cardId);
-    drawOneOrRecycleDiscard(state, discardedIndex >= 0 ? discardedIndex : state.hand.length);
     await passCurrentTurn('discard', Date.now(), card?.name || 'a card', message.cardId);
     return null;
   }
