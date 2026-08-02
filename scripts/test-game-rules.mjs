@@ -9,11 +9,14 @@ const compile = (source, fileName) => ts.transpileModule(source, {
 
 const catalogSource = await readFile(new URL("../backend/game/catalog.ts", import.meta.url), "utf8");
 const lioraRulesUrl = new URL("../shared/lioraVenn.mjs", import.meta.url).href;
+const mirefieldRulesUrl = new URL("../shared/mirefieldSeizure.mjs", import.meta.url).href;
 const compiledCatalog = compile(catalogSource, "catalog.ts")
-  .replace('from "@/shared/lioraVenn.mjs"', `from "${lioraRulesUrl}"`);
+  .replace('from "@/shared/lioraVenn.mjs"', `from "${lioraRulesUrl}"`)
+  .replace('from "@/shared/mirefieldSeizure.mjs"', `from "${mirefieldRulesUrl}"`);
 const catalogUrl = `data:text/javascript;base64,${Buffer.from(compiledCatalog).toString("base64")}`;
 const catalog = await import(catalogUrl);
 const lioraRules = await import(lioraRulesUrl);
+const mirefieldRules = await import(mirefieldRulesUrl);
 const pityCostUrl = new URL("../shared/pityCost.mjs", import.meta.url).href;
 const pityCostRules = await import(pityCostUrl);
 const bulwarkRules = await import(new URL("../shared/bulwarkToBlade.mjs", import.meta.url).href);
@@ -161,7 +164,7 @@ const expectedSpecialBalance = {
   "kr-break": { pityCost: 6, failureEffect: "enemy-shield", failureValue: 2 },
   "im-command": { pityCost: 6, failureEffect: "team-damage", failureValue: 1 },
   "im-focus": { pityCost: 6, failureEffect: "team-damage", failureValue: 1 },
-  "im-purge": { pityCost: 8, failureEffect: "enemy-shield", failureValue: 2 },
+  "im-purge": { pityCost: 7, failureEffect: "enemy-shield", failureValue: 3 },
   "df-none": { pityCost: 7, failureEffect: "self-damage", failureValue: 2 },
   "df-cleave": { pityCost: 7, failureEffect: "self-damage", failureValue: 2 },
   "df-frenzy": { pityCost: 6, failureEffect: "self-damage", failureValue: 2 }
@@ -1172,20 +1175,35 @@ const commanderPurge = engine.createInitialGame([commander, diceEnemy], engine.c
 commanderPurge.turnOrder = [commander.id, diceEnemy.id];
 const purgeCard = commander.skillDeck.find((card) => card.supportType === "purge-card");
 assert.equal(purgeCard.target, "enemy", "Mirefield Seizure only exposes living enemies as targets");
-assert.equal(purgeCard.pityCost, 8, "unlimited Mirefield Seizure uses the highest control-effect pity tier");
-assert.match(purgeCard.description, /random card.*hand.*graveyard.*2 phases.*draw pile/i, "Mirefield Seizure's description explains its complete updated effect");
+assert.equal(purgeCard.pityCost, 7, "Mirefield Seizure uses the balanced special-card control tier");
+assert.equal(purgeCard.failureEffect, "enemy-shield", "Mirefield Seizure failure protects every enemy");
+assert.equal(purgeCard.failureValue, 3, "Mirefield Seizure's more reliable selection carries a stronger failure penalty");
+assert.match(purgeCard.description, /random card.*hand.*graveyard.*2 phases.*preferring special cards.*draw pile/i, "Mirefield Seizure's description explains its preference and complete temporary effect");
 assert.doesNotMatch(purgeCard.description, /third use|Ione's graveyard/i, "Mirefield Seizure no longer describes a use limit");
+assert.deepEqual(
+  Object.fromEntries(Object.keys(mirefieldRules.MIREFIELD_SEIZURE_CARD).map((key) => [key, purgeCard[key]])),
+  mirefieldRules.MIREFIELD_SEIZURE_CARD,
+  "the catalog and realtime migration share one exact Mirefield Seizure contract"
+);
+const legacyMirefieldPlayers = structuredClone([commander]);
+const legacyMirefield = legacyMirefieldPlayers[0].skillDeck.find((card) => card.id === "im-purge");
+Object.assign(legacyMirefield, { description: "Temporarily purge a random card.", failureValue: 2, pityCost: 8 });
+assert.equal(mirefieldRules.normalizeMirefieldSeizureCards(legacyMirefieldPlayers), true, "persisted rooms detect the legacy Mirefield Seizure snapshot");
+assert.deepEqual(legacyMirefieldPlayers[0].skillDeck.find((card) => card.id === "im-purge"), { ...mirefieldRules.MIREFIELD_SEIZURE_CARD, unique: true }, "persisted rooms migrate Mirefield Seizure to its new balance and text");
+assert.equal(mirefieldRules.normalizeMirefieldSeizureCards(legacyMirefieldPlayers), false, "the Mirefield Seizure persisted-room migration is idempotent");
 const purgedEnemyCards = diceEnemy.skillDeck.filter((card) => card.unique);
 const purgeReplacement = diceEnemy.skillDeck.find((card) => !card.unique && card.effect === "none");
 const commanderBlank = commander.skillDeck.find((card) => !card.unique && card.effect === "none");
 commanderPurge.playerStates[commander.id].hand = [purgeCard.id];
 commanderPurge.playerStates[commander.id].drawPile = [commanderBlank.id];
 commanderPurge.playerStates[commander.id].discardPile = [];
-commanderPurge.playerStates[diceEnemy.id].hand = [purgedEnemyCards[0].id];
-commanderPurge.playerStates[diceEnemy.id].drawPile = [purgeReplacement.id];
+commanderPurge.playerStates[diceEnemy.id].hand = [purgedEnemyCards[0].id, purgeReplacement.id];
+commanderPurge.playerStates[diceEnemy.id].drawPile = [];
 commanderPurge.playerStates[diceEnemy.id].discardPile = [];
 const purged = engine.resolveCardTurn(commanderPurge, [commander, diceEnemy], purgeCard.id, diceEnemy.id, 20);
 assert(purged.playerStates[diceEnemy.id].graveyard.includes(purgedEnemyCards[0].id), "Mirefield Seizure moves a random enemy hand card to that enemy's graveyard");
+assert(!purged.playerStates[diceEnemy.id].graveyard.includes(purgeReplacement.id), "Mirefield Seizure always prefers an available special card over a common card");
+assert(purged.playerStates[diceEnemy.id].hand.includes(purgeReplacement.id), "the unselected common card remains in the enemy hand");
 assert(!purged.playerStates[diceEnemy.id].hand.includes(purgedEnemyCards[0].id), "the purged card immediately leaves the enemy hand");
 assert.deepEqual(purged.playerStates[diceEnemy.id].purgedCards, [{ cardId: purgedEnemyCards[0].id, returnAfterPhase: 2 }], "the purged card records a two-phase return boundary");
 assert(!purged.playerStates[commander.id].graveyard.includes(purgeCard.id), "Mirefield Seizure remains reusable after its first use");
@@ -1246,6 +1264,7 @@ assert.equal(fourthPurge.playerStates[commander.id].cardUses[purgeCard.id], 4, "
 assert(!fourthPurge.playerStates[commander.id].graveyard.includes(purgeCard.id), "Mirefield Seizure never retires from repeated use");
 assert(fourthPurge.playerStates[diceEnemy.id].graveyard.includes(purgeReplacement.id), "a fourth Mirefield Seizure still moves an enemy hand card to graveyard");
 assert(fourthPurge.playerStates[diceEnemy.id].purgedCards.some((entry) => entry.cardId === purgeReplacement.id), "a fourth Mirefield Seizure still records the two-phase return timer");
+assert.match(fourthPurge.outcome.detail, /preferring special cards/i, "Mirefield Seizure explains its preference even when it falls back to a common card");
 
 const lioraOption = options.find((option) => option.hero.name === lioraRules.LIORA_VENN_NAME);
 assert(lioraOption, "Liora Venn must be available in the character catalog");
@@ -2012,6 +2031,7 @@ const serverAuthoritySource = await readFile(new URL("../backend/server.mjs", im
 const workerAuthoritySource = await readFile(new URL("../backend/realtime-worker.js", import.meta.url), "utf8");
 for (const [label, source] of [["Node", serverAuthoritySource], ["Worker", workerAuthoritySource]]) {
   assert.match(source, /card\.supportType === 'discard-random-card'[\s\S]*refillHandToMinimum\(targetState, handIndex\)/, `${label} authority resolves Control Cards with the shared four-card minimum against the target's private hand`);
+  assert.match(source, /card\.supportType === 'purge-card'[\s\S]*const specialCandidates = candidates\.filter[\s\S]*const preferredCandidates = specialCandidates\.length \? specialCandidates : candidates[\s\S]*const removedId = preferredCandidates/, `${label} authority makes Mirefield Seizure prefer special cards with common-card fallback`);
   assert.match(source, /returnBorrowedCards\(game, passingPlayer\.id\);[\s\S]*refillHandToMinimum\(game\.playerStates\[passingPlayer\.id\]\)/, `${label} authority refills only after borrowed cards return at turn end`);
   assert.match(source, /purchaseShopOffer[\s\S]*exchangePityForGold[\s\S]*useShopItem/, `${label} authority exposes all three Shop command families`);
 }

@@ -1,4 +1,5 @@
 import { LIORA_VENN_SPECIAL_CARDS } from "@/shared/lioraVenn.mjs";
+import { MIREFIELD_SEIZURE_CARD } from "@/shared/mirefieldSeizure.mjs";
 import type { ActionCard, Hero, PlayerSession, Realm } from "@/shared/types";
 
 export const HERO_TEMPLATES: Omit<Hero, "id" | "team" | "isYou">[] = [
@@ -76,7 +77,7 @@ export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
   "Ione Mire": [
     { id: "im-command", name: "Assault Order", description: "All living allies, including yourself, gain +2 attack damage; expires at the end of each target's next turn.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "attack", failureEffect: "team-damage", failureValue: 1, pityCost: 6 },
     { id: "im-focus", name: "Precision Order", description: "All living allies, including yourself, gain +2 d20; expires at the end of each target's next turn.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "dice", failureEffect: "team-damage", failureValue: 1, pityCost: 6 },
-    { id: "im-purge", name: "Mirefield Seizure", description: "Move 1 random card from an enemy hand to their graveyard for 2 phases, then return it to their draw pile.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "purge-card", failureEffect: "enemy-shield", failureValue: 2, pityCost: 8 }
+    { ...MIREFIELD_SEIZURE_CARD }
   ],
   "Dagan Flint": [
     { id: "df-none", name: "Bloodied Onslaught", description: "Deal 3 damage to every living enemy (4 while Dagan is at half HP).", bonus: 0, effect: "aoe", target: "all-enemies", value: 3, failureEffect: "self-damage", failureValue: 2, pityCost: 7 },

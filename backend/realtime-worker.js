@@ -16,6 +16,7 @@ import { sanitizeCommunicationGame } from '../shared/viewpoint.mjs';
 import { calculateRuntimePityCost, isTestModeEnabled } from '../shared/pityCost.mjs';
 import { normalizeBulwarkToBladeCards, reconcileBulwarkToBladeImpact } from '../shared/bulwarkToBlade.mjs';
 import { normalizeLioraVennCards, reconcileLioraVennImpact } from '../shared/lioraVenn.mjs';
+import { normalizeMirefieldSeizureCards } from '../shared/mirefieldSeizure.mjs';
 import { getCurrentBattlePhase, PHASE_TIMELINE_LENGTH, UNLIMITED_BATTLE_PHASES } from '../shared/battlePhases.mjs';
 import { applyGoldReward, exchangePityForGold, initializeShopBattle, purchaseShopOffer, reconcileShopTurn, stripShopCards, useShopItem } from '../shared/shop.mjs';
 
@@ -51,6 +52,7 @@ function roomMetadata(source = room) {
 
 function publicState(viewerId = '') {
   normalizeBulwarkToBladeCards(room.players);
+  normalizeMirefieldSeizureCards(room.players);
   if (room.game) {
     normalizeWorldEventState(room.game);
     upgradePhaseFiveCards(room.game);
@@ -641,10 +643,12 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
   let replacementDetail = '';
   if (card.supportType === 'purge-card' && target.id !== actor.id && target.hero.team !== actor.hero.team && (previousGame.playerStates?.[target.id]?.hp || 0) > 0) {
     const candidates = (targetState.hand || []).filter((id) => target.skillDeck.some((item) => item.id === id));
-    const removedId = candidates[Math.floor(Math.random() * candidates.length)];
+    const specialCandidates = candidates.filter((id) => target.skillDeck.some((item) => item.id === id && item.unique));
+    const preferredCandidates = specialCandidates.length ? specialCandidates : candidates;
+    const removedId = preferredCandidates[Math.floor(Math.random() * preferredCandidates.length)];
     if (removedId) {
       temporarilyPurgeHandCard(targetState, removedId, Number(previousGame.completedPhases || 0) + 2);
-      replacementDetail = `${target.displayName} had one random hand card moved to their graveyard for 2 phases; it will then return to their draw pile.`;
+      replacementDetail = `${target.displayName} had one random hand card moved to their graveyard for 2 phases, preferring special cards; it will then return to their draw pile.`;
     } else replacementDetail = `${target.displayName} had no eligible card in hand, so Mirefield Seizure had no effect.`;
   }
   if (card.supportType === 'steal-card' && target.id !== actor.id && target.hero.team !== actor.hero.team && (previousGame.playerStates?.[target.id]?.hp || 0) > 0) {
@@ -1023,6 +1027,7 @@ async function applyCommand(ownerId, message, deadlineAdvanced = false) {
     if ((room.game.playerStates[activePlayer.id]?.hp || 0) <= 0) return 'A defeated player cannot play a card.';
     normalizeBulwarkToBladeCards(room.players);
     normalizeLioraVennCards(room.players);
+    normalizeMirefieldSeizureCards(room.players);
     const previousGame = room.game;
     const acknowledgedWorldEventId = message.game.worldEvent?.id || null;
     const authoritativeWorldEventId = previousGame.worldEvent?.id || null;

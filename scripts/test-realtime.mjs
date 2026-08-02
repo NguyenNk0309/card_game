@@ -8,7 +8,7 @@ const testMode = String(process.env.TEST_MODE ?? "").trim().toLowerCase() === "t
 function testSkillDeck(id) {
   const special = [
     { id: `card-${id}`, name: "Test Skill", description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, failureEffect: "enemy-shield", failureValue: 2, unique: true },
-    { id: `purge-${id}`, name: "Mirefield Seizure", description: "Temporarily purge a random enemy hand card.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "purge-card", unique: true },
+    { id: `purge-${id}`, name: "Mirefield Seizure", description: "Move 1 random card from an enemy hand to their graveyard for 2 phases, preferring special cards; then return it to their draw pile.", bonus: 0, effect: "support", target: "enemy", value: 2, supportType: "purge-card", failureEffect: "enemy-shield", failureValue: 3, pityCost: 7, unique: true },
     { id: `pilfer-${id}`, name: "Borrowed Fate", description: "Steal a random enemy hand card, preferring special cards.", bonus: 0, effect: "support", target: "enemy", value: 1, supportType: "steal-card", unique: true },
     { id: `favor-${id}`, name: "Foretold Success", description: "Make one ally's next played card cost 0 pity.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "zero-pity", unique: true }
   ];
@@ -620,8 +620,8 @@ try {
   purgeAuthorityGame.playerStates[firstId].drawPile = [`card-${firstId}`];
   purgeAuthorityGame.playerStates[firstId].discardPile = [];
   purgeAuthorityGame.playerStates[firstId].graveyard = [];
-  purgeAuthorityGame.playerStates[secondId].hand = [`card-${secondId}`];
-  purgeAuthorityGame.playerStates[secondId].drawPile = [`${secondId}-common-empty-gesture`];
+  purgeAuthorityGame.playerStates[secondId].hand = [`card-${secondId}`, `${secondId}-common-empty-gesture`];
+  purgeAuthorityGame.playerStates[secondId].drawPile = [];
   purgeAuthorityGame.playerStates[secondId].discardPile = [];
   purgeAuthorityGame.playerStates[secondId].graveyard = [];
   second.send({ type: "start", game: purgeAuthorityGame });
@@ -646,7 +646,9 @@ try {
   first.send({ type: "game:update", game: purgeAction });
   const [purgeObserverView, purgeOwnerView] = await Promise.all([purgeObserverPromise, purgeOwnerPromise]);
   assert.deepEqual(purgeObserverView.game.playerStates[secondId].purgedCards, [], "temporary purge metadata stays private from opponents");
-  assert(purgeOwnerView.game.playerStates[secondId].graveyard.includes(`card-${secondId}`), "the realtime authority moves a random private hand card to its owner's graveyard");
+  assert(purgeOwnerView.game.playerStates[secondId].graveyard.includes(`card-${secondId}`), "the realtime authority prefers a special card in the owner's private hand");
+  assert(!purgeOwnerView.game.playerStates[secondId].graveyard.includes(`${secondId}-common-empty-gesture`), "the realtime authority leaves a common card alone when a special card is available");
+  assert(purgeOwnerView.game.playerStates[secondId].hand.includes(`${secondId}-common-empty-gesture`), "the unselected common card remains in its owner's hand");
   assert.deepEqual(purgeOwnerView.game.playerStates[secondId].purgedCards, [{ cardId: `card-${secondId}`, returnAfterPhase: 2 }], "the realtime authority records the two-phase return boundary");
   assert.deepEqual(purgeOwnerView.game.outcome.notices.map((notice) => notice.kind), ["phase-start"], "moving a card to the graveyard adds no toast beyond the valid phase-start notice");
 

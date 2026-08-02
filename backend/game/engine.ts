@@ -626,10 +626,12 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       if (card.supportType === "purge-card" && selectedEnemy) {
         const selectedState = states[selectedEnemy.id];
         const candidates = selectedState.hand.filter((id) => selectedEnemy.skillDeck.some((item) => item.id === id));
-        const removedId = candidates.length ? pick(candidates) : "";
+        const specialCandidates = candidates.filter((id) => selectedEnemy.skillDeck.some((item) => item.id === id && item.unique));
+        const preferredCandidates = specialCandidates.length ? specialCandidates : candidates;
+        const removedId = preferredCandidates.length ? pick(preferredCandidates) : "";
         const returnAfterPhase = (game.completedPhases ?? Math.max(0, (game.roundNumber ?? 1) - 1)) + 2;
         if (removedId) temporarilyPurgeHandCard(selectedState, removedId, returnAfterPhase);
-        reports.push(`one random card from ${selectedEnemy.displayName}'s hand moved to their graveyard for 2 phases, then will return to their draw pile`);
+        reports.push(`one random card from ${selectedEnemy.displayName}'s hand moved to their graveyard for 2 phases, preferring special cards, then will return to their draw pile`);
       }
       if (card.supportType === "steal-card" && selectedEnemy) {
         const enemyState = states[selectedEnemy.id];
