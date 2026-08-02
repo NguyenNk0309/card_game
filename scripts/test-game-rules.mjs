@@ -1259,7 +1259,7 @@ assert.deepEqual(
 assert.equal(lioraVerdictTemplate.description, "Requires at least 4 HP. On success, lose 3 HP, then deal 4 damage to one living enemy.");
 assert.equal(lioraRemedyTemplate.description, "All living allies, including yourself, restore 4 HP (5 with Sanguine Recompense); cannot revive.");
 assert.equal(lioraCommunionTemplate.description, "Requires at least 4 HP. On success, lose 3 HP, then deal 3 damage to every living enemy.");
-assert.equal(lioraOption.hero.passiveText, "After Liora pays HP to the enemy, her next successful Heal card restores 1 additional HP to every living ally; does not stack.");
+assert.equal(lioraOption.hero.passiveText, "After Liora pays HP to attack the enemy, her next successful Heal card restores 1 additional HP to every living ally; does not stack.");
 
 const liora = engine.createPlayerSession("Liora", 0, "Liora Venn", "liora-rules");
 const lioraEnemy = engine.createPlayerSession("Liora enemy", 1, "Elara Voss", "liora-enemy");
