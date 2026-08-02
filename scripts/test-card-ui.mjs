@@ -30,7 +30,7 @@ const partyRail = read("ui/components/PartyRail.tsx");
 const battlePhases = read("shared/battlePhases.mjs");
 const roomSocket = read("ui/hooks/useRoomSocket.ts");
 const gameAudio = read("ui/hooks/useGameAudio.ts");
-const cardZoneMotion = read("ui/cardZoneMotion.ts");
+const autoPanelVfx = read("ui/components/AutoPanelVfx.tsx");
 const tooltipPosition = read("ui/components/tooltipPosition.ts");
 const styles = read("app/globals.css");
 const pityHoverRules = [...styles.matchAll(/\.pity-button:hover:not\(:disabled\)\s*\{([^}]*)\}/g)];
@@ -74,10 +74,6 @@ assert.match(styles, /\.battle-avatar-tooltip\s*\{[^}]*position:\s*fixed;[^}]*wi
 assert.match(styles, /\.battle-avatar-tooltip-image\s*\{[^}]*width:\s*100%;[^}]*height:\s*auto;[^}]*aspect-ratio:\s*1;/, "battle avatar tooltip images must preserve their larger square geometry");
 assert(!/\b(?:strength|weakness)\s*:|character-(?:impact-grid|trait)|>Strength<|>Weakness</i.test([cardCatalog, sharedTypes, gameApp, lobby, styles].join("\n")), "Strength and Weakness data, sections, and styles must stay fully removed");
 
-const compiledCardZoneMotion = ts.transpileModule(cardZoneMotion, {
-  compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
-}).outputText;
-const { getCardZoneChanges } = await import(`data:text/javascript;base64,${Buffer.from(compiledCardZoneMotion).toString("base64")}`);
 const compiledTooltipPosition = ts.transpileModule(tooltipPosition, {
   compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2020 },
 }).outputText;
@@ -143,8 +139,7 @@ assert.match(styles, /\.gothic-card:hover:not\(:disabled\)\s*\{[\s\S]*transform:
 assert.match(styles, /\.action-hand\s*\{[\s\S]*--hand-card-gap:\s*16px;[\s\S]*--hand-card-width:\s*min\(260px, calc\(\(100% - 48px\) \/ 4\)\)/, "battle-hand cards must use a wider gap and an adaptive desktop cap");
 assert.match(styles, /\.action-hand\s*\{[\s\S]*padding:\s*20px 10px 22px;/, "the battle hand must reserve vertical room for card hover effects");
 assert.match(styles, /\.action-hand > \.gothic-card\.selected,\s*\.action-hand > \.gothic-card\.selected:not\(:disabled\):hover,\s*\.world-event-choice-card\.gothic-card\.selected,\s*\.world-event-choice-card\.gothic-card\.selected:hover:not\(:disabled\)\s*\{[\s\S]*transform:\s*none\s*!important;[\s\S]*box-shadow:\s*none\s*!important;/, "hand and Phase 3 selection must not move, scale, or cast a neighboring-card shadow");
-assert.match(styles, /\.card-motion\.hand-from-zone\.gothic-card\.selected\s*\{[\s\S]*outline:\s*0\s*!important;[\s\S]*box-shadow:\s*none\s*!important;/, "an outgoing selected card must suppress the obsolete gold highlight without overriding its discard animation transform");
-assert.match(styles, /\.action-hand > \.gothic-card\.selected::before,\s*\.world-event-choice-card\.gothic-card\.selected::before,\s*\.card-motion\.hand-from-zone\.gothic-card\.selected::before\s*\{[\s\S]*inset:\s*\.5cqw;[\s\S]*pointer-events:\s*none;[\s\S]*border:\s*1\.4cqw solid #e14b3f;/, "hand, Phase 3, and outgoing selected cards must share the thick red outer-edge highlight without affecting layout");
+assert.match(styles, /\.action-hand > \.gothic-card\.selected::before,\s*\.world-event-choice-card\.gothic-card\.selected::before\s*\{[\s\S]*inset:\s*\.5cqw;[\s\S]*pointer-events:\s*none;[\s\S]*border:\s*1\.4cqw solid #e14b3f;/, "hand and Phase 3 selected cards must share the thick red outer-edge highlight without affecting layout");
 assert.match(styles, /\.lobby-skill-deck\s*\{[\s\S]*grid-template-columns:\s*repeat\(2, minmax\(0, 282px\)\)\s*!important;/, "baseline desktop card galleries must keep two adaptive columns");
 assert.match(styles, /@media \(min-width: 1600px\) and \(min-height: 900px\)\s*\{[\s\S]*--hand-card-width:\s*min\(300px,[\s\S]*\.lobby-skill-deck\s*\{\s*grid-template-columns:\s*repeat\(2, minmax\(0, 310px\)\)/, "1080p layouts must render taller 300px hand cards and larger 310px gallery cards");
 assert.match(styles, /@media \(min-width: 1600px\) and \(min-height: 900px\)\s*\{\s*\.character-review-layout\s*\{\s*grid-template-columns:\s*minmax\(300px, \.72fr\) minmax\(0, 1\.28fr\);/, "1080p and 1440p lobby previews must reserve a wider character-status column");
@@ -295,44 +290,38 @@ assert.match(styles, /@media \(min-width: 721px\) \{[\s\S]*\.team-slot-player,\s
 assert.match(styles, /@media \(min-width: 721px\) \{[\s\S]*\.team-slot-player \{\s*display: grid;\s*grid-template-rows: minmax\(0, 1fr\) auto;/, "joined desktop slots must reserve the action row so its bottom padding is not clipped");
 assert.match(styles, /@media \(min-width: 1360px\) and \(max-height: 1100px\) \{[\s\S]*\.team-slot-player \.joined-actions \{\s*padding: 3px 7px 5px;[\s\S]*\.team-slot-player \.joined-actions button \{\s*min-height: 28px;/, "compact desktop player slots must fit their profile and action rows without overlap");
 
-assert.deepEqual(
-  getCardZoneChanges(["first", "second", "third", "fourth"], ["draw-one", "second", "draw-two", "fourth"]),
-  [
-    { slotIndex: 0, discardedId: "first", drawnId: "draw-one" },
-    { slotIndex: 2, discardedId: "third", drawnId: "draw-two" },
-  ],
-  "two replaced hand positions must each animate their discarded and drawn card"
-);
-assert.deepEqual(
-  getCardZoneChanges(["first", "second", "third", "fourth"], ["draw-one", "second", "fourth"]),
-  [
-    { slotIndex: 0, discardedId: "first", drawnId: "draw-one" },
-    { slotIndex: 2, discardedId: "third", drawnId: undefined },
-  ],
-  "partial refills must animate every discard and only the available draw"
-);
-assert.deepEqual(
-  getCardZoneChanges(["first", "second", "third", "fourth"], ["third", "fourth", "first", "second"]),
-  [
-    { slotIndex: 0, discardedId: "first", drawnId: "third" },
-    { slotIndex: 1, discardedId: "second", drawnId: "fourth" },
-    { slotIndex: 2, discardedId: "third", drawnId: "first" },
-    { slotIndex: 3, discardedId: "fourth", drawnId: "second" },
-  ],
-  "a multi-card redraw must animate every changed hand position"
-);
-assert.deepEqual(
-  getCardZoneChanges(["played", "kept"], ["played", "draw-two", "draw-three", "kept"], [0]),
-  [
-    { slotIndex: 0, discardedId: "played", drawnId: "played" },
-    { slotIndex: 1, discardedId: undefined, drawnId: "draw-two" },
-    { slotIndex: 2, discardedId: undefined, drawnId: "draw-three" },
-  ],
-  "a three-card refill must animate every draw even when the played card is immediately recycled"
-);
-assert.match(gameApp, /motion\.items\.flatMap/, "the replacement VFX must render every changed card slot");
-assert.match(gameApp, /selectedHandMotions = cardIds\.flatMap/, "multi-card World Event choices must preserve every selected hand slot");
-assert.match(styles, /\.card-motion\.hand-from-zone\s*\{[^}]*animation:\s*hand-card-fade-out 1\.05s ease-in-out both;/, "every outgoing card must retain the discard animation");
-assert.match(styles, /\.card-motion\.hand-to-zone\s*\{[^}]*animation:\s*hand-card-fade-in 1\.18s ease-in-out 1\.1s both;/, "every drawn card must retain the delayed draw animation");
+const autoPanelVariants = [
+  "action-success", "action-failure", "action-skip", "action-discard", "action-neutral",
+  "summary-success", "summary-failure", "summary-skip", "summary-discard", "summary-neutral",
+  "life-revive", "life-defeat", "world-pending", "world-resolved",
+  "battle-victory", "battle-defeat", "battle-complete",
+];
+for (const variant of autoPanelVariants) {
+  assert(autoPanelVfx.includes(`| "${variant}"`), `${variant} must remain a supported automatic-panel VFX variant`);
+  assert(styles.includes(`.auto-panel-vfx-${variant}`), `${variant} must retain its contextual automatic-panel palette`);
+}
+const semanticVfxPalettes = new Map([
+  ["action-success", "#79dc98"], ["summary-success", "#79dc98"], ["life-revive", "#80e0a0"],
+  ["action-failure", "#f06558"], ["summary-failure", "#f06558"], ["life-defeat", "#d54846"],
+  ["action-skip", "#5aa8ff"], ["summary-skip", "#5aa8ff"],
+  ["action-discard", "#47c9c2"], ["summary-discard", "#47c9c2"],
+  ["world-pending", "#e0b74f"], ["world-resolved", "#c78cf0"],
+  ["battle-victory", "#ffd66a"], ["battle-defeat", "#d7473f"],
+]);
+for (const [variant, primaryColor] of semanticVfxPalettes) {
+  assert(styles.includes(`.auto-panel-vfx-${variant} { --panel-vfx-primary: ${primaryColor};`), `${variant} must retain its panel-semantic primary color`);
+}
+assert.match(gameApp, /modalAutoPanelVfx && <AutoPanelVfx key=\{modalAutoPanelVfx\.key\} variant=\{modalAutoPanelVfx\.variant\}/, "standard automatic panels must render their keyed contextual VFX layer");
+assert.match(gameApp, /function getOutcomeVfxTone[\s\S]*outcome\?\.kind === "card"[\s\S]*"success" : "failure"[\s\S]*outcome\?\.kind === "discard"[\s\S]*return "discard"[\s\S]*outcome\?\.kind === "skip" \|\| outcome\?\.kind === "timeout" \|\| outcome\?\.kind === "forced-skip"[\s\S]*return "skip"/, "automatic action panels must map success, failure, discard, skip, timeout, and forced skip to semantic VFX colors");
+assert.match(gameApp, /activeAutoPanel === "outcome"[\s\S]*variant: `action-\$\{outcomeVfxTone\}`[\s\S]*activeAutoPanel === "summary"[\s\S]*variant: `summary-\$\{outcomeVfxTone\}`/, "Your Action and Turn Summary must select their own result-sensitive VFX families");
+assert.match(gameApp, /activeAutoPanel === "life"[\s\S]*"life-revive" : "life-defeat"[\s\S]*activeAutoPanel === "world"[\s\S]*variant: "world-resolved"[\s\S]*activeAutoPanel === "battle"[\s\S]*"battle-victory"[\s\S]*"battle-defeat"[\s\S]*"battle-complete"/, "life events, resolved World Events, and every Battle Complete verdict must select contextual VFX");
+assert.match(worldEvents, /world-event-choice-backdrop auto-panel-backdrop[\s\S]*<AutoPanelVfx key=\{pendingEvent\.id\} variant="world-pending"/, "the pending World Event choice must render its own keyed VFX layer");
+assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.auto-panel-vfx-particles i\s*\{[\s\S]*animation:\s*none !important;/, "automatic-panel VFX must respect reduced-motion preferences");
+const autoPanelVfxStyles = styles.slice(styles.indexOf("/* Contextual VFX shown only behind panels that open automatically. */"));
+assert.match(autoPanelVfxStyles, /\.auto-panel-vfx\s*\{[\s\S]*animation:\s*auto-panel-vfx-finish 2\.8s linear both;/, "the complete automatic-panel VFX layer must fade away after its entrance sequence");
+assert.doesNotMatch(autoPanelVfxStyles, /infinite/, "automatic-panel VFX must never continue animating for the life of an open panel");
+assert.match(autoPanelVfxStyles, /@keyframes auto-panel-vfx-finish\s*\{[\s\S]*100% \{ opacity: 0; \}/, "the automatic-panel VFX container must finish fully transparent");
+assert(autoPanelVfxStyles.includes(".auto-panel-vfx { display: none; }"), "reduced-motion mode must leave no persistent automatic-panel decoration");
+assert.doesNotMatch([gameApp, styles].join("\n"), /battle-card-vfx|card-zone-vfx|card-motion|zone-vfx-slot-hidden/, "all previous battle-card and card-zone VFX implementations must stay removed");
 
-console.log("Card UI contract passed: shared card sizing, normalized status values, multi-card zone animation, and confirmed team-join audio.");
+console.log("Card UI contract passed: shared card sizing, contextual automatic-panel VFX, normalized status values, and confirmed team-join audio.");

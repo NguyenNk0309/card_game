@@ -20,23 +20,29 @@ import { HighlightCardNames } from "./components/HighlightCardNames";
 import { HomeScreen } from "./components/HomeScreen";
 import { Lobby } from "./components/Lobby";
 import { PartyRail } from "./components/PartyRail";
-import { CardEffectIcon } from "./components/CardEffectIcon";
+import { AutoPanelVfx, type AutoPanelVfxVariant } from "./components/AutoPanelVfx";
 import { PityIcon } from "./components/PityCost";
 import { ShopPanel } from "./components/ShopPanel";
 import { ResolvedWorldEventPanel, ShatteredTributeChoicePanel, WorldEventLibrary } from "./components/WorldEventPanels";
 import { useGameAudio } from "./hooks/useGameAudio";
 import { useRoomSocket } from "./hooks/useRoomSocket";
-import { getCardZoneChanges } from "./cardZoneMotion";
 
 const teamName: Record<TeamId, string> = { veil: "Veilbound", ember: "Embercourt" };
 const PLAYER_NAME_STORAGE_KEY = "shattered-oath-player-name";
 const GAME_NOTICE_DURATION_MS = 10_000;
+type OutcomeVfxTone = "success" | "failure" | "skip" | "discard" | "neutral";
 type PresentationQueueItem =
   | { id: string; kind: "world"; event: WorldEventOutcome }
   | { id: string; kind: "life"; lifeEvent: PlayerLifeEvent }
   | { id: string; kind: "battle"; battleKey: string };
 const teamRelationClass = (team?: TeamId, localTeam?: TeamId) => team && localTeam ? (team === localTeam ? "ally" : "enemy") : "neutral";
 const playerRelationClass = (player?: PlayerSession, localPlayer?: PlayerSession) => teamRelationClass(player?.hero.team, localPlayer?.hero.team);
+function getOutcomeVfxTone(outcome?: GameOutcome | null): OutcomeVfxTone {
+  if (outcome?.kind === "card") return outcome.success ? "success" : "failure";
+  if (outcome?.kind === "discard") return "discard";
+  if (outcome?.kind === "skip" || outcome?.kind === "timeout" || outcome?.kind === "forced-skip") return "skip";
+  return "neutral";
+}
 function AutomaticSuccessNotice({ roll }: { roll?: number }) {
   return <div className="automatic-success-notice"><Check size={22}/><span><small>ZERO-PITY CARD</small><strong>Automatic success</strong><b>d20 {roll ?? 0} was ignored</b></span></div>;
 }
@@ -326,54 +332,6 @@ function TargetPlayerPicker({ options, selectedId, game, localPlayer, onChange }
   </div>;
 }
 
-type CardSlotRect = { top: number; left: number; width: number; height: number };
-type CardZoneMotionItem = {
-  slotIndex: number;
-  slotRect?: CardSlotRect;
-  drawn?: ActionCard;
-  discarded?: ActionCard;
-};
-type CardZoneMotion = {
-  id: number;
-  mode: "replace" | "compact" | "refill";
-  previousHand: string[];
-  items: CardZoneMotionItem[];
-};
-
-function CardZoneVfx({ motion, player, playable }: { motion: CardZoneMotion; player: PlayerSession; playable: boolean }) {
-  const [slotStyles, setSlotStyles] = useState<Array<React.CSSProperties | null>>(() => motion.items.map((item) => item.slotRect ?? null));
-  useLayoutEffect(() => {
-    const slots = [...document.querySelectorAll<HTMLElement>(".action-hand [data-hand-slot]")];
-    const motionSlots = motion.items.map((item) => document.querySelector<HTMLElement>(`.action-hand [data-hand-slot="${item.slotIndex}"]`) ?? (item.slotRect ? undefined : slots.at(-1)));
-    if (motion.mode === "replace") motionSlots.forEach((slot) => slot?.classList.add("zone-vfx-slot-hidden"));
-    const placeOverSlots = () => {
-      setSlotStyles((current) => motion.items.map((item, index) => {
-        const slot = motionSlots[index];
-        if (!slot) return item.slotRect ?? current[index] ?? null;
-        const rect = slot.getBoundingClientRect();
-        return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
-      }));
-    };
-    placeOverSlots();
-    window.addEventListener("resize", placeOverSlots);
-    return () => {
-      if (motion.mode === "replace") motionSlots.forEach((slot) => slot?.classList.remove("zone-vfx-slot-hidden"));
-      window.removeEventListener("resize", placeOverSlots);
-    };
-  }, [motion]);
-  const hasDiscard = motion.items.some((item) => item.discarded);
-  const hasDraw = motion.items.some((item) => item.drawn);
-  return <div className={`card-zone-vfx ${motion.mode}-motion ${hasDiscard && hasDraw ? "replacement-motion" : "single-zone-motion"} ${playable ? "playable-motion" : "inactive-motion"}`} aria-hidden="true">{motion.items.flatMap((item, index) => {
-    const slotStyle = slotStyles[index];
-    if (!slotStyle) return [];
-    const cardStyle = { ...slotStyle, "--hero-color": player.hero.color, "--settled-card-opacity": playable ? 1 : 0.48 } as React.CSSProperties;
-    return [
-      item.discarded && <article className={`action-card gothic-card selected card-motion hand-from-zone effect-${item.discarded.effect} ${item.discarded.unique ? "hero-special-card" : "common-action-card"} ${item.discarded.effect === "none" ? "no-effect-card" : ""}`} style={cardStyle} key={`discard-${item.slotIndex}-${item.discarded.id}`}><HandCardContents card={item.discarded}/></article>,
-      item.drawn && <article className={`action-card gothic-card card-motion hand-to-zone effect-${item.drawn.effect} ${item.drawn.unique ? "hero-special-card" : "common-action-card"} ${item.drawn.effect === "none" ? "no-effect-card" : ""}`} style={cardStyle} key={`draw-${item.slotIndex}-${item.drawn.id}`}><HandCardContents card={item.drawn}/></article>,
-    ].filter((card): card is React.ReactElement => Boolean(card));
-  })}</div>;
-}
-
 type RoomMetadata = { roomId: string; createdAt: number; expiresAt: number };
 
 function roomIdFromLocation() {
@@ -473,7 +431,6 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
   const [showGuide, setShowGuide] = useState(false);
   const [dismissedOutcomeKey, setDismissedOutcomeKey] = useState("");
   const [dismissedSummaryKey, setDismissedSummaryKey] = useState("");
-  const [dismissedVfxKey, setDismissedVfxKey] = useState("");
   const [presentationQueue, setPresentationQueue] = useState<PresentationQueueItem[]>([]);
   const [deckReview, setDeckReview] = useState<"draw" | "discard" | "graveyard" | null>(null);
   const [expandedPanel, setExpandedPanel] = useState<"history" | "turns" | "world-events" | "shop" | null>(null);
@@ -482,11 +439,8 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
   const [inspectedView, setInspectedView] = useState<"status" | "deck">("status");
   const [mobileParty, setMobileParty] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const [cardZoneMotion, setCardZoneMotion] = useState<CardZoneMotion | null>(null);
   const [visibleNotices, setVisibleNotices] = useState<GameNotice[]>([]);
   const expirySentRef = useRef(0);
-  const previousLocalZonesRef = useRef<{ playerId: string; hand: string[]; drawPile: string[]; discardPile: string[]; slotRects: CardSlotRect[] } | null>(null);
-  const pendingCardMotionRef = useRef<{ completedTurns: number; previousHand: string[]; items: Array<CardZoneMotionItem & { discarded: ActionCard }> } | null>(null);
   const outcomeSoundReadyRef = useRef(false);
   const lastOutcomeSoundKeyRef = useRef("");
   const lastBattleResultKeyRef = useRef("");
@@ -540,12 +494,6 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
   const isLocalActionOutcome = Boolean(outcome && localPlayer && (outcome.actorId ? outcome.actorId === localPlayer.id : outcome.actorName === localPlayer.displayName) && (outcome.kind === "card" || outcome.kind === "discard" || outcome.kind === "skip"));
   const showOutcome = Boolean(isLocalActionOutcome && outcomeKey !== dismissedOutcomeKey);
   const showTurnSummary = Boolean(outcome?.actorName && !isLocalActionOutcome && outcomeKey !== dismissedSummaryKey);
-  const vfxCard = outcome?.kind === "card"
-    ? [...cardCatalog, ...previewCardCatalog].find((card) => card.id === outcome.cardId && card.name === outcome.cardName)
-      ?? previewCardCatalog.find((card) => card.name === outcome.cardName)
-      ?? cardCatalog.find((card) => card.id === outcome.cardId || card.name === outcome.cardName)
-    : undefined;
-  const showBattleVfx = Boolean(vfxCard && outcomeKey !== dismissedVfxKey && !runComplete);
   const showWorldEvent = Boolean(queuedWorldEvent && queuedWorldEvent.phase !== 3 && !worldEventBlocking);
   const inspectedPlayer = players.find((player) => player.id === inspectedPlayerId);
   const inspectedCard = [...cardCatalog, ...previewCardCatalog].find((card) => card.name === inspectedCardName);
@@ -555,7 +503,18 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
   const showPendingWorldEventChoice = Boolean(pendingWorldEvent && !manualPanelOpen && !showOutcome && !showTurnSummary && !showNonWorldLifeEvent);
   const activeAutoPanel = manualPanelOpen ? null : showOutcome ? "outcome" : showTurnSummary ? "summary" : showNonWorldLifeEvent ? "life" : worldEventBlocking ? null : showWorldEvent ? "world" : showWorldLifeEvent ? "life" : showRunComplete ? "battle" : null;
   const modalOpen = manualPanelOpen || Boolean(activeAutoPanel);
-  const panelOverlayOpen = modalOpen || worldEventBlocking || showGuide || mobileParty;
+  const outcomeVfxTone = getOutcomeVfxTone(outcome);
+  const modalAutoPanelVfx: { key: string; variant: AutoPanelVfxVariant } | null = activeAutoPanel === "outcome"
+    ? { key: `outcome:${outcomeKey}`, variant: `action-${outcomeVfxTone}` }
+    : activeAutoPanel === "summary"
+      ? { key: `summary:${outcomeKey}`, variant: `summary-${outcomeVfxTone}` }
+      : activeAutoPanel === "life" && activeLifeEvent
+        ? { key: `life:${activeLifeEvent.id}`, variant: activeLifeEvent.kind === "revive" ? "life-revive" : "life-defeat" }
+        : activeAutoPanel === "world" && queuedWorldEvent
+          ? { key: `world:${queuedWorldEvent.id}`, variant: "world-resolved" }
+          : activeAutoPanel === "battle"
+            ? { key: `battle:${battleResultKey}`, variant: localBattleVerdict === "victory" ? "battle-victory" : localBattleVerdict === "defeat" ? "battle-defeat" : "battle-complete" }
+            : null;
   const visibleTurnOrder = useMemo(() => {
     if (!game) return [];
     const living = players.filter((player) => (game.playerStates[player.id]?.hp ?? 0) > 0);
@@ -674,51 +633,6 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
     noticeTimersRef.current.clear();
   }, []);
   useEffect(() => {
-    if (!showBattleVfx || !outcomeKey) return;
-    const timer = window.setTimeout(() => setDismissedVfxKey(outcomeKey), 1400);
-    return () => window.clearTimeout(timer);
-  }, [showBattleVfx, outcomeKey]);
-  useEffect(() => {
-    if (!localPlayer || !localState) {
-      previousLocalZonesRef.current = null;
-      return;
-    }
-    const previous = previousLocalZonesRef.current;
-    if (previous?.playerId === localPlayer.id) {
-      const handChanged = previous.hand.length !== localState.hand.length || previous.hand.some((cardId, index) => cardId !== localState.hand[index]);
-      const pendingSnapshot = pendingCardMotionRef.current;
-      const pendingMatchesPrevious = Boolean(pendingSnapshot
-        && pendingSnapshot.previousHand.length === previous.hand.length
-        && pendingSnapshot.previousHand.every((cardId, index) => cardId === previous.hand[index]));
-      const pending = pendingMatchesPrevious && (handChanged || (game?.completedTurns ?? 0) > (pendingSnapshot?.completedTurns ?? 0)) ? pendingSnapshot : null;
-      const changes = getCardZoneChanges(previous.hand, localState.hand, pending?.items.map((item) => item.slotIndex));
-      const pendingItems = new Map(pending?.items.map((item) => [item.slotIndex, item]) ?? []);
-      const items = changes.map((change) => ({
-        slotIndex: change.slotIndex,
-        slotRect: pendingItems.get(change.slotIndex)?.slotRect ?? previous.slotRects[change.slotIndex],
-        discarded: pendingItems.get(change.slotIndex)?.discarded ?? (change.discardedId ? cardCatalog.find((card) => card.id === change.discardedId) : undefined),
-        drawn: change.drawnId ? cardCatalog.find((card) => card.id === change.drawnId) : undefined,
-      })).filter((item) => item.discarded || item.drawn);
-      const recycledPlayedCard = Boolean(pending && previous.drawPile.length === 0 && localState.discardPile.length === 0 && pending.items.some((item) => localState.hand.includes(item.discarded.id)));
-      const refill = previous.hand.length > 0 && previous.drawPile.length === 0 && localState.discardPile.length === 0 && (localState.hand.length > previous.hand.length || recycledPlayedCard);
-      const compact = !refill && previous.drawPile.length === 0 && localState.hand.length < previous.hand.length;
-      const mode: CardZoneMotion["mode"] = refill ? "refill" : compact ? "compact" : "replace";
-      if (items.length || refill || compact) setCardZoneMotion({ id: Date.now(), mode, previousHand: [...previous.hand], items });
-      if (pending) pendingCardMotionRef.current = null;
-    }
-    previousLocalZonesRef.current = { playerId: localPlayer.id, hand: [...localState.hand], drawPile: [...localState.drawPile], discardPile: [...localState.discardPile], slotRects: captureHandSlotRects() };
-  }, [localPlayer, localState, cardCatalog, game?.completedTurns]);
-  useEffect(() => {
-    if (!cardZoneMotion || panelOverlayOpen) return;
-    const timer = window.setTimeout(() => setCardZoneMotion(null), 2450);
-    return () => window.clearTimeout(timer);
-  }, [cardZoneMotion, panelOverlayOpen]);
-  useEffect(() => {
-    if (phase === "game" && !runComplete) return;
-    pendingCardMotionRef.current = null;
-    setCardZoneMotion(null);
-  }, [phase, runComplete]);
-  useEffect(() => {
     if (!outcomeSoundReadyRef.current) {
       outcomeSoundReadyRef.current = true;
       lastOutcomeSoundKeyRef.current = outcomeKey;
@@ -798,27 +712,15 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
     });
     send({ type: "start", players: battlePlayers, game: createInitialGame(battlePlayers, createAdventure(), 30) });
   };
-  const captureHandSlotRects = (): CardSlotRect[] => [...document.querySelectorAll<HTMLElement>(".action-hand [data-hand-slot]")]
-    .map((slot) => {
-      const rect = slot.getBoundingClientRect();
-      return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
-    });
-  const captureCardSlot = (slotIndex: number): CardSlotRect | undefined => captureHandSlotRects()[slotIndex];
-  const queuePendingCardMotion = (items: Array<CardZoneMotionItem & { discarded: ActionCard }>) => {
-    pendingCardMotionRef.current = localState && items.length ? { completedTurns: game?.completedTurns ?? 0, previousHand: [...localState.hand], items } : null;
-  };
   const castDie = () => {
     if (rolling || !game || !activePlayer || activePlayer.id !== sessionId || !activeCard || !activeCardCanBePlayed || runComplete || worldEventBlocking || status !== "connected" || (activeState?.hp ?? 0) <= 0) return;
     playEffect("roll");
     setRolling(true); let ticks = 0;
-    const timer = window.setInterval(() => { setAnimatedRoll(randomD20Roll()); ticks += 1; if (ticks >= 9) { window.clearInterval(timer); const finalRoll = randomD20Roll(); const alternateRoll = localState?.additionalDieActive || localState?.luckyDieActive ? randomD20Roll() : undefined; const slotIndex = Math.max(0, localState?.hand.indexOf(activeCard.id) ?? 0); queuePendingCardMotion([{ slotIndex, slotRect: captureCardSlot(slotIndex), discarded: activeCard }]); if (send({ type: "game:update", game: resolveCardTurn(game, players, activeCard.id, targetPlayerId, finalRoll, false, alternateRoll) })) playEffect("play"); else pendingCardMotionRef.current = null; setAnimatedRoll(finalRoll); setRolling(false); } }, 85);
+    const timer = window.setInterval(() => { setAnimatedRoll(randomD20Roll()); ticks += 1; if (ticks >= 9) { window.clearInterval(timer); const finalRoll = randomD20Roll(); const alternateRoll = localState?.additionalDieActive || localState?.luckyDieActive ? randomD20Roll() : undefined; if (send({ type: "game:update", game: resolveCardTurn(game, players, activeCard.id, targetPlayerId, finalRoll, false, alternateRoll) })) playEffect("play"); setAnimatedRoll(finalRoll); setRolling(false); } }, 85);
   };
   const usePityRoll = () => {
     if (!game || !activePlayer || activePlayer.id !== sessionId || !activeCard || !activeCardCanBePlayed || runComplete || worldEventBlocking || status !== "connected" || rolling || (activeState?.hp ?? 0) <= 0 || (localState?.pityPoints ?? 0) < activePityCost) return;
-    const slotIndex = Math.max(0, localState?.hand.indexOf(activeCard.id) ?? 0);
-    queuePendingCardMotion([{ slotIndex, slotRect: captureCardSlot(slotIndex), discarded: activeCard }]);
     if (send({ type: "game:update", game: resolveCardTurn(game, players, activeCard.id, targetPlayerId, 0, true) })) playEffect("play");
-    else pendingCardMotionRef.current = null;
   };
   const skipTurn = () => {
     if (!game || !activePlayer || activePlayer.id !== sessionId || runComplete || worldEventBlocking || status !== "connected" || (activeState?.hp ?? 0) <= 0) return;
@@ -826,25 +728,12 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
   };
   const discardCard = () => {
     if (!game || !activePlayer || activePlayer.id !== sessionId || !activeCard || runComplete || worldEventBlocking || status !== "connected" || rolling || (activeState?.hp ?? 0) <= 0) return;
-    const slotIndex = Math.max(0, localState?.hand.indexOf(activeCard.id) ?? 0);
-    queuePendingCardMotion([{ slotIndex, slotRect: captureCardSlot(slotIndex), discarded: activeCard }]);
     if (send({ type: "discard-card", sessionId, cardId: activeCard.id })) playEffect("discard");
-    else pendingCardMotionRef.current = null;
   };
   const buyShopOffer = (offerId: string) => { clearError(); send({ type: "shop:buy", sessionId, offerId }); };
   const exchangePityForGold = () => { clearError(); send({ type: "shop:exchange-pity", sessionId }); };
   const useInventoryItem = (itemId: string) => { clearError(); send({ type: "shop:use-item", sessionId, itemId }); };
-  const submitWorldEventChoice = (eventId: string, cardIds: string[]) => {
-    const selectedHandMotions = cardIds.flatMap((cardId) => {
-      const slotIndex = localState?.hand.indexOf(cardId) ?? -1;
-      const discarded = cardCatalog.find((card) => card.id === cardId);
-      return slotIndex >= 0 && discarded ? [{ slotIndex, slotRect: captureCardSlot(slotIndex), discarded }] : [];
-    });
-    queuePendingCardMotion(selectedHandMotions);
-    const sent = send({ type: "world-event:choose", eventId, cardIds });
-    if (!sent) pendingCardMotionRef.current = null;
-    return sent;
-  };
+  const submitWorldEventChoice = (eventId: string, cardIds: string[]) => send({ type: "world-event:choose", eventId, cardIds });
   const removePlayer = (targetSessionId: string) => {
     const target = players.find((player) => player.id === targetSessionId);
     if (!localPlayer || !target || targetSessionId === sessionId || !window.confirm(`Remove ${target.displayName} from the battle?`)) return;
@@ -880,7 +769,7 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
     if (showRunComplete) send({ type: "return:lobby" });
   };
 
-  return <main className="game-shell arena-focus"><div className="grain"/>{visibleNotices.length > 0 && <section className="game-notice-stack" aria-live="polite" aria-label="Battle notices">{visibleNotices.map((notice) => <article className={`outcome-toast game-notice ${notice.kind}`} key={notice.id}><GameNoticeIcon kind={notice.kind}/><div><strong><GameNoticeTitle notice={notice} players={players} localPlayer={localPlayer}/></strong><span><HighlightPlayerNames text={notice.detail} players={players} localPlayer={localPlayer} useActualNames/></span></div></article>)}</section>}{showBattleVfx && vfxCard && <div className={`battle-card-vfx effect-${vfxCard.effect} ${outcome?.success ? "success" : "failure"}`} aria-hidden="true"><i/><i/><i/><div><CardEffectIcon card={vfxCard}/><strong>{vfxCard.name}</strong></div></div>}{cardZoneMotion && localPlayer && !panelOverlayOpen && <CardZoneVfx key={cardZoneMotion.id} motion={cardZoneMotion} player={localPlayer} playable={activePlayer?.id === sessionId && !runComplete && (localState?.hp ?? 0) > 0}/>} {showGuide && <DetailedGuide onClose={() => setShowGuide(false)}/>} {showPendingWorldEventChoice && pendingWorldEvent && <ShatteredTributeChoicePanel pendingEvent={pendingWorldEvent} players={players} localPlayer={localPlayer} localState={localState} handCards={localHand} cardNames={panelCardNames} serverTimeOffsetMs={serverTimeOffsetMs} connectionError={roomError} onInspectCard={inspectCard} onSubmit={submitWorldEventChoice}/>}
+  return <main className="game-shell arena-focus"><div className="grain"/>{visibleNotices.length > 0 && <section className="game-notice-stack" aria-live="polite" aria-label="Battle notices">{visibleNotices.map((notice) => <article className={`outcome-toast game-notice ${notice.kind}`} key={notice.id}><GameNoticeIcon kind={notice.kind}/><div><strong><GameNoticeTitle notice={notice} players={players} localPlayer={localPlayer}/></strong><span><HighlightPlayerNames text={notice.detail} players={players} localPlayer={localPlayer} useActualNames/></span></div></article>)}</section>}{showGuide && <DetailedGuide onClose={() => setShowGuide(false)}/>} {showPendingWorldEventChoice && pendingWorldEvent && <ShatteredTributeChoicePanel pendingEvent={pendingWorldEvent} players={players} localPlayer={localPlayer} localState={localState} handCards={localHand} cardNames={panelCardNames} serverTimeOffsetMs={serverTimeOffsetMs} connectionError={roomError} onInspectCard={inspectCard} onSubmit={submitWorldEventChoice}/>}
     <header className="topbar"><div className="brand"><div className="brand-mark"><Crown size={20}/></div><div><strong>SHATTERED OATH</strong><span>Two teams. One victor.</span></div></div>
       {phase === "game" ? <RunStatus completedPhases={game?.completedPhases ?? Math.max(0, (game?.roundNumber ?? 1) - 1)} secondsLeft={secondsLeft} worldEvents={game?.worldEventHistory ?? []} worldEventPlan={game?.worldEventPlan} pendingEvent={pendingWorldEvent} onOpenWorldEvents={() => setExpandedPanel("world-events")}/> : <div className="lobby-top-status"><Users size={16}/> {players.length}/10 players · {players.filter((player) => player.ready).length} ready</div>}
       <div className="top-actions"><div className="audio-controls"><button className={`icon-button music-toggle ${musicOn ? "playing" : ""}`} onClick={() => void toggleMusic()} aria-label={musicOn ? "Pause medieval music" : "Play medieval music"} title={musicOn ? "Pause medieval music" : "Play medieval music"}>{musicOn ? <Volume2 size={18}/> : <AudioLines size={18}/>}</button><label className="volume-control" title={`Audio volume ${volume}%`}><input type="range" min="0" max="100" value={volume} style={{ "--audio-volume": `${volume}%` } as React.CSSProperties} onChange={(event) => setVolume(Number(event.target.value))} aria-label="Game audio volume"/><output>{volume}%</output></label></div><button className="text-button" onClick={() => setShowGuide(true)}><CircleHelp size={16}/> How to play</button>{phase === "game" && localPlayer && <ConfirmedTopAction className="leave-game-control" icon={<LogOut size={16}/>} label="Leave battle" title="Leave this battle?" detail="Your player leaves the battle." onConfirm={() => send({ type: "leave-game", sessionId })}/>} {phase === "game" && localPlayer && !runComplete && <ConfirmedTopAction className="end-game-control" icon={<Octagon size={16}/>} label="End battle" title="End this battle?" detail="Current team totals decide the result." onConfirm={() => send({ type: "end-game", sessionId })}/>} {runComplete && !presentationQueue.some((item) => item.kind === "battle") && <button className="text-button" onClick={() => { if (battleResultKey) setPresentationQueue((current) => [...current, { id: `battle:reopen:${battleResultKey}`, kind: "battle", battleKey: battleResultKey }]); }}><Crown size={16}/> Battle result</button>}{phase === "game" && <button className="icon-button mobile-party-button" onClick={() => setMobileParty(true)} aria-label="Open player list"><Users size={18}/></button>}</div>
@@ -892,15 +781,11 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
           <div className="battle-interaction-space">{activePlayer?.id === sessionId && activeCard && ["enemy", "ally", "defeated-ally", "player"].includes(activeCard.target) ? <section className="interaction-selector" aria-label="Choose interaction target"><div className="target-picker"><Target size={16}/><span>Choose {getCardTargetLabel(activeCard).toLowerCase()}</span>{targetOptions.length ? <TargetPlayerPicker options={targetOptions} selectedId={targetPlayerId} game={game} localPlayer={localPlayer} onChange={setTargetPlayerId}/> : <span className="no-valid-target">No valid target; success has no effect.</span>}</div></section> : null}</div>
           <section className="hand-zone private-hand-zone"><div className="hand-heading"><div><span className="eyebrow">{localPlayer ? "YOUR PRIVATE HAND" : "PRIVATE HAND"}</span><strong>{activePlayer?.id === sessionId ? "Choose a card and target, then roll." : "Plan while the current player acts."}</strong></div>{localPlayer && <div className="pile-review-actions"><span><Hand size={16}/> Hand ({localState?.hand.length ?? 0})</span><button onClick={() => setDeckReview("draw")}><Layers size={16}/> Draw pile ({localState?.drawPile.length ?? 0})</button><button onClick={() => setDeckReview("discard")}><Archive size={16}/> Discard ({localState?.discardPile.length ?? 0})</button><button onClick={() => setDeckReview("graveyard")}><Skull size={16}/> Graveyard ({localState?.graveyard?.length ?? 0})</button></div>}</div>
             {localState && <div className="active-effects-strip"><b>ACTIVE EFFECTS</b>{localStatusPresentations.map((status) => <span className={status.negative ? "effect-penalty" : status.kind === "attackBuff" || status.kind === "shopAttack" ? "effect-attack" : status.kind === "goldenShield" ? "effect-golden" : status.kind === "revive" ? "effect-heal" : "effect-support"} title={status.tooltip} key={status.kind}>{status.label.replace(/^Your /, "")} {status.displayValue}{status.duration && !status.displayValue.endsWith(status.duration) ? ` · ${status.duration}` : ""}</span>)}{!localStatusPresentations.length && <span>No active effects</span>}</div>}
-            {localPlayer ? <div className="action-hand four-cards">{localHand.map((card, index) => {
-              const activeMotion = !panelOverlayOpen ? cardZoneMotion : null;
-              const previousIndex = activeMotion?.previousHand.indexOf(card.id) ?? -1;
-              const shiftSlots = previousIndex >= 0 ? previousIndex - index : 0;
-              const motionClass = activeMotion?.mode === "refill" ? "hand-card-refilling" : activeMotion?.mode === "compact" && shiftSlots > 0 ? "hand-card-compacting" : "";
+            {localPlayer ? <div className="action-hand four-cards">{localHand.map((card) => {
               const playable = isLocalActiveTurn && status === "connected" && !rolling;
               const isSelected = isLocalActiveTurn && selectedCard === card.id;
               const healthRequirementMet = canPayLioraVennHealthCost(card, localState?.hp);
-              return <button className={`action-card gothic-card effect-${card.effect} ${card.unique ? "hero-special-card" : "common-action-card"} ${card.effect === "none" ? "no-effect-card" : ""} ${isSelected ? "selected" : ""} ${motionClass}`} aria-pressed={isSelected} data-hand-slot={index} title={!healthRequirementMet ? `Requires at least ${LIORA_VENN_MINIMUM_HP} HP to play; you can still discard it.` : undefined} style={{ "--hero-color": localPlayer.hero.color, "--hand-shift-slots": shiftSlots, "--settled-card-opacity": isLocalActiveTurn ? 1 : 0.48 } as React.CSSProperties} key={card.id} onClick={() => setSelectedCard((current) => current === card.id ? "" : card.id)} disabled={!playable}><HandCardContents card={card} pityCostOverride={favorableOmenActive ? 0 : undefined}/></button>;
+              return <button className={`action-card gothic-card effect-${card.effect} ${card.unique ? "hero-special-card" : "common-action-card"} ${card.effect === "none" ? "no-effect-card" : ""} ${isSelected ? "selected" : ""}`} aria-pressed={isSelected} title={!healthRequirementMet ? `Requires at least ${LIORA_VENN_MINIMUM_HP} HP to play; you can still discard it.` : undefined} style={{ "--hero-color": localPlayer.hero.color } as React.CSSProperties} key={card.id} onClick={() => setSelectedCard((current) => current === card.id ? "" : card.id)} disabled={!playable}><HandCardContents card={card} pityCostOverride={favorableOmenActive ? 0 : undefined}/></button>;
             })}</div> : <div className="private-hand-empty"><Eye size={20}/><strong>Join the battle to receive a private hand.</strong></div>}
           </section>
         </section>
@@ -910,7 +795,7 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
           {localState && <button className="panel-expand-button shop-open-button" onClick={() => { clearError(); setExpandedPanel("shop"); }} aria-haspopup="dialog"><span className="shop-open-title"><ShoppingBag size={17}/> SHOP</span><span className="shop-open-gold"><Coins size={16}/> {formatGoldUnits(localState.goldUnits ?? 0)} GOLD</span></button>}
         </aside>
       </div>}
-    {modalOpen && !showGuide && <div className="modal-backdrop" role={activeAutoPanel === "world" ? undefined : "dialog"} aria-modal={activeAutoPanel === "world" ? undefined : true} onClick={closeModal}><section className={`modal-card ${showGuide ? "tutorial-modal" : ""} ${deckReview || expandedPanel || inspectedPlayer ? "wide-modal" : ""} ${(showOutcome || showTurnSummary || showLifeEvent || showWorldEvent) && !showGuide && !deckReview && !expandedPanel && !inspectedPlayer && !inspectedCard ? "resolution-card" : ""}`} onClick={(event) => event.stopPropagation()}>{activeAutoPanel !== "world" && <button className="modal-close icon-button" onClick={closeModal} aria-label="Close"><X size={18}/></button>}
+    {modalOpen && !showGuide && <div className={`modal-backdrop ${activeAutoPanel ? "auto-panel-backdrop" : ""}`} role={activeAutoPanel === "world" ? undefined : "dialog"} aria-modal={activeAutoPanel === "world" ? undefined : true} onClick={closeModal}>{modalAutoPanelVfx && <AutoPanelVfx key={modalAutoPanelVfx.key} variant={modalAutoPanelVfx.variant}/>}<section className={`modal-card ${showGuide ? "tutorial-modal" : ""} ${deckReview || expandedPanel || inspectedPlayer ? "wide-modal" : ""} ${(showOutcome || showTurnSummary || showLifeEvent || showWorldEvent) && !showGuide && !deckReview && !expandedPanel && !inspectedPlayer && !inspectedCard ? "resolution-card" : ""}`} onClick={(event) => event.stopPropagation()}>{activeAutoPanel !== "world" && <button className="modal-close icon-button" onClick={closeModal} aria-label="Close"><X size={18}/></button>}
       {showGuide ? <div className="tutorial-scroll"><span className="eyebrow">COMPLETE TUTORIAL</span><h2>How to win Shattered Oath</h2><p className="modal-lead">Defeat the enemy team, or press End battle to settle the current result.</p><section className="tutorial-section"><h3><Users size={20}/> Setup</h3><div className="tutorial-steps"><article><b>1</b><div><strong>Choose a class: each deck has 3 specials and 7 common cards.</strong></div></article><article><b>2</b><div><strong>Your card zones are private; avatars show public details.</strong></div></article></div></section><section className="tutorial-section"><h3><Dices size={20}/> Playing a turn</h3><div className="tutorial-steps"><article><b>1</b><div><strong>Play or discard a card to replace it; graveyard cards never return.</strong></div></article><article><b>2</b><div><strong>Meet the fresh 8–16 target with your modified d20.</strong></div></article><article><b>3</b><div><strong>Skip or time out to keep every card in place.</strong></div></article></div></section><section className="tutorial-section"><h3><Zap size={20}/> Special failures cause the listed backlash; common failures do nothing.</h3></section><section className="tutorial-section warning-section"><h3><Clock3 size={20}/> Turns last 60 seconds; timeout skips without changing cards.</h3></section></div> :
       deckReview ? <div className="expanded-panel-content"><span className="eyebrow">YOUR PRIVATE DECK</span><h2>{deckReview === "draw" ? "Draw pile" : deckReview === "discard" ? "Discard pile" : "Graveyard"}</h2><p className="modal-lead">{deckReview === "draw" ? "Available replacements; order is private." : deckReview === "discard" ? "Recycles into draw when draw is empty." : "Permanently unavailable this battle."}</p>{reviewedCards.length ? <div className="pile-card-grid">{reviewedCards.map((card, index) => <div className="pile-card-slot" key={`${card.id}-${index}`}><article className={`pile-review-card gothic-card effect-${card.effect} ${card.unique ? "special" : ""}`}><CardFace card={card} contextLabel={card.external ? undefined : `${index + 1} · ${getCardRarityLabel(card)}`}/></article></div>)}</div> : <div className="private-hand-empty"><Archive size={24}/><strong>This pile is empty.</strong></div>}</div> :
       expandedPanel === "history" ? <div className="expanded-panel-content"><span className="eyebrow">EXPANDED BATTLE HISTORY</span><h2>Every action and World Event</h2><HistoryEntries entries={game?.history ?? []} players={players} localPlayer={localPlayer} expanded onInspectPlayer={inspectPlayer} onInspectCard={inspectCard}/></div> :

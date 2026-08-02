@@ -17,6 +17,7 @@ import type {
   WorldEventOutcome,
 } from "@/shared/types";
 import { CardFace } from "./CardFace";
+import { AutoPanelVfx } from "./AutoPanelVfx";
 import { HighlightCardNames } from "./HighlightCardNames";
 
 const DIALOG_FOCUSABLE_SELECTOR = [
@@ -281,7 +282,8 @@ export function ShatteredTributeChoicePanel({
 
   const submittedCount = submittedIds.length;
 
-  return <div className="world-event-choice-backdrop" data-world-event-id={pendingEvent.id}>
+  return <div className="world-event-choice-backdrop auto-panel-backdrop" data-world-event-id={pendingEvent.id}>
+    <AutoPanelVfx key={pendingEvent.id} variant="world-pending"/>
     <section
       className={`world-event-choice-panel ${intensityClass(pendingEvent.intensity)}`}
       role="dialog"
