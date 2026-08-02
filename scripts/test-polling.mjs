@@ -9,10 +9,10 @@ const thirdId = `poll-third-${runId}`;
 function testSkillDeck(id) {
   const special = Array.from({ length: 3 }, (_, index) => ({ id: index === 0 ? `card-${id}` : `card-${id}-${index}`, name: index === 0 ? "Test Skill" : `Test Skill ${index + 1}`, description: "Test", bonus: 0, effect: "damage", target: "enemy", value: 2, failureEffect: "self-damage", failureValue: 2, unique: true }));
   const common = [
-    { id: "slash", name: "Slash", description: "Deal 3 damage.", effect: "damage", target: "enemy", value: 3 },
-    { id: "heavy", name: "Heavy Blow", description: "Deal 4 damage.", effect: "damage", target: "enemy", value: 4 },
-    { id: "brace", name: "Brace", description: "Gain 3 shield.", effect: "guard", target: "self", value: 3 },
-    { id: "second-wind", name: "Second Wind", description: "Restore up to 4 HP.", effect: "heal", target: "self", value: 4 },
+    { id: "slash", name: "Slash", description: "Deal 2 damage.", effect: "damage", target: "enemy", value: 2, pityCost: 2 },
+    { id: "heavy", name: "Heavy Blow", description: "Deal 3 damage.", effect: "damage", target: "enemy", value: 3, pityCost: 3 },
+    { id: "brace", name: "Brace", description: "Gain 2 shield.", effect: "guard", target: "self", value: 2, pityCost: 2 },
+    { id: "second-wind", name: "Second Wind", description: "Restore up to 3 HP.", effect: "heal", target: "self", value: 3, pityCost: 3 },
     { id: "empty-gesture", name: "Empty Gesture", description: "Upgrades to healing.", effect: "none", target: "self", value: 0 },
     { id: "broken-plan", name: "Broken Plan", description: "Upgrades to shielding.", effect: "none", target: "self", value: 0 },
     { id: "lost-momentum", name: "Lost Momentum", description: "Upgrades to heavy damage.", effect: "none", target: "self", value: 0 }

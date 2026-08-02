@@ -20,7 +20,7 @@ export function calculatePityCost(card: CardWithoutPity | ActionCard) {
   const storedCost = Number((card as Partial<ActionCard>).pityCost);
   if (Number.isFinite(storedCost) && storedCost >= 0) return Math.min(8, Math.floor(storedCost));
   if (card.effect === "none") return 0;
-  if (!card.unique) return Math.min(5, Math.max(3, card.value));
+  if (!card.unique) return Math.min(5, Math.max(2, card.value));
   if (card.effect === "damage") return Math.min(8, 2 + card.value + (card.ignoresShield ? 1 : 0));
   if (card.effect === "aoe") return Math.min(8, 3 + card.value + (card.ignoresShield ? 1 : 0));
   if (card.effect === "heal" || card.effect === "guard") return Math.min(7, 2 + card.value);
@@ -89,10 +89,10 @@ export const PHASE_FIVE_CARD_UPGRADES = {
 } as const;
 
 const COMMON_ACTION_CARDS: ActionCard[] = [
-  { id: "slash", name: "Slash", description: "Deal 3 damage to one living enemy.", bonus: 0, effect: "damage", target: "enemy", value: 3, unique: false, pityCost: 3 },
-  { id: "heavy", name: "Heavy Blow", description: "Deal 4 damage to one living enemy.", bonus: 0, effect: "damage", target: "enemy", value: 4, unique: false, pityCost: 4 },
-  { id: "brace", name: "Brace", description: "Gain 3 shield; expires at the end of your next turn.", bonus: 0, effect: "guard", target: "self", value: 3, unique: false, pityCost: 3 },
-  { id: "second-wind", name: "Second Wind", description: "Restore 4 HP to yourself; cannot revive.", bonus: 0, effect: "heal", target: "self", value: 4, unique: false, pityCost: 4 },
+  { id: "slash", name: "Slash", description: "Deal 2 damage to one living enemy.", bonus: 0, effect: "damage", target: "enemy", value: 2, unique: false, pityCost: 2 },
+  { id: "heavy", name: "Heavy Blow", description: "Deal 3 damage to one living enemy.", bonus: 0, effect: "damage", target: "enemy", value: 3, unique: false, pityCost: 3 },
+  { id: "brace", name: "Brace", description: "Gain 2 shield; expires at the end of your next turn.", bonus: 0, effect: "guard", target: "self", value: 2, unique: false, pityCost: 2 },
+  { id: "second-wind", name: "Second Wind", description: "Restore 3 HP to yourself; cannot revive.", bonus: 0, effect: "heal", target: "self", value: 3, unique: false, pityCost: 3 },
   { id: "empty-gesture", name: "Empty Gesture", description: "No effect; upgrades to a heal card after phase 5.", bonus: 0, effect: "none", target: "self", value: 0, unique: false, pityCost: 0 },
   { id: "broken-plan", name: "Broken Plan", description: "No effect; upgrades to a shield card after phase 5.", bonus: 0, effect: "none", target: "self", value: 0, unique: false, pityCost: 0 },
   { id: "lost-momentum", name: "Lost Momentum", description: "No effect; upgrades to a heavy attack card after phase 5.", bonus: 0, effect: "none", target: "self", value: 0, unique: false, pityCost: 0 }

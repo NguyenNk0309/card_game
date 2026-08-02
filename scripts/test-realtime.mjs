@@ -13,9 +13,9 @@ function testSkillDeck(id) {
     { id: `favor-${id}`, name: "Foretold Success", description: "Make one ally's next played card cost 0 pity.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "zero-pity", unique: true }
   ];
   const common = [
-    { id: "heavy", name: "Heavy Blow", description: "Deal 4 damage.", effect: "damage", target: "enemy", value: 4 },
-    { id: "brace", name: "Brace", description: "Gain 3 shield.", effect: "guard", target: "self", value: 3 },
-    { id: "second-wind", name: "Second Wind", description: "Restore up to 4 HP.", effect: "heal", target: "self", value: 4 },
+    { id: "heavy", name: "Heavy Blow", description: "Deal 3 damage.", effect: "damage", target: "enemy", value: 3, pityCost: 3 },
+    { id: "brace", name: "Brace", description: "Gain 2 shield.", effect: "guard", target: "self", value: 2, pityCost: 2 },
+    { id: "second-wind", name: "Second Wind", description: "Restore up to 3 HP.", effect: "heal", target: "self", value: 3, pityCost: 3 },
     { id: "empty-gesture", name: "Empty Gesture", description: "Upgrades to healing.", effect: "none", target: "self", value: 0 },
     { id: "broken-plan", name: "Broken Plan", description: "Upgrades to shielding.", effect: "none", target: "self", value: 0 },
     { id: "lost-momentum", name: "Lost Momentum", description: "Upgrades to heavy damage.", effect: "none", target: "self", value: 0 }

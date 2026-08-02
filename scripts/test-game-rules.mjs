@@ -144,7 +144,13 @@ const expectedSpecialBalance = {
   "df-cleave": { pityCost: 7, failureEffect: "self-damage", failureValue: 2 },
   "df-frenzy": { pityCost: 6, failureEffect: "self-damage", failureValue: 2 }
 };
-const expectedCommonPityCosts = { slash: 3, heavy: 4, brace: 3, "second-wind": 4, "empty-gesture": 0, "broken-plan": 0, "lost-momentum": 0 };
+const expectedCommonPityCosts = { slash: 2, heavy: 3, brace: 2, "second-wind": 3, "empty-gesture": 0, "broken-plan": 0, "lost-momentum": 0 };
+const expectedReducedCommonBalance = {
+  slash: { name: "Slash", description: "Deal 2 damage to one living enemy.", value: 2, pityCost: 2 },
+  heavy: { name: "Heavy Blow", description: "Deal 3 damage to one living enemy.", value: 3, pityCost: 3 },
+  brace: { name: "Brace", description: "Gain 2 shield; expires at the end of your next turn.", value: 2, pityCost: 2 },
+  "second-wind": { name: "Second Wind", description: "Restore 3 HP to yourself; cannot revive.", value: 3, pityCost: 3 }
+};
 const specialCards = everyCard.filter((card) => card.unique);
 assert.equal(Object.keys(expectedSpecialBalance).length, 30, "the rebalance contract must cover all 30 special cards");
 assert.equal(specialCards.length, 30, "the live catalog must expose all 30 special cards");
@@ -158,6 +164,17 @@ for (const card of specialCards) {
 for (const card of everyCard.filter((candidate) => !candidate.unique)) {
   const commonId = card.id.slice(card.id.indexOf("-common-") + "-common-".length);
   assert.equal(card.pityCost, expectedCommonPityCosts[commonId], `${card.name} must use its common-card pity cost`);
+}
+for (const [cardId, expected] of Object.entries(expectedReducedCommonBalance)) {
+  const card = catalog.ACTION_CARDS.find((candidate) => candidate.id === cardId);
+  assert.deepEqual(
+    { name: card.name, description: card.description, value: card.value, pityCost: card.pityCost },
+    expected,
+    `${expected.name} must align its common-card effect and pity cost`
+  );
+  const { pityCost: _pityCost, ...cardWithoutPityCost } = card;
+  assert.equal(catalog.calculatePityCost(cardWithoutPityCost), expected.pityCost, `${expected.name} must derive its new pity cost in the catalog`);
+  assert.equal(pityCostRules.calculateRuntimePityCost(cardWithoutPityCost, false), expected.pityCost, `${expected.name} must derive its new pity cost in realtime authorities`);
 }
 const enemyShieldFailureCard = specialCards.find((card) => card.failureEffect === "enemy-shield");
 assert.equal(cardRules.describeCardFailure(enemyShieldFailureCard), `Every enemy gains ${enemyShieldFailureCard.failureValue} shield until the end of their next turn.`, "enemy-shield failure copy must state its target, amount, and duration");
@@ -190,7 +207,7 @@ for (const option of options) {
   assert.equal(option.skillDeck.filter((card) => !card.unique).length, 7);
   assert(option.skillDeck.every((card) => Number.isInteger(card.pityCost) && card.pityCost >= 0 && card.pityCost <= 8), "every card must have a reachable integer pity cost");
   assert(option.skillDeck.filter((card) => card.effect === "none").every((card) => card.pityCost === 0), "no-effect cards must cost zero pity");
-  assert(option.skillDeck.filter((card) => card.effect !== "none").every((card) => card.pityCost >= 3), "effect cards must require accumulated pity");
+  assert(option.skillDeck.filter((card) => card.effect !== "none").every((card) => card.pityCost >= 2), "effect cards must require accumulated pity");
   assert(option.skillDeck.every((card) => card.bonus === 0), "cards cannot carry a built-in d20 bonus");
   assert(option.skillDeck.every((card) => !("risk" in card) && card.effect !== "check"));
   assert(option.skillDeck.filter((card) => card.unique).every((card) => ["self-damage", "team-damage", "lose-shield", "enemy-shield"].includes(card.failureEffect) && card.failureValue > 0), "every special card needs a balanced failure impact");
@@ -285,6 +302,29 @@ assert.equal(game.playerStates[first.id].pityPoints, 0, "every player begins wit
 assert.equal(game.playerStates[first.id].hand.length + game.playerStates[first.id].drawPile.length + game.playerStates[first.id].discardPile.length + game.playerStates[first.id].graveyard.length, 10, "all cards begin in reusable zones with an empty graveyard");
 assert.equal(engine.createInitialGame([first, second], engine.createAdventure("TIMER"), 5).turnSeconds, 60, "battle turns always last exactly 60 seconds");
 assert(game.adventure.target >= 8 && game.adventure.target <= 16, "the initial target is randomly selected from the balanced target range");
+const resolveReducedCommonCard = (cardId, targetId, configure = () => {}) => {
+  const card = second.skillDeck.find((candidate) => candidate.id.endsWith(`-common-${cardId}`));
+  const commonGame = engine.createInitialGame([first, second], engine.createAdventure(`COMMON-${cardId.toUpperCase()}`), 30);
+  commonGame.turnOrder = [second.id, first.id];
+  commonGame.adventure.target = 8;
+  commonGame.playerStates[second.id].hand = [card.id];
+  configure(commonGame);
+  return engine.resolveCardTurn(commonGame, [first, second], card.id, targetId, 20);
+};
+const slashResult = resolveReducedCommonCard("slash", first.id);
+assert.equal(slashResult.outcome.amount, 2, "Slash deals 2 damage in real card resolution");
+assert.equal(slashResult.playerStates[first.id].hp, first.hero.maxHp - 2, "Slash synchronizes its reduced damage to target HP");
+const heavyBlowResult = resolveReducedCommonCard("heavy", first.id);
+assert.equal(heavyBlowResult.outcome.amount, 3, "Heavy Blow deals 3 damage in real card resolution");
+assert.equal(heavyBlowResult.playerStates[first.id].hp, first.hero.maxHp - 3, "Heavy Blow synchronizes its reduced damage to target HP");
+const braceResult = resolveReducedCommonCard("brace", second.id);
+assert.equal(braceResult.outcome.amount, 2, "Brace grants 2 shield in real card resolution");
+assert.equal(braceResult.playerStates[second.id].shield, 2, "Brace synchronizes its reduced shield to the actor");
+const secondWindResult = resolveReducedCommonCard("second-wind", second.id, (commonGame) => {
+  commonGame.playerStates[second.id].hp = 2;
+});
+assert.equal(secondWindResult.outcome.amount, 3, "Second Wind restores 3 HP in real card resolution");
+assert.equal(secondWindResult.playerStates[second.id].hp, 5, "Second Wind synchronizes its reduced healing to the actor");
 const normalizedOrderGame = structuredClone(game);
 normalizedOrderGame.turnOrder = [first.id, first.id, "missing-player"];
 assert.deepEqual(engine.normalizeTurnOrder(normalizedOrderGame, [first, second]), [first.id, second.id], "turn-order normalization removes duplicates and stale IDs while restoring missing players");
@@ -711,9 +751,9 @@ const bramBraceGame = engine.createInitialGame(tankParty, engine.createAdventure
 bramBraceGame.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
 bramBraceGame.playerStates[tank.id].hand = [bramBrace.id];
 const bramBraced = engine.resolveCardTurn(bramBraceGame, tankParty, bramBrace.id, tank.id, 20);
-assert.equal(bramBraced.playerStates[tank.id].shield, 3, "Bram's common Guard card keeps its base shield value");
+assert.equal(bramBraced.playerStates[tank.id].shield, 2, "Bram's common Guard card uses Brace's reduced base shield value");
 engine.expireTimedEffectsAtTurnEnd(bramBraced.playerStates[tank.id]);
-assert.equal(bramBraced.playerStates[tank.id].shield, 3, "a self-applied Bram Guard remains through Bram's next turn");
+assert.equal(bramBraced.playerStates[tank.id].shield, 2, "a self-applied Bram Guard remains through Bram's next turn");
 engine.expireTimedEffectsAtTurnEnd(bramBraced.playerStates[tank.id]);
 assert.equal(bramBraced.playerStates[tank.id].shield, 0, "a self-applied Bram Guard expires after Bram's second future turn");
 
