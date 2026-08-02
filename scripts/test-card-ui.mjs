@@ -129,7 +129,7 @@ assert.match(styles, /@media \(min-width: 1600px\) and \(min-height: 900px\)\s*\
 assert.match(styles, /@media \(min-width: 1600px\) and \(min-height: 900px\)\s*\{\s*\.character-review-layout\s*\{\s*grid-template-columns:\s*minmax\(300px, \.72fr\) minmax\(0, 1\.28fr\);/, "1080p and 1440p lobby previews must reserve a wider character-status column");
 assert.match(styles, /\.lobby-skill-deck\s*\{[\s\S]*padding-block:\s*18px 22px;[\s\S]*scroll-padding-block:\s*18px 22px;/, "card-preview galleries must reserve top and bottom hover room");
 assert.match(styles, /\.character-deck-panel \.public-character-deck > div:last-child\s*\{[\s\S]*padding-top:\s*24px;[\s\S]*scroll-padding-top:\s*24px;/, "the in-battle character-deck preview must reserve top clearance for card hover and focus effects");
-assert.match(styles, /@media \(min-width: 2200px\) and \(min-height: 1200px\)\s*\{[\s\S]*--hand-card-width:\s*min\(330px,[\s\S]*\.lobby-skill-deck\s*\{\s*grid-template-columns:\s*repeat\(3, minmax\(0, 324px\)\)/, "1440p layouts must render taller 330px hand cards and three larger 324px gallery columns");
+assert.match(styles, /@media \(min-width: 2200px\) and \(min-height: 1200px\)\s*\{[\s\S]*--hand-card-width:\s*min\(330px,[\s\S]*\.lobby-skill-deck\s*\{\s*grid-template-columns:\s*repeat\(2, minmax\(0, min\(486px, calc\(\(100% - 28px\) \/ 2\)\)\)/, "1440p layouts must enlarge lobby cards by up to 50 percent without changing battle-hand sizing");
 assert.match(styles, /\.history-card-detail\.gothic-card\s*\{[\s\S]*width:\s*min\(360px,/, "inspected history cards must use the larger preview size");
 assert.match(styles, /\.gothic-card:disabled \.gothic-card-face\s*\{[\s\S]*grayscale/, "disabled cards should retain a clear unavailable state");
 assert.deepEqual(
