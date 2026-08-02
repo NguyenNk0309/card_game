@@ -6745,8 +6745,8 @@ textarea::placeholder { color: #716b61; }
   box-shadow: 3px 3px 0 #000, inset 0 0 0 1px #3f2b47;
 }
 .pity-button:hover:not(:disabled) {
-  background: linear-gradient(180deg, #493052 0 50%, #25192b 50%);
-  border-color: #aa75ba;
+  background: linear-gradient(180deg, #ffb766, #e88a35);
+  border-color: #ffba6c;
 }
 
 .skip-turn-button { border-color: #52656d; }

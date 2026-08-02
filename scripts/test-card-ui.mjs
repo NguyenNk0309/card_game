@@ -33,6 +33,9 @@ const gameAudio = read("ui/hooks/useGameAudio.ts");
 const cardZoneMotion = read("ui/cardZoneMotion.ts");
 const tooltipPosition = read("ui/components/tooltipPosition.ts");
 const styles = read("app/globals.css");
+const pityHoverRules = [...styles.matchAll(/\.pity-button:hover:not\(:disabled\)\s*\{([^}]*)\}/g)];
+assert.match(pityHoverRules.at(-1)?.[1] ?? "", /background:\s*linear-gradient\(180deg,\s*#ffb766,\s*#e88a35\);/, "the final Play Pity hover rule must retain its original gold gradient");
+assert.match(pityHoverRules.at(-1)?.[1] ?? "", /border-color:\s*#ffba6c;/, "the final Play Pity hover rule must retain its original gold border");
 
 const characterAvatars = [
   ["Elara Voss", "elara-voss.webp"],
