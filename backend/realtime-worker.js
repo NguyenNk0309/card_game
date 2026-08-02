@@ -14,6 +14,7 @@ import {
 import { createRoomId, isValidRoomId, normalizeRoomId, roomExpiresAt, roomIsExpired } from '../shared/roomId.mjs';
 import { sanitizeCommunicationGame } from '../shared/viewpoint.mjs';
 import { calculateRuntimePityCost, isTestModeEnabled } from '../shared/pityCost.mjs';
+import { normalizeBulwarkToBladeCards, reconcileBulwarkToBladeImpact } from '../shared/bulwarkToBlade.mjs';
 
 const LEGACY_ROOM_ID = 'shared-room';
 const emptyRoom = (roomId = '', createdAt = 0) => ({
@@ -46,6 +47,7 @@ function roomMetadata(source = room) {
 }
 
 function publicState(viewerId = '') {
+  normalizeBulwarkToBladeCards(room.players);
   if (room.game) {
     normalizeWorldEventState(room.game);
     upgradePhaseFiveCards(room.game);
@@ -923,6 +925,7 @@ async function applyCommand(ownerId, message, deadlineAdvanced = false) {
     if (!activePlayer || ownerId !== activePlayer.id) return 'Only the current player can resolve this turn.';
     if (!message.game?.adventure) return 'The turn update is incomplete.';
     if ((room.game.playerStates[activePlayer.id]?.hp || 0) <= 0) return 'A defeated player cannot play a card.';
+    normalizeBulwarkToBladeCards(room.players);
     const previousGame = room.game;
     const acknowledgedWorldEventId = message.game.worldEvent?.id || null;
     const authoritativeWorldEventId = previousGame.worldEvent?.id || null;
@@ -961,6 +964,8 @@ async function applyCommand(ownerId, message, deadlineAdvanced = false) {
     if (message.game.outcome) message.game.outcome.notices = [];
     const pityError = reconcilePityPoints(previousGame, message.game, activePlayer);
     if (pityError) return pityError;
+    const bulwarkError = reconcileBulwarkToBladeImpact(previousGame, message.game, activePlayer, room.players);
+    if (bulwarkError) return bulwarkError;
     reconcileFailureImpact(previousGame, message.game, activePlayer);
     reconcileHiddenCardEffects(previousGame, message.game, activePlayer);
     if (phaseAdvanced) returnExpiredPurgedCards(message.game, message.game.completedPhases);

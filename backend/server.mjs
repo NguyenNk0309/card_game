@@ -20,6 +20,7 @@ import {
 import { createRoomId, isValidRoomId, normalizeRoomId, roomExpiresAt, roomIsExpired } from '../shared/roomId.mjs';
 import { sanitizeCommunicationGame } from '../shared/viewpoint.mjs';
 import { calculateRuntimePityCost, isTestModeEnabled } from '../shared/pityCost.mjs';
+import { normalizeBulwarkToBladeCards, reconcileBulwarkToBladeImpact } from '../shared/bulwarkToBlade.mjs';
 
 function testModeFromEnvironment() {
   if (process.env.TEST_MODE !== undefined) return isTestModeEnabled(process.env.TEST_MODE);
@@ -157,6 +158,7 @@ function uniqueRoomId() {
 }
 
 function publicState(viewerId = '') {
+  normalizeBulwarkToBladeCards(room.players);
   if (room.game) upgradePhaseFiveCards(room.game);
   if (room.game) normalizeWorldEventState(room.game);
   const sanitizedGame = room.game ? sanitizeCommunicationGame(sanitizeWorldEventGame(room.game, viewerId), room.players, viewerId) : null;
@@ -1058,6 +1060,7 @@ function handleMessage(socket, rawMessage) {
     }
     if (!message.game?.adventure) return reject(socket, 'The turn update is incomplete.');
     if ((room.game.playerStates[activePlayer.id]?.hp || 0) <= 0) return reject(socket, 'A defeated player cannot play a card.');
+    normalizeBulwarkToBladeCards(room.players);
     const previousGame = room.game;
     const acknowledgedWorldEventId = message.game.worldEvent?.id || null;
     const authoritativeWorldEventId = previousGame.worldEvent?.id || null;
@@ -1095,6 +1098,8 @@ function handleMessage(socket, rawMessage) {
     if (message.game.outcome) message.game.outcome.notices = [];
     const pityError = reconcilePityPoints(previousGame, message.game, activePlayer);
     if (pityError) return reject(socket, pityError);
+    const bulwarkError = reconcileBulwarkToBladeImpact(previousGame, message.game, activePlayer, room.players);
+    if (bulwarkError) return reject(socket, bulwarkError);
     reconcileFailureImpact(previousGame, message.game, activePlayer);
     reconcileHiddenCardEffects(previousGame, message.game, activePlayer);
     if (phaseAdvanced) returnExpiredPurgedCards(message.game, message.game.completedPhases);

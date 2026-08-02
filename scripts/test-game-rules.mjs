@@ -12,6 +12,7 @@ const catalogUrl = `data:text/javascript;base64,${Buffer.from(compile(catalogSou
 const catalog = await import(catalogUrl);
 const pityCostUrl = new URL("../shared/pityCost.mjs", import.meta.url).href;
 const pityCostRules = await import(pityCostUrl);
+const bulwarkRules = await import(new URL("../shared/bulwarkToBlade.mjs", import.meta.url).href);
 const cardRulesSource = await readFile(new URL("../shared/cardRules.ts", import.meta.url), "utf8");
 const compiledCardRules = compile(cardRulesSource, "cardRules.ts").replace('from "./pityCost.mjs"', `from "${pityCostUrl}"`);
 const cardRules = await import(`data:text/javascript;base64,${Buffer.from(compiledCardRules).toString("base64")}`);
@@ -129,7 +130,7 @@ const expectedSpecialBalance = {
   "nc-pilfer": { pityCost: 7, failureEffect: "enemy-shield", failureValue: 2 },
   "bc-fortress": { pityCost: 6, failureEffect: "lose-shield", failureValue: 3 },
   "bc-temper": { pityCost: 7, failureEffect: "team-damage", failureValue: 1 },
-  "bc-march": { pityCost: 6, failureEffect: "lose-shield", failureValue: 2 },
+  "bc-march": { pityCost: 7, failureEffect: "lose-shield", failureValue: 4 },
   "sf-favor": { pityCost: 6, failureEffect: "self-damage", failureValue: 2 },
   "sf-hex": { pityCost: 6, failureEffect: "enemy-shield", failureValue: 1 },
   "sf-stolen": { pityCost: 8, failureEffect: "team-damage", failureValue: 2 },
@@ -243,14 +244,14 @@ for (const [playerIndex, sourceIds] of [[0, zoneOneSources], [1, zoneTwoSources]
   assert.deepEqual(upgradedCards.map((card) => card.effect).sort(), ["damage", "guard", "heal"], "each upgrade transforms separately without affecting the other two");
 }
 const supportTypes = new Set(options.flatMap((option) => option.skillDeck.filter((card) => card.effect === "support").map((card) => card.supportType)));
-assert.deepEqual([...supportTypes].sort(), ["advance-ally", "attack", "dice", "dispel-enemy", "enemy-dice", "purge-card", "revive", "shield-to-attack", "skip-enemy", "steal-card", "zero-pity"]);
+assert.deepEqual([...supportTypes].sort(), ["advance-ally", "attack", "dice", "dispel-enemy", "enemy-dice", "purge-card", "revive", "skip-enemy", "steal-card", "zero-pity"]);
 const diceModifierCards = options.flatMap((option) => option.skillDeck).filter((card) => card.supportType === "dice" || card.supportType === "enemy-dice");
 assert.deepEqual(diceModifierCards.map((card) => card.name).sort(), ["Foretold Misfortune", "Gravitic Misfortune", "Precision Order"], "only the approved cards can create stored d20 modifiers");
 const durationCards = options.flatMap((option) => option.skillDeck).filter((card) =>
-  card.effect === "guard" || ["attack", "shield", "shield-to-attack", "dice", "enemy-dice", "skip-enemy", "steal-card", "zero-pity"].includes(card.supportType)
+  card.effect === "guard" || ["attack", "shield", "dice", "enemy-dice", "skip-enemy", "steal-card", "zero-pity"].includes(card.supportType)
 );
 assert(durationCards.every((card) => /expires at the end|effects expire normally|next turn ends/i.test(card.description)), "every buff and debuff card must state the target-turn expiry rule");
-for (const classId of ["warden", "healer", "tank", "oracle", "support"]) {
+for (const classId of ["warden", "healer", "oracle", "support"]) {
   const option = options.find((candidate) => candidate.hero.classId === classId);
   assert.equal(option.skillDeck.filter((card) => card.unique && ["damage", "aoe"].includes(card.effect)).length, 0, `${classId} must focus on its non-damage team role`);
 }
@@ -258,6 +259,7 @@ for (const classId of ["ranger", "mage", "assassin", "duelist", "berserker"]) {
   const option = options.find((candidate) => candidate.hero.classId === classId);
   assert.equal(option.skillDeck.filter((card) => card.unique && ["damage", "aoe"].includes(card.effect)).length, 2, `${classId} must have exactly two damage specials and one role utility special`);
 }
+assert.equal(options.find((option) => option.hero.classId === "tank").skillDeck.filter((card) => card.unique && ["damage", "aoe"].includes(card.effect)).length, 1, "Bram has one shield-powered damage special alongside two Guard specials");
 assert.equal(options.find((option) => option.hero.classId === "tank").hero.maxHp, 14);
 assert.equal(options.find((option) => option.hero.classId === "mage").hero.maxHp, 9);
 assert.deepEqual([...options].sort((a, b) => b.hero.speed - a.hero.speed).map((option) => option.hero.name), ["Nyx Calder", "Thorne Vale", "Kael Rook", "Sable Fen", "Ione Mire", "Mira Ash", "Brother Orren", "Elara Voss", "Dagan Flint", "Bram Coalhand"]);
@@ -674,14 +676,26 @@ assert.equal(temperArmor.value, 3, "Tempered Phalanx grants 3 base shield");
 assert.equal(temperArmor.pityCost, 7, "Tempered Phalanx's pity cost accounts for team-wide, two-turn shield");
 assert.match(bramBrace.description, /expires at the end of your second turn/i, "Bram's common Guard card describes Two-Turn Temper's duration");
 assert.equal(shieldforgedAssault.name, "Bulwark to Blade", "Fortified March is renamed to match its shield conversion effect");
-assert.equal(shieldforgedAssault.supportType, "shield-to-attack", "Bulwark to Blade uses the shield conversion rule");
-assert.equal(shieldforgedAssault.target, "self", "Bulwark to Blade targets only Bram");
-assert.equal(shieldforgedAssault.value, 0, "Bulwark to Blade derives its strength from current shield instead of a flat value");
-assert.equal(shieldforgedAssault.pityCost, 6, "Bulwark to Blade's pity cost accounts for its self-only shield conversion");
-assert.equal(shieldforgedAssault.failureEffect, "lose-shield", "Bulwark to Blade risks the shield it attempts to convert");
-assert.equal(shieldforgedAssault.failureValue, 2, "Bulwark to Blade loses up to 2 shield on failure");
-assert.equal(cardRules.getCardEffectLabel(shieldforgedAssault), "Empower yourself", "Bulwark to Blade's player-facing action type matches its self-only effect");
-assert.match(shieldforgedAssault.description, /half.*your current shield.*rounded down.*equal attack damage bonus.*your next attack.*your next turn/i, "Bulwark to Blade fully describes its self-only conversion, rounding, use, and expiry");
+assert.equal(shieldforgedAssault.effect, "damage", "Bulwark to Blade is an Attack card");
+assert.equal(shieldforgedAssault.supportType, undefined, "Bulwark to Blade no longer uses a delayed Support effect");
+assert.equal(shieldforgedAssault.target, "enemy", "Bulwark to Blade targets one living enemy");
+assert.equal(shieldforgedAssault.value, 0, "Bulwark to Blade derives its base damage from current shield instead of a flat value");
+assert.equal(shieldforgedAssault.pityCost, 7, "Bulwark to Blade's pity cost reflects its variable high damage and full shield sacrifice");
+assert.equal(shieldforgedAssault.failureEffect, "lose-shield", "Bulwark to Blade risks its defensive resource on failure");
+assert.equal(shieldforgedAssault.failureValue, 4, "Bulwark to Blade loses up to one Bastion-sized shield on failure");
+assert.equal(cardRules.getCardEffectLabel(shieldforgedAssault), "Single-target attack", "Bulwark to Blade's player-facing action type is Attack");
+assert.match(shieldforgedAssault.description, /remove all.*current shield.*deal that much damage.*one living enemy/i, "Bulwark to Blade fully describes its immediate shield sacrifice and enemy damage");
+assert.deepEqual(
+  Object.fromEntries(Object.keys(bulwarkRules.BULWARK_TO_BLADE_CARD).map((key) => [key, shieldforgedAssault[key]])),
+  { ...bulwarkRules.BULWARK_TO_BLADE_CARD },
+  "the catalog and authoritative Bulwark to Blade migration share one exact runtime contract"
+);
+const legacyBulwarkPlayers = structuredClone(tankParty);
+const legacyBulwark = legacyBulwarkPlayers[0].skillDeck.find((card) => card.id === "bc-march");
+Object.assign(legacyBulwark, { description: "Convert half your shield.", effect: "support", target: "self", supportType: "shield-to-attack", failureValue: 2, pityCost: 6 });
+assert.equal(bulwarkRules.normalizeBulwarkToBladeCards(legacyBulwarkPlayers), true, "persisted rooms detect the legacy Bulwark to Blade snapshot");
+assert.deepEqual(legacyBulwarkPlayers[0].skillDeck.find((card) => card.id === "bc-march"), bulwarkRules.BULWARK_TO_BLADE_CARD, "persisted rooms migrate Bulwark to Blade to the new Attack contract");
+assert.equal(bulwarkRules.normalizeBulwarkToBladeCards(legacyBulwarkPlayers), false, "the persisted-room migration is idempotent");
 const guardGame = engine.createInitialGame(tankParty, engine.createAdventure("GUARD"), 30);
 guardGame.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
 guardGame.playerStates[tank.id].hand = [livingFortress.id];
@@ -715,7 +729,7 @@ assert.equal(teamTempered.playerStates[tankAlly.id].shield, 3, "Tempered Phalanx
 assert.equal(teamTempered.playerStates[tankEnemy.id].shield, 0, "Tempered Phalanx never shields enemies");
 assert.equal(teamTempered.playerStates[tankAlly.id].timedEffects.find((effect) => effect.kind === "shield").expiresAfterTurn - teamTempered.playerStates[tankAlly.id].completedPlayerTurns, 2, "Tempered Phalanx shield remains for two target turns");
 
-const conversionGame = engine.createInitialGame(tankParty, engine.createAdventure("SHIELDFORGED-ASSAULT"), 30);
+const conversionGame = engine.createInitialGame(tankParty, engine.createAdventure("BULWARK-TO-BLADE"), 30);
 conversionGame.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
 conversionGame.adventure.target = 8;
 conversionGame.playerStates[tank.id].hand = [shieldforgedAssault.id];
@@ -723,44 +737,94 @@ conversionGame.playerStates[tank.id].shield = 5;
 conversionGame.playerStates[tank.id].timedEffects = [{ kind: "shield", value: 5, expiresAfterTurn: 10 }];
 conversionGame.playerStates[tankAlly.id].shield = 8;
 conversionGame.playerStates[tankAlly.id].timedEffects = [{ kind: "shield", value: 8, expiresAfterTurn: 10 }];
-conversionGame.playerStates[tankEnemy.id].shield = 10;
-conversionGame.playerStates[tankEnemy.id].timedEffects = [{ kind: "shield", value: 10, expiresAfterTurn: 10 }];
-const shieldsForged = engine.resolveCardTurn(conversionGame, tankParty, shieldforgedAssault.id, tank.id, 20);
-assert.equal(shieldsForged.outcome.amount, 2, "Bulwark to Blade reports only Bram's converted shield");
-assert.deepEqual(shieldsForged.outcome.targetIds, [tank.id], "Bulwark to Blade synchronizes Bram as its only target");
-assert.equal(shieldsForged.playerStates[tank.id].shield, 3, "Bulwark to Blade rounds Bram's odd shield down before conversion");
-assert.equal(shieldsForged.playerStates[tank.id].attackBuff, 2, "Bram gains attack damage equal to his converted shield");
+conversionGame.playerStates[tankEnemy.id].shield = 0;
+conversionGame.playerStates[tankEnemy.id].timedEffects = [];
+const shieldsForged = engine.resolveCardTurn(conversionGame, tankParty, shieldforgedAssault.id, tankEnemy.id, 20);
+assert.equal(shieldsForged.outcome.amount, 5, "Bulwark to Blade reports the HP damage dealt from Bram's five shield");
+assert.equal(shieldsForged.outcome.effect, "damage", "Bulwark to Blade synchronizes as an Attack card");
+assert.deepEqual(shieldsForged.outcome.targetIds, [tankEnemy.id], "Bulwark to Blade synchronizes its chosen living enemy");
+assert.equal(shieldsForged.playerStates[tank.id].shield, 0, "Bulwark to Blade removes all of Bram's current shield");
+assert.equal(shieldsForged.playerStates[tank.id].timedEffects.some((effect) => effect.kind === "shield"), false, "Bulwark to Blade removes Bram's timed shield bookkeeping");
+assert.equal(shieldsForged.playerStates[tankEnemy.id].hp, tankEnemy.hero.maxHp - 5, "Bulwark to Blade immediately deals damage equal to the removed shield");
+assert.equal(shieldsForged.playerStates[tank.id].attackBuff, 0, "Bulwark to Blade creates no delayed attack bonus");
 assert.equal(shieldsForged.playerStates[tankAlly.id].shield, 8, "Bulwark to Blade preserves allied shield");
-assert.equal(shieldsForged.playerStates[tankAlly.id].attackBuff, 0, "Bulwark to Blade never grants allies an attack bonus");
-assert.equal(shieldsForged.playerStates[tankEnemy.id].shield, 10, "Bulwark to Blade never converts enemy shield");
-assert.equal(shieldsForged.playerStates[tankEnemy.id].attackBuff, 0, "Bulwark to Blade never buffs enemies");
-const forgedBramAttack = tank.skillDeck.find((card) => card.effect === "damage");
-shieldsForged.turnOrder = [tank.id, tankEnemy.id, tankAlly.id];
-shieldsForged.adventure.target = 8;
-shieldsForged.playerStates[tank.id].hand = [forgedBramAttack.id];
-shieldsForged.playerStates[tankEnemy.id].shield = 0;
-shieldsForged.playerStates[tankEnemy.id].timedEffects = [];
-const forgedAttack = engine.resolveCardTurn(shieldsForged, tankParty, forgedBramAttack.id, tankEnemy.id, 20);
-assert.equal(forgedAttack.playerStates[tankEnemy.id].hp, tankEnemy.hero.maxHp - forgedBramAttack.value - 2, "converted shield adds damage to Bram's next real attack");
-assert.equal(forgedAttack.playerStates[tank.id].attackBuff, 0, "Bram's converted attack bonus is consumed by that attack");
+assert.match(shieldsForged.outcome.detail, /removed 5 shield.*lost 5 HP/i, "Bulwark to Blade reports both the shield sacrifice and immediate damage");
 
-const expiringConversionGame = structuredClone(conversionGame);
-expiringConversionGame.playerStates[tank.id].hand = [shieldforgedAssault.id];
-const expiringConversion = engine.resolveCardTurn(expiringConversionGame, tankParty, shieldforgedAssault.id, tank.id, 20);
-assert.equal(expiringConversion.playerStates[tank.id].attackBuff, 2, "Bram's unused converted attack bonus remains through the turn it is created");
-engine.expireTimedEffectsAtTurnEnd(expiringConversion.playerStates[tank.id]);
-assert.equal(expiringConversion.playerStates[tank.id].attackBuff, 0, "Bram's unused converted attack bonus expires at the end of his next turn");
+const authorityReconciled = structuredClone(shieldsForged);
+authorityReconciled.playerStates[tank.id].shield = 5;
+authorityReconciled.playerStates[tank.id].timedEffects = [{ kind: "shield", value: 5, expiresAfterTurn: 10 }];
+authorityReconciled.playerStates[tankEnemy.id].hp = tankEnemy.hero.maxHp;
+authorityReconciled.outcome.amount = 0;
+authorityReconciled.outcome.detail = "Client omitted the effect.";
+assert.equal(bulwarkRules.reconcileBulwarkToBladeImpact(conversionGame, authorityReconciled, tank, tankParty), "", "the realtime authority accepts a valid Bulwark to Blade target");
+assert.equal(authorityReconciled.playerStates[tank.id].shield, 0, "the realtime authority enforces the complete shield sacrifice");
+assert.equal(authorityReconciled.playerStates[tank.id].timedEffects.some((effect) => effect.kind === "shield"), false, "the realtime authority removes sacrificed timed shield");
+assert.equal(authorityReconciled.playerStates[tankEnemy.id].hp, tankEnemy.hero.maxHp - 5, "the realtime authority restores omitted shield-powered damage");
+assert.equal(authorityReconciled.outcome.amount, 5, "the realtime authority publishes corrected damage");
+assert.match(authorityReconciled.outcome.detail, /removed 5 shield.*lost 5 HP/i, "the realtime authority publishes corrected effect detail");
+
+const rejectedAuthorityTarget = structuredClone(shieldsForged);
+rejectedAuthorityTarget.outcome.targetIds = [tankAlly.id];
+assert.match(bulwarkRules.reconcileBulwarkToBladeImpact(conversionGame, rejectedAuthorityTarget, tank, tankParty), /one living enemy/i, "the realtime authority rejects an allied Bulwark to Blade target");
+
+const blockedConversionGame = structuredClone(conversionGame);
+blockedConversionGame.playerStates[tank.id].hand = [shieldforgedAssault.id];
+blockedConversionGame.playerStates[tank.id].attackBuff = 2;
+blockedConversionGame.playerStates[tank.id].timedEffects.push({ kind: "attackBuff", value: 2, expiresAfterTurn: 10 });
+blockedConversionGame.playerStates[tankEnemy.id].shield = 3;
+blockedConversionGame.playerStates[tankEnemy.id].timedEffects = [{ kind: "shield", value: 3, expiresAfterTurn: 10 }];
+const blockedConversion = engine.resolveCardTurn(blockedConversionGame, tankParty, shieldforgedAssault.id, tankEnemy.id, 20);
+assert.equal(blockedConversion.playerStates[tank.id].shield, 0, "a shielded target does not reduce Bram's full shield sacrifice");
+assert.equal(blockedConversion.playerStates[tankEnemy.id].shield, 0, "the target's shield blocks Bulwark to Blade through normal Attack rules");
+assert.equal(blockedConversion.playerStates[tankEnemy.id].hp, tankEnemy.hero.maxHp - 4, "five sacrificed shield plus two attack bonus deals four HP after three shield is blocked");
+assert.equal(blockedConversion.outcome.amount, 4, "Bulwark to Blade reports actual HP damage after blocking");
+assert.equal(blockedConversion.playerStates[tank.id].attackBuff, 0, "Bulwark to Blade consumes an existing next-attack bonus");
+
+const zeroShieldGame = structuredClone(conversionGame);
+zeroShieldGame.playerStates[tank.id].hand = [shieldforgedAssault.id];
+zeroShieldGame.playerStates[tank.id].shield = 0;
+zeroShieldGame.playerStates[tank.id].timedEffects = [];
+const zeroShieldAttack = engine.resolveCardTurn(zeroShieldGame, tankParty, shieldforgedAssault.id, tankEnemy.id, 20);
+assert.equal(zeroShieldAttack.outcome.success, true, "Bulwark to Blade can succeed with zero shield");
+assert.equal(zeroShieldAttack.outcome.amount, 0, "zero current shield produces zero base damage");
+assert.equal(zeroShieldAttack.playerStates[tankEnemy.id].hp, tankEnemy.hero.maxHp, "zero-shield Bulwark to Blade does not reduce enemy HP");
+
+const invalidTargetGame = structuredClone(conversionGame);
+invalidTargetGame.playerStates[tank.id].hand = [shieldforgedAssault.id];
+const invalidTargetAttack = engine.resolveCardTurn(invalidTargetGame, tankParty, shieldforgedAssault.id, tankAlly.id, 20);
+assert.equal(invalidTargetAttack.outcome.success, true, "an invalid target does not falsify a successful roll");
+assert.equal(invalidTargetAttack.outcome.amount, 0, "an invalid target produces no damage");
+assert.equal(invalidTargetAttack.playerStates[tank.id].shield, 5, "an invalid enemy target does not consume Bram's shield");
+assert.equal(invalidTargetAttack.playerStates[tankAlly.id].hp, tankAlly.hero.maxHp, "Bulwark to Blade cannot damage an ally");
 
 const failedConversionGame = structuredClone(conversionGame);
 failedConversionGame.adventure.target = 20;
 failedConversionGame.playerStates[tank.id].hand = [shieldforgedAssault.id];
-const failedConversion = engine.resolveCardTurn(failedConversionGame, tankParty, shieldforgedAssault.id, tank.id, 1);
-assert.equal(failedConversion.outcome.success, false, "a failed Bulwark to Blade performs no conversion");
-assert.equal(failedConversion.playerStates[tank.id].shield, 3, "failed conversion removes up to 2 of Bram's shield");
-assert.equal(failedConversion.playerStates[tankAlly.id].shield, 8, "failed conversion preserves allied shield");
-assert.equal(failedConversion.playerStates[tank.id].attackBuff, 0, "failed conversion grants no attack bonus");
-assert.equal(failedConversion.playerStates[tank.id].hp, tank.hero.maxHp, "Bulwark to Blade failure no longer damages Bram");
-assert.equal(failedConversion.playerStates[tankAlly.id].hp, tankAlly.hero.maxHp, "Bulwark to Blade failure no longer damages allies");
+const failedConversion = engine.resolveCardTurn(failedConversionGame, tankParty, shieldforgedAssault.id, tankEnemy.id, 1);
+assert.equal(failedConversion.outcome.success, false, "a failed Bulwark to Blade deals no damage");
+assert.equal(failedConversion.playerStates[tank.id].shield, 1, "failed Bulwark to Blade removes up to 4 of Bram's shield");
+assert.equal(failedConversion.playerStates[tank.id].timedEffects.filter((effect) => effect.kind === "shield").reduce((sum, effect) => sum + effect.value, 0), 1, "failed Bulwark to Blade keeps remaining timed shield synchronized");
+assert.equal(failedConversion.playerStates[tankEnemy.id].hp, tankEnemy.hero.maxHp, "failed Bulwark to Blade preserves enemy HP");
+assert.equal(failedConversion.playerStates[tankAlly.id].shield, 8, "failed Bulwark to Blade preserves allied shield");
+assert.equal(failedConversion.playerStates[tank.id].hp, tank.hero.maxHp, "Bulwark to Blade failure does not damage Bram");
+
+const pityConversionGame = structuredClone(conversionGame);
+pityConversionGame.adventure.target = 20;
+pityConversionGame.playerStates[tank.id].hand = [shieldforgedAssault.id];
+pityConversionGame.playerStates[tank.id].pityPoints = 7;
+const pityConversion = engine.resolveCardTurn(pityConversionGame, tankParty, shieldforgedAssault.id, tankEnemy.id, 1, true);
+assert.equal(pityConversion.outcome.success, true, "a 7-pity Bulwark to Blade succeeds regardless of the d20");
+assert.equal(pityConversion.outcome.pityCost, 7, "Bulwark to Blade spends its rebalanced pity cost");
+assert.equal(pityConversion.playerStates[tank.id].pityPoints, 0, "Bulwark to Blade deducts all seven pity points");
+assert.equal(pityConversion.playerStates[tank.id].shield, 0, "pity success still pays the full shield sacrifice");
+assert.equal(pityConversion.playerStates[tankEnemy.id].hp, tankEnemy.hero.maxHp - 5, "pity success applies the same shield-powered damage");
+
+const insufficientBulwarkPityGame = structuredClone(conversionGame);
+insufficientBulwarkPityGame.playerStates[tank.id].hand = [shieldforgedAssault.id];
+insufficientBulwarkPityGame.playerStates[tank.id].pityPoints = 6;
+const insufficientPity = engine.resolveCardTurn(insufficientBulwarkPityGame, tankParty, shieldforgedAssault.id, tankEnemy.id, 1, true);
+assert.equal(insufficientPity, insufficientBulwarkPityGame, "six pity cannot activate the rebalanced seven-pity Bulwark to Blade");
+assert.equal(insufficientPity.playerStates[tank.id].shield, 5, "a rejected pity attempt cannot consume Bram's shield");
 
 const teamHealGame = engine.createInitialGame(supportParty, engine.createAdventure("TEAM-HEAL"), 30);
 teamHealGame.turnOrder = [healer.id, supportEnemy.id, supportAlly.id];
@@ -1152,10 +1216,6 @@ for (const option of options) {
         { kind: "diceBuff", value: 2, expiresAfterTurn: 1 }
       ];
     }
-    if (matrixCard.supportType === "shield-to-attack") {
-      actorState.shield = 6;
-      actorState.timedEffects = [{ kind: "shield", value: 6, expiresAfterTurn: 99 }];
-    }
     const expectedTargetIds = matrixCard.target === "all-enemies" ? [matrixEnemyOne.id, matrixEnemyTwo.id]
       : matrixCard.target === "all-allies" ? [matrixActor.id, matrixAlly.id]
         : matrixCard.target === "self" ? [matrixActor.id]
@@ -1213,10 +1273,6 @@ for (const option of options) {
         assert.equal(matrixSuccess.playerStates[matrixEnemyOne.id].shield, 2, `${matrixCard.name} must destroy up to its exact shield value`);
         assert.equal(matrixSuccess.playerStates[matrixEnemyOne.id].attackBuff, 0, `${matrixCard.name} must remove attack buffs`);
         assert.equal(matrixSuccess.playerStates[matrixEnemyOne.id].diceBuff, 0, `${matrixCard.name} must remove d20 buffs`);
-      } else if (matrixCard.supportType === "shield-to-attack") {
-        assert.equal(matrixSuccess.playerStates[matrixActor.id].shield, 3, `${matrixCard.name} must spend half of the actor's current shield`);
-        assert.equal(matrixSuccess.playerStates[matrixActor.id].attackBuff, 3, `${matrixCard.name} must convert the spent shield into equal next-attack damage`);
-        assert.equal(matrixSuccess.outcome.amount, 3, `${matrixCard.name} must report the converted attack amount`);
       } else assert.fail(`${matrixCard.name} uses an untested support effect`);
     } else {
       assert.equal(matrixSuccess.outcome.amount, 0, `${matrixCard.name} must resolve with no gameplay effect`);

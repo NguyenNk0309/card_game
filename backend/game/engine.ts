@@ -15,6 +15,7 @@ export function randomIntInclusive(minimum: number, maximum: number) {
 
 const pick = <T,>(items: T[], index = randomIntInclusive(0, items.length - 1)) => items[Math.abs(index) % items.length];
 const teamName = (team: TeamId) => team === "veil" ? "Veilbound" : "Embercourt";
+const BULWARK_TO_BLADE_CARD_ID = "bc-march";
 export const BATTLE_TURN_SECONDS = 60;
 
 export function randomDiceTarget() {
@@ -437,6 +438,8 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     if (needsTarget && !targets.length) {
       detail = `${actor.displayName} succeeded with ${card.name}, but no valid target was available. The card had no effect.`;
     } else if (card.effect === "damage" || card.effect === "aoe") {
+      const sacrificedShield = card.id === BULWARK_TO_BLADE_CARD_ID ? Math.max(0, states[actor.id].shield) : 0;
+      if (card.id === BULWARK_TO_BLADE_CARD_ID) removeTimedEffectAmount(states[actor.id], "shield", sacrificedShield);
       let passive = getThorneValePassiveDamageBonus(actor, card, actorState);
       if (actor.hero.classId === "mage" && card.effect === "aoe") passive += 1;
       if (actor.hero.classId === "berserker" && actorState.hp <= actorState.maxHp / 2) passive += 1;
@@ -445,7 +448,8 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       for (const target of targets) {
         const state = states[target.id];
         const kaelPassive = getKaelRookPassiveDamageBonus(actor, card, actorState, state);
-        const power = card.value + actorState.attackBuff + passive + kaelPassive;
+        const basePower = card.id === BULWARK_TO_BLADE_CARD_ID ? sacrificedShield : card.value;
+        const power = basePower + actorState.attackBuff + passive + kaelPassive;
         const blocked = ignoresShield ? 0 : Math.min(state.shield, power);
         removeTimedEffectAmount(state, "shield", blocked);
         const damage = power - blocked;
@@ -455,7 +459,9 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         reports.push(`${target.displayName} lost ${damage} HP${blocked ? ` (${blocked} blocked by shield)` : ""}${state.hp === 0 ? " and was defeated" : ""}`);
       }
       if (targets.length) clearTimedEffect(states[actor.id], "attackBuff");
-      detail = reports.length ? `${reports.join("; ")}.` : `${actor.displayName}'s attack had no valid target and no effect.`;
+      detail = reports.length
+        ? `${card.id === BULWARK_TO_BLADE_CARD_ID ? `${actor.displayName} removed ${sacrificedShield} shield. ` : ""}${reports.join("; ")}.`
+        : `${actor.displayName}'s attack had no valid target and no effect.`;
     } else if (card.effect === "heal") {
       const power = card.value + (actor.hero.name === "Brother Orren" ? 1 : 0);
       const reports: string[] = [];
@@ -489,15 +495,6 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       for (const target of supportTargets) {
         if (card.supportType === "attack") addTimedEffect(states[target.id], "attackBuff", amount, target.id === actor.id);
         if (card.supportType === "shield") addTimedEffect(states[target.id], "shield", amount, target.id === actor.id);
-        if (card.supportType === "shield-to-attack") {
-          const converted = Math.floor(states[target.id].shield / 2);
-          removeTimedEffectAmount(states[target.id], "shield", converted);
-          addTimedEffect(states[target.id], "attackBuff", converted, target.id === actor.id);
-          amount += converted;
-          reports.push(converted > 0
-            ? `${target.displayName} converted ${converted} shield into +${converted} attack damage`
-            : `${target.displayName} had insufficient shield to convert`);
-        }
         if (card.supportType === "healing") {
           const before = states[target.id].hp;
           states[target.id].hp = Math.min(states[target.id].maxHp, states[target.id].hp + amount);
@@ -565,7 +562,6 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         }
       }
       if (card.supportType === "healing") detail = `${actor.displayName} healed the team: ${reports.join(", ")}.`;
-      else if (card.supportType === "shield-to-attack") detail = `${actor.displayName} forged allied shields into attack power: ${reports.join(", ")}.`;
       else if (card.supportType === "enemy-dice") detail = `${actor.displayName} gave ${selectedEnemy?.displayName} -${amount} to their next d20 result.`;
       else if (card.supportType === "delay-enemy") detail = `${actor.displayName} moved ${selectedEnemy?.displayName}'s turn to the end of the queue.`;
       else if (card.supportType === "advance-ally") detail = `${actor.displayName} moved ${selectedAlly?.displayName} to the next position in the turn queue.`;

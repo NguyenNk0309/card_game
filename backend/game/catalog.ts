@@ -26,7 +26,6 @@ export function calculatePityCost(card: CardWithoutPity | ActionCard) {
   if (card.effect === "heal" || card.effect === "guard") return Math.min(7, 2 + card.value);
   if (["revive", "skip-enemy", "steal-card"].includes(card.supportType ?? "")) return 7;
   if (["purge-card", "advance-ally", "dispel-enemy"].includes(card.supportType ?? "")) return 6;
-  if (card.supportType === "shield-to-attack") return 6;
   return Math.min(6, 3 + card.value);
 }
 
@@ -59,7 +58,7 @@ export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
   "Bram Coalhand": [
     { id: "bc-fortress", name: "Two-Turn Bastion", description: "One living ally, including yourself, gains 4 shield; expires at the end of the target's second turn.", bonus: 0, effect: "guard", target: "ally", value: 4, failureEffect: "lose-shield", failureValue: 3, pityCost: 6 },
     { id: "bc-temper", name: "Tempered Phalanx", description: "All living allies, including yourself, gain 3 shield; expires at the end of each target's second turn.", bonus: 0, effect: "guard", target: "all-allies", value: 3, failureEffect: "team-damage", failureValue: 1, pityCost: 7 },
-    { id: "bc-march", name: "Bulwark to Blade", description: "Convert half of your current shield, rounded down, into an equal attack damage bonus for your next attack; expires at the end of your next turn.", bonus: 0, effect: "support", target: "self", value: 0, supportType: "shield-to-attack", failureEffect: "lose-shield", failureValue: 2, pityCost: 6 }
+    { id: "bc-march", name: "Bulwark to Blade", description: "Remove all your current shield, then deal that much damage to one living enemy.", bonus: 0, effect: "damage", target: "enemy", value: 0, failureEffect: "lose-shield", failureValue: 4, pityCost: 7 }
   ],
   "Sable Fen": [
     { id: "sf-favor", name: "Foretold Success", description: "One living ally, including yourself, plays their next card during their next turn for 0 pity; expires at the end of that turn.", bonus: 0, effect: "support", target: "ally", value: 2, supportType: "zero-pity", failureEffect: "self-damage", failureValue: 2, pityCost: 6 },

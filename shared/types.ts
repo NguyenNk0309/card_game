@@ -5,7 +5,6 @@ export type SupportType =
   | "attack"
   | "shield"
   | "healing"
-  | "shield-to-attack"
   | "dice"
   | "enemy-dice"
   | "delay-enemy"

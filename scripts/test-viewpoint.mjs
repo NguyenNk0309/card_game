@@ -153,7 +153,7 @@ const bram = player("bram", "Bram Player", "veil");
 bram.hero.name = "Bram Coalhand";
 bram.skillDeck = [
   { id: "bc-fortress", name: "Two-Turn Bastion", effect: "guard" },
-  { id: "bc-march", name: "Bulwark to Blade", effect: "support", supportType: "shield-to-attack" }
+  { id: "bc-march", name: "Bulwark to Blade", effect: "damage" }
 ];
 const bramHistoryPlayers = [bram, mira];
 const bramGuardHistory = {
@@ -171,12 +171,16 @@ assert.equal(formatHistoryPresentation(bramGuardHistory, bramHistoryPlayers).dur
 const shieldforgedHistory = {
   ...bramGuardHistory,
   id: "shieldforged-history",
-  kind: "support",
+  kind: "damage",
+  targetName: mira.displayName,
   cardName: "Bulwark to Blade",
-  message: "Bram Player converted 2 shield into +2 attack damage.",
-  amount: 2
+  message: "Bram Player removed 5 shield. Mira lost 5 HP.",
+  amount: 5
 };
-assert.equal(formatHistoryPresentation(shieldforgedHistory, bramHistoryPlayers).duration, "Until target's next turn ends", "Bulwark to Blade history shows its one-turn attack-buff duration");
+assert.equal(formatHistoryPresentation(shieldforgedHistory, bramHistoryPlayers).type, "Attack", "Bulwark to Blade history uses the Attack type");
+assert.equal(formatHistoryPresentation(shieldforgedHistory, bramHistoryPlayers).target, "Mira", "Bulwark to Blade history names its enemy target");
+assert.equal(formatHistoryPresentation(shieldforgedHistory, bramHistoryPlayers).changes, "5 damage", "Bulwark to Blade history reports immediate damage");
+assert.equal(formatHistoryPresentation(shieldforgedHistory, bramHistoryPlayers).duration, "—", "Bulwark to Blade history has no delayed-effect duration");
 const failedHistory = { ...historyEntry, id: "history-failure", success: false, failureDetail: "Rowan took 2 backlash damage." };
 assert.equal(formatHistoryPresentation(failedHistory, players).penalty, "Rowan took 2 backlash damage.");
 const legacyFailedHistory = { ...failedHistory, id: "history-legacy-failure", failureDetail: undefined, message: "Rowan used Slash — The attack failed. Rowan took 2 backlash damage." };
