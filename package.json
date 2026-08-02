@@ -12,6 +12,7 @@
     "test:game": "node scripts/test-game-rules.mjs",
     "test:world-events": "node scripts/test-world-events.mjs",
     "test:viewpoint": "node scripts/test-viewpoint.mjs",
+    "art:previews": "node scripts/generate-card-previews.mjs",
     "build": "next build && node scripts/prepare-sites.mjs",
     "start": "node backend/server.mjs",
     "typecheck": "tsc --noEmit",

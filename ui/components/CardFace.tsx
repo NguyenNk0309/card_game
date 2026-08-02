@@ -35,16 +35,18 @@ const defaultRows = (card: ActionCard): CardResultRow[] => [
 
 export function CardFace({ card, contextLabel, pityCostOverride, previewTrigger = "click", resultRows }: Props) {
   const artwork = getCardArtwork(card);
+  const artworkSource = artwork.preview ?? artwork.scene;
   const rows = resultRows ?? defaultRows(card);
   const faceRef = useRef<HTMLDivElement>(null);
   const [artworkViewerOpen, setArtworkViewerOpen] = useState(false);
+  const [loadedArtwork, setLoadedArtwork] = useState("");
   const changeArtworkViewer = useCallback((open: boolean) => setArtworkViewerOpen(open), []);
 
   return <><div ref={faceRef} className="gothic-card-face" data-card-id={card.id} data-card-name={card.name} data-rarity={card.unique ? "special" : "common"}>
     <div className="gothic-card-art" data-target={artwork.target} data-art-kind={artwork.kind}>
       <div className="gothic-card-art-backdrop"/>
-      {artwork.scene
-        ? <img className="gothic-card-scene" src={artwork.scene} alt={artwork.alt} width="768" height="768" loading="lazy" decoding="async" draggable={false}/>
+      {artworkSource
+        ? <img className={`gothic-card-scene ${loadedArtwork === artworkSource ? "is-loaded" : ""}`} src={artworkSource} alt={artwork.alt} width="640" height="640" loading="lazy" decoding="async" draggable={false} onLoad={() => setLoadedArtwork(artworkSource)}/>
         : <div className="gothic-card-art-missing" role="img" aria-label={artwork.alt}><span>?</span><small>ARTWORK PENDING</small></div>}
       <div className={`gothic-card-effect-wash effect-${card.effect}`} aria-hidden="true"/>
     </div>

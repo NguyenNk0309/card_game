@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import ts from "typescript";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
@@ -49,7 +49,8 @@ for (const [heroName, fileName] of characterAvatars) {
   assert(characterAvatar.includes(`"${heroName}": "/art/characters/${fileName}"`), `${heroName} must have a unique avatar mapping`);
   assert(existsSync(new URL(`../public/art/characters/${fileName}`, import.meta.url)), `${heroName}'s avatar asset must exist`);
 }
-assert.match(characterAvatar, /avatar \? <Image className="character-avatar-image"[\s\S]*: hero\.initials/, "character avatars must retain initials as a safe fallback");
+assert.match(characterAvatar, /showImage \? <Image[\s\S]*onError=\{\(\) => setFailedSource\(avatar\)\}[\s\S]*: hero\.initials/, "character avatars must retain initials as a safe fallback when an image is missing or fails");
+assert.match(characterAvatar, /preloadCharacterAvatars[\s\S]*preloadedCharacterAvatars\.get\(source\)[\s\S]*image\.decoding = "async"[\s\S]*image\.decode\(\)/, "character portraits must be deduplicated and decoded off the interaction path");
 assert.match(gameApp, /canPayLioraVennHealthCost\(activeCard, localState\?\.hp\)[\s\S]*canPlaySelectedCard=\{activeCardCanBePlayed\}[\s\S]*selectedCardBlockReason=\{activeCardBlockReason\}/, "low-HP blood cards must disable Roll and Pity through the shared health-cost rule");
 assert.match(gameApp, /Requires at least \$\{LIORA_VENN_MINIMUM_HP\} HP to play; you can still discard it\./, "low-HP blood cards must remain selectable for discarding with a clear explanation");
 assert.match(diceRoller, /className="roll-button"[\s\S]*!canPlaySelectedCard[\s\S]*className="pity-button"[\s\S]*!canPlaySelectedCard[\s\S]*className="discard-card-button"[\s\S]*disabled=\{rolling \|\| disabled \|\| !hasSelectedCard\}/, "the health requirement blocks Roll and Pity without blocking the existing discard action");
@@ -58,7 +59,7 @@ for (const authority of [nodeServer, realtimeWorker]) {
 }
 assert.match(lioraRules, /LIORA_VENN_MINIMUM_HP = 4[\s\S]*LIORA_VENN_HEALTH_COST = 3|LIORA_VENN_HEALTH_COST = 3[\s\S]*LIORA_VENN_MINIMUM_HP = 4/, "the shared Liora rules must retain the approved 4 HP requirement and 3 HP cost");
 assert.match(lobby, /hero-picker-grid[\s\S]*<CharacterAvatar hero=\{option\.hero\}[\s\S]*character-banner[\s\S]*<CharacterAvatar hero=\{shownHero\}/, "lobby character selection and review must show the unique avatars");
-assert.match(lobby, /character-profile"><CharacterAvatar hero=\{shownHero\} className="large-portrait lobby-character-avatar" sizes="\(min-height: 1200px\) 216px, \(min-height: 900px\) 162px, 112px"\/><div className="passive-callout">/, "the selected character's responsive lobby avatar must appear above the character information section");
+assert.match(lobby, /character-profile"><CharacterAvatar hero=\{shownHero\} className="large-portrait lobby-character-avatar" loading="eager" sizes="\(min-height: 1200px\) 216px, \(min-height: 900px\) 162px, 112px"\/><div className="passive-callout">/, "the selected character's responsive lobby avatar must appear above the character information section and load eagerly");
 assert.match(styles, /\.lobby-character-avatar\s*\{[^}]*width:\s*min\(100%, clamp\(112px, 15vh, 216px\)\);[^}]*height:\s*auto;[^}]*aspect-ratio:\s*1;[^}]*margin:\s*0 auto;/, "the lobby character avatar must scale continuously above its information from 720p through 1440p layouts");
 assert.match(gameApp, /turn-queue-list[\s\S]*<CharacterAvatar hero=\{player\.hero\}[\s\S]*character-detail-modal[\s\S]*<CharacterAvatar hero=\{inspectedPlayer\.hero\}/, "turn order and character detail must show the unique avatars");
 assert.match(partyRail, /function RosterAvatar[\s\S]*onMouseEnter=\{showTooltip\}[\s\S]*onFocus=\{showTooltip\}[\s\S]*className="battle-avatar-tooltip"[\s\S]*<CharacterAvatar hero=\{hero\} className="large-portrait battle-avatar-tooltip-image" sizes="180px"/, "battle roster avatars must show a larger tooltip on hover and keyboard focus");
@@ -85,7 +86,7 @@ assert.match(cardFace, /defaultRows[\s\S]*describeCardSuccess\(card\)[\s\S]*desc
 assert.match(cardFace, /previewTrigger = "click"[\s\S]*<CardArtworkViewer artwork=\{artwork\} cardName=\{card\.name\} open=\{artworkViewerOpen\} onOpenChange=\{changeArtworkViewer\}\/>[\s\S]*<CardHoverPreview anchorRef=\{faceRef\} artwork=\{artwork\} card=\{card\} pityCostOverride=\{pityCostOverride\} rows=\{rows\} suspended=\{artworkViewerOpen\} trigger=\{previewTrigger\}\/>/, "universal card faces must include an artwork viewer and default to click-triggered full-content previews");
 assert.match(cardArtworkViewer, /onClickCapture=\{openViewer\}[\s\S]*onKeyDownCapture=\{openWithKeyboard\}/, "the View Image control must intercept pointer and keyboard activation before the containing card");
 assert.match(cardArtworkViewer, /event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);[\s\S]*onOpenChange\(true\)/, "opening artwork must not trigger card selection or its detail tooltip");
-assert.match(cardArtworkViewer, /role="dialog"[\s\S]*aria-modal="true"[\s\S]*className="card-artwork-viewer-image" src=\{artwork\.scene\}/, "View Image must open the original illustration in an accessible modal panel");
+assert.match(cardArtworkViewer, /role="dialog"[\s\S]*aria-modal="true"[\s\S]*className=\{`card-artwork-viewer-image[\s\S]*src=\{artwork\.scene\}/, "View Image must open the original illustration in an accessible modal panel");
 assert.match(gameApp, /function HandCardContents[\s\S]*<CardFace card=\{card\} pityCostOverride=\{pityCostOverride\} previewTrigger="hover"\/>/, "cards in hand must retain hover-triggered full-content previews");
 assert.match(cardHoverPreview, /trigger === "hover"[\s\S]*addEventListener\("mouseenter", show\)[\s\S]*addEventListener\("mouseleave", hide\)[\s\S]*addEventListener\("click", toggle\)/, "only hover-mode cards should use mouse entry while other cards toggle their preview on click");
 assert.match(cardHoverPreview, /document\.addEventListener\("click", closeOutside\)[\s\S]*document\.addEventListener\("keydown", closeWithEscape\)/, "click-triggered card previews must close on outside click or Escape");
@@ -188,14 +189,27 @@ for (const id of specialSceneIds) assert(existsSync(new URL(`../public/art/cards
 assert(!/kind:\s*"sprite"|spriteColumn|spriteRow|\/characters\//.test(cardArtwork), "special-card artwork must not retain sprite-sheet rendering data");
 assert(!/gothic-card-sprite-crop|gothic-card-targets/.test(styles), "obsolete sprite and synthetic-target composition styles must stay removed");
 const cardAssetRoot = new URL("../public/art/cards/", import.meta.url);
-assert.deepEqual(readdirSync(cardAssetRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort(), ["common", "special"], "the card-art directory must contain only active integrated-scene groups");
+assert.deepEqual(readdirSync(cardAssetRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort(), ["common", "preview", "special"], "the card-art directory must contain only original and optimized integrated-scene groups");
 const commonSceneIds = [...cardArtwork.matchAll(/\bscene\("([^"]+)"/g)].map((match) => match[1]).sort();
 const listedCardAssets = (group) => readdirSync(new URL(`${group}/`, cardAssetRoot)).filter((name) => name.endsWith(".webp")).map((name) => name.replace(/\.webp$/, "")).sort();
 assert.deepEqual(listedCardAssets("common"), commonSceneIds, "common artwork must not retain unused image files");
 assert.deepEqual(listedCardAssets("special"), [...specialSceneIds].sort(), "special artwork must not retain unused image files");
+assert.deepEqual(listedCardAssets("preview/common"), commonSceneIds, "every common card must have an optimized display preview");
+assert.deepEqual(listedCardAssets("preview/special"), [...specialSceneIds].sort(), "every special card must have an optimized display preview");
+for (const group of ["common", "special"]) {
+  for (const asset of readdirSync(new URL(`${group}/`, cardAssetRoot)).filter((name) => name.endsWith(".webp"))) {
+    assert(statSync(new URL(`preview/${group}/${asset}`, cardAssetRoot)).size < statSync(new URL(`${group}/${asset}`, cardAssetRoot)).size, `${group}/${asset} preview must remain smaller than its full illustration`);
+  }
+}
 assert.match(cardArtwork, /"lost momentum"[\s\S]*"broken plan"[\s\S]*"empty gesture"/, "the three approved reference cards must have explicit artwork mappings");
-assert.match(cardArtwork, /preloadCardArtwork[\s\S]*preloadedCardArtwork\.has\(source\)[\s\S]*image\.decoding = "async"[\s\S]*image\.decode\(\)/, "lobby artwork warming must deduplicate static assets and decode them asynchronously");
-assert.match(lobby, /useDeferredValue\(selectedHeroName\)[\s\S]*preloadCardArtwork\(visibleCharacterOptions\.flatMap[\s\S]*onPointerEnter=\{\(\) => preloadCardArtwork\(option\.skillDeck\)\}/, "character selection must acknowledge immediately while visible and hovered deck artwork warms before first use");
+assert.match(cardArtwork, /previewSource[\s\S]*preloadCardArtwork[\s\S]*artwork\.preview \?\? artwork\.scene[\s\S]*preloadedCardArtwork\.get\(source\)[\s\S]*image\.decoding = "async"[\s\S]*image\.decode\(\)/, "lobby artwork warming must deduplicate and decode optimized previews instead of full illustrations");
+assert.match(cardFace, /const artworkSource = artwork\.preview \?\? artwork\.scene[\s\S]*gothic-card-scene[\s\S]*onLoad=\{\(\) => setLoadedArtwork\(artworkSource\)\}/, "card faces must reveal optimized artwork only after it has loaded");
+assert.match(cardHoverPreview, /backgroundImage: `url\("\$\{artwork\.preview \?\? artwork\.scene\}"\)`/, "card hover previews must reuse optimized display artwork");
+assert.match(cardArtworkViewer, /className=\{`card-artwork-viewer-frame[\s\S]*aria-busy[\s\S]*src=\{artwork\.scene\}[\s\S]*Loading full illustration/, "the full-resolution artwork viewer must retain the original source and expose a stable loading state");
+assert.match(lobby, /useDeferredValue\(selectedHeroName\)[\s\S]*requestIdleCallback\(warmPortraits[\s\S]*onPointerEnter=\{\(\) => warmCharacterGroup\(group\.id\)\}[\s\S]*onPointerEnter=\{\(\) => preloadCardArtwork\(option\.skillDeck, "high"\)\}/, "character selection must acknowledge immediately while portrait and selected-deck previews warm around user intent");
+assert(!/preloadCardArtwork\(visibleCharacterOptions\.flatMap/.test(lobby), "switching classes must not download every character's full deck before selection");
+assert.match(lobby, /const CharacterSkillDeck = memo[\s\S]*<CharacterSkillDeck cards=\{shownDeck\}/, "socket and roster updates must not repaint an unchanged ten-card lobby deck");
+assert.match(styles, /\.character-avatar-image\.is-loaded[\s\S]*\.gothic-card-scene\.is-loaded[\s\S]*\.card-artwork-viewer-frame\.is-loading[\s\S]*\.hero-class-tabs button,[\s\S]*\.hero-picker-grid button/, "portrait, card, full-art loading, and character controls must retain smooth scoped feedback");
 assert(!/SPECIAL\s*·|SPECIAL CARD|toUpperCase\(\)\}\s*SKILL/.test(cardSurfaces), "special-card headers must not include a character or class name");
 assert.match(gameApp, /className="history-penalty-cell"><HighlightPlayerNames text=\{presentation\.penalty \|\| "—"\}[^>]*useActualNames/, "expanded-history penalties must use real player names and display the standard empty placeholder");
 assert.match(gameApp, /function HistoryMessage[\s\S]*useActualNames/, "history details must preserve real player names");

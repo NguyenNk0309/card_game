@@ -1,11 +1,11 @@
 "use client";
 
 import { Check, Clock3, Crown, Eye, Flame, House, KeyRound, LogOut, Shield, Sparkles, Swords, UserMinus, UserPlus, Users } from "lucide-react";
-import { useDeferredValue, useEffect, useState } from "react";
+import { memo, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { CharacterOption, PlayerSession, TeamId } from "@/shared/types";
 import { preloadCardArtwork } from "../cardArtwork";
 import { CardFace } from "./CardFace";
-import { CharacterAvatar } from "./CharacterAvatar";
+import { CharacterAvatar, preloadCharacterAvatars } from "./CharacterAvatar";
 
 type Props = {
   roomId: string;
@@ -27,6 +27,10 @@ const characterGroups: Array<{ id: CharacterGroup; label: string; roles: string[
   { id: "supporter", label: "Supporter", roles: ["Support", "Controller"] }
 ];
 
+const CharacterSkillDeck = memo(function CharacterSkillDeck({ cards, heroColor }: { cards: CharacterOption["skillDeck"]; heroColor: string }) {
+  return <div className="lobby-skill-deck">{cards.map((card) => <article className={`skill-card gothic-card effect-${card.effect} ${card.unique ? "hero-unique-card" : "common-skill-card"} ${card.effect === "none" ? "no-effect-card" : ""}`} key={card.id} style={{ "--hero-color": heroColor } as React.CSSProperties}><CardFace card={card}/></article>)}</div>;
+});
+
 export function Lobby({ roomId, players, playerName, error, selectedPlayerId, localSessionId, connectionStatus, characterOptions, selectedHeroName, onNameChange, onSlotSelect, onSelectPlayer, onToggleReady, onLeave, onRemovePlayer, onEnterGame, onHeroSelect, onReturnHome }: Props) {
   const [activeCharacterGroup, setActiveCharacterGroup] = useState<CharacterGroup>("attacker");
   const [roomIdCopied, setRoomIdCopied] = useState(false);
@@ -46,11 +50,26 @@ export function Lobby({ roomId, players, playerName, error, selectedPlayerId, lo
   const relationClass = (player?: PlayerSession) => player && localPlayer ? (player.hero.team === localPlayer.hero.team ? "ally" : "enemy") : "neutral";
   const teamPlayers = (team: TeamId) => players.filter((player) => player.hero.team === team).sort((left, right) => left.joinedAt - right.joinedAt);
   const canJoinSlot = !localPlayer && Boolean(playerName.trim()) && (Boolean(shownHero) || randomPending) && connectionStatus === "connected";
+  const characterOptionsByGroup = useMemo(() => Object.fromEntries(characterGroups.map((group) => [
+    group.id,
+    characterOptions.filter((option) => group.roles.includes(option.hero.role)),
+  ])) as Record<CharacterGroup, CharacterOption[]>, [characterOptions]);
   const activeGroup = characterGroups.find((group) => group.id === activeCharacterGroup) ?? characterGroups[0];
-  const visibleCharacterOptions = characterOptions.filter((option) => activeGroup.roles.includes(option.hero.role));
+  const visibleCharacterOptions = characterOptionsByGroup[activeGroup.id];
   useEffect(() => {
-    preloadCardArtwork(visibleCharacterOptions.flatMap((option) => option.skillDeck));
-  }, [activeCharacterGroup, characterOptions]);
+    if (!selectedOption) return;
+    preloadCardArtwork(selectedOption.skillDeck, "high");
+  }, [selectedOption]);
+  useEffect(() => {
+    const warmPortraits = () => preloadCharacterAvatars(characterOptions.map((option) => option.hero));
+    if ("requestIdleCallback" in window) {
+      const idleId = window.requestIdleCallback(warmPortraits, { timeout: 1200 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+    const timeoutId = globalThis.setTimeout(warmPortraits, 180);
+    return () => globalThis.clearTimeout(timeoutId);
+  }, [characterOptions]);
+  const warmCharacterGroup = (group: CharacterGroup) => preloadCharacterAvatars(characterOptionsByGroup[group].map((option) => option.hero), "high");
   const copyRoomId = async () => {
     try {
       await navigator.clipboard.writeText(roomId);
@@ -96,16 +115,16 @@ export function Lobby({ roomId, players, playerName, error, selectedPlayerId, lo
         <div className={`ready-gate ${canStart ? "all-ready" : ""}`}>{canStart ? <Check size={19}/> : <Shield size={19}/>}<div><strong>{canStart ? "Everyone is ready" : players.length < 2 ? "Waiting for another player" : !hasBothTeams ? "Both teams need a player" : "Waiting for all players"}</strong><span>{canStart ? "Start when ready." : !hasBothTeams && players.length >= 2 ? "Each team needs one player." : "Every player must be ready."}</span></div><button className="enter-game-button" onClick={onEnterGame} disabled={!canStart || connectionStatus !== "connected"}><Swords size={17}/> Enter the battle</button></div>
       </section>
       <aside className="character-panel">
-        <div className={`hero-picker ${characterPickLocked ? "is-locked" : ""}`}><div className="deck-heading"><div><span className="eyebrow">CHOOSE YOUR CHARACTER</span><strong>{characterPickLocked ? "Cancel ready to change" : "Optional before readying"}</strong></div><Users size={18}/></div><div className="hero-class-tabs" role="tablist" aria-label="Character classes">{characterGroups.map((group) => <button type="button" role="tab" aria-selected={activeCharacterGroup === group.id} className={activeCharacterGroup === group.id ? "active" : ""} onClick={() => setActiveCharacterGroup(group.id)} key={group.id}>{group.label}<span>{characterOptions.filter((option) => group.roles.includes(option.hero.role)).length}</span></button>)}</div><div className="hero-picker-grid" role="tabpanel" aria-label={`${activeGroup.label} characters`}>{visibleCharacterOptions.map((option) => <button type="button" key={option.hero.name} className={selectedHeroName === option.hero.name ? "selected" : ""} aria-pressed={selectedHeroName === option.hero.name} onPointerEnter={() => preloadCardArtwork(option.skillDeck)} onFocus={() => preloadCardArtwork(option.skillDeck)} onClick={() => onHeroSelect(selectedHeroName === option.hero.name ? "" : option.hero.name)} disabled={characterPickLocked} title={characterPickLocked ? "Cancel ready to change." : option.hero.summary}><CharacterAvatar hero={option.hero} className="hero-picker-avatar" sizes="31px"/><strong>{option.hero.name}</strong><small>{option.hero.className}</small></button>)}{!visibleCharacterOptions.length && <div className="empty-character-group"><Sparkles size={22}/><span>No characters in this class.</span></div>}</div></div>
+        <div className={`hero-picker ${characterPickLocked ? "is-locked" : ""}`}><div className="deck-heading"><div><span className="eyebrow">CHOOSE YOUR CHARACTER</span><strong>{characterPickLocked ? "Cancel ready to change" : "Optional before readying"}</strong></div><Users size={18}/></div><div className="hero-class-tabs" role="tablist" aria-label="Character classes">{characterGroups.map((group) => <button type="button" role="tab" aria-selected={activeCharacterGroup === group.id} className={activeCharacterGroup === group.id ? "active" : ""} onPointerEnter={() => warmCharacterGroup(group.id)} onPointerDown={() => warmCharacterGroup(group.id)} onFocus={() => warmCharacterGroup(group.id)} onClick={() => setActiveCharacterGroup(group.id)} key={group.id}>{group.label}<span>{characterOptionsByGroup[group.id].length}</span></button>)}</div><div className="hero-picker-grid" role="tabpanel" aria-label={`${activeGroup.label} characters`}>{visibleCharacterOptions.map((option) => <button type="button" key={option.hero.name} className={selectedHeroName === option.hero.name ? "selected" : ""} aria-pressed={selectedHeroName === option.hero.name} onPointerEnter={() => preloadCardArtwork(option.skillDeck, "high")} onPointerDown={() => preloadCardArtwork(option.skillDeck, "high")} onFocus={() => preloadCardArtwork(option.skillDeck, "high")} onClick={() => onHeroSelect(selectedHeroName === option.hero.name ? "" : option.hero.name)} disabled={characterPickLocked} title={characterPickLocked ? "Cancel ready to change." : option.hero.summary}><CharacterAvatar hero={option.hero} className="hero-picker-avatar" loading="eager" sizes="31px"/><strong>{option.hero.name}</strong><small>{option.hero.className}</small></button>)}{!visibleCharacterOptions.length && <div className="empty-character-group"><Sparkles size={22}/><span>No characters in this class.</span></div>}</div></div>
         {shownHero ? <div className="character-review-layout">
           <section className="character-info-column">
-            <div className="character-banner"><CharacterAvatar hero={shownHero} className="large-portrait" sizes="66px"/><div><span className="eyebrow">{reviewingOwnPick ? "YOUR CHARACTER PICK" : "SELECTED CHARACTER"}</span><h2>{shownHero.name}</h2></div></div>
-            <div className="character-profile"><CharacterAvatar hero={shownHero} className="large-portrait lobby-character-avatar" sizes="(min-height: 1200px) 216px, (min-height: 900px) 162px, 112px"/><div className="passive-callout"><Crown size={18}/><div><span>PASSIVE · <b className="passive-name-highlight">{shownHero.passiveName}</b></span><strong>{shownHero.passiveText}</strong></div></div></div>
+            <div className="character-banner"><CharacterAvatar hero={shownHero} className="large-portrait" loading="eager" sizes="66px"/><div><span className="eyebrow">{reviewingOwnPick ? "YOUR CHARACTER PICK" : "SELECTED CHARACTER"}</span><h2>{shownHero.name}</h2></div></div>
+            <div className="character-profile"><CharacterAvatar hero={shownHero} className="large-portrait lobby-character-avatar" loading="eager" sizes="(min-height: 1200px) 216px, (min-height: 900px) 162px, 112px"/><div className="passive-callout"><Crown size={18}/><div><span>PASSIVE · <b className="passive-name-highlight">{shownHero.passiveName}</b></span><strong>{shownHero.passiveText}</strong></div></div></div>
             <div className="character-stats"><span className="stat-health"><strong>{shownHero.hp}</strong><span>HP</span></span><span className="stat-speed"><strong>{shownHero.speed}</strong><span>Speed</span></span><span className="stat-cards"><strong>10</strong><span>cards · <b>3</b> special</span></span></div>
           </section>
           <section className="character-deck-column">
             <div className="deck-heading"><div><span className="eyebrow">PERSONAL SKILL DECK</span></div><Sparkles size={18}/></div>
-            <div className="lobby-skill-deck">{shownDeck.map((card) => <article className={`skill-card gothic-card effect-${card.effect} ${card.unique ? "hero-unique-card" : "common-skill-card"} ${card.effect === "none" ? "no-effect-card" : ""}`} key={card.id} style={{ "--hero-color": shownHero.color } as React.CSSProperties}><CardFace card={card}/></article>)}</div>
+            <CharacterSkillDeck cards={shownDeck} heroColor={shownHero.color}/>
           </section>
         </div> : randomPending ? <div className="no-character"><Sparkles size={32}/><h2>No character selected</h2><p>A random character joins at battle start.</p></div> : <div className="no-character"><Sparkles size={28}/><h2>Your character awaits</h2><p>Choose one to review skills.</p></div>}</aside>
     </div>

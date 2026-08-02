@@ -4,29 +4,27 @@ export type CardArtwork = {
   alt: string;
   character?: string;
   kind: "scene";
+  preview?: string;
   scene?: string;
   target: CardTarget;
 };
 
-const scene = (name: string, alt: string, target: CardTarget): CardArtwork => ({
-  alt,
-  kind: "scene",
-  scene: `/art/cards/common/${name}.webp`,
-  target,
-});
+const previewSource = (source: string) => source.replace("/art/cards/", "/art/cards/preview/");
+
+const scene = (name: string, alt: string, target: CardTarget): CardArtwork => {
+  const source = `/art/cards/common/${name}.webp`;
+  return { alt, kind: "scene", preview: previewSource(source), scene: source, target };
+};
 
 const specialScene = (
   name: string,
   character: string,
   target: CardTarget,
   alt: string,
-): CardArtwork => ({
-  alt,
-  character,
-  kind: "scene",
-  scene: `/art/cards/special/${name}.webp`,
-  target,
-});
+): CardArtwork => {
+  const source = `/art/cards/special/${name}.webp`;
+  return { alt, character, kind: "scene", preview: previewSource(source), scene: source, target };
+};
 
 const COMMON_ARTWORK: Record<string, CardArtwork> = {
   "slash": scene("slash", "An oathbound warrior slashes one enemy in a ruined gothic city.", "enemy"),
@@ -94,13 +92,20 @@ export const CARD_ARTWORK_KEYS = {
 
 const preloadedCardArtwork = new Map<string, HTMLImageElement>();
 
-export function preloadCardArtwork(cards: readonly ActionCard[]) {
+export function preloadCardArtwork(cards: readonly ActionCard[], priority: "high" | "low" = "low") {
   if (typeof Image === "undefined") return;
   for (const card of cards) {
-    const source = getCardArtwork(card).scene;
-    if (!source || preloadedCardArtwork.has(source)) continue;
+    const artwork = getCardArtwork(card);
+    const source = artwork.preview ?? artwork.scene;
+    if (!source) continue;
+    const existing = preloadedCardArtwork.get(source);
+    if (existing) {
+      if (priority === "high") existing.fetchPriority = "high";
+      continue;
+    }
     const image = new Image();
     image.decoding = "async";
+    image.fetchPriority = priority;
     image.src = source;
     preloadedCardArtwork.set(source, image);
     void image.decode().catch(() => undefined);

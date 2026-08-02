@@ -165,7 +165,7 @@ export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, r
   >
     <div
       className="card-hover-tooltip-art"
-      style={artwork.scene ? { backgroundImage: `url("${artwork.scene}")` } : undefined}
+      style={artwork.preview || artwork.scene ? { backgroundImage: `url("${artwork.preview ?? artwork.scene}")` } : undefined}
       aria-hidden="true"
     />
     <div className="card-hover-tooltip-content">
