@@ -45,10 +45,14 @@ for (const [heroName, fileName] of characterAvatars) {
 }
 assert.match(characterAvatar, /avatar \? <Image className="character-avatar-image"[\s\S]*: hero\.initials/, "character avatars must retain initials as a safe fallback");
 assert.match(lobby, /hero-picker-grid[\s\S]*<CharacterAvatar hero=\{option\.hero\}[\s\S]*character-banner[\s\S]*<CharacterAvatar hero=\{shownHero\}/, "lobby character selection and review must show the unique avatars");
-assert.match(lobby, /passive-callout[\s\S]*<CharacterAvatar hero=\{shownHero\} className="large-portrait lobby-character-avatar" sizes="\(min-height: 1200px\) 216px, \(min-height: 900px\) 162px, 112px"/, "the lobby passive section must be followed by the selected character's responsive avatar");
-assert.match(styles, /\.lobby-character-avatar\s*\{[^}]*width:\s*min\(100%, clamp\(112px, 15vh, 216px\)\);[^}]*height:\s*auto;[^}]*aspect-ratio:\s*1;/, "the lobby passive avatar must scale continuously from 720p through 1440p layouts");
+assert.match(lobby, /character-profile"><CharacterAvatar hero=\{shownHero\} className="large-portrait lobby-character-avatar" sizes="\(min-height: 1200px\) 216px, \(min-height: 900px\) 162px, 112px"\/><div className="passive-callout">/, "the selected character's responsive lobby avatar must appear above the character information section");
+assert.match(styles, /\.lobby-character-avatar\s*\{[^}]*width:\s*min\(100%, clamp\(112px, 15vh, 216px\)\);[^}]*height:\s*auto;[^}]*aspect-ratio:\s*1;[^}]*margin:\s*0 auto;/, "the lobby character avatar must scale continuously above its information from 720p through 1440p layouts");
 assert.match(gameApp, /turn-queue-list[\s\S]*<CharacterAvatar hero=\{player\.hero\}[\s\S]*character-detail-modal[\s\S]*<CharacterAvatar hero=\{inspectedPlayer\.hero\}/, "turn order and character detail must show the unique avatars");
-assert.match(partyRail, /portrait-button[\s\S]*<CharacterAvatar hero=\{hero\}/, "the battle roster must show each hero's unique avatar");
+assert.match(partyRail, /function RosterAvatar[\s\S]*onMouseEnter=\{showTooltip\}[\s\S]*onFocus=\{showTooltip\}[\s\S]*className="battle-avatar-tooltip"[\s\S]*<CharacterAvatar hero=\{hero\} className="large-portrait battle-avatar-tooltip-image" sizes="180px"/, "battle roster avatars must show a larger tooltip on hover and keyboard focus");
+assert.match(partyRail, /<RosterAvatar hero=\{hero\} playerName=\{player\.displayName\} onInspect=\{\(\) => onInspectPlayer\?\.\(player\.id\)\}\/?>/, "battle roster avatar previews must retain the full character-detail click action");
+assert.match(styles, /\.hero-row > \.portrait-button\s*\{[^}]*align-self:\s*start;/, "battle roster avatar hover targets must stay aligned to the visible avatar instead of stretching across the row");
+assert.match(styles, /\.battle-avatar-tooltip\s*\{[^}]*position:\s*fixed;[^}]*width:\s*min\(196px, calc\(100vw - 24px\)\);[^}]*pointer-events:\s*none;/, "battle avatar tooltips must be viewport-safe and must not intercept the pointer");
+assert.match(styles, /\.battle-avatar-tooltip-image\s*\{[^}]*width:\s*100%;[^}]*height:\s*auto;[^}]*aspect-ratio:\s*1;/, "battle avatar tooltip images must preserve their larger square geometry");
 assert(!/\b(?:strength|weakness)\s*:|character-(?:impact-grid|trait)|>Strength<|>Weakness</i.test([cardCatalog, sharedTypes, gameApp, lobby, styles].join("\n")), "Strength and Weakness data, sections, and styles must stay fully removed");
 
 const compiledCardZoneMotion = ts.transpileModule(cardZoneMotion, {

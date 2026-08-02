@@ -3407,6 +3407,10 @@ button:focus-visible {
   cursor: pointer;
 }
 
+.hero-row > .portrait-button {
+  align-self: start;
+}
+
 .portrait-button:hover {
   color: inherit;
   border-color: transparent;
@@ -5497,7 +5501,7 @@ button:focus-visible {
   width: min(100%, clamp(112px, 15vh, 216px));
   height: auto;
   aspect-ratio: 1;
-  margin: 12px auto 0;
+  margin: 0 auto;
 }
 
 .character-info-column .character-stats {
@@ -6644,6 +6648,26 @@ textarea::placeholder { color: #716b61; }
     repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 255, 255, .02) 3px 4px),
     #0b0a0d;
   box-shadow: 4px 4px 0 #000;
+}
+
+.battle-avatar-tooltip {
+  position: fixed;
+  z-index: 1000;
+  width: min(196px, calc(100vw - 24px));
+  box-sizing: border-box;
+  padding: 8px;
+  pointer-events: none;
+  border: 2px solid #8b6b35;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 255, 255, .02) 3px 4px),
+    #0b0a0d;
+  box-shadow: 4px 4px 0 #000;
+}
+
+.battle-avatar-tooltip-image {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
 }
 
 .roster-tooltip-arrow.placement-right {

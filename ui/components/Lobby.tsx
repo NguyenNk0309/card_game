@@ -100,7 +100,7 @@ export function Lobby({ roomId, players, playerName, error, selectedPlayerId, lo
         {shownHero ? <div className="character-review-layout">
           <section className="character-info-column">
             <div className="character-banner"><CharacterAvatar hero={shownHero} className="large-portrait" sizes="66px"/><div><span className="eyebrow">{reviewingOwnPick ? "YOUR CHARACTER PICK" : "SELECTED CHARACTER"}</span><h2>{shownHero.name}</h2></div></div>
-            <div className="character-profile"><div className="passive-callout"><Crown size={18}/><div><span>PASSIVE · <b className="passive-name-highlight">{shownHero.passiveName}</b></span><strong>{shownHero.passiveText}</strong></div></div><CharacterAvatar hero={shownHero} className="large-portrait lobby-character-avatar" sizes="(min-height: 1200px) 216px, (min-height: 900px) 162px, 112px"/></div>
+            <div className="character-profile"><CharacterAvatar hero={shownHero} className="large-portrait lobby-character-avatar" sizes="(min-height: 1200px) 216px, (min-height: 900px) 162px, 112px"/><div className="passive-callout"><Crown size={18}/><div><span>PASSIVE · <b className="passive-name-highlight">{shownHero.passiveName}</b></span><strong>{shownHero.passiveText}</strong></div></div></div>
             <div className="character-stats"><span className="stat-health"><strong>{shownHero.hp}</strong><span>HP</span></span><span className="stat-speed"><strong>{shownHero.speed}</strong><span>Speed</span></span><span className="stat-cards"><strong>10</strong><span>cards · <b>3</b> special</span></span></div>
           </section>
           <section className="character-deck-column">

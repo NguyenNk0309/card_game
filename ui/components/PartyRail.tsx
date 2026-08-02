@@ -15,6 +15,81 @@ const teamMeta: Record<TeamId, { name: string; icon: typeof Shield }> = {
 
 type StatusPresentation = ReturnType<typeof getStatusPresentations>[number];
 
+function RosterAvatar({ hero, playerName, onInspect }: {
+  hero: PlayerSession["hero"];
+  playerName: string;
+  onInspect?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
+  const [position, setPosition] = useState({ arrowLeft: 12, arrowTop: 12, left: 12, placement: "right" as "left" | "right", ready: false, top: 12 });
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const tooltipRef = useRef<HTMLSpanElement>(null);
+  const tooltipId = useId();
+
+  useLayoutEffect(() => {
+    setPortalRoot(document.querySelector<HTMLElement>(".game-shell"));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open || !portalRoot) return;
+    const placeTooltip = () => {
+      const anchor = anchorRef.current?.getBoundingClientRect();
+      const tooltip = tooltipRef.current?.getBoundingClientRect();
+      if (!anchor || !tooltip) return;
+      const next = fitTooltipToViewport(anchor, tooltip, { width: window.innerWidth, height: window.innerHeight });
+      const arrowTop = Math.min(Math.max(next.top + 10, anchor.top + anchor.height / 2), next.top + tooltip.height - 10);
+      setPosition({
+        ...next,
+        arrowLeft: next.placement === "right" ? next.left : next.left + tooltip.width,
+        arrowTop,
+        ready: true
+      });
+    };
+    placeTooltip();
+    window.addEventListener("resize", placeTooltip);
+    window.addEventListener("scroll", placeTooltip, true);
+    return () => {
+      window.removeEventListener("resize", placeTooltip);
+      window.removeEventListener("scroll", placeTooltip, true);
+    };
+  }, [open, portalRoot]);
+
+  const showTooltip = () => {
+    setPosition((current) => ({ ...current, ready: false }));
+    setOpen(true);
+  };
+
+  return <>
+    <button
+      ref={anchorRef}
+      className="portrait-button"
+      onClick={onInspect}
+      aria-label={`View ${playerName}'s character`}
+      aria-describedby={open ? tooltipId : undefined}
+      onMouseEnter={showTooltip}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={showTooltip}
+      onBlur={() => setOpen(false)}
+    >
+      <CharacterAvatar hero={hero} sizes="38px"/>
+    </button>
+    {open && portalRoot && createPortal(<>
+      <span
+        ref={tooltipRef}
+        id={tooltipId}
+        className="battle-avatar-tooltip"
+        role="tooltip"
+        aria-label={`Enlarged avatar of ${hero.name}`}
+        style={{ left: position.left, top: position.top, visibility: position.ready ? "visible" : "hidden" }}
+      >
+        <CharacterAvatar hero={hero} className="large-portrait battle-avatar-tooltip-image" sizes="180px"/>
+      </span>
+      <span className={`tooltip-arrow roster-tooltip-arrow placement-${position.placement}`} aria-hidden="true" style={{ left: position.arrowLeft, top: position.arrowTop, visibility: position.ready ? "visible" : "hidden" }}/>
+    </>, portalRoot)}
+  </>;
+}
+
 function RosterEffect({ buff, icon }: { buff: StatusPresentation; icon: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
@@ -116,7 +191,7 @@ export function PartyRail({ players, game, localSessionId, onInspectPlayer }: {
           const dead = hp <= 0;
           const buffs = state ? getStatusPresentations(player, state, players, localSessionId, currentPhase) : [];
           return <article className={`hero-row ${dead ? "is-dead" : ""} ${player.id === localSessionId ? "is-you" : ""}`} key={player.id}>
-            <button className="portrait-button" onClick={() => onInspectPlayer?.(player.id)} aria-label={`View ${player.displayName}'s character`}><CharacterAvatar hero={hero} sizes="38px"/></button>
+            <RosterAvatar hero={hero} playerName={player.displayName} onInspect={() => onInspectPlayer?.(player.id)}/>
             <div className="hero-copy">
               <div className="hero-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{player.displayName}</strong>{dead ? <em>DEFEATED</em> : null}</div>
               <span>{hero.name}</span>
