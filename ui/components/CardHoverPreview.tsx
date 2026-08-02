@@ -4,7 +4,7 @@ import { Crown } from "lucide-react";
 import type { RefObject } from "react";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { getCardEffectLabel, getCardPityCost } from "@/shared/cardRules";
+import { getCardEffectLabel, getCardPityCost, getCardRarity, getCardRarityLabel } from "@/shared/cardRules";
 import type { ActionCard } from "@/shared/types";
 import type { CardArtwork } from "../cardArtwork";
 import type { CardResultRow } from "./CardFace";
@@ -154,6 +154,7 @@ export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, r
   const portalRoot = open && typeof document !== "undefined" ? document.body : null;
   if (!open || !portalRoot) return null;
   const pityCost = pityCostOverride ?? getCardPityCost(card);
+  const rarity = getCardRarity(card);
 
   return createPortal(<><aside
     ref={tooltipRef}
@@ -170,8 +171,8 @@ export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, r
     />
     <div className="card-hover-tooltip-content">
       <header>
-        <span className={`card-hover-tooltip-rarity ${card.unique ? "special" : "common"}`}>
-          {card.unique && <Crown/>}{card.unique ? "Special" : "Common"}
+        <span className={`card-hover-tooltip-rarity ${rarity}`}>
+          {rarity === "special" && <Crown/>}{getCardRarityLabel(card)}
         </span>
         <span className="card-hover-tooltip-pity"><PityIcon size={18}/><small>Pity points</small><b>{pityCost}</b></span>
       </header>

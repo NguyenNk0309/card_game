@@ -14,7 +14,12 @@ export type SupportType =
   | "skip-enemy"
   | "purge-card"
   | "steal-card"
-  | "zero-pity";
+  | "zero-pity"
+  | "shield-break"
+  | "piercing-attack"
+  | "marked-target"
+  | "discard-random-card"
+  | "steal-gold";
 export type FailureEffect = "self-damage" | "team-damage" | "lose-shield" | "enemy-shield";
 export type TimedEffectKind = "shield" | "attackBuff" | "diceBuff" | "dicePenalty";
 
@@ -65,6 +70,15 @@ export type ActionCard = {
   failureValue?: number;
   pityCost: number;
   unique: boolean;
+  external?: boolean;
+  shopOfferId?: string;
+};
+
+export type ShopCategory = "potion" | "item" | "external";
+
+export type ShopInventoryEntry = {
+  itemId: string;
+  quantity: number;
 };
 
 export type CharacterOption = {
@@ -130,6 +144,12 @@ export type GameOutcome = {
   targetIds?: string[];
   lifeEvents?: PlayerLifeEvent[];
   notices?: GameNotice[];
+  alternateRoll?: number;
+  initialRoll?: number;
+  rollMode?: "additional-die" | "lucky-die";
+  goldBefore?: number;
+  goldChange?: number;
+  goldAfter?: number;
 };
 
 export type GameHistoryEntry = {
@@ -154,6 +174,12 @@ export type GameHistoryEntry = {
   pityBefore?: number;
   pityAfter?: number;
   failureDetail?: string;
+  alternateRoll?: number;
+  initialRoll?: number;
+  rollMode?: "additional-die" | "lucky-die";
+  goldBefore?: number;
+  goldChange?: number;
+  goldAfter?: number;
   createdAt: number;
 };
 
@@ -244,6 +270,20 @@ export type PlayerRunState = {
   diceBuff: number;
   dicePenalty: number;
   pityPoints: number;
+  goldUnits: number;
+  goldenShield: number;
+  shopInventory: ShopInventoryEntry[];
+  shopPurchases: Record<string, number>;
+  externalCardsPurchased: number;
+  shopShieldUntilTurn: number;
+  shopAttackBonus: number;
+  shopDiceBonus: number;
+  shopFreePity: boolean;
+  additionalDieActive: boolean;
+  luckyDieActive: boolean;
+  piercingAttackActive: boolean;
+  markedTargetId: string;
+  markedTargetBonus: number;
   reviveIn: number;
   passiveReviveUsed: boolean;
   sanguineRecompense: boolean;

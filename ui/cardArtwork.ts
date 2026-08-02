@@ -26,6 +26,11 @@ const specialScene = (
   return { alt, character, kind: "scene", preview: previewSource(source), scene: source, target };
 };
 
+const externalScene = (name: string, target: CardTarget, alt: string): CardArtwork => {
+  const source = `/art/cards/external/${name}.webp`;
+  return { alt, kind: "scene", preview: previewSource(source), scene: source, target };
+};
+
 const COMMON_ARTWORK: Record<string, CardArtwork> = {
   "slash": scene("slash", "An oathbound warrior slashes one enemy in a ruined gothic city.", "enemy"),
   "heavy blow": scene("heavy-blow", "An oathbound warrior lands a heavy blow on one enemy.", "enemy"),
@@ -72,7 +77,24 @@ const SPECIAL_ARTWORK: Record<string, CardArtwork> = {
   "df-frenzy": specialScene("df-frenzy", "Dagan Flint", "self", "Dagan enters Flintblood Fury to empower his next attack."),
 };
 
+const EXTERNAL_ARTWORK: Record<string, CardArtwork> = {
+  "shield-break": externalScene("shield-break", "enemy", "A brass-armed shieldbreaker smashes an enemy's defenses apart."),
+  "piercing-attack": externalScene("piercing-attack", "self", "A masked ash lancer drives a needle spear through spectral shields."),
+  "marked-target": externalScene("marked-target", "enemy", "A white-braided hunter marks a distant enemy through a crimson targeting lens."),
+  "bad-luck": externalScene("bad-luck", "enemy", "An antlered hexer binds an enemy to cursed bone dice."),
+  "control-cards": externalScene("control-cards", "enemy", "An elderly puppeteer seizes enemy cards with cyan spectral strings."),
+  "steal-gold": externalScene("steal-gold", "enemy", "A horned rooftop thief escapes with an enemy's spilling coin pouch."),
+};
+
 export function getCardArtwork(card: ActionCard): CardArtwork {
+  if (card.external) {
+    const key = card.shopOfferId ?? card.name.toLowerCase().replaceAll(" ", "-");
+    return EXTERNAL_ARTWORK[key] ?? {
+      alt: `Artwork is not yet available for ${card.name}.`,
+      kind: "scene",
+      target: card.target,
+    };
+  }
   if (card.unique) return SPECIAL_ARTWORK[card.id] ?? {
     alt: `Artwork is not yet available for ${card.name}.`,
     kind: "scene",
@@ -87,6 +109,7 @@ export function getCardArtwork(card: ActionCard): CardArtwork {
 
 export const CARD_ARTWORK_KEYS = {
   common: Object.keys(COMMON_ARTWORK),
+  external: Object.keys(EXTERNAL_ARTWORK),
   special: Object.keys(SPECIAL_ARTWORK),
 };
 

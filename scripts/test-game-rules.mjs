@@ -19,6 +19,8 @@ const pityCostRules = await import(pityCostUrl);
 const bulwarkRules = await import(new URL("../shared/bulwarkToBlade.mjs", import.meta.url).href);
 const battlePhasesUrl = new URL("../shared/battlePhases.mjs", import.meta.url).href;
 const battlePhases = await import(battlePhasesUrl);
+const shopRulesUrl = new URL("../shared/shop.mjs", import.meta.url).href;
+const shopRules = await import(shopRulesUrl);
 const cardRulesSource = await readFile(new URL("../shared/cardRules.ts", import.meta.url), "utf8");
 const compiledCardRules = compile(cardRulesSource, "cardRules.ts").replace('from "./pityCost.mjs"', `from "${pityCostUrl}"`);
 const cardRules = await import(`data:text/javascript;base64,${Buffer.from(compiledCardRules).toString("base64")}`);
@@ -29,7 +31,8 @@ const compiledEngine = compile(engineSource, "engine.ts")
   .replace('from "./catalog"', `from "${catalogUrl}"`)
   .replace('from "@/shared/pityCost.mjs"', `from "${pityCostUrl}"`)
   .replace('from "@/shared/lioraVenn.mjs"', `from "${lioraRulesUrl}"`)
-  .replace('from "@/shared/battlePhases.mjs"', `from "${battlePhasesUrl}"`);
+  .replace('from "@/shared/battlePhases.mjs"', `from "${battlePhasesUrl}"`)
+  .replace('from "@/shared/shop.mjs"', `from "${shopRulesUrl}"`);
 const engine = await import(`data:text/javascript;base64,${Buffer.from(compiledEngine).toString("base64")}`);
 
 const sampledTargets = Array.from({ length: 256 }, () => engine.randomDiceTarget());
@@ -399,6 +402,8 @@ assert.equal(pitySuccess.outcome.success, true, "an affordable pity play must gu
 assert.equal(pitySuccess.outcome.resolution, "pity");
 assert.equal(pitySuccess.outcome.pityCost, attack.pityCost);
 assert.equal(pitySuccess.playerStates[first.id].pityPoints, 2, "pity play must deduct exactly the selected card cost");
+assert.equal(pitySuccess.playerStates[first.id].goldUnits, 2, "a successful pity play earns one Gold just like a successful roll");
+assert.equal(pitySuccess.outcome.goldChange, 1, "the pity-success outcome reports its one-Gold reward");
 assert.equal(pitySuccess.playerStates[first.id].diceBuff, 0, "a saved d20 buff expires when its target's pity-play turn ends");
 assert.equal(pitySuccess.playerStates[first.id].dicePenalty, 0, "a saved d20 penalty expires when its target's pity-play turn ends");
 assert.equal(pitySuccess.roll, null, "pity play must not report a fabricated d20 result");
@@ -1781,7 +1786,206 @@ assert.equal(nextSpeedRound.history.at(-1).phase, 1, "the final turn in a phase 
 assert.equal(nextSpeedRound.turnOrder[0], second.id, "a completed round resets to the fastest living player");
 assert.deepEqual(nextSpeedRound.actedThisRound, []);
 
+const shopFirst = structuredClone(first);
+const shopSecond = structuredClone(second);
+const shopGame = engine.createInitialGame([shopFirst, shopSecond], engine.createAdventure("SHOP"), 30);
+shopGame.turnOrder = [shopFirst.id, shopSecond.id];
+const shopState = shopGame.playerStates[shopFirst.id];
+shopState.goldUnits = shopRules.MAX_GOLD_UNITS;
+const shieldPotion = shopRules.purchaseShopOffer(shopGame, [shopFirst, shopSecond], shopFirst.id, "shield-potion", 1000);
+assert.equal(shieldPotion.ok, true, "a living player can buy a potion at any time");
+assert.equal(shopState.shield, 3, "Aegis Tonic applies immediately");
+assert.equal(shopState.goldUnits, shopRules.MAX_GOLD_UNITS - 4, "the authoritative Shop deducts half-unit Gold prices");
+assert.equal(shopRules.purchaseShopOffer(shopGame, [shopFirst, shopSecond], shopFirst.id, "shield-potion", 1001).ok, false, "identical active potion effects cannot stack");
+assert.equal(shopState.goldUnits, shopRules.MAX_GOLD_UNITS - 4, "a rejected purchase spends no Gold");
+
+assert.equal(shopRules.purchaseShopOffer(shopGame, [shopFirst, shopSecond], shopFirst.id, "additional-die", 1002).ok, true);
+assert.equal(shopRules.purchaseShopOffer(shopGame, [shopFirst, shopSecond], shopFirst.id, "lucky-die", 1003).ok, true);
+assert.equal(shopRules.useShopItem(shopGame, [shopFirst, shopSecond], shopFirst.id, "additional-die", 1004).ok, true);
+assert.equal(shopState.additionalDieActive, true);
+assert.equal(shopRules.useShopItem(shopGame, [shopFirst, shopSecond], shopFirst.id, "lucky-die", 1005).ok, false, "Twin-Fate Die and Lucky Die cannot be active together");
+
+shopState.goldUnits = shopRules.MAX_GOLD_UNITS;
+for (const offerId of ["shield-break", "marked-target", "steal-gold"]) {
+  assert.equal(shopRules.purchaseShopOffer(shopGame, [shopFirst, shopSecond], shopFirst.id, offerId, 1100 + shopState.externalCardsPurchased).ok, true);
+}
+assert.equal(shopState.externalCardsPurchased, shopRules.MAX_EXTERNAL_CARDS);
+assert.equal(shopFirst.skillDeck.filter((card) => card.external).length, 3, "purchased External Cards receive runtime deck definitions");
+assert.equal(new Set(shopFirst.skillDeck.filter((card) => card.external).map((card) => card.id)).size, 3, "External Card runtime IDs are unique");
+assert.equal(shopRules.purchaseShopOffer(shopGame, [shopFirst, shopSecond], shopFirst.id, "bad-luck", 1200).ok, false, "a player cannot acquire more than three External Cards");
+
+const exchangeGame = engine.createInitialGame([structuredClone(first), structuredClone(second)], engine.createAdventure("SHOP-EXCHANGE"), 30);
+const exchangePlayer = structuredClone(first);
+const exchangeOther = structuredClone(second);
+const exchangeState = exchangeGame.playerStates[first.id];
+exchangeState.pityPoints = 2;
+exchangeState.goldUnits = 0;
+assert.equal(shopRules.exchangePityForGold(exchangeGame, [exchangePlayer, exchangeOther], first.id, 1300).ok, true);
+assert.equal(exchangeState.pityPoints, 1);
+assert.equal(exchangeState.goldUnits, 4, "one pity point exchanges for exactly two Gold");
+
+const goldGame = engine.createInitialGame([structuredClone(first), structuredClone(second)], engine.createAdventure("SHOP-GOLD"), 30);
+goldGame.turnOrder = [first.id, second.id];
+goldGame.adventure.target = 10;
+goldGame.playerStates[first.id].hand = [attack.id];
+goldGame.playerStates[second.id].hp = 50;
+goldGame.playerStates[second.id].maxHp = 50;
+const goldSuccess = engine.resolveCardTurn(goldGame, [first, second], attack.id, second.id, 20);
+assert.equal(goldSuccess.playerStates[first.id].goldUnits, 2, "a successful rolled card earns one Gold");
+assert.equal(goldSuccess.outcome.goldChange, 1);
+
+const failedGoldGame = engine.createInitialGame([structuredClone(first), structuredClone(second)], engine.createAdventure("SHOP-GOLD-FAIL"), 30);
+failedGoldGame.turnOrder = [first.id, second.id];
+failedGoldGame.adventure.target = 16;
+failedGoldGame.playerStates[first.id].hand = [attack.id];
+failedGoldGame.playerStates[second.id].hp = 50;
+const goldFailure = engine.resolveCardTurn(failedGoldGame, [first, second], attack.id, second.id, 1);
+assert.equal(goldFailure.playerStates[first.id].goldUnits, 1, "a failed rolled card earns half a Gold");
+assert.equal(goldFailure.outcome.goldChange, 0.5);
+assert.equal(shopRules.goldRewardUnitsForOutcome({ kind: "timeout" }), 1, "an automatic timeout skip earns half a Gold");
+assert.equal(shopRules.goldRewardUnitsForOutcome({ kind: "forced-skip" }), 1, "an effect-forced skip earns half a Gold");
+
+const twinDieGame = engine.createInitialGame([structuredClone(first), structuredClone(second)], engine.createAdventure("SHOP-TWIN-DIE"), 30);
+twinDieGame.turnOrder = [first.id, second.id];
+twinDieGame.adventure.target = 15;
+twinDieGame.playerStates[first.id].hand = [attack.id];
+twinDieGame.playerStates[first.id].additionalDieActive = true;
+twinDieGame.playerStates[second.id].hp = 50;
+const twinDieResult = engine.resolveCardTurn(twinDieGame, [first, second], attack.id, second.id, 2, false, 18);
+assert.equal(twinDieResult.outcome.success, true);
+assert.equal(twinDieResult.outcome.rollMode, "additional-die");
+assert.equal(twinDieResult.outcome.roll, 18, "Twin-Fate Die uses the higher d20 result");
+assert.equal(twinDieResult.playerStates[first.id].additionalDieActive, false, "the additional die is consumed by the next rolled card");
+
+const goldenGame = engine.createInitialGame([structuredClone(first), structuredClone(second)], engine.createAdventure("SHOP-GOLDEN"), 30);
+goldenGame.turnOrder = [first.id, second.id];
+goldenGame.playerStates[first.id].hand = [attack.id];
+goldenGame.playerStates[second.id].hp = 50;
+goldenGame.playerStates[second.id].shield = 1;
+goldenGame.playerStates[second.id].goldenShield = 3;
+const goldenResult = engine.resolveCardTurn(goldenGame, [first, second], attack.id, second.id, 20);
+assert.equal(goldenResult.playerStates[second.id].shield, 0, "enemy attacks consume normal Shield first");
+assert(goldenResult.playerStates[second.id].goldenShield < 3, "Golden Shield absorbs only the damage remaining after normal Shield");
+
+function freshShopEffectGame(seed) {
+  const actor = structuredClone(first);
+  const target = structuredClone(second);
+  const game = engine.createInitialGame([actor, target], engine.createAdventure(seed), 30);
+  game.turnOrder = [actor.id, target.id];
+  game.playerStates[actor.id].goldUnits = shopRules.MAX_GOLD_UNITS;
+  game.playerStates[target.id].hp = 50;
+  game.playerStates[target.id].maxHp = 50;
+  return { actor, target, game, actorState: game.playerStates[actor.id], targetState: game.playerStates[target.id] };
+}
+
+const attackPotionBattle = freshShopEffectGame("SHOP-ATTACK-POTION");
+assert.equal(shopRules.purchaseShopOffer(attackPotionBattle.game, [attackPotionBattle.actor, attackPotionBattle.target], first.id, "attack-potion").ok, true);
+attackPotionBattle.actorState.hand = [attack.id];
+const attackPotionResult = engine.resolveCardTurn(attackPotionBattle.game, [attackPotionBattle.actor, attackPotionBattle.target], attack.id, second.id, 20);
+assert.equal(attackPotionResult.outcome.amount, attack.value + 2, "Warflame Tonic adds two damage to the next successful attack");
+assert.equal(attackPotionResult.playerStates[first.id].shopAttackBonus, 0, "Warflame Tonic is consumed only by a successful attack");
+
+const dicePotionBattle = freshShopEffectGame("SHOP-DICE-POTION");
+assert.equal(shopRules.purchaseShopOffer(dicePotionBattle.game, [dicePotionBattle.actor, dicePotionBattle.target], first.id, "dice-potion").ok, true);
+dicePotionBattle.game.adventure.target = 10;
+dicePotionBattle.actorState.hand = [attack.id];
+const dicePotionResult = engine.resolveCardTurn(dicePotionBattle.game, [dicePotionBattle.actor, dicePotionBattle.target], attack.id, second.id, 8);
+assert.equal(dicePotionResult.outcome.success, true, "Truecast Tonic can turn a short roll into success");
+assert.equal(dicePotionResult.outcome.bonus, 2);
+assert.equal(dicePotionResult.playerStates[first.id].shopDiceBonus, 0);
+
+const pityPotionBattle = freshShopEffectGame("SHOP-PITY-POTION");
+assert.equal(shopRules.purchaseShopOffer(pityPotionBattle.game, [pityPotionBattle.actor, pityPotionBattle.target], first.id, "pity-potion").ok, true);
+pityPotionBattle.game.adventure.target = 16;
+pityPotionBattle.actorState.hand = [attack.id];
+const pityPotionResult = engine.resolveCardTurn(pityPotionBattle.game, [pityPotionBattle.actor, pityPotionBattle.target], attack.id, second.id, 1);
+assert.equal(pityPotionResult.outcome.success, true, "Mercy Tonic makes the next played card an automatic success");
+assert.equal(pityPotionResult.outcome.pityCost, 0);
+assert.equal(pityPotionResult.playerStates[first.id].shopFreePity, false);
+
+const reviveItemBattle = freshShopEffectGame("SHOP-REVIVE");
+assert.equal(shopRules.purchaseShopOffer(reviveItemBattle.game, [reviveItemBattle.actor, reviveItemBattle.target], first.id, "revive-item").ok, true);
+reviveItemBattle.actorState.hp = 0;
+assert.equal(shopRules.useShopItem(reviveItemBattle.game, [reviveItemBattle.actor, reviveItemBattle.target], first.id, "revive-item").ok, true);
+assert.equal(reviveItemBattle.actorState.hp, Math.ceil(reviveItemBattle.actorState.maxHp / 3), "Phoenix Sigil revives its defeated owner with one-third HP");
+assert.equal(shopRules.getInventoryQuantity(reviveItemBattle.actorState, "revive-item"), 0, "Phoenix Sigil is single-use and only one can be bought");
+
+const piercingItemBattle = freshShopEffectGame("SHOP-PIERCING-ITEM");
+assert.equal(shopRules.purchaseShopOffer(piercingItemBattle.game, [piercingItemBattle.actor, piercingItemBattle.target], first.id, "piercing-blade").ok, true);
+assert.equal(shopRules.useShopItem(piercingItemBattle.game, [piercingItemBattle.actor, piercingItemBattle.target], first.id, "piercing-blade").ok, true);
+piercingItemBattle.actorState.hand = [attack.id];
+piercingItemBattle.targetState.shield = 10;
+piercingItemBattle.targetState.goldenShield = 2;
+const piercingItemResult = engine.resolveCardTurn(piercingItemBattle.game, [piercingItemBattle.actor, piercingItemBattle.target], attack.id, second.id, 20);
+assert.equal(piercingItemResult.playerStates[second.id].shield, 10, "Piercing Blade ignores normal Shield");
+assert.equal(piercingItemResult.playerStates[second.id].goldenShield, 2, "Piercing Blade also ignores Golden Shield");
+assert(piercingItemResult.outcome.amount > 0);
+
+const luckyItemBattle = freshShopEffectGame("SHOP-LUCKY-ITEM");
+assert.equal(shopRules.purchaseShopOffer(luckyItemBattle.game, [luckyItemBattle.actor, luckyItemBattle.target], first.id, "lucky-die").ok, true);
+assert.equal(shopRules.useShopItem(luckyItemBattle.game, [luckyItemBattle.actor, luckyItemBattle.target], first.id, "lucky-die").ok, true);
+luckyItemBattle.game.adventure.target = 15;
+luckyItemBattle.actorState.hand = [attack.id];
+const luckyItemResult = engine.resolveCardTurn(luckyItemBattle.game, [luckyItemBattle.actor, luckyItemBattle.target], attack.id, second.id, 2, false, 18);
+assert.equal(luckyItemResult.outcome.rollMode, "lucky-die");
+assert.equal(luckyItemResult.outcome.roll, 18, "Lucky Die rerolls only after the first result would fail");
+assert.equal(luckyItemResult.outcome.success, true);
+
+const shieldBreakBattle = freshShopEffectGame("SHOP-SHIELD-BREAK");
+assert.equal(shopRules.purchaseShopOffer(shieldBreakBattle.game, [shieldBreakBattle.actor, shieldBreakBattle.target], first.id, "shield-break").ok, true);
+const shieldBreakCard = shieldBreakBattle.actor.skillDeck.find((card) => card.shopOfferId === "shield-break");
+shieldBreakBattle.actorState.hand = [shieldBreakCard.id];
+shieldBreakBattle.targetState.shield = 1;
+shieldBreakBattle.targetState.goldenShield = 3;
+const shieldBreakResult = engine.resolveCardTurn(shieldBreakBattle.game, [shieldBreakBattle.actor, shieldBreakBattle.target], shieldBreakCard.id, second.id, 20);
+assert.equal(shieldBreakResult.playerStates[second.id].shield, 0);
+assert.equal(shieldBreakResult.playerStates[second.id].goldenShield, 2, "Shield Break destroys normal Shield before Golden Shield");
+
+const markedBattle = freshShopEffectGame("SHOP-MARKED");
+assert.equal(shopRules.purchaseShopOffer(markedBattle.game, [markedBattle.actor, markedBattle.target], first.id, "marked-target").ok, true);
+const markedCard = markedBattle.actor.skillDeck.find((card) => card.shopOfferId === "marked-target");
+markedBattle.actorState.hand = [markedCard.id];
+const markedApplied = engine.resolveCardTurn(markedBattle.game, [markedBattle.actor, markedBattle.target], markedCard.id, second.id, 20);
+markedApplied.turnOrder = [first.id, second.id];
+markedApplied.adventure.target = 10;
+markedApplied.playerStates[first.id].hand = [attack.id];
+const markedAttack = engine.resolveCardTurn(markedApplied, [markedBattle.actor, markedBattle.target], attack.id, second.id, 9);
+assert.equal(markedAttack.outcome.success, true);
+assert.equal(markedAttack.outcome.bonus, 1, "Marked Target adds one to the next attack roll against that player");
+assert.equal(markedAttack.playerStates[first.id].markedTargetId, "", "the mark is consumed by the matching attack roll");
+
+const badLuckBattle = freshShopEffectGame("SHOP-BAD-LUCK");
+assert.equal(shopRules.purchaseShopOffer(badLuckBattle.game, [badLuckBattle.actor, badLuckBattle.target], first.id, "bad-luck").ok, true);
+const badLuckCard = badLuckBattle.actor.skillDeck.find((card) => card.shopOfferId === "bad-luck");
+badLuckBattle.actorState.hand = [badLuckCard.id];
+const badLuckResult = engine.resolveCardTurn(badLuckBattle.game, [badLuckBattle.actor, badLuckBattle.target], badLuckCard.id, second.id, 20);
+assert.equal(badLuckResult.playerStates[second.id].dicePenalty, 1, "Bad Luck applies minus one to the target's next d20 roll");
+
+const piercingCardBattle = freshShopEffectGame("SHOP-PIERCING-CARD");
+assert.equal(shopRules.purchaseShopOffer(piercingCardBattle.game, [piercingCardBattle.actor, piercingCardBattle.target], first.id, "piercing-attack").ok, true);
+const piercingCard = piercingCardBattle.actor.skillDeck.find((card) => card.shopOfferId === "piercing-attack");
+piercingCardBattle.actorState.hand = [piercingCard.id];
+const piercingPrepared = engine.resolveCardTurn(piercingCardBattle.game, [piercingCardBattle.actor, piercingCardBattle.target], piercingCard.id, first.id, 20);
+assert.equal(piercingPrepared.playerStates[first.id].piercingAttackActive, true, "Piercing Attack prepares the next attack");
+
+const stealGoldBattle = freshShopEffectGame("SHOP-STEAL-GOLD");
+assert.equal(shopRules.purchaseShopOffer(stealGoldBattle.game, [stealGoldBattle.actor, stealGoldBattle.target], first.id, "steal-gold").ok, true);
+const stealGoldCard = stealGoldBattle.actor.skillDeck.find((card) => card.shopOfferId === "steal-gold");
+stealGoldBattle.actorState.hand = [stealGoldCard.id];
+stealGoldBattle.targetState.goldUnits = 10;
+const actorGoldBeforeSteal = stealGoldBattle.actorState.goldUnits;
+const stealGoldResult = engine.resolveCardTurn(stealGoldBattle.game, [stealGoldBattle.actor, stealGoldBattle.target], stealGoldCard.id, second.id, 20);
+assert.equal(stealGoldResult.playerStates[second.id].goldUnits, 6, "Steal Gold removes exactly two Gold when available");
+assert.equal(stealGoldResult.playerStates[first.id].goldUnits, actorGoldBeforeSteal + 6, "Steal Gold transfers two Gold and the successful roll earns one more");
+
+const serverAuthoritySource = await readFile(new URL("../backend/server.mjs", import.meta.url), "utf8");
+const workerAuthoritySource = await readFile(new URL("../backend/realtime-worker.js", import.meta.url), "utf8");
+for (const [label, source] of [["Node", serverAuthoritySource], ["Worker", workerAuthoritySource]]) {
+  assert.match(source, /card\.supportType === 'discard-random-card'[\s\S]*drawOneOrRecycleDiscard\(targetState, handIndex\)/, `${label} authority resolves Control Cards against the target's private hand`);
+  assert.match(source, /purchaseShopOffer[\s\S]*exchangePityForGold[\s\S]*useShopItem/, `${label} authority exposes all three Shop command families`);
+}
+
 if (originalTestMode === undefined) delete process.env.TEST_MODE;
 else process.env.TEST_MODE = originalTestMode;
 
-console.log("Game-rule test passed: all 110 character-deck card success paths, all 33 special-card failures, all 11 passives, helper contracts, pity, support effects, turn order, history, victory, and defeated-player lockout.");
+console.log("Game-rule test passed: character cards, passives, pity, Shop Gold, purchases, inventory, External Cards, dice items, Golden Shield, support effects, turn order, history, victory, and defeated-player lockout.");

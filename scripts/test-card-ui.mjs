@@ -23,6 +23,7 @@ const gameApp = read("ui/GameApp.tsx");
 const homeScreen = read("ui/components/HomeScreen.tsx");
 const lobby = read("ui/components/Lobby.tsx");
 const worldEvents = read("ui/components/WorldEventPanels.tsx");
+const shopPanel = read("ui/components/ShopPanel.tsx");
 const highlightCardNames = read("ui/components/HighlightCardNames.tsx");
 const partyRail = read("ui/components/PartyRail.tsx");
 const battlePhases = read("shared/battlePhases.mjs");
@@ -93,9 +94,11 @@ assert.match(cardHoverPreview, /document\.addEventListener\("click", closeOutsid
 assert.match(styles, /\.gothic-card\.card-preview-click-trigger:not\(:disabled\)\s*\{\s*cursor:\s*pointer;/, "cards with click-triggered previews must show a pointer cursor");
 assert(!/setPortalRoot|useState<HTMLElement \| null>/.test(cardHoverPreview), "closed card previews must not schedule an extra layout-time portal render for every mounted card");
 assert.match(cardHoverPreview, /classList\.contains\("history-card-detail"\) \? "right" : "top"/, "history-detail card previews must place their tooltip to the right while other cards prefer the top");
-assert.match(cardHoverPreview, /card\.unique \? "Special" : "Common"[\s\S]*Pity points[\s\S]*getCardEffectLabel\(card\)[\s\S]*EffectText text=\{card\.description\}[\s\S]*rows\.map/, "the hover preview must include rarity, pity, action type, full description, and every result row");
+assert.match(cardHoverPreview, /getCardRarityLabel\(card\)[\s\S]*Pity points[\s\S]*getCardEffectLabel\(card\)[\s\S]*EffectText text=\{card\.description\}[\s\S]*rows\.map/, "the hover preview must include derived Common, Special, or External rarity plus pity, action type, description, and results");
 assert.match(cardHoverPreview, /<small>\{getCardEffectLabel\(card\)\}<\/small>/, "the hover preview identity must show only the meaningful action label");
 assert(!/\bcardType\b|card\.type|\btype:\s*["']/.test([cardCatalog, gameEngine, sharedTypes, cardHoverPreview].join("\n")), "the obsolete card-type field must stay removed from data, outcomes, shared types, and UI");
+assert.match(cardFace, /const rarity = getCardRarity\(card\)[\s\S]*data-rarity=\{rarity\}[\s\S]*rarity === "special" && <Crown\/>[\s\S]*rarity\.toUpperCase\(\)/, "External cards must override the Common and Special labels on the universal card face");
+assert.match(gameApp, /contextLabel=\{card\.external \? undefined : `\$\{index \+ 1\} · \$\{getCardRarityLabel\(card\)\}`\}/, "private draw, discard, and graveyard reviews must omit the small context label from External cards");
 assert.match(cardDescription, /maxLines=\{4\}[\s\S]*text=\{card\.description\}/, "main descriptions must use the shared four-line truncator");
 assert.match(cardFace, /className="gothic-card-result-text" maxLines=\{2\}/, "result text must use the shared two-line truncator");
 assert(!/gothic-card-type/.test(cardFace), "card faces must omit the redundant Common or Special type strip");
@@ -143,6 +146,9 @@ assert.match(styles, /@media \(min-width: 1600px\) and \(min-height: 900px\)\s*\
 assert.match(styles, /@media \(min-width: 1600px\) and \(min-height: 900px\)\s*\{\s*\.character-review-layout\s*\{\s*grid-template-columns:\s*minmax\(300px, \.72fr\) minmax\(0, 1\.28fr\);/, "1080p and 1440p lobby previews must reserve a wider character-status column");
 assert.match(styles, /\.lobby-skill-deck\s*\{[\s\S]*padding-block:\s*18px 22px;[\s\S]*scroll-padding-block:\s*18px 22px;/, "card-preview galleries must reserve top and bottom hover room");
 assert.match(styles, /\.character-deck-panel \.public-character-deck > div:last-child\s*\{[\s\S]*padding-top:\s*24px;[\s\S]*scroll-padding-top:\s*24px;/, "the in-battle character-deck preview must reserve top clearance for card hover and focus effects");
+assert.match(styles, /\.public-character-deck > div:last-child\s*\{[^}]*column-gap:\s*14px;[^}]*row-gap:\s*clamp\(26px, 1\.5vw, 34px\);[\s\S]*\.pile-card-grid\s*\{[^}]*column-gap:\s*14px;[^}]*row-gap:\s*clamp\(26px, 1\.5vw, 34px\);/, "hand and private pile galleries must share a consistent card-row gap");
+assert.match(styles, /\.pile-card-slot\s*\{[^}]*position:\s*relative;[^}]*aspect-ratio:\s*2\s*\/\s*3;[^}]*\}[\s\S]*\.pile-card-slot > \.pile-review-card\.gothic-card\s*\{[^}]*position:\s*absolute\s*!important;[^}]*height:\s*100%\s*!important;/, "private pile cards must reserve their full visual height in the grid");
+assert.match(styles, /\.action-hand > \.gothic-card:hover:not\(:disabled\),\s*\.pile-card-slot > \.gothic-card:hover:not\(:disabled\),\s*\.public-character-deck > div:last-child > \.gothic-card:hover:not\(:disabled\)\s*\{\s*transform:\s*none\s*!important;/, "hover feedback in hand, draw, discard, and graveyard grids must not shift row spacing");
 assert.match(styles, /@media \(min-width: 2200px\) and \(min-height: 1200px\)\s*\{[\s\S]*--hand-card-width:\s*min\(330px,[\s\S]*\.lobby-skill-deck\s*\{\s*grid-template-columns:\s*repeat\(2, minmax\(0, min\(486px, calc\(\(100% - 28px\) \/ 2\)\)\)/, "1440p layouts must enlarge lobby cards by up to 50 percent without changing battle-hand sizing");
 assert.match(styles, /\.history-card-detail\.gothic-card\s*\{[\s\S]*width:\s*min\(360px,/, "inspected history cards must use the larger preview size");
 assert.match(styles, /\.gothic-card:disabled \.gothic-card-face\s*\{[\s\S]*grayscale/, "disabled cards should retain a clear unavailable state");
@@ -186,17 +192,22 @@ assert.deepEqual(
 const specialSceneIds = [...cardArtwork.matchAll(/specialScene\("([^"]+)"/g)].map((match) => match[1]);
 assert.equal(specialSceneIds.length, 33, "every character-specific special card must have an explicit integrated-scene mapping");
 for (const id of specialSceneIds) assert(existsSync(new URL(`../public/art/cards/special/${id}.webp`, import.meta.url)), `${id} must have a project-bound integrated-scene asset`);
+const externalSceneIds = [...cardArtwork.matchAll(/externalScene\("([^"]+)"/g)].map((match) => match[1]).sort();
+assert.deepEqual(externalSceneIds, ["bad-luck", "control-cards", "marked-target", "piercing-attack", "shield-break", "steal-gold"], "all six Shop External Cards must have explicit integrated-scene mappings");
+for (const id of externalSceneIds) assert(existsSync(new URL(`../public/art/cards/external/${id}.webp`, import.meta.url)), `${id} must have a project-bound External Card illustration`);
 assert(!/kind:\s*"sprite"|spriteColumn|spriteRow|\/characters\//.test(cardArtwork), "special-card artwork must not retain sprite-sheet rendering data");
 assert(!/gothic-card-sprite-crop|gothic-card-targets/.test(styles), "obsolete sprite and synthetic-target composition styles must stay removed");
 const cardAssetRoot = new URL("../public/art/cards/", import.meta.url);
-assert.deepEqual(readdirSync(cardAssetRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort(), ["common", "preview", "special"], "the card-art directory must contain only original and optimized integrated-scene groups");
+assert.deepEqual(readdirSync(cardAssetRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort(), ["common", "external", "preview", "special"], "the card-art directory must contain only original and optimized integrated-scene groups");
 const commonSceneIds = [...cardArtwork.matchAll(/\bscene\("([^"]+)"/g)].map((match) => match[1]).sort();
 const listedCardAssets = (group) => readdirSync(new URL(`${group}/`, cardAssetRoot)).filter((name) => name.endsWith(".webp")).map((name) => name.replace(/\.webp$/, "")).sort();
 assert.deepEqual(listedCardAssets("common"), commonSceneIds, "common artwork must not retain unused image files");
+assert.deepEqual(listedCardAssets("external"), externalSceneIds, "External artwork must not retain unused image files");
 assert.deepEqual(listedCardAssets("special"), [...specialSceneIds].sort(), "special artwork must not retain unused image files");
 assert.deepEqual(listedCardAssets("preview/common"), commonSceneIds, "every common card must have an optimized display preview");
+assert.deepEqual(listedCardAssets("preview/external"), externalSceneIds, "every External Card must have an optimized display preview");
 assert.deepEqual(listedCardAssets("preview/special"), [...specialSceneIds].sort(), "every special card must have an optimized display preview");
-for (const group of ["common", "special"]) {
+for (const group of ["common", "external", "special"]) {
   for (const asset of readdirSync(new URL(`${group}/`, cardAssetRoot)).filter((name) => name.endsWith(".webp"))) {
     assert(statSync(new URL(`preview/${group}/${asset}`, cardAssetRoot)).size < statSync(new URL(`${group}/${asset}`, cardAssetRoot)).size, `${group}/${asset} preview must remain smaller than its full illustration`);
   }
@@ -251,6 +262,14 @@ assert.match(lobby, /className="lobby-home-button" onClick=\{onReturnHome\}/, "t
 assert.match(lobby, /Room <strong>\{roomId\}<\/strong>/, "the lobby must display its room ID");
 assert.match(styles, /\.lobby-room-id strong\s*\{[\s\S]*font-size:\s*14px;/, "the lobby room ID must be visually prominent");
 assert.match(styles, /\.home-screen\s*\{[\s\S]*min-height:\s*100dvh;[\s\S]*@media \(max-height: 820px\) and \(min-width: 901px\)/, "the themed home screen must include a compact 720p desktop layout");
+assert.match(shopPanel, /<header className="shop-heading">\s*<h2>BATTLE SHOP<\/h2>\s*<p>Rolled success \+1 Gold · rolled failure \+0\.5 Gold · Skip or Discard \+0\.5 Gold<\/p>\s*<\/header>/, "the Shop must use the full-size requested header and exact Gold reward summary");
+assert.doesNotMatch(shopPanel, /Spend Gold without ending your turn/, "the removed Shop headline must stay absent");
+assert.match(shopPanel, /<section className="shop-exchange-bar">[\s\S]*className="shop-exchange-actions">[\s\S]*className="shop-wallet"/, "the Gold wallet must sit below the header beside the pity exchange controls");
+assert.doesNotMatch(shopPanel, /Repeat price increased/, "the Shop must not show repeat-price helper text");
+assert.match(styles, /\.shop-tab-viewport\s*\{[^}]*height:\s*414px;[^}]*min-height:\s*414px;[^}]*overflow:\s*hidden;/, "every Shop tab must retain the same fixed content height");
+assert.match(styles, /\.shop-offer-grid\s*\{[^}]*height:\s*100%;[^}]*grid-auto-rows:\s*minmax\(190px, auto\);[^}]*overflow-y:\s*auto;/, "the Shop catalog must hold two item rows and scroll additional offers internally");
+assert.match(styles, /\.shop-inventory-view\s*\{[^}]*height:\s*100%;[^}]*overflow:\s*hidden;[\s\S]*\.shop-inventory-view > \.shop-offer-grid\s*\{[^}]*height:\s*auto;[^}]*flex:\s*1;/, "inventory content must fill the fixed tab viewport without increasing or collapsing it");
+assert.match(gameApp, /className="panel-expand-button shop-open-button"[\s\S]*className="shop-open-title"><ShoppingBag size=\{17\}\/?> SHOP[\s\S]*className="shop-open-gold"><Coins size=\{16\}\/?> \{formatGoldUnits\(localState\.goldUnits \?\? 0\)\} GOLD/, "the Shop launcher must center a History-sized title above a larger available-Gold line");
 
 assert.match(lobby, /className="joined-main" onClick=\{\(\) => onSelectPlayer\(player\.id\)\}/, "clicking a joined player card must still review that player's character and deck");
 assert(!/Review deck|Character pending/.test(lobby), "joined player cards must omit the redundant review action and random-character pending copy");

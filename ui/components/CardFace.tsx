@@ -3,7 +3,7 @@
 import { Check, Crown, X } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useRef, useState } from "react";
-import { describeCardFailure, describeCardSuccess, getCardEffectLabel } from "@/shared/cardRules";
+import { describeCardFailure, describeCardSuccess, getCardEffectLabel, getCardRarity } from "@/shared/cardRules";
 import type { ActionCard } from "@/shared/types";
 import { getCardArtwork } from "../cardArtwork";
 import { CardDescription } from "./CardDescription";
@@ -35,6 +35,7 @@ const defaultRows = (card: ActionCard): CardResultRow[] => [
 
 export function CardFace({ card, contextLabel, pityCostOverride, previewTrigger = "click", resultRows }: Props) {
   const artwork = getCardArtwork(card);
+  const rarity = getCardRarity(card);
   const artworkSource = artwork.preview ?? artwork.scene;
   const rows = resultRows ?? defaultRows(card);
   const faceRef = useRef<HTMLDivElement>(null);
@@ -42,7 +43,7 @@ export function CardFace({ card, contextLabel, pityCostOverride, previewTrigger 
   const [loadedArtwork, setLoadedArtwork] = useState("");
   const changeArtworkViewer = useCallback((open: boolean) => setArtworkViewerOpen(open), []);
 
-  return <><div ref={faceRef} className="gothic-card-face" data-card-id={card.id} data-card-name={card.name} data-rarity={card.unique ? "special" : "common"}>
+  return <><div ref={faceRef} className="gothic-card-face" data-card-id={card.id} data-card-name={card.name} data-rarity={rarity}>
     <div className="gothic-card-art" data-target={artwork.target} data-art-kind={artwork.kind}>
       <div className="gothic-card-art-backdrop"/>
       {artworkSource
@@ -50,7 +51,7 @@ export function CardFace({ card, contextLabel, pityCostOverride, previewTrigger 
         : <div className="gothic-card-art-missing" role="img" aria-label={artwork.alt}><span>?</span><small>ARTWORK PENDING</small></div>}
       <div className={`gothic-card-effect-wash effect-${card.effect}`} aria-hidden="true"/>
     </div>
-    <div className="gothic-card-rarity-banner">{card.unique && <Crown/>}<span>{card.unique ? "SPECIAL" : "COMMON"}</span></div>
+    <div className="gothic-card-rarity-banner">{rarity === "special" && <Crown/>}<span>{rarity.toUpperCase()}</span></div>
     <PityCostBadge card={card} costOverride={pityCostOverride}/>
     {contextLabel && <div className="gothic-card-context">{contextLabel}</div>}
     <div className="gothic-card-copy">

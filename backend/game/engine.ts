@@ -2,6 +2,7 @@ import { ACTION_CARDS, calculatePityCost, CHARACTER_SKILL_CARDS, EVENTS, HERO_TE
 import { calculateRuntimePityCost, isTestModeEnabled } from "@/shared/pityCost.mjs";
 import { canPayLioraVennHealthCost, isLioraVennHealthExchangeCard, LIORA_VENN_HEALTH_COST, LIORA_VENN_NAME } from "@/shared/lioraVenn.mjs";
 import { getCurrentBattlePhase, PHASE_TIMELINE_LENGTH, UNLIMITED_BATTLE_PHASES } from "@/shared/battlePhases.mjs";
+import { applyGoldReward, MAX_GOLD_UNITS, normalizeShopState } from "@/shared/shop.mjs";
 import type { ActionCard, Adventure, CharacterOption, GameHistoryEntry, Hero, PlayerLifeEvent, PlayerRunState, PlayerSession, SyncedGameState, TeamId, TimedEffectKind } from "@/shared/types";
 
 export function randomIntInclusive(minimum: number, maximum: number) {
@@ -85,7 +86,7 @@ export function createPlayerSession(displayName: string, seatIndex: number, hero
 
 function createRunState(player: PlayerSession): PlayerRunState {
   const drawPile = shuffle(player.skillDeck.map((card) => card.id));
-  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, pityPoints: 0, reviveIn: 0, passiveReviveUsed: false, sanguineRecompense: false, skipTurns: 0, completedPlayerTurns: 0, zeroPityUntilTurn: 0, timedEffects: [], borrowedCards: [], purgedCards: [], cardUses: {}, hand: drawPile.splice(0, 4), drawPile, discardPile: [], graveyard: [] };
+  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, pityPoints: 0, goldUnits: 0, goldenShield: 0, shopInventory: [], shopPurchases: {}, externalCardsPurchased: 0, shopShieldUntilTurn: 0, shopAttackBonus: 0, shopDiceBonus: 0, shopFreePity: false, additionalDieActive: false, luckyDieActive: false, piercingAttackActive: false, markedTargetId: "", markedTargetBonus: 0, reviveIn: 0, passiveReviveUsed: false, sanguineRecompense: false, skipTurns: 0, completedPlayerTurns: 0, zeroPityUntilTurn: 0, timedEffects: [], borrowedCards: [], purgedCards: [], cardUses: {}, hand: drawPile.splice(0, 4), drawPile, discardPile: [], graveyard: [] };
 }
 
 const timedField = (kind: TimedEffectKind) => kind;
@@ -348,7 +349,7 @@ function triggerSableRevives(players: PlayerSession[], states: Record<string, Pl
 
 function totals(players: PlayerSession[], states: Record<string, PlayerRunState>, team: TeamId) {
   const members = players.filter((player) => player.hero.team === team);
-  return { hp: members.reduce((sum, player) => sum + (states[player.id]?.hp ?? 0), 0), alive: members.filter((player) => (states[player.id]?.hp ?? 0) > 0).length, shield: members.reduce((sum, player) => sum + (states[player.id]?.shield ?? 0), 0) };
+  return { hp: members.reduce((sum, player) => sum + (states[player.id]?.hp ?? 0), 0), alive: members.filter((player) => (states[player.id]?.hp ?? 0) > 0).length, shield: members.reduce((sum, player) => sum + (states[player.id]?.shield ?? 0) + (states[player.id]?.goldenShield ?? 0), 0) };
 }
 
 function decideWinner(players: PlayerSession[], states: Record<string, PlayerRunState>, adventure: Adventure, lastTeam: TeamId): TeamId | null {
@@ -363,19 +364,34 @@ function decideWinner(players: PlayerSession[], states: Record<string, PlayerRun
   return null;
 }
 
-export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[], cardId: string, targetId: string | undefined, roll: number, usePity = false): SyncedGameState {
+export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[], cardId: string, targetId: string | undefined, roll: number, usePity = false, alternateRoll?: number): SyncedGameState {
   let turnOrder = normalizeTurnOrder(game, players);
   const actor = players.find((player) => player.id === turnOrder[0]) ?? players[game.activePlayerIndex];
   const actorIndex = players.findIndex((player) => player.id === actor?.id);
   const actorState = actor && game.playerStates[actor.id];
   const card = players.flatMap((player) => player.skillDeck).find((item) => item.id === cardId);
-  const pityCost = card ? calculateRuntimePityCost(card, hasFavorableOmen(actorState) || isTestModeEnabled(process.env.TEST_MODE)) : 0;
+  const shopFreePity = Boolean(actorState?.shopFreePity);
+  const pityCost = card ? calculateRuntimePityCost(card, hasFavorableOmen(actorState) || shopFreePity || isTestModeEnabled(process.env.TEST_MODE)) : 0;
   const pityBefore = actorState?.pityPoints ?? 0;
   if (!actor || !actorState || actorState.hp <= 0 || !card || !actorState.hand.includes(card.id) || game.ended || game.pendingWorldEvent || (usePity && pityBefore < pityCost) || !canPayLioraVennHealthCost(card, actorState.hp)) return game;
 
   const states = Object.fromEntries(Object.entries(game.playerStates).map(([id, state]) => [id, {
     ...state,
     pityPoints: state.pityPoints ?? 0,
+    goldUnits: state.goldUnits ?? 0,
+    goldenShield: state.goldenShield ?? 0,
+    shopInventory: (state.shopInventory ?? []).map((entry) => ({ ...entry })),
+    shopPurchases: { ...(state.shopPurchases ?? {}) },
+    externalCardsPurchased: state.externalCardsPurchased ?? 0,
+    shopShieldUntilTurn: state.shopShieldUntilTurn ?? 0,
+    shopAttackBonus: state.shopAttackBonus ?? 0,
+    shopDiceBonus: state.shopDiceBonus ?? 0,
+    shopFreePity: state.shopFreePity ?? false,
+    additionalDieActive: state.additionalDieActive ?? false,
+    luckyDieActive: state.luckyDieActive ?? false,
+    piercingAttackActive: state.piercingAttackActive ?? false,
+    markedTargetId: state.markedTargetId ?? "",
+    markedTargetBonus: state.markedTargetBonus ?? 0,
     reviveIn: state.reviveIn ?? 0,
     passiveReviveUsed: state.passiveReviveUsed ?? false,
     sanguineRecompense: state.sanguineRecompense ?? false,
@@ -393,17 +409,33 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     discardPile: [...state.discardPile],
     graveyard: [...(state.graveyard ?? [])]
   }]));
+  Object.values(states).forEach(normalizeShopState);
   const turn = game.completedTurns + 1;
   const lifeEventStamp = Date.now();
   const hpBeforeAction = Object.fromEntries(players.map((player) => [player.id, states[player.id]?.hp ?? 0]));
   const lifeEvents: PlayerLifeEvent[] = [];
   const actionPhase = getCurrentBattlePhase(game.completedPhases ?? Math.max(0, (game.roundNumber ?? 1) - 1));
   const revivingAtTurnStart = Object.keys(states).filter((id) => states[id].hp <= 0 && states[id].reviveIn > 0);
+  const resolvingActorState = states[actor.id];
   const diceBuff = actorState.diceBuff ?? 0;
   const dicePenalty = actorState.dicePenalty ?? 0;
   const passiveDiceBonus = getPassiveDiceBonus(actor, card, actorState);
-  const totalBonus = diceBuff + passiveDiceBonus;
-  const total = roll + totalBonus - dicePenalty;
+  const shopDiceBonus = resolvingActorState.shopDiceBonus ?? 0;
+  const markedRollBonus = ["damage", "aoe"].includes(card.effect) && resolvingActorState.markedTargetId === targetId ? resolvingActorState.markedTargetBonus : 0;
+  const totalBonus = diceBuff + passiveDiceBonus + shopDiceBonus + markedRollBonus;
+  const firstRoll = Math.min(20, Math.max(1, Math.floor(Number(roll) || 1)));
+  const secondRoll = alternateRoll == null ? undefined : Math.min(20, Math.max(1, Math.floor(Number(alternateRoll) || 1)));
+  const firstTotal = firstRoll + totalBonus - dicePenalty;
+  let effectiveRoll = firstRoll;
+  let rollMode: "additional-die" | "lucky-die" | undefined;
+  if (!usePity && resolvingActorState.additionalDieActive && secondRoll != null) {
+    effectiveRoll = Math.max(firstRoll, secondRoll);
+    rollMode = "additional-die";
+  } else if (!usePity && resolvingActorState.luckyDieActive && firstTotal < game.adventure.target && secondRoll != null) {
+    effectiveRoll = secondRoll;
+    rollMode = "lucky-die";
+  }
+  const total = effectiveRoll + totalBonus - dicePenalty;
   const automaticSuccess = !usePity && pityCost === 0;
   const success = usePity || automaticSuccess || total >= game.adventure.target;
   const enemies = living(players, states).filter((player) => player.hero.team !== actor.hero.team);
@@ -425,6 +457,14 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   if (!usePity) {
     clearTimedEffect(states[actor.id], "diceBuff");
     clearTimedEffect(states[actor.id], "dicePenalty");
+    states[actor.id].shopDiceBonus = 0;
+    states[actor.id].additionalDieActive = false;
+    states[actor.id].luckyDieActive = false;
+  }
+  states[actor.id].shopFreePity = false;
+  if (["damage", "aoe"].includes(card.effect) && states[actor.id].markedTargetId === targetId) {
+    states[actor.id].markedTargetId = "";
+    states[actor.id].markedTargetBonus = 0;
   }
   states[actor.id].pityPoints = usePity ? pityBefore - pityCost : pityBefore + (success ? 0 : 1);
   let amount = 0;
@@ -443,26 +483,33 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         states[actor.id].hp = Math.max(1, states[actor.id].hp - paidHealth);
         if (actor.hero.name === LIORA_VENN_NAME) states[actor.id].sanguineRecompense = true;
       }
-      const resolvingActorState = states[actor.id];
       let passive = getThorneValePassiveDamageBonus(actor, card, resolvingActorState);
       if (actor.hero.classId === "mage" && card.effect === "aoe") passive += 1;
       if (actor.hero.classId === "berserker" && resolvingActorState.hp <= resolvingActorState.maxHp / 2) passive += 1;
-      const ignoresShield = Boolean(card.ignoresShield || actor.hero.classId === "assassin");
+      const ignoresShield = Boolean(card.ignoresShield || actor.hero.classId === "assassin" || resolvingActorState.piercingAttackActive);
       const reports: string[] = [];
       for (const target of targets) {
         const state = states[target.id];
         const kaelPassive = getKaelRookPassiveDamageBonus(actor, card, resolvingActorState, state);
         const basePower = card.id === BULWARK_TO_BLADE_CARD_ID ? sacrificedShield : card.value;
-        const power = basePower + resolvingActorState.attackBuff + passive + kaelPassive;
-        const blocked = ignoresShield ? 0 : Math.min(state.shield, power);
-        removeTimedEffectAmount(state, "shield", blocked);
+        const power = basePower + resolvingActorState.attackBuff + resolvingActorState.shopAttackBonus + passive + kaelPassive;
+        const normalBlocked = ignoresShield ? 0 : Math.min(state.shield, power);
+        removeTimedEffectAmount(state, "shield", normalBlocked);
+        const goldenBlocked = ignoresShield ? 0 : Math.min(state.goldenShield, power - normalBlocked);
+        state.goldenShield = Math.max(0, state.goldenShield - goldenBlocked);
+        const blocked = normalBlocked + goldenBlocked;
         const damage = power - blocked;
         state.hp = Math.max(0, state.hp - damage);
         amount += damage;
         if (state.hp === 0) defeated = true;
-        reports.push(`${target.displayName} lost ${damage} HP${blocked ? ` (${blocked} blocked by shield)` : ""}${state.hp === 0 ? " and was defeated" : ""}`);
+        const blockSources = [normalBlocked ? `${normalBlocked} normal Shield` : "", goldenBlocked ? `${goldenBlocked} Golden Shield` : ""].filter(Boolean).join(" and ");
+        reports.push(`${target.displayName} lost ${damage} HP${blocked ? ` (${blockSources} blocked)` : ""}${state.hp === 0 ? " and was defeated" : ""}`);
       }
-      if (targets.length) clearTimedEffect(states[actor.id], "attackBuff");
+      if (targets.length) {
+        clearTimedEffect(states[actor.id], "attackBuff");
+        states[actor.id].shopAttackBonus = 0;
+      }
+      states[actor.id].piercingAttackActive = false;
       detail = reports.length
         ? `${paidHealth ? `${actor.displayName} paid ${paidHealth} HP. ` : ""}${card.id === BULWARK_TO_BLADE_CARD_ID ? `${actor.displayName} removed ${sacrificedShield} shield. ` : ""}${reports.join("; ")}.`
         : `${actor.displayName}'s attack had no valid target and no effect.`;
@@ -521,6 +568,13 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         }
         if (card.supportType === "dice") addTimedEffect(states[target.id], "diceBuff", amount, target.id === actor.id);
         if (card.supportType === "enemy-dice") addTimedEffect(states[target.id], "dicePenalty", amount, target.id === actor.id);
+        if (card.supportType === "shield-break") {
+          const normalRemoved = Math.min(states[target.id].shield, amount);
+          removeTimedEffectAmount(states[target.id], "shield", normalRemoved);
+          const goldenRemoved = Math.min(states[target.id].goldenShield, amount - normalRemoved);
+          states[target.id].goldenShield -= goldenRemoved;
+          reports.push(`${target.displayName} lost ${normalRemoved + goldenRemoved} Shield`);
+        }
         if (card.supportType === "dispel-enemy") {
           const removedShield = Math.min(states[target.id].shield, amount);
           removeTimedEffectAmount(states[target.id], "shield", removedShield);
@@ -550,6 +604,24 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
           (selectedState.completedPlayerTurns ?? 0) + (selectedAlly.id === actor.id ? 2 : 1)
         );
         reports.push(`${selectedAlly.displayName}'s next played card during their next turn has 0 pity cost`);
+      }
+      if (card.supportType === "piercing-attack") {
+        states[actor.id].piercingAttackActive = true;
+        reports.push(`${actor.displayName}'s next attack will ignore normal and Golden Shield`);
+      }
+      if (card.supportType === "marked-target" && selectedEnemy) {
+        states[actor.id].markedTargetId = selectedEnemy.id;
+        states[actor.id].markedTargetBonus = amount;
+        reports.push(`${actor.displayName} gains +${amount} on their next attack roll against ${selectedEnemy.displayName}`);
+      }
+      if (card.supportType === "discard-random-card" && selectedEnemy) reports.push(`${selectedEnemy.displayName} discards one random hand card and draws a replacement`);
+      if (card.supportType === "steal-gold" && selectedEnemy) {
+        const available = Math.max(0, states[selectedEnemy.id].goldUnits);
+        const capacity = Math.max(0, MAX_GOLD_UNITS - states[actor.id].goldUnits);
+        const stolenUnits = Math.min(amount * 2, available, capacity);
+        states[selectedEnemy.id].goldUnits -= stolenUnits;
+        states[actor.id].goldUnits += stolenUnits;
+        reports.push(`${actor.displayName} stole ${stolenUnits / 2} Gold from ${selectedEnemy.displayName}`);
       }
       if (card.supportType === "purge-card" && selectedEnemy) {
         const selectedState = states[selectedEnemy.id];
@@ -585,7 +657,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
       else if (card.supportType === "delay-enemy") detail = `${actor.displayName} moved ${selectedEnemy?.displayName}'s turn to the end of the queue.`;
       else if (card.supportType === "advance-ally") detail = `${actor.displayName} moved ${selectedAlly?.displayName} to the next position in the turn queue.`;
       else if (card.supportType === "dispel-enemy") detail = `${actor.displayName} dispelled ${selectedEnemy?.displayName}: ${reports.join(", ")}.`;
-      else if (["revive", "skip-enemy", "purge-card", "steal-card", "zero-pity"].includes(card.supportType ?? "")) detail = reports.length ? `${actor.displayName} used ${card.name}: ${reports.join(", ")}.` : `${actor.displayName} succeeded with ${card.name}, but no eligible card or character was available. The card had no effect.`;
+      else if (["revive", "skip-enemy", "purge-card", "steal-card", "zero-pity", "shield-break", "piercing-attack", "marked-target", "discard-random-card", "steal-gold"].includes(card.supportType ?? "")) detail = reports.length ? `${actor.displayName} used ${card.name}: ${reports.join(", ")}.` : `${actor.displayName} succeeded with ${card.name}, but no eligible card or character was available. The card had no effect.`;
       else if (card.target === "all-allies") detail = `${actor.displayName} granted +${amount} ${card.supportType === "attack" ? "next-attack damage" : card.supportType === "shield" ? "shield" : "to the next d20 result"} to every living ally.`;
       else detail = `${actor.displayName} granted ${targets[0]?.displayName ?? "the target"} +${amount} ${card.supportType === "attack" ? "next-attack damage" : card.supportType === "shield" ? "shield" : "to the next d20 result"}.`;
     } else if (card.effect === "none") {
@@ -640,9 +712,19 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const rollSummary = usePity
     ? `spent ${pityCost} pity (${pityBefore} to ${states[actor.id].pityPoints})`
     : automaticSuccess
-      ? `d20 ${roll} ignored; zero-pity card always succeeds`
-      : `rolled d20 against target ${game.adventure.target}`;
-  const actionHistory: GameHistoryEntry = { id: `turn-${turn}-${Date.now()}`, turn, phase: actionPhase, kind: card.effect, actorName: actor.displayName, actorTeam: actor.hero.team, targetName: targets.map((target) => target.displayName).join(", "), cardName: card.name, message: `${actor.displayName} used ${card.name} (${rollSummary}) — ${detail}`, success, amount, diceRoll: usePity ? undefined : roll, diceTarget: usePity ? undefined : game.adventure.target, diceBonus: usePity ? undefined : totalBonus, dicePenalty: usePity ? undefined : dicePenalty, diceTotal: usePity ? undefined : total, resolution: usePity ? "pity" : "roll", pityCost: usePity || automaticSuccess ? pityCost : undefined, pityBefore, pityAfter: states[actor.id].pityPoints, failureDetail: failureDetail || undefined, createdAt: Date.now() };
+      ? `d20 ${firstRoll} ignored; zero-pity card always succeeds`
+      : rollMode === "additional-die"
+        ? `rolled ${firstRoll} and ${secondRoll}; used ${effectiveRoll} against target ${game.adventure.target}`
+        : rollMode === "lucky-die"
+          ? `first rolled ${firstRoll}, then rerolled ${secondRoll}; used ${effectiveRoll} against target ${game.adventure.target}`
+          : `rolled d20 against target ${game.adventure.target}`;
+  if (rollMode === "additional-die") detail = `${detail} Twin-Fate Die rolled ${firstRoll} and ${secondRoll}; the higher result ${effectiveRoll} was used.`;
+  if (rollMode === "lucky-die") detail = `${detail} Lucky Die rerolled ${firstRoll} into ${effectiveRoll}.`;
+  const goldOutcome: { kind: "card"; resolution: "pity" | "roll"; success: boolean; goldBefore?: number; goldChange?: number; goldAfter?: number } = { kind: "card", resolution: usePity ? "pity" : "roll", success };
+  applyGoldReward(states[actor.id], goldOutcome);
+  const goldDetail = goldOutcome.goldChange ? ` Earned ${goldOutcome.goldChange} Gold.` : "";
+  detail = `${detail}${goldDetail}`;
+  const actionHistory: GameHistoryEntry = { id: `turn-${turn}-${Date.now()}`, turn, phase: actionPhase, kind: card.effect, actorName: actor.displayName, actorTeam: actor.hero.team, targetName: targets.map((target) => target.displayName).join(", "), cardName: card.name, message: `${actor.displayName} used ${card.name} (${rollSummary}) — ${detail}`, success, amount, diceRoll: usePity ? undefined : effectiveRoll, initialRoll: usePity ? undefined : firstRoll, alternateRoll: usePity ? undefined : secondRoll, rollMode, diceTarget: usePity ? undefined : game.adventure.target, diceBonus: usePity ? undefined : totalBonus, dicePenalty: usePity ? undefined : dicePenalty, diceTotal: usePity ? undefined : total, resolution: usePity ? "pity" : "roll", pityCost: usePity || automaticSuccess ? pityCost : undefined, pityBefore, pityAfter: states[actor.id].pityPoints, goldBefore: goldOutcome.goldBefore, goldChange: goldOutcome.goldChange, goldAfter: goldOutcome.goldAfter, failureDetail: failureDetail || undefined, createdAt: Date.now() };
   let history = [...(game.history ?? []), actionHistory];
   const passiveRevives = triggerSableRevives(players, states);
   if (passiveRevives.length) {
@@ -688,7 +770,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   const now = Date.now();
   const veilTotal = totals(players, states, "veil").hp;
   const emberTotal = totals(players, states, "ember").hp;
-  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, completedPhases, maxTurns: UNLIMITED_BATTLE_PHASES, maxPhases: UNLIMITED_BATTLE_PHASES, roll: usePity ? null : roll, outcome: { id: actionHistory.id, kind: "card", success, total: usePity ? game.adventure.target : total, target: game.adventure.target, label: `${actor.displayName} used ${card.name}`, detail, actorId: actor.id, actorName: actor.displayName, cardId: card.id, cardName: card.name, effect: card.effect, supportType: card.supportType, targetIds: targets.map((target) => target.id), targetName: targets.map((target) => target.displayName).join(", "), roll: usePity ? undefined : roll, bonus: usePity ? undefined : totalBonus, diceBuff: usePity ? undefined : diceBuff, dicePenalty: usePity ? undefined : dicePenalty, resolution: usePity ? "pity" : "roll", pityCost: usePity || automaticSuccess ? pityCost : undefined, pityBefore, pityAfter: states[actor.id].pityPoints, amount, defeated, nextTarget: adventure.target, failureDetail, lifeEvents }, playerStates: states, history, worldEvent: game.worldEvent ?? null, worldEventHistory: game.worldEventHistory ?? [], pendingWorldEvent: game.pendingWorldEvent ?? null, turnStartedAt: now, turnDeadline: ended ? 0 : now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} wins. Total HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder, roundNumber, roundOrder, actedThisRound };
+  return { ...game, adventure, activePlayerIndex: nextIndex, completedTurns: turn, completedPhases, maxTurns: UNLIMITED_BATTLE_PHASES, maxPhases: UNLIMITED_BATTLE_PHASES, roll: usePity ? null : effectiveRoll, outcome: { id: actionHistory.id, kind: "card", success, total: usePity ? game.adventure.target : total, target: game.adventure.target, label: `${actor.displayName} used ${card.name}`, detail, actorId: actor.id, actorName: actor.displayName, cardId: card.id, cardName: card.name, effect: card.effect, supportType: card.supportType, targetIds: targets.map((target) => target.id), targetName: targets.map((target) => target.displayName).join(", "), roll: usePity ? undefined : effectiveRoll, initialRoll: usePity ? undefined : firstRoll, alternateRoll: usePity ? undefined : secondRoll, rollMode, bonus: usePity ? undefined : totalBonus, diceBuff: usePity ? undefined : diceBuff, dicePenalty: usePity ? undefined : dicePenalty, resolution: usePity ? "pity" : "roll", pityCost: usePity || automaticSuccess ? pityCost : undefined, pityBefore, pityAfter: states[actor.id].pityPoints, goldBefore: goldOutcome.goldBefore, goldChange: goldOutcome.goldChange, goldAfter: goldOutcome.goldAfter, amount, defeated, nextTarget: adventure.target, failureDetail, lifeEvents }, playerStates: states, history, worldEvent: game.worldEvent ?? null, worldEventHistory: game.worldEventHistory ?? [], pendingWorldEvent: game.pendingWorldEvent ?? null, turnStartedAt: now, turnDeadline: ended ? 0 : now + BATTLE_TURN_SECONDS * 1000, turnSeconds: BATTLE_TURN_SECONDS, ended, winnerTeam, endReason: winnerTeam ? `${teamName(winnerTeam)} wins. Total HP: Veilbound ${veilTotal} — Embercourt ${emberTotal}.` : null, turnOrder: nextTurnOrder, roundNumber, roundOrder, actedThisRound };
 }
 
 export function resolveAction(adventure: Adventure, cardId: string, roll: number, _advanceChapter = true, availableCards: ActionCard[] = ACTION_CARDS) {

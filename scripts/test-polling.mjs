@@ -103,7 +103,7 @@ try {
     roll: null,
     outcome: null,
     playerStates: {
-      [firstId]: { sessionId: firstId, hp: 8, maxHp: 8, shield: 0, attackBuff: 0, diceBuff: 2, dicePenalty: 2, hand: [`card-${firstId}`], drawPile: [], discardPile: [], graveyard: ["buried-first"], cardUses: {} },
+      [firstId]: { sessionId: firstId, hp: 8, maxHp: 8, shield: 0, attackBuff: 0, diceBuff: 2, dicePenalty: 2, goldUnits: 10, hand: [`card-${firstId}`], drawPile: [], discardPile: [], graveyard: ["buried-first"], cardUses: {} },
       [secondId]: { sessionId: secondId, hp: 8, maxHp: 8, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, hand: [`card-${secondId}`], drawPile: [], discardPile: [], graveyard: [], cardUses: {} },
       [thirdId]: { sessionId: thirdId, hp: 8, maxHp: 8, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, hand: [`card-${thirdId}`], drawPile: [], discardPile: [], graveyard: [], cardUses: {} }
     },
@@ -145,6 +145,9 @@ try {
   assert.deepEqual(firstStarted.game.outcome.notices.map((notice) => notice.kind), ["phase-start"], "a new polling battle emits only the phase-1 start notice");
   assert.equal(firstStarted.game.outcome.notices[0].title, "Phase 1 started");
 
+  assert.equal(firstStarted.game.playerStates[firstId].goldUnits, 0, "polling resets client-supplied Gold when a battle starts");
+  await assert.rejects(command(firstId, { type: "shop:buy", offerId: "additional-die" }), /need 5 Gold/i, "polling rejects Shop purchases without authoritative Gold");
+
   const upgradeZoneIds = ["lost-momentum", "broken-plan", "empty-gesture"].map((suffix) => `${firstId}-common-${suffix}`);
   const controlledGame = structuredClone(firstStarted.game);
   controlledGame.completedTurns = 1;
@@ -180,6 +183,7 @@ try {
   assert.equal(forcedSkipped.game.completedPhases, 0, "a phase remains open until every player has acted");
   assert.equal(forcedSkipped.game.turnOrder[0], thirdId);
   assert.deepEqual(forcedOwnerView.game.playerStates[secondId].hand, [`card-${secondId}`], "forced skip preserves the affected player's hand");
+  assert.equal(forcedOwnerView.game.playerStates[secondId].goldUnits, 1, "an automatic polling skip earns half a Gold");
   assert.equal(forcedOwnerView.game.playerStates[secondId].skipTurns, 0);
   assert.equal(forcedOwnerView.game.playerStates[secondId].completedPlayerTurns, 1, "a forced skip counts toward recurring passives in polling play");
   assert.deepEqual(
@@ -191,6 +195,7 @@ try {
   const manuallySkipped = await command(thirdId, { type: "skip-turn" });
   assert.equal(manuallySkipped.game.completedTurns, 3);
   assert.equal(manuallySkipped.game.outcome.kind, "skip");
+  assert.equal(manuallySkipped.game.playerStates[thirdId].goldUnits, 1, "a voluntary polling skip earns half a Gold");
   assert.equal(manuallySkipped.game.history.at(-1).kind, "skip");
   assert.equal(manuallySkipped.game.completedPhases, 1, "the phase completes after all three players act");
   assert.deepEqual(manuallySkipped.game.playerStates[thirdId].hand, [`card-${thirdId}`], "manual skip preserves the hand");

@@ -326,6 +326,7 @@ export function getStatusPresentations(player, state, players, viewerId = '', cu
     const turns = remainingTurns(state, 'shield');
     add({ kind: 'shield', label: `${owner.possessive} shield`, displayValue: String(state.shield), value: String(state.shield), duration: `${turns}T`, durationLabel: turnLabel(turns), tooltip: `${state.shield} shield · ${turns}T or until depleted.`, shield: true });
   }
+  if (state.goldenShield > 0) add({ kind: 'goldenShield', label: `${owner.possessive} Golden Shield`, displayValue: String(state.goldenShield), value: String(state.goldenShield), duration: '', tooltip: `${state.goldenShield} permanent Golden Shield. Enemy attacks consume normal Shield first.`, shield: true, golden: true });
   if (state.attackBuff > 0) {
     const turns = remainingTurns(state, 'attackBuff');
     add({ kind: 'attackBuff', label: `${owner.possessive} attack bonus`, displayValue: `+${state.attackBuff}`, value: `+${state.attackBuff}`, duration: `${turns}T`, durationLabel: turnLabel(turns), tooltip: `Next attack: +${state.attackBuff} damage · ${turns}T.` });
@@ -338,9 +339,19 @@ export function getStatusPresentations(player, state, players, viewerId = '', cu
     const turns = remainingTurns(state, 'dicePenalty');
     add({ kind: 'dicePenalty', label: `${owner.possessive} roll penalty`, displayValue: `−${state.dicePenalty}`, value: `−${state.dicePenalty}`, duration: `${turns}T`, durationLabel: turnLabel(turns), tooltip: `Next d20: −${state.dicePenalty} · ${turns}T.`, negative: true });
   }
+  if (state.shopAttackBonus > 0) add({ kind: 'shopAttack', label: `${owner.possessive} Warflame Tonic`, displayValue: `+${state.shopAttackBonus}`, value: `+${state.shopAttackBonus} damage`, duration: '', tooltip: `Next successful attack deals +${state.shopAttackBonus} damage.` });
+  if (state.shopDiceBonus > 0) add({ kind: 'shopDice', label: `${owner.possessive} Truecast Tonic`, displayValue: `+${state.shopDiceBonus}`, value: `+${state.shopDiceBonus} d20`, duration: '', tooltip: `Next rolled card gains +${state.shopDiceBonus}.` });
+  if (state.additionalDieActive) add({ kind: 'additionalDie', label: `${owner.possessive} Twin-Fate Die`, displayValue: '2d20', value: 'Roll twice', duration: '', tooltip: 'Next rolled card uses the higher of two d20 rolls.' });
+  if (state.luckyDieActive) add({ kind: 'luckyDie', label: `${owner.possessive} Lucky Die`, displayValue: 'Reroll', value: 'Failure reroll', duration: '', tooltip: 'Next rolled card rerolls once if its first result would fail.' });
+  if (state.piercingAttackActive) add({ kind: 'piercingAttack', label: `${owner.possessive} piercing attack`, displayValue: 'Pierce', value: 'Ignore Shield', duration: '', tooltip: 'Next attack ignores normal and Golden Shield.' });
+  if (state.markedTargetId && state.markedTargetBonus > 0) {
+    const marked = players.find((candidate) => candidate.id === state.markedTargetId);
+    add({ kind: 'markedTarget', label: `${owner.possessive} marked target`, displayValue: `+${state.markedTargetBonus}`, value: `+${state.markedTargetBonus} d20`, duration: '', tooltip: `Next attack roll against ${marked?.displayName || 'the marked player'} gains +${state.markedTargetBonus}.` });
+  }
   if (state.sanguineRecompense) add({ kind: 'sanguineRecompense', label: `${owner.possessive} Sanguine Recompense`, displayValue: '+1 team heal', value: '+1 HP', duration: '', tooltip: 'Next successful Heal card restores 1 additional HP to every living ally.' });
   const zeroPityTurns = Math.max(0, Number(state.zeroPityUntilTurn || 0) - Number(state.completedPlayerTurns || 0));
   if (zeroPityTurns > 0) add({ kind: 'zeroPity', label: `${owner.possessive} next-card pity cost`, displayValue: '0', value: '0 pity', duration: `${zeroPityTurns}T`, durationLabel: turnLabel(zeroPityTurns), tooltip: `Next card costs 0 pity · ${zeroPityTurns}T.` });
+  if (state.shopFreePity) add({ kind: 'shopFreePity', label: `${owner.possessive} Mercy Tonic`, displayValue: '0 pity', value: 'Automatic success', duration: '', tooltip: 'Next played card has 0 pity cost and succeeds automatically.' });
   if (state.skipTurns > 0) add({ kind: 'skipTurns', label: `${owner.possessive} skipped turns`, displayValue: `${state.skipTurns}T`, value: `${state.skipTurns} ${state.skipTurns === 1 ? 'turn' : 'turns'}`, tooltipValue: 'Skip', duration: `${state.skipTurns}T`, durationLabel: turnLabel(state.skipTurns), tooltip: `Miss ${state.skipTurns} ${state.skipTurns === 1 ? 'turn' : 'turns'}.`, negative: true });
   if (state.reviveIn > 0) add({ kind: 'revive', label: `${owner.possessive} revival`, displayValue: `${state.reviveIn}T`, value: `${state.reviveIn} ${state.reviveIn === 1 ? 'turn' : 'turns'}`, tooltipValue: 'Revive', duration: `${state.reviveIn}T`, durationLabel: turnLabel(state.reviveIn), tooltip: `Revives in ${state.reviveIn}T.` });
   if ((state.borrowedCards || []).length > 0) {

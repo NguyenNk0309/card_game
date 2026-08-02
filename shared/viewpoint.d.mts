@@ -6,7 +6,7 @@ export type OutcomePresentation = { category: string; title: string; detail: str
 export type HistoryPresentation = { type: string; actor: string; target: string; card: string; result: string; changes: string; penalty: string; duration: string; details: string; involvedPlayerIds: string[] };
 export type LifeEventPresentation = { category: string; title: string; detail: string };
 export type StatusPresentation = {
-  kind: "shield" | "attackBuff" | "diceBuff" | "dicePenalty" | "zeroPity" | "skipTurns" | "revive" | "borrowedCards" | "purgedCards";
+  kind: "shield" | "goldenShield" | "attackBuff" | "shopAttack" | "diceBuff" | "dicePenalty" | "shopDice" | "additionalDie" | "luckyDie" | "piercingAttack" | "markedTarget" | "zeroPity" | "shopFreePity" | "skipTurns" | "revive" | "borrowedCards" | "purgedCards";
   label: string;
   displayValue: string;
   value: string;
@@ -16,6 +16,7 @@ export type StatusPresentation = {
   tooltip: string;
   negative?: boolean;
   shield?: boolean;
+  golden?: boolean;
 };
 
 export function viewerRelation(player?: PlayerSession | null, viewer?: PlayerSession | null): ViewerRelation;

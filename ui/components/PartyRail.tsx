@@ -130,7 +130,7 @@ function RosterEffect({ buff, icon }: { buff: StatusPresentation; icon: React.Re
   return <>
     <span
       ref={anchorRef}
-      className={`roster-buff-indicator ${buff.negative ? "negative" : ""} ${buff.shield ? "shield" : ""} ${buff.kind === "attackBuff" ? "attack" : ""}`}
+      className={`roster-buff-indicator ${buff.negative ? "negative" : ""} ${buff.shield ? "shield" : ""} ${buff.golden ? "golden" : ""} ${buff.kind === "attackBuff" ? "attack" : ""}`}
       tabIndex={0}
       aria-label={`${buff.label}: ${buff.tooltipValue ?? buff.value}${buff.durationLabel ? ` - ${buff.durationLabel}` : ""}. ${buff.tooltip}`}
       aria-describedby={open ? tooltipId : undefined}
@@ -145,7 +145,7 @@ function RosterEffect({ buff, icon }: { buff: StatusPresentation; icon: React.Re
       <span
         ref={tooltipRef}
         id={tooltipId}
-        className={`roster-buff-tooltip is-visible ${buff.kind === "attackBuff" ? "attack" : ""}`}
+        className={`roster-buff-tooltip is-visible ${buff.golden ? "golden" : ""} ${buff.kind === "attackBuff" ? "attack" : ""}`}
         role="tooltip"
         style={{ left: position.left, top: position.top, visibility: position.ready ? "visible" : "hidden" }}
       >
@@ -169,10 +169,10 @@ export function PartyRail({ players, game, localSessionId, onInspectPlayer }: {
   const localPlayer = players.find((player) => player.id === localSessionId);
   const relationClass = (player: PlayerSession) => localPlayer ? (player.hero.team === localPlayer.hero.team ? "ally" : "enemy") : "neutral";
   const currentPhase = getCurrentBattlePhase(game?.completedPhases ?? 0);
-  const statusIcon = (kind: ReturnType<typeof getStatusPresentations>[number]["kind"]) => kind === "shield" ? <Shield size={11}/>
-    : kind === "attackBuff" ? <Swords size={11}/>
-      : kind === "diceBuff" || kind === "dicePenalty" ? <Dices size={11}/>
-        : kind === "zeroPity" ? <Clover size={11}/>
+  const statusIcon = (kind: ReturnType<typeof getStatusPresentations>[number]["kind"]) => kind === "shield" || kind === "goldenShield" ? <Shield size={11}/>
+    : kind === "attackBuff" || kind === "shopAttack" || kind === "piercingAttack" ? <Swords size={11}/>
+      : kind === "diceBuff" || kind === "dicePenalty" || kind === "shopDice" || kind === "additionalDie" || kind === "luckyDie" || kind === "markedTarget" ? <Dices size={11}/>
+        : kind === "zeroPity" || kind === "shopFreePity" ? <Clover size={11}/>
           : kind === "skipTurns" ? <Hourglass size={11}/>
             : kind === "revive" ? <Heart size={11}/>
               : kind === "purgedCards" ? <Archive size={11}/>

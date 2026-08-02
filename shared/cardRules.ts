@@ -5,12 +5,22 @@ export function getCardPityCost(card: Omit<ActionCard, "pityCost"> | ActionCard)
   return calculateRuntimePityCost(card, isTestModeEnabled(process.env.TEST_MODE));
 }
 
-export function hasFavorableOmen(state?: Pick<PlayerRunState, "completedPlayerTurns" | "zeroPityUntilTurn">) {
-  return Boolean(state && (state.zeroPityUntilTurn ?? 0) > (state.completedPlayerTurns ?? 0));
+export function hasFavorableOmen(state?: Pick<PlayerRunState, "completedPlayerTurns" | "zeroPityUntilTurn" | "shopFreePity">) {
+  return Boolean(state && ((state.zeroPityUntilTurn ?? 0) > (state.completedPlayerTurns ?? 0) || state.shopFreePity));
 }
 
-export function getEffectiveCardPityCost(card: ActionCard, state?: Pick<PlayerRunState, "completedPlayerTurns" | "zeroPityUntilTurn">) {
+export function getEffectiveCardPityCost(card: ActionCard, state?: Pick<PlayerRunState, "completedPlayerTurns" | "zeroPityUntilTurn" | "shopFreePity">) {
   return hasFavorableOmen(state) ? 0 : getCardPityCost(card);
+}
+
+export function getCardRarity(card: Pick<ActionCard, "external" | "unique">): "external" | "special" | "common" {
+  if (card.external) return "external";
+  return card.unique ? "special" : "common";
+}
+
+export function getCardRarityLabel(card: Pick<ActionCard, "external" | "unique">) {
+  const rarity = getCardRarity(card);
+  return `${rarity[0].toUpperCase()}${rarity.slice(1)}`;
 }
 
 const effectLabels: Record<ActionCard["effect"], string> = {

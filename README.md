@@ -33,6 +33,12 @@ Open `http://localhost:3000`.
 6. Roll against the fresh random target for that turn. A modified total equal to or above the target succeeds. Each failed normal roll immediately grants 1 cumulative pity point.
 7. Every card shows a pity cost. **Pity Roll** spends that cost to guarantee the selected card succeeds; no-effect cards cost 0. Every buff and debuff expires at the end of its target's next turn, including a pity, discarded, skipped, cancelled, or timed-out turn.
 8. Playing or manually discarding a card moves it to discard and ends the turn. One random replacement is drawn into the same hand slot. Manual Skip and timeout preserve all card zones.
+
+### Battle Shop
+
+The Shop button sits below Battle History and is available throughout a battle. Any successful card, including a Pity Roll, earns 1 Gold. A failed rolled card, Discard, manual Skip, timeout, or forced automatic skip earns 0.5 Gold. Each player can hold at most 12 Gold and may exchange 1 pity point for 2 Gold while alive.
+
+Potions activate immediately. Items enter a private five-unit inventory and can be activated at any time while alive; a defeated player may only use a previously purchased Phoenix Sigil. External Cards enter the buyer's draw pile immediately, use unique runtime IDs, and are limited to three acquisitions per player per battle. Per-offer stock, repeat-price increases, incompatible dice items, and non-stacking Shop buffs are enforced by both realtime authorities.
 9. When a replacement is needed and draw is empty, the entire discard pile returns to draw and shuffles before exactly one random replacement is drawn. It never deals a four-card refill. Graveyard cards are permanently removed from circulation unless Mirefield Seizure temporarily placed them there. The common no-effect cards upgrade after phase 5 as a separate mechanic from World Events.
 10. Immediate Resurrection immediately revives one defeated ally with one-third HP and then enters Brother Orren's graveyard after its first use. Mirefield Seizure moves one random card from a living enemy's hand to their graveyard for 2 phases, then returns it to their draw pile. Bulwark to Blade removes all of Bram Coalhand's current shield, then immediately deals that much damage to one living enemy as a single-target attack.
 11. Borrowed Fate steals one random card from a living enemy's hand, preferring a special card when available, and returns it to that enemy's discard pile when Nyx's next turn ends.

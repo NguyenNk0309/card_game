@@ -2,7 +2,7 @@ import { mkdir, readdir } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 
-const CARD_ART_DIRECTORIES = ["common", "special"];
+const CARD_ART_DIRECTORIES = ["common", "external", "special"];
 const sourceRoot = path.resolve("public/art/cards");
 const previewRoot = path.join(sourceRoot, "preview");
 

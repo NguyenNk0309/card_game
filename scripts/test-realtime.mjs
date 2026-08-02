@@ -198,7 +198,7 @@ try {
     roll: null,
     outcome: null,
     playerStates: {
-      [firstId]: { sessionId: firstId, hp: 8, maxHp: 8, shield: 0, attackBuff: 0, diceBuff: 2, dicePenalty: 2, hand: [`card-${firstId}`], drawPile: [], discardPile: [], graveyard: ["buried-first"], cardUses: {} },
+      [firstId]: { sessionId: firstId, hp: 8, maxHp: 8, shield: 0, attackBuff: 0, diceBuff: 2, dicePenalty: 2, goldUnits: 10, hand: [`card-${firstId}`], drawPile: [], discardPile: [], graveyard: ["buried-first"], cardUses: {} },
       [secondId]: { sessionId: secondId, hp: 8, maxHp: 8, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, hand: [`card-${secondId}`], drawPile: [], discardPile: [], graveyard: [], cardUses: {} },
       [thirdId]: { sessionId: thirdId, hp: 8, maxHp: 8, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, hand: [`card-${thirdId}`], drawPile: [], discardPile: [], graveyard: [], cardUses: {} }
     },
@@ -236,6 +236,11 @@ try {
   assert.deepEqual(firstStarted.game.outcome.notices.map((notice) => notice.kind), ["phase-start"], "a new realtime battle emits only the phase-1 start notice");
   assert.equal(firstStarted.game.outcome.notices[0].title, "Phase 1 started");
 
+  assert.equal(firstStarted.game.playerStates[firstId].goldUnits, 0, "realtime resets client-supplied Gold when a battle starts");
+  const shopError = first.waitForError((message) => /need 5 Gold/i.test(message));
+  first.send({ type: "shop:buy", sessionId: firstId, offerId: "additional-die" });
+  assert.match(await shopError, /need 5 Gold/i, "realtime rejects Shop purchases without authoritative Gold");
+
   const expiryProbePromise = first.waitForNext((state) => state.phase === "game");
   first.send({ type: "expire-turn", sessionId: firstId });
   const expiryProbe = await expiryProbePromise;
@@ -269,6 +274,7 @@ try {
   assert.equal(forcedSkipped.game.history.at(-1).kind, "forced-skip");
   assert.equal(forcedSkipped.game.completedPhases, 0, "a phase remains open until every player has acted");
   assert.deepEqual(forcedSkippedOwnerView.game.playerStates[secondId].hand, [`card-${secondId}`], "forced skip preserves the affected player's private hand");
+  assert.equal(forcedSkippedOwnerView.game.playerStates[secondId].goldUnits, 1, "an automatic realtime skip earns half a Gold");
   assert.equal(forcedSkippedOwnerView.game.playerStates[secondId].skipTurns, 0);
   assert.equal(forcedSkippedOwnerView.game.playerStates[secondId].completedPlayerTurns, 1, "a forced skip counts toward recurring passives in realtime play");
   assert.deepEqual(
@@ -280,6 +286,7 @@ try {
   third.send({ type: "skip-turn", sessionId: thirdId });
   const manuallySkipped = await third.waitFor((state) => state.game?.completedTurns === 3);
   assert.equal(manuallySkipped.game.outcome.kind, "skip");
+  assert.equal(manuallySkipped.game.playerStates[thirdId].goldUnits, 1, "a voluntary realtime skip earns half a Gold");
   assert.equal(manuallySkipped.game.history.at(-1).kind, "skip");
   assert.equal(manuallySkipped.game.completedPhases, 1, "the phase completes after all three players act");
   assert.equal(manuallySkipped.game.playerStates[thirdId].shield, 0, "a manual skip still expires shield at turn end");

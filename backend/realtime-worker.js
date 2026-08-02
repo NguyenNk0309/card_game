@@ -17,6 +17,7 @@ import { calculateRuntimePityCost, isTestModeEnabled } from '../shared/pityCost.
 import { normalizeBulwarkToBladeCards, reconcileBulwarkToBladeImpact } from '../shared/bulwarkToBlade.mjs';
 import { normalizeLioraVennCards, reconcileLioraVennImpact } from '../shared/lioraVenn.mjs';
 import { getCurrentBattlePhase, PHASE_TIMELINE_LENGTH, UNLIMITED_BATTLE_PHASES } from '../shared/battlePhases.mjs';
+import { applyGoldReward, exchangePityForGold, initializeShopBattle, purchaseShopOffer, reconcileShopTurn, stripShopCards, useShopItem } from '../shared/shop.mjs';
 
 const LEGACY_ROOM_ID = 'shared-room';
 const emptyRoom = (roomId = '', createdAt = 0) => ({
@@ -58,7 +59,7 @@ function publicState(viewerId = '') {
     ...room.game,
     playerStates: Object.fromEntries(Object.entries(room.game.playerStates || {}).map(([id, state]) => [
       id,
-      id === viewerId ? state : { ...state, hand: [], drawPile: [], discardPile: [], graveyard: [], borrowedCards: [], purgedCards: [], cardUses: {} }
+      id === viewerId ? state : { ...state, hand: [], drawPile: [], discardPile: [], graveyard: [], borrowedCards: [], purgedCards: [], cardUses: {}, shopInventory: [], shopPurchases: {} }
     ]))
   } : null;
   const game = personalizedGame ? sanitizeCommunicationGame(sanitizeWorldEventGame(personalizedGame, viewerId), room.players, viewerId) : null;
@@ -168,7 +169,7 @@ const secureRandomInt = (minimum, maximum) => {
 };
 const randomDiceTarget = () => secureRandomInt(8, 16);
 const TURN_SECONDS = 60;
-function teamTotals(game, team) { const members = room.players.filter((player) => player.hero.team === team); return { hp: members.reduce((sum, player) => sum + (game.playerStates[player.id]?.hp || 0), 0), alive: members.filter((player) => (game.playerStates[player.id]?.hp || 0) > 0).length, shield: members.reduce((sum, player) => sum + (game.playerStates[player.id]?.shield || 0), 0) }; }
+function teamTotals(game, team) { const members = room.players.filter((player) => player.hero.team === team); return { hp: members.reduce((sum, player) => sum + (game.playerStates[player.id]?.hp || 0), 0), alive: members.filter((player) => (game.playerStates[player.id]?.hp || 0) > 0).length, shield: members.reduce((sum, player) => sum + (game.playerStates[player.id]?.shield || 0) + (game.playerStates[player.id]?.goldenShield || 0), 0) }; }
 function decideWinner(game, lastTeam, settleCurrentTotals = false) {
   const veil = teamTotals(game, 'veil'); const ember = teamTotals(game, 'ember');
   if (!veil.alive && ember.alive) return 'ember'; if (!ember.alive && veil.alive) return 'veil';
@@ -197,9 +198,9 @@ function restorePhaseFiveOriginalCards() {
   room.players = room.players.map((player) => {
     const originalCards = new Map((originals[player.id] || []).map((card) => [card.id, card]));
     return {
-      ...player,
+      ...stripShopCards(player),
       ready: false,
-      skillDeck: (player.skillDeck || []).map((card) => originalCards.has(card.id) ? structuredClone(originalCards.get(card.id)) : card)
+      skillDeck: (player.skillDeck || []).filter((card) => !card.external && !String(card.id || '').includes('::shop::')).map((card) => originalCards.has(card.id) ? structuredClone(originalCards.get(card.id)) : card)
     };
   });
   room.phaseFiveOriginalCards = {};
@@ -493,18 +494,20 @@ function reconcilePityPoints(previousGame, incomingGame, actor) {
   if (!card || !(previousState.hand || []).includes(card.id)) return 'The selected card is not in the active hand.';
   const before = Math.max(0, Math.floor(Number(previousState.pityPoints) || 0));
   const favorableOmenActive = (previousState.zeroPityUntilTurn || 0) > (previousState.completedPlayerTurns || 0);
-  const cost = favorableOmenActive ? 0 : cardPityCost(card);
+  const freePityActive = favorableOmenActive || Boolean(previousState.shopFreePity);
+  const cost = freePityActive ? 0 : cardPityCost(card);
   if (outcome.resolution === 'pity') {
     if (before < cost) return 'There are not enough pity points for that card.';
     incomingState.pityPoints = before - cost;
     outcome.success = true;
   } else {
-    if (favorableOmenActive || activeContext.testMode) outcome.success = true;
+    if (freePityActive || activeContext.testMode) outcome.success = true;
     incomingState.pityPoints = before + (outcome.success ? 0 : 1);
   }
   if (outcome.resolution === 'pity' || cost === 0) outcome.pityCost = cost;
   else delete outcome.pityCost;
   if (favorableOmenActive) incomingState.zeroPityUntilTurn = 0;
+  incomingState.shopFreePity = false;
   outcome.pityBefore = before;
   outcome.pityAfter = incomingState.pityPoints;
   return '';
@@ -621,6 +624,22 @@ function reconcileHiddenCardEffects(previousGame, incomingGame, actor) {
       replacementDetail = `${actor.displayName} stole one random ${specialCandidates.length ? 'special ' : ''}card from ${target.displayName}; it will return to ${target.displayName}'s discard pile when ${actor.displayName}'s next turn ends.`;
     } else replacementDetail = `${target.displayName} had no eligible card in hand, so Borrowed Fate had no effect.`;
   }
+  if (card.supportType === 'discard-random-card' && target.id !== actor.id && target.hero.team !== actor.hero.team && (previousGame.playerStates?.[target.id]?.hp || 0) > 0) {
+    const candidates = [...(targetState.hand || [])];
+    const removedId = candidates[Math.floor(Math.random() * candidates.length)];
+    if (removedId) {
+      const handIndex = targetState.hand.indexOf(removedId);
+      targetState.hand = targetState.hand.filter((id) => id !== removedId);
+      const borrowed = (targetState.borrowedCards || []).find((entry) => entry.cardId === removedId);
+      if (borrowed) {
+        targetState.borrowedCards = targetState.borrowedCards.filter((entry) => entry.cardId !== removedId);
+        const owner = incomingGame.playerStates[borrowed.ownerId];
+        if (owner && !(owner.discardPile || []).includes(removedId)) owner.discardPile.push(removedId);
+      } else if (!(targetState.discardPile || []).includes(removedId)) targetState.discardPile.push(removedId);
+      drawOneOrRecycleDiscard(targetState, handIndex);
+      replacementDetail = `${target.displayName} discarded one random hand card and drew a replacement.`;
+    } else replacementDetail = `${target.displayName} had no card in hand, so Control Cards had no effect.`;
+  }
   if (card.supportType === 'zero-pity' && target.hero.team === actor.hero.team && (previousGame.playerStates?.[target.id]?.hp || 0) > 0) {
     targetState.zeroPityUntilTurn = Math.max(
       targetState.zeroPityUntilTurn || 0,
@@ -728,7 +747,12 @@ async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', d
   game.completedTurns = completedTurns;
   game.adventure = { ...game.adventure, target: randomDiceTarget() };
   game.outcome = { id: outcomeId, kind, success: false, total: 0, target: game.adventure.target, label: discarded ? `${playerName} discarded ${discardedCardName}` : forced ? `${playerName}'s turn was cancelled` : timedOut ? `${playerName} ran out of time` : `${playerName} skipped the turn`, detail: discarded ? `${discardedCardName} entered discard; replacement drawn if available. Effects expired.` : forced ? 'A support effect skipped this turn; cards preserved and effects expired.' : timedOut ? 'Time expired; cards preserved and effects expired.' : 'Turn skipped; cards preserved and effects expired.', actorId: passingPlayer?.id, actorName: playerName, cardId: discardedCardId || undefined, cardName: discardedCardName || undefined, lifeEvents: revived.map((player) => ({ id: `life-${completedTurns}-${now}-returning-light-${player.id}`, kind: 'revive', playerId: player.id, playerName: player.displayName, reason: `${player.displayName} returned through Immediate Resurrection with one-third HP.` })) };
+  if (passingPlayer) {
+    applyGoldReward(game.playerStates[passingPlayer.id], game.outcome);
+    if (game.outcome.goldChange) game.outcome.detail += ` Earned ${game.outcome.goldChange} Gold.`;
+  }
   game.history = [...(game.history || []), { id: outcomeId, turn: completedTurns, phase: actionPhase, kind, actorName: playerName, actorTeam: passingPlayer?.hero.team, cardName: discardedCardName || undefined, message: discarded ? `${playerName} discarded ${discardedCardName}; replacement drawn if available. Effects expired.` : forced ? `A support effect skipped ${playerName}; cards preserved and effects expired.` : timedOut ? `${playerName} timed out; cards preserved and effects expired.` : `${playerName} skipped; cards preserved and effects expired.`, success: false, createdAt: now }];
+  if (game.outcome.goldChange) Object.assign(game.history.at(-1), { goldBefore: game.outcome.goldBefore, goldChange: game.outcome.goldChange, goldAfter: game.outcome.goldAfter, message: `${game.history.at(-1).message} Earned ${game.outcome.goldChange} Gold.` });
   if (revived.length) game.history.push({ id: `revive-${completedTurns}-${now}`, turn: completedTurns, phase: actionPhase, kind: 'system', actorName: 'Immediate Resurrection', message: `${revived.map((player) => player.displayName).join(', ')} revived with one-third HP.`, success: true, createdAt: now });
   game.roll = null;
   let phaseCompleted = false;
@@ -890,6 +914,7 @@ async function applyCommand(ownerId, message, deadlineAdvanced = false) {
     room.phaseFiveOriginalCards = Object.fromEntries(room.players.map((player) => [player.id, structuredClone(phaseFiveSourceCards(player.skillDeck))]));
     room.phase = 'game';
     room.game = message.game;
+    initializeShopBattle(room.game, room.players);
     initializeNewBattleWorldEvents(room.game);
     room.game.adventure.target = randomDiceTarget();
     room.game.turnSeconds = TURN_SECONDS;
@@ -917,6 +942,19 @@ async function applyCommand(ownerId, message, deadlineAdvanced = false) {
     if (result.finalized) appendPhaseStartNotice(room.game);
     await commitRoom();
     if (result.finalized) await advanceForcedSkippedTurns(now + 1);
+    return null;
+  }
+
+  if (message.type === 'shop:buy' || message.type === 'shop:exchange-pity' || message.type === 'shop:use-item') {
+    if (room.phase !== 'game' || !room.game) return 'There is no active battle Shop.';
+    if (!ownerId || ownerId !== message.sessionId) return 'You can only use your own Shop account.';
+    const result = message.type === 'shop:buy'
+      ? purchaseShopOffer(room.game, room.players, ownerId, String(message.offerId || ''))
+      : message.type === 'shop:exchange-pity'
+        ? exchangePityForGold(room.game, room.players, ownerId)
+        : useShopItem(room.game, room.players, ownerId, String(message.itemId || ''));
+    if (!result.ok) return result.error || 'The Shop action failed.';
+    await commitRoom();
     return null;
   }
 
@@ -977,6 +1015,7 @@ async function applyCommand(ownerId, message, deadlineAdvanced = false) {
     if (bulwarkError) return bulwarkError;
     reconcileFailureImpact(previousGame, message.game, activePlayer);
     reconcileHiddenCardEffects(previousGame, message.game, activePlayer);
+    reconcileShopTurn(previousGame, message.game, room.players, activePlayer);
     if (phaseAdvanced) returnExpiredPurgedCards(message.game, message.game.completedPhases);
     message.game.adventure.target = randomDiceTarget();
     if (message.game.outcome?.kind === 'card') message.game.outcome.nextTarget = message.game.adventure.target;
