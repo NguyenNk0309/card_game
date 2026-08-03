@@ -1,11 +1,14 @@
 "use client";
 
 import { Check, Clock3, Crown, Eye, Flame, House, KeyRound, LogOut, Shield, Sparkles, Swords, UserMinus, UserPlus, Users } from "lucide-react";
+import { AnimatePresence, LayoutGroup } from "motion/react";
+import * as m from "motion/react-m";
 import { memo, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { CharacterOption, PlayerSession, TeamId } from "@/shared/types";
 import { preloadCardArtwork } from "../cardArtwork";
 import { CardFace } from "./CardFace";
 import { CharacterAvatar, preloadCharacterAvatars } from "./CharacterAvatar";
+import { fadePresence, motionTransition, popPresence, subtleHover, subtleTap } from "../motion/presets";
 
 type Props = {
   roomId: string;
@@ -28,7 +31,7 @@ const characterGroups: Array<{ id: CharacterGroup; label: string; roles: string[
 ];
 
 const CharacterSkillDeck = memo(function CharacterSkillDeck({ cards, heroColor }: { cards: CharacterOption["skillDeck"]; heroColor: string }) {
-  return <div className="lobby-skill-deck">{cards.map((card) => <article className={`skill-card gothic-card effect-${card.effect} ${card.unique ? "hero-unique-card" : "common-skill-card"} ${card.effect === "none" ? "no-effect-card" : ""}`} key={card.id} style={{ "--hero-color": heroColor } as React.CSSProperties}><CardFace card={card}/></article>)}</div>;
+  return <m.div className="lobby-skill-deck" variants={fadePresence} initial="hidden" animate="visible" transition={motionTransition.standard}>{cards.map((card) => <article className={`skill-card gothic-card effect-${card.effect} ${card.unique ? "hero-unique-card" : "common-skill-card"} ${card.effect === "none" ? "no-effect-card" : ""}`} key={card.id} style={{ "--hero-color": heroColor } as React.CSSProperties}><CardFace card={card}/></article>)}</m.div>;
 });
 
 export function Lobby({ roomId, players, playerName, error, selectedPlayerId, localSessionId, connectionStatus, characterOptions, selectedHeroName, onNameChange, onSlotSelect, onSelectPlayer, onToggleReady, onLeave, onRemovePlayer, onEnterGame, onHeroSelect, onReturnHome }: Props) {
@@ -85,38 +88,42 @@ export function Lobby({ roomId, players, playerName, error, selectedPlayerId, lo
     const teamLabel = team === "veil" ? "Veilbound" : "Embercourt";
     const canSwitchToTeam = Boolean(localPlayer && !localPlayer.ready && localPlayer.hero.team !== team && connectionStatus === "connected");
     const canUseEmptySlot = canJoinSlot || canSwitchToTeam;
-    return <section className={`lobby-team-column ${team}`} aria-label={`${teamLabel} team slots`} key={team}>
+    return <LayoutGroup id={`lobby-team-${team}`} key={team}><section className={`lobby-team-column ${team}`} aria-label={`${teamLabel} team slots`}>
       <header><div><TeamIcon size={17}/><strong>{teamLabel}</strong></div><span>{members.length}/5</span></header>
       <div className="lobby-team-slots">
-        {members.map((player, index) => <article className={`joined-player team-slot-player ${selected?.id === player.id ? "selected" : ""}`} key={player.id}>
+        <AnimatePresence initial={false} mode="popLayout">{members.map((player, index) => <m.article layout className={`joined-player team-slot-player ${selected?.id === player.id ? "selected" : ""}`} variants={popPresence} initial="hidden" animate={{ opacity: 1, y: 0, scale: selected?.id === player.id ? 1.012 : 1 }} exit="exit" transition={motionTransition.layout} key={player.id}>
           <button className="joined-main" onClick={() => onSelectPlayer(player.id)}>
             {player.randomHero ? <div className="portrait" style={{ "--hero-color": "#d4b56e" } as React.CSSProperties}>?</div> : <CharacterAvatar hero={player.hero} sizes="36px"/>}
             <div><div className="joined-name"><strong className={`player-name-highlight ${relationClass(player)}`} title={player.displayName}>{player.displayName}</strong></div>{!player.randomHero && <p>{player.hero.name} · {player.hero.className}</p>}</div>
-            <div className="lobby-player-status"><span>Slot {index + 1}</span><span className={`ready-badge ${player.ready ? "is-ready" : "is-waiting"}`} aria-label={player.ready ? "Ready" : "Not ready"} title={player.ready ? "Ready" : "Not ready"}>{player.ready ? <Check size={14}/> : <Clock3 size={14}/>}</span></div>
+            <div className="lobby-player-status"><span>Slot {index + 1}</span><m.span className={`ready-badge ${player.ready ? "is-ready" : "is-waiting"}`} aria-label={player.ready ? "Ready" : "Not ready"} title={player.ready ? "Ready" : "Not ready"} animate={{ scale: player.ready ? [1, 1.22, 1] : 1, rotate: player.ready ? [0, -8, 0] : 0 }} transition={motionTransition.standard}>{player.ready ? <Check size={14}/> : <Clock3 size={14}/>}</m.span></div>
           </button>
           {player.id === localSessionId ? <div className="joined-actions local-player-actions"><button className="out-team-button" onClick={() => onLeave(player.id)} aria-label={`Leave team as ${player.displayName}`}><LogOut size={14}/> Out team</button><button className={player.ready ? "unready-button" : "ready-button"} onClick={() => onToggleReady(player.id)}>{player.ready ? "Cancel ready" : "Ready"}</button></div> : <div className="joined-actions remote-player-actions">{localPlayer ? <button className="remove-player-button" onClick={() => onRemovePlayer(player.id)}><UserMinus size={14}/> Remove</button> : <span className="remote-player-label">Another browser</span>}</div>}
-        </article>)}
-        {Array.from({ length: 5 - members.length }, (_, index) => <button className={`empty-team-slot ${canSwitchToTeam ? "switch-team-slot" : ""}`} type="button" key={`empty-${team}-${index}`} onClick={() => onSlotSelect(team)} disabled={!canUseEmptySlot} aria-label={`${localPlayer ? "Switch to" : "Join"} ${teamLabel} in slot ${members.length + index + 1}`}>
+        </m.article>)}
+        {Array.from({ length: 5 - members.length }, (_, index) => <m.button layout className={`empty-team-slot ${canSwitchToTeam ? "switch-team-slot" : ""}`} type="button" variants={fadePresence} initial="hidden" animate="visible" exit="exit" whileHover={canUseEmptySlot ? subtleHover : undefined} whileTap={canUseEmptySlot ? subtleTap : undefined} key={`empty-${team}-${index}`} onClick={() => onSlotSelect(team)} disabled={!canUseEmptySlot} aria-label={`${localPlayer ? "Switch to" : "Join"} ${teamLabel} in slot ${members.length + index + 1}`}>
           <UserPlus size={18}/><span><strong>Empty slot</strong><small>{localPlayer ? localPlayer.hero.team === team ? "Your current team" : localPlayer.ready ? "Cancel Ready to switch" : `Switch to ${teamLabel}` : playerName.trim() ? `Join ${teamLabel}` : "Enter your name first"}</small></span>
-        </button>)}
+        </m.button>)}</AnimatePresence>
       </div>
-    </section>;
+    </section></LayoutGroup>;
   };
 
-  return <section className="lobby-stage">
-    <div className="lobby-intro"><span className="eyebrow">THE ARENA AWAITS</span><h1>Join the battle.</h1><p>Choose or randomize a character, enter a name, join a team, and ready up.</p></div>
+  return <m.section className="lobby-stage" initial="hidden" animate="visible" variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.06 } } }}>
+    <m.div className="lobby-intro" variants={popPresence}><span className="eyebrow">THE ARENA AWAITS</span><h1>Join the battle.</h1><p>Choose or randomize a character, enter a name, join a team, and ready up.</p></m.div>
     <div className="lobby-grid">
       <section className="join-panel">
         <div className="lobby-panel-heading"><div><span className="eyebrow">SHARED GAME ROOM</span><h2>{localPlayer ? <><span className={`player-name-highlight ${relationClass(localPlayer)}`}>{localPlayer.displayName}</span> joined {localPlayer.hero.team === "veil" ? "Veilbound" : "Embercourt"}</> : "Enter your name and choose a slot"}</h2></div><div className="lobby-heading-status"><button type="button" className="lobby-home-button" onClick={onReturnHome}><House size={15}/> Home</button><button type="button" className={`lobby-room-id ${roomIdCopied ? "is-copied" : ""}`} onClick={() => void copyRoomId()} aria-label={roomIdCopied ? `Room ID ${roomId} copied` : `Copy room ID ${roomId}`} title={roomIdCopied ? "Room ID copied" : "Copy room ID"}>{roomIdCopied ? <Check size={16}/> : <KeyRound size={16}/>} Room <strong>{roomId}</strong></button><span className={`connection-pill ${connectionStatus}`}>{statusText[connectionStatus] ?? connectionStatus}</span><div className={players.length >= 10 ? "capacity full" : "capacity"}><Users size={16} /> {players.length}/10</div></div></div>
         {!localPlayer && <div className="join-form"><label htmlFor="player-name">Player name</label><div><input id="player-name" value={playerName} onChange={(event) => onNameChange(event.target.value)} placeholder="Enter a name..." maxLength={24} autoComplete="off"/></div><span className="join-slot-hint">Then choose a slot.</span></div>}
-        {error && <div className="lobby-error" role="alert">{error}</div>}
+        <AnimatePresence>{error && <m.div className="lobby-error" role="alert" variants={popPresence} initial="hidden" animate="visible" exit="exit">{error}</m.div>}</AnimatePresence>
         <div className="joined-heading"><div><span className="eyebrow">JOINED PLAYERS</span><strong>{readyCount}/{players.length} ready</strong></div><span>Five slots per team.</span></div>
         <div className="lobby-team-board">{renderTeam("veil")}{renderTeam("ember")}</div>
-        <div className={`ready-gate ${canStart ? "all-ready" : ""}`}>{canStart ? <Check size={19}/> : <Shield size={19}/>}<div><strong>{canStart ? "Everyone is ready" : players.length < 2 ? "Waiting for another player" : !hasBothTeams ? "Both teams need a player" : "Waiting for all players"}</strong><span>{canStart ? "Start when ready." : !hasBothTeams && players.length >= 2 ? "Each team needs one player." : "Every player must be ready."}</span></div><button className="enter-game-button" onClick={onEnterGame} disabled={!canStart || connectionStatus !== "connected"}><Swords size={17}/> Enter the battle</button></div>
+        <m.div layout className={`ready-gate ${canStart ? "all-ready" : ""}`} animate={{ scale: canStart ? [1, 1.012, 1] : 1 }} transition={motionTransition.panel}>{canStart ? <Check size={19}/> : <Shield size={19}/>}<div><strong>{canStart ? "Everyone is ready" : players.length < 2 ? "Waiting for another player" : !hasBothTeams ? "Both teams need a player" : "Waiting for all players"}</strong><span>{canStart ? "Start when ready." : !hasBothTeams && players.length >= 2 ? "Each team needs one player." : "Every player must be ready."}</span></div><m.button className="enter-game-button" onClick={onEnterGame} disabled={!canStart || connectionStatus !== "connected"} whileHover={canStart ? subtleHover : undefined} whileTap={canStart ? subtleTap : undefined}><Swords size={17}/> Enter the battle</m.button></m.div>
       </section>
       <aside className="character-panel">
-        <div className={`hero-picker ${characterPickLocked ? "is-locked" : ""}`}><div className="deck-heading"><div><span className="eyebrow">CHOOSE YOUR CHARACTER</span><strong>{characterPickLocked ? "Cancel ready to change" : "Optional before readying"}</strong></div><Users size={18}/></div><div className="hero-class-tabs" role="tablist" aria-label="Character classes">{characterGroups.map((group) => <button type="button" role="tab" aria-selected={activeCharacterGroup === group.id} className={activeCharacterGroup === group.id ? "active" : ""} onPointerEnter={() => warmCharacterGroup(group.id)} onPointerDown={() => warmCharacterGroup(group.id)} onFocus={() => warmCharacterGroup(group.id)} onClick={() => setActiveCharacterGroup(group.id)} key={group.id}>{group.label}<span>{characterOptionsByGroup[group.id].length}</span></button>)}</div><div className="hero-picker-grid" role="tabpanel" aria-label={`${activeGroup.label} characters`}>{visibleCharacterOptions.map((option) => <button type="button" key={option.hero.name} className={selectedHeroName === option.hero.name ? "selected" : ""} aria-pressed={selectedHeroName === option.hero.name} onPointerEnter={() => preloadCardArtwork(option.skillDeck, "high")} onPointerDown={() => preloadCardArtwork(option.skillDeck, "high")} onFocus={() => preloadCardArtwork(option.skillDeck, "high")} onClick={() => onHeroSelect(selectedHeroName === option.hero.name ? "" : option.hero.name)} disabled={characterPickLocked} title={characterPickLocked ? "Cancel ready to change." : option.hero.summary}><CharacterAvatar hero={option.hero} className="hero-picker-avatar" loading="eager" sizes="31px"/><strong>{option.hero.name}</strong><small>{option.hero.className}</small></button>)}{!visibleCharacterOptions.length && <div className="empty-character-group"><Sparkles size={22}/><span>No characters in this class.</span></div>}</div></div>
-        {shownHero ? <div className="character-review-layout">
+        <div className={`hero-picker ${characterPickLocked ? "is-locked" : ""}`}>
+          <div className="deck-heading"><div><span className="eyebrow">CHOOSE YOUR CHARACTER</span><strong>{characterPickLocked ? "Cancel ready to change" : "Optional before readying"}</strong></div><Users size={18}/></div>
+          <LayoutGroup id="hero-class-tabs"><div className="hero-class-tabs" role="tablist" aria-label="Character classes">{characterGroups.map((group) => <m.button type="button" role="tab" aria-selected={activeCharacterGroup === group.id} className={activeCharacterGroup === group.id ? "active" : ""} onPointerEnter={() => warmCharacterGroup(group.id)} onPointerDown={() => warmCharacterGroup(group.id)} onFocus={() => warmCharacterGroup(group.id)} onClick={() => setActiveCharacterGroup(group.id)} whileTap={subtleTap} key={group.id}>{activeCharacterGroup === group.id && <m.i className="hero-tab-active" layoutId="hero-class-active" transition={motionTransition.layout}/>}<span className="hero-tab-label">{group.label}</span><span>{characterOptionsByGroup[group.id].length}</span></m.button>)}</div></LayoutGroup>
+          <AnimatePresence initial={false} mode="wait"><m.div className="hero-picker-grid" role="tabpanel" aria-label={`${activeGroup.label} characters`} key={activeGroup.id} variants={fadePresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.quick}>{visibleCharacterOptions.map((option) => <m.button layout type="button" key={option.hero.name} className={selectedHeroName === option.hero.name ? "selected" : ""} aria-pressed={selectedHeroName === option.hero.name} onPointerEnter={() => preloadCardArtwork(option.skillDeck, "high")} onPointerDown={() => preloadCardArtwork(option.skillDeck, "high")} onFocus={() => preloadCardArtwork(option.skillDeck, "high")} onClick={() => onHeroSelect(selectedHeroName === option.hero.name ? "" : option.hero.name)} disabled={characterPickLocked} title={characterPickLocked ? "Cancel ready to change." : option.hero.summary} whileHover={!characterPickLocked ? subtleHover : undefined} whileTap={!characterPickLocked ? subtleTap : undefined}>{selectedHeroName === option.hero.name && <m.i className="hero-selected-marker" layoutId="hero-selected-character" transition={motionTransition.layout}/>}<CharacterAvatar hero={option.hero} className="hero-picker-avatar" loading="eager" sizes="31px"/><strong>{option.hero.name}</strong><small>{option.hero.className}</small></m.button>)}{!visibleCharacterOptions.length && <div className="empty-character-group"><Sparkles size={22}/><span>No characters in this class.</span></div>}</m.div></AnimatePresence>
+        </div>
+        <AnimatePresence initial={false} mode="wait">{shownHero ? <m.div className="character-review-layout" key={shownHero.name} variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.panel}>
           <section className="character-info-column">
             <div className="character-banner"><CharacterAvatar hero={shownHero} className="large-portrait" loading="eager" sizes="66px"/><div><span className="eyebrow">{reviewingOwnPick ? "YOUR CHARACTER PICK" : "SELECTED CHARACTER"}</span><h2>{shownHero.name}</h2></div></div>
             <div className="character-profile"><CharacterAvatar hero={shownHero} className="large-portrait lobby-character-avatar" loading="eager" sizes="(min-height: 1200px) 216px, (min-height: 900px) 162px, 112px"/><div className="passive-callout"><Crown size={18}/><div><span>PASSIVE · <b className="passive-name-highlight">{shownHero.passiveName}</b></span><strong>{shownHero.passiveText}</strong></div></div></div>
@@ -126,7 +133,7 @@ export function Lobby({ roomId, players, playerName, error, selectedPlayerId, lo
             <div className="deck-heading"><div><span className="eyebrow">PERSONAL SKILL DECK</span></div><Sparkles size={18}/></div>
             <CharacterSkillDeck cards={shownDeck} heroColor={shownHero.color}/>
           </section>
-        </div> : randomPending ? <div className="no-character"><Sparkles size={32}/><h2>No character selected</h2><p>A random character joins at battle start.</p></div> : <div className="no-character"><Sparkles size={28}/><h2>Your character awaits</h2><p>Choose one to review skills.</p></div>}</aside>
+        </m.div> : randomPending ? <m.div className="no-character" key="random" variants={popPresence} initial="hidden" animate="visible" exit="exit"><Sparkles size={32}/><h2>No character selected</h2><p>A random character joins at battle start.</p></m.div> : <m.div className="no-character" key="empty" variants={popPresence} initial="hidden" animate="visible" exit="exit"><Sparkles size={28}/><h2>Your character awaits</h2><p>Choose one to review skills.</p></m.div>}</AnimatePresence></aside>
     </div>
-  </section>;
+  </m.section>;
 }

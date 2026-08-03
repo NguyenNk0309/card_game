@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { AnimatePresence } from "motion/react";
+import * as m from "motion/react-m";
+import { motionTransition, screenPresence } from "../motion/presets";
 
 const SUPPORTED_DEVICE_QUERY = "(min-width: 1280px) and (min-height: 720px)";
 const MOBILE_DEVICE_PATTERN = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
@@ -17,7 +20,7 @@ function UnsupportedDevice() {
 }
 
 export function DeviceSupportGate({ children }: { children: ReactNode }) {
-  const [supported, setSupported] = useState(false);
+  const [supported, setSupported] = useState<boolean | null>(null);
 
   useEffect(() => {
     const deviceQuery = window.matchMedia(SUPPORTED_DEVICE_QUERY);
@@ -28,5 +31,9 @@ export function DeviceSupportGate({ children }: { children: ReactNode }) {
     return () => deviceQuery.removeEventListener("change", syncSupport);
   }, []);
 
-  return supported ? children : <UnsupportedDevice/>;
+  if (supported === null) return null;
+  return <AnimatePresence initial={false} mode="wait">{supported
+    ? <m.div className="device-gate-screen" key="supported" variants={screenPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard}>{children}</m.div>
+    : <m.div className="device-gate-screen" key="unsupported" variants={screenPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard}><UnsupportedDevice/></m.div>}
+  </AnimatePresence>;
 }

@@ -1,6 +1,8 @@
 "use client";
 
 import { Archive, Check, ChevronRight, Clock3, Eye, LockKeyhole, Sparkles, X, Zap } from "lucide-react";
+import { AnimatePresence, LayoutGroup } from "motion/react";
+import * as m from "motion/react-m";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
@@ -19,6 +21,7 @@ import type {
 import { CardFace } from "./CardFace";
 import { AutoPanelVfx } from "./AutoPanelVfx";
 import { HighlightCardNames } from "./HighlightCardNames";
+import { fadePresence, motionTransition, panelPresence, popPresence, subtleHover, subtleTap } from "../motion/presets";
 
 const DIALOG_FOCUSABLE_SELECTOR = [
   "a[href]",
@@ -282,9 +285,9 @@ export function ShatteredTributeChoicePanel({
 
   const submittedCount = submittedIds.length;
 
-  return <div className="world-event-choice-backdrop auto-panel-backdrop" data-world-event-id={pendingEvent.id}>
+  return <m.div className="world-event-choice-backdrop auto-panel-backdrop" data-world-event-id={pendingEvent.id} variants={fadePresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard}>
     <AutoPanelVfx key={pendingEvent.id} variant="world-pending"/>
-    <section
+    <m.section
       className={`world-event-choice-panel ${intensityClass(pendingEvent.intensity)}`}
       role="dialog"
       aria-modal="true"
@@ -293,6 +296,11 @@ export function ShatteredTributeChoicePanel({
       ref={dialogRef}
       tabIndex={-1}
       onKeyDown={(event) => containDialogFocus(event, dialogRef.current)}
+      variants={panelPresence}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+      transition={motionTransition.panel}
     >
       <header className="world-event-choice-heading">
         <div className="resolution-hero world"><Archive size={30}/></div>
@@ -310,23 +318,23 @@ export function ShatteredTributeChoicePanel({
 
       <div className="world-event-submission-progress" id={progressId} role="status" aria-live="polite" aria-atomic="true">
         <span>{submittedCount} of {requiredIds.length} required players submitted</span>
-        <div className="world-event-progress-track" aria-hidden="true"><i style={{ width: `${requiredIds.length ? submittedCount / requiredIds.length * 100 : 100}%` }}/></div>
+        <div className="world-event-progress-track" aria-hidden="true"><m.i initial={false} animate={{ scaleX: requiredIds.length ? submittedCount / requiredIds.length : 1 }} transition={motionTransition.standard} style={{ transformOrigin: "left center" }}/></div>
       </div>
 
-      <ul className="world-event-player-statuses" aria-label="Player submission status">
+      <LayoutGroup id={`world-event-status-${pendingEvent.id}`}><ul className="world-event-player-statuses" aria-label="Player submission status"><AnimatePresence initial={false} mode="popLayout">
         {requiredIds.map((playerId) => {
           const player = players.find((candidate) => candidate.id === playerId);
           const autoResolved = autoResolvedIds.includes(playerId);
           const submitted = submittedIds.includes(playerId);
           const status = autoResolved ? "Auto-resolved" : submitted ? "Submitted" : "Waiting";
-          return <li className={autoResolved ? "auto-resolved" : submitted ? "submitted" : "waiting"} key={playerId}>
+          return <m.li layout className={autoResolved ? "auto-resolved" : submitted ? "submitted" : "waiting"} variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.layout} key={playerId}>
             <span>{playerId === localPlayer?.id ? "You" : player?.displayName ?? "Player no longer in battle"}</span>
-            <strong>{status}</strong>
-          </li>;
+            <AnimatePresence initial={false} mode="popLayout"><m.strong key={status} variants={popPresence} initial="hidden" animate="visible" exit="exit">{status}</m.strong></AnimatePresence>
+          </m.li>;
         })}
-      </ul>
+      </AnimatePresence></ul></LayoutGroup>
 
-      {isRequired && !isWaiting ? <div className="world-event-choice-controls">
+      <AnimatePresence initial={false} mode="wait">{isRequired && !isWaiting ? <m.div className="world-event-choice-controls" key="controls" variants={popPresence} initial="hidden" animate="visible" exit="exit">
         <div className="world-event-choice-instructions">
           <div>
             <Eye size={17}/>
@@ -342,7 +350,7 @@ export function ShatteredTributeChoicePanel({
             const cardLabel = entry.borrowed
               ? "Borrowed card; unavailable"
               : `${entry.card?.name ?? "Owned common card"}, ${entry.zoneLabel}, ${selected ? "selected" : "not selected"}`;
-            return <button
+            return <m.button
               type="button"
               className={`world-event-choice-card action-card ${entry.card ? `gothic-card effect-${entry.card.effect}` : ""} common-action-card ${selected ? "selected" : ""} ${entry.borrowed ? "borrowed" : ""}`.trim()}
               aria-label={cardLabel}
@@ -350,6 +358,10 @@ export function ShatteredTributeChoicePanel({
               ref={entry.slotKey === firstEligibleSlotKey ? firstEligibleRef : undefined}
               disabled={!entry.eligible || selectionFull}
               onClick={() => toggleCard(entry.id)}
+              animate={{ y: selected ? -5 : 0, scale: selected ? 1.025 : 1 }}
+              whileHover={entry.eligible && !selectionFull ? subtleHover : undefined}
+              whileTap={entry.eligible && !selectionFull ? subtleTap : undefined}
+              transition={motionTransition.standard}
               key={entry.slotKey}
             >
               {entry.card ? <CardFace card={entry.card} contextLabel={<>{entry.borrowed
@@ -358,23 +370,23 @@ export function ShatteredTributeChoicePanel({
                 <div className="card-sigil"><LockKeyhole size={18}/></div>
                 <strong>Borrowed card</strong>
               </>}
-            </button>;
+            </m.button>;
           })}
           {!eligibleCards.length && <p className="world-event-no-choice-cards">No eligible owned common cards.</p>}
         </div>
 
         {connectionError && <p className="world-event-choice-error" role="alert">{connectionError}</p>}
 
-        <button type="button" className="primary-button world-event-confirm-choice" ref={confirmRef} disabled={!canSubmit} onClick={() => void submitChoice()}>
+        <m.button type="button" className="primary-button world-event-confirm-choice" ref={confirmRef} disabled={!canSubmit} onClick={() => void submitChoice()} whileHover={canSubmit ? subtleHover : undefined} whileTap={canSubmit ? subtleTap : undefined}>
           Confirm {requiredSelectionCount} {requiredSelectionCount === 1 ? "card" : "cards"} <ChevronRight size={17}/>
-        </button>
-      </div> : <div className="world-event-choice-waiting" ref={waitingRef} role="status" aria-live="polite" tabIndex={-1}>
+        </m.button>
+      </m.div> : <m.div className="world-event-choice-waiting" ref={waitingRef} role="status" aria-live="polite" tabIndex={-1} key="waiting" variants={popPresence} initial="hidden" animate="visible" exit="exit">
         {isRequired
           ? <><Check size={24}/><strong>Choice submitted</strong><p>Waiting for others; choices stay private.</p></>
           : <><LockKeyhole size={24}/><strong>No choice needed</strong><p>Waiting for required players.</p></>}
-      </div>}
-    </section>
-  </div>;
+      </m.div>}</AnimatePresence>
+    </m.section>
+  </m.div>;
 }
 
 export type ResolvedWorldEventPanelProps = {
@@ -407,7 +419,7 @@ export function ResolvedWorldEventPanel({
     window.requestAnimationFrame(() => panelRef.current?.focus({ preventScroll: true }));
   }, [event.id]);
 
-  return <div
+  return <m.div
     className={`resolution-content world-event-resolution ${intensityClass(event.intensity)} ${className}`.trim()}
     data-world-event-id={event.id}
     role="dialog"
@@ -417,6 +429,11 @@ export function ResolvedWorldEventPanel({
     ref={panelRef}
     tabIndex={-1}
     onKeyDown={(keyEvent) => containDialogFocus(keyEvent, panelRef.current)}
+    variants={popPresence}
+    initial="hidden"
+    animate="visible"
+    exit="exit"
+    transition={motionTransition.panel}
   >
     <button type="button" className="modal-close icon-button" onClick={onClose} aria-label="Close"><X size={18}/></button>
     <div className="resolution-hero world"><Zap size={34}/></div>
@@ -425,11 +442,11 @@ export function ResolvedWorldEventPanel({
     <span className={`world-event-intensity ${intensityClass(event.intensity)}`}>{event.intensity}</span>
     <p className="modal-lead world-event-rule" id={descriptionId}><HighlightCardNames text={fullRule} cardNames={cardNames} onInspectCard={onInspectCard}/></p>
 
-    {localResult && <section className="world-event-private-result" aria-label="Your private World Event result">
+    <AnimatePresence>{localResult && <m.section className="world-event-private-result" aria-label="Your private World Event result" variants={popPresence} initial="hidden" animate="visible" exit="exit">
       <span><LockKeyhole size={15}/> YOUR PRIVATE RESULT</span>
       <strong><HighlightCardNames text={formatViewpointText(localResult.privateSummary || localResult.publicSummary, players, localPlayerId, { involvedPlayerIds: [localResult.playerId] })} cardNames={cardNames} onInspectCard={onInspectCard}/></strong>
       {localResult.autoResolved && <small>Auto-resolved at the deadline.</small>}
-    </section>}
+    </m.section>}</AnimatePresence>
 
-  </div>;
+  </m.div>;
 }

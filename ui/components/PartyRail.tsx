@@ -1,6 +1,8 @@
 "use client";
 
 import { Archive, Check, Clover, Dices, Hand, Heart, Hourglass, Shield, Swords } from "lucide-react";
+import { AnimatePresence, LayoutGroup } from "motion/react";
+import * as m from "motion/react-m";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
@@ -8,6 +10,7 @@ import { getStatusPresentations } from "@/shared/viewpoint.mjs";
 import { getCurrentBattlePhase } from "@/shared/battlePhases.mjs";
 import { CharacterAvatar } from "./CharacterAvatar";
 import { fitTooltipToViewport } from "./tooltipPosition";
+import { fadePresence, motionTransition, popPresence } from "../motion/presets";
 
 const teamMeta: Record<TeamId, { name: string; icon: typeof Shield }> = {
   veil: { name: "Veilbound", icon: Shield },
@@ -75,19 +78,25 @@ function RosterAvatar({ hero, playerName, onInspect }: {
     >
       <CharacterAvatar hero={hero} sizes="38px"/>
     </button>
-    {open && portalRoot && createPortal(<>
-      <span
+    {portalRoot && createPortal(<AnimatePresence>{open && <>
+      <m.span
+        key="avatar-tooltip"
         ref={tooltipRef}
         id={tooltipId}
         className="battle-avatar-tooltip"
         role="tooltip"
         aria-label={`Enlarged avatar of ${hero.name}`}
         style={{ left: position.left, top: position.top, visibility: position.ready ? "visible" : "hidden" }}
+        variants={popPresence}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+        transition={motionTransition.quick}
       >
         <CharacterAvatar hero={hero} className="large-portrait battle-avatar-tooltip-image" sizes="180px"/>
-      </span>
-      <span className={`tooltip-arrow roster-tooltip-arrow placement-${position.placement}`} aria-hidden="true" style={{ left: position.arrowLeft, top: position.arrowTop, visibility: position.ready ? "visible" : "hidden" }}/>
-    </>, portalRoot)}
+      </m.span>
+      <m.span key="avatar-arrow" className={`tooltip-arrow roster-tooltip-arrow placement-${position.placement}`} aria-hidden="true" style={{ left: position.arrowLeft, top: position.arrowTop, visibility: position.ready ? "visible" : "hidden" }} variants={fadePresence} initial="hidden" animate="visible" exit="exit"/>
+    </>}</AnimatePresence>, portalRoot)}
   </>;
 }
 
@@ -141,20 +150,26 @@ function RosterEffect({ buff, icon }: { buff: StatusPresentation; icon: React.Re
     >
       {icon}<b>{buff.displayValue}</b>
     </span>
-    {open && portalRoot && createPortal(<>
-      <span
+    {portalRoot && createPortal(<AnimatePresence>{open && <>
+      <m.span
+        key="effect-tooltip"
         ref={tooltipRef}
         id={tooltipId}
         className={`roster-buff-tooltip is-visible ${buff.golden ? "golden" : ""} ${buff.kind === "attackBuff" ? "attack" : ""}`}
         role="tooltip"
         style={{ left: position.left, top: position.top, visibility: position.ready ? "visible" : "hidden" }}
+        variants={popPresence}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+        transition={motionTransition.quick}
       >
         <strong>{buff.label}</strong>
         <span className={buff.negative ? "negative" : buff.kind === "attackBuff" ? "attack" : ""}><em>{buff.tooltipValue ?? buff.value}</em>{buff.durationLabel && <><i aria-hidden="true">-</i><b>{buff.durationLabel}</b></>}</span>
         <p>{buff.tooltip}</p>
-      </span>
-      <span className={`tooltip-arrow roster-tooltip-arrow placement-${position.placement}`} aria-hidden="true" style={{ left: position.arrowLeft, top: position.arrowTop, visibility: position.ready ? "visible" : "hidden" }}/>
-      </>,
+      </m.span>
+      <m.span key="effect-arrow" className={`tooltip-arrow roster-tooltip-arrow placement-${position.placement}`} aria-hidden="true" style={{ left: position.arrowLeft, top: position.arrowTop, visibility: position.ready ? "visible" : "hidden" }} variants={fadePresence} initial="hidden" animate="visible" exit="exit"/>
+      </>}</AnimatePresence>,
       portalRoot
     )}
   </>;
@@ -177,31 +192,31 @@ export function PartyRail({ players, game, localSessionId, onInspectPlayer }: {
             : kind === "revive" ? <Heart size={11}/>
               : kind === "purgedCards" ? <Archive size={11}/>
                 : <Hand size={11}/>;
-  return <aside className="party-rail">
+  return <m.aside className="party-rail" variants={fadePresence} initial="hidden" animate="visible" transition={motionTransition.standard}>
     <div className="rail-heading"><div><span className="eyebrow">WARRIORS</span><strong>{players.length}/10 players</strong></div><span className="all-ready-mark"><Check size={13}/> Battle active</span></div>
     {(["veil", "ember"] as TeamId[]).map((team) => {
       const Icon = teamMeta[team].icon;
       const members = players.filter((player) => player.hero.team === team);
-      return <section className={`team-block ${team}`} key={team}>
+      return <LayoutGroup id={`party-${team}`} key={team}><section className={`team-block ${team}`}>
         <div className="team-title"><span><Icon size={14}/> {teamMeta[team].name}</span><span>{members.length}</span></div>
-        {members.map((player) => {
+        <AnimatePresence initial={false} mode="popLayout">{members.map((player) => {
           const hero = player.hero;
           const state = game?.playerStates[player.id];
           const hp = state?.hp ?? hero.hp;
           const maxHp = state?.maxHp ?? hero.maxHp;
           const dead = hp <= 0;
           const buffs = state ? getStatusPresentations(player, state, players, localSessionId, currentPhase) : [];
-          return <article className={`hero-row ${dead ? "is-dead" : ""} ${player.id === localSessionId ? "is-you" : ""}`} key={player.id}>
+          return <m.article layout className={`hero-row ${dead ? "is-dead" : ""} ${player.id === localSessionId ? "is-you" : ""}`} variants={popPresence} initial="hidden" animate={{ opacity: dead ? 0.48 : 1, filter: dead ? "grayscale(.82) contrast(1.1)" : "grayscale(0) contrast(1)" }} exit="exit" transition={motionTransition.layout} key={player.id}>
             <RosterAvatar hero={hero} playerName={player.displayName} onInspect={() => onInspectPlayer?.(player.id)}/>
             <div className="hero-copy">
-              <div className="hero-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{player.displayName}</strong>{dead ? <em>DEFEATED</em> : null}</div>
+              <div className="hero-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{player.displayName}</strong><AnimatePresence>{dead ? <m.em variants={popPresence} initial="hidden" animate="visible" exit="exit">DEFEATED</m.em> : null}</AnimatePresence></div>
               <span>{hero.name}</span>
-              <div className="hp-line"><Heart size={11} fill="currentColor"/><div className="hp-meter" role="progressbar" aria-label={`${player.displayName} health`} aria-valuemin={0} aria-valuemax={maxHp} aria-valuenow={hp}><i style={{ width: `${Math.max(0, hp / maxHp) * 100}%` }}/><strong>{hp} / {maxHp} HP</strong></div></div>
-              {buffs.length > 0 && <div className="roster-buff-row" aria-label={`${player.displayName} active effects`}>{buffs.map((buff, index) => <RosterEffect buff={buff} icon={statusIcon(buff.kind)} key={`${buff.kind}-${index}`}/>)}</div>}
+              <div className="hp-line"><Heart size={11} fill="currentColor"/><div className="hp-meter" role="progressbar" aria-label={`${player.displayName} health`} aria-valuemin={0} aria-valuemax={maxHp} aria-valuenow={hp}><m.i initial={false} animate={{ scaleX: Math.max(0, hp / maxHp) }} transition={motionTransition.standard} style={{ transformOrigin: "left center" }}/><AnimatePresence initial={false} mode="popLayout"><m.strong key={`${hp}:${maxHp}`} variants={popPresence} initial="hidden" animate="visible" exit="exit">{hp} / {maxHp} HP</m.strong></AnimatePresence></div></div>
+              <AnimatePresence initial={false}>{buffs.length > 0 && <m.div layout className="roster-buff-row" aria-label={`${player.displayName} active effects`} variants={fadePresence} initial="hidden" animate="visible" exit="exit">{buffs.map((buff, index) => <m.span layout className="roster-effect-motion" variants={popPresence} initial="hidden" animate="visible" exit="exit" key={`${buff.kind}-${index}`}><RosterEffect buff={buff} icon={statusIcon(buff.kind)}/></m.span>)}</m.div>}</AnimatePresence>
             </div>
-          </article>;
-        })}
-      </section>;
+          </m.article>;
+        })}</AnimatePresence>
+      </section></LayoutGroup>;
     })}
-  </aside>;
+  </m.aside>;
 }

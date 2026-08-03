@@ -1,6 +1,8 @@
 "use client";
 
 import { Check, Crown, X } from "lucide-react";
+import { useReducedMotion } from "motion/react";
+import * as m from "motion/react-m";
 import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useRef, useState } from "react";
 import { describeCardFailure, describeCardSuccess, getCardEffectLabel, getCardRarity } from "@/shared/cardRules";
@@ -41,13 +43,14 @@ export function CardFace({ card, contextLabel, pityCostOverride, previewTrigger 
   const faceRef = useRef<HTMLDivElement>(null);
   const [artworkViewerOpen, setArtworkViewerOpen] = useState(false);
   const [loadedArtwork, setLoadedArtwork] = useState("");
+  const reducedMotion = useReducedMotion();
   const changeArtworkViewer = useCallback((open: boolean) => setArtworkViewerOpen(open), []);
 
   return <><div ref={faceRef} className="gothic-card-face" data-card-id={card.id} data-card-name={card.name} data-rarity={rarity}>
     <div className="gothic-card-art" data-target={artwork.target} data-art-kind={artwork.kind}>
-      <div className="gothic-card-art-backdrop"/>
+      <m.div className="gothic-card-art-backdrop" animate={loadedArtwork === artworkSource || reducedMotion ? { opacity: 1 } : { opacity: [0.24, 0.62, 0.24] }} transition={loadedArtwork === artworkSource || reducedMotion ? { duration: 0 } : { duration: 1.1, repeat: Infinity, ease: "easeInOut" }}/>
       {artworkSource
-        ? <img className={`gothic-card-scene ${loadedArtwork === artworkSource ? "is-loaded" : ""}`} src={artworkSource} alt={artwork.alt} width="640" height="640" loading="lazy" decoding="async" draggable={false} onLoad={() => setLoadedArtwork(artworkSource)}/>
+        ? <m.img className="gothic-card-scene" src={artworkSource} alt={artwork.alt} width="640" height="640" loading="lazy" decoding="async" draggable={false} onLoad={() => setLoadedArtwork(artworkSource)} initial={{ opacity: 0, scale: reducedMotion ? 1 : 1.015 }} animate={{ opacity: loadedArtwork === artworkSource ? 1 : 0, scale: loadedArtwork === artworkSource ? 1 : reducedMotion ? 1 : 1.015 }}/>
         : <div className="gothic-card-art-missing" role="img" aria-label={artwork.alt}><span>?</span><small>ARTWORK PENDING</small></div>}
       <div className={`gothic-card-effect-wash effect-${card.effect}`} aria-hidden="true"/>
     </div>

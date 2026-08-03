@@ -1,6 +1,8 @@
 "use client";
 
 import { Crown } from "lucide-react";
+import { AnimatePresence } from "motion/react";
+import * as m from "motion/react-m";
 import type { RefObject } from "react";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -12,6 +14,7 @@ import { CardEffectIcon } from "./CardEffectIcon";
 import { EffectText } from "./EffectText";
 import { PityIcon } from "./PityCost";
 import { fitCardTooltipToViewport } from "./tooltipPosition";
+import { fadePresence, motionTransition, popPresence } from "../motion/presets";
 
 type Props = {
   anchorRef: RefObject<HTMLDivElement | null>;
@@ -151,18 +154,23 @@ export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, r
     };
   }, [anchorRef, open]);
 
-  const portalRoot = open && typeof document !== "undefined" ? document.body : null;
-  if (!open || !portalRoot) return null;
+  const portalRoot = typeof document !== "undefined" ? document.body : null;
+  if (!portalRoot) return null;
   const pityCost = pityCostOverride ?? getCardPityCost(card);
   const rarity = getCardRarity(card);
 
-  return createPortal(<><aside
+  return createPortal(<AnimatePresence>{open && <><m.aside
     ref={tooltipRef}
     id={tooltipId}
     className={`card-hover-tooltip effect-${card.effect} placement-${position.placement}`}
     role="tooltip"
     aria-label={`${card.name} full card details`}
     style={{ left: position.left, top: position.top, visibility: position.ready ? "visible" : "hidden" }}
+    variants={popPresence}
+    initial="hidden"
+    animate="visible"
+    exit="exit"
+    transition={motionTransition.quick}
   >
     <div
       className="card-hover-tooltip-art"
@@ -192,5 +200,5 @@ export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, r
         </section>)}
       </div>
     </div>
-  </aside><span className={`tooltip-arrow card-tooltip-arrow effect-${card.effect} placement-${position.placement}`} aria-hidden="true" style={{ left: position.arrowLeft, top: position.arrowTop, visibility: position.ready ? "visible" : "hidden" }}/></>, portalRoot);
+  </m.aside><m.span className={`tooltip-arrow card-tooltip-arrow effect-${card.effect} placement-${position.placement}`} aria-hidden="true" style={{ left: position.arrowLeft, top: position.arrowTop, visibility: position.ready ? "visible" : "hidden" }} variants={fadePresence} initial="hidden" animate="visible" exit="exit"/></>}</AnimatePresence>, portalRoot);
 }

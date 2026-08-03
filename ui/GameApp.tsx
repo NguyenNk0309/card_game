@@ -1,6 +1,8 @@
 "use client";
 
-import { Archive, AudioLines, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, Coins, Crown, Dices, Eye, Flame, Hand, Heart, History, Hourglass, Layers, ListOrdered, LogOut, Octagon, RefreshCw, Shield, ShoppingBag, Skull, Sparkles, Target, Users, Volume2, X, Zap } from "lucide-react";
+import { Archive, AudioLines, Check, ChevronDown, ChevronLeft, ChevronRight, CircleHelp, Clock3, Coins, Crown, Dices, Eye, Flame, GripVertical, Hand, Heart, History, Hourglass, Layers, ListOrdered, LogOut, Octagon, RefreshCw, Shield, ShoppingBag, Skull, Sparkles, Target, Users, Volume2, X, Zap } from "lucide-react";
+import { AnimatePresence, LayoutGroup, Reorder, useDragControls, useReducedMotion } from "motion/react";
+import * as m from "motion/react-m";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { createAdventure, createInitialGame, createPlayerSession, getCharacterOptions, getPassiveDiceBonus, randomD20Roll, resolveCardTurn } from "@/backend/game/engine";
@@ -25,7 +27,10 @@ import { PityIcon } from "./components/PityCost";
 import { ShopPanel } from "./components/ShopPanel";
 import { ResolvedWorldEventPanel, ShatteredTributeChoicePanel, WorldEventLibrary } from "./components/WorldEventPanels";
 import { useGameAudio } from "./hooks/useGameAudio";
+import { useCardTravel } from "./hooks/useCardTravel";
 import { useRoomSocket } from "./hooks/useRoomSocket";
+import { CardTravelVfx } from "./motion/CardTravelVfx";
+import { fadePresence, motionTransition, noticePresence, panelPresence, popPresence, screenPresence, subtleHover, subtleTap } from "./motion/presets";
 
 const teamName: Record<TeamId, string> = { veil: "Veilbound", ember: "Embercourt" };
 const PLAYER_NAME_STORAGE_KEY = "shattered-oath-player-name";
@@ -57,13 +62,59 @@ function HandCardContents({ card, pityCostOverride }: { card: ActionCard; pityCo
   return <CardFace card={card} pityCostOverride={pityCostOverride} previewTrigger="hover"/>;
 }
 
+function HandCardItem({ card, selected, playable, blockedReason, heroColor, pityCostOverride, onSelect, onMove }: {
+  card: ActionCard;
+  selected: boolean;
+  playable: boolean;
+  blockedReason?: string;
+  heroColor: string;
+  pityCostOverride?: number;
+  onSelect: () => void;
+  onMove: (direction: -1 | 1) => void;
+}) {
+  const dragControls = useDragControls();
+  return <Reorder.Item
+    as="div"
+    value={card.id}
+    className={`hand-card-slot ${selected ? "selected" : ""}`}
+    layout="position"
+    dragListener={false}
+    dragControls={dragControls}
+    dragMomentum={false}
+    whileDrag={{ y: -14, scale: 1.055, rotate: 1.5, zIndex: 25 }}
+    whileHover={playable ? { y: selected ? -7 : -4, scale: selected ? 1.035 : 1.02 } : undefined}
+    animate={{ y: selected ? -7 : 0, scale: selected ? 1.035 : 1 }}
+    transition={motionTransition.layout}
+  >
+    <button
+      className={`action-card gothic-card effect-${card.effect} ${card.unique ? "hero-special-card" : "common-action-card"} ${card.effect === "none" ? "no-effect-card" : ""} ${selected ? "selected" : ""}`}
+      aria-pressed={selected}
+      title={blockedReason}
+      style={{ "--hero-color": heroColor } as React.CSSProperties}
+      onClick={onSelect}
+      disabled={!playable}
+    ><HandCardContents card={card} pityCostOverride={pityCostOverride}/></button>
+    <button
+      type="button"
+      className="hand-reorder-handle"
+      aria-label={`Rearrange ${card.name}. Drag, or use Left and Right arrow keys.`}
+      onPointerDown={(event) => dragControls.start(event)}
+      onKeyDown={(event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        onMove(event.key === "ArrowLeft" ? -1 : 1);
+      }}
+    ><GripVertical size={15}/></button>
+  </Reorder.Item>;
+}
+
 function PublicDeck({ player, localPlayer }: { player: PlayerSession; localPlayer?: PlayerSession }) {
   return <div className="public-character-deck"><div className="public-deck-heading"><div><span className="eyebrow">PUBLIC CHARACTER DECK · <b className={`player-name-highlight ${playerRelationClass(player, localPlayer)}`}>{player.displayName}</b></span><strong>{player.hero.name} · {player.skillDeck.length} cards</strong></div></div><div>{player.skillDeck.map((card) => <article key={card.id} className={`public-deck-card gothic-card effect-${card.effect} ${card.unique ? "public-special-card" : ""}`} style={{ "--hero-color": player.hero.color } as React.CSSProperties}><CardFace card={card}/></article>)}</div></div>;
 }
 
 function DetailedGuide({ onClose }: { onClose: () => void }) {
-  return <div className="guide-update-backdrop" onClick={onClose}>
-    <section className="guide-update-panel" onClick={(event) => event.stopPropagation()}>
+  return <m.div className="guide-update-backdrop" onClick={onClose} variants={fadePresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard}>
+    <m.section className="guide-update-panel" onClick={(event) => event.stopPropagation()} variants={panelPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.panel}>
       <button className="modal-close icon-button" onClick={onClose} aria-label="Close"><X size={18}/></button>
       <span className="eyebrow">QUICK GUIDE</span>
       <h2>How to play Shattered Oath</h2>
@@ -79,8 +130,8 @@ function DetailedGuide({ onClose }: { onClose: () => void }) {
         <article><strong>9 · External Cards enter your draw pile when bought.</strong></article>
         <article><strong>10 · Defeat the enemy team, or press End battle to settle the current result.</strong></article>
       </div>
-    </section>
-  </div>;
+    </m.section>
+  </m.div>;
 }
 
 function ConfirmedTopAction({ className, icon, label, title, detail, onConfirm }: { className: string; icon: React.ReactNode; label: string; title: string; detail: string; onConfirm: () => void }) {
@@ -124,15 +175,15 @@ function ConfirmedTopAction({ className, icon, label, title, detail, onConfirm }
     };
   }, [open]);
   return <div className="top-action-confirm-control" ref={controlRef}>
-    <button className={`text-button ${className}`} onClick={() => { placeConfirmation(); setOpen(true); }}>{icon} {label}</button>
-    {open && createPortal(<div className="turn-action-confirm top-action-confirm-popover" ref={confirmationRef} role="dialog" aria-label={title} style={popoverPosition}>
-      <strong>{title}</strong>
-      <span>{detail}</span>
-      <div>
-        <button onClick={() => { setOpen(false); onConfirm(); }}><Check size={13}/> Confirm</button>
-        <button onClick={() => setOpen(false)}><X size={13}/> Cancel</button>
-      </div>
-    </div>, document.body)}
+    <m.button className={`text-button ${className}`} onClick={() => { placeConfirmation(); setOpen(true); }} whileHover={subtleHover} whileTap={subtleTap}>{icon} {label}</m.button>
+    {typeof document !== "undefined" && createPortal(<AnimatePresence>{open && <m.div className="turn-action-confirm top-action-confirm-popover" ref={confirmationRef} role="dialog" aria-label={title} style={popoverPosition} variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.quick}>
+        <strong>{title}</strong>
+        <span>{detail}</span>
+        <div>
+          <button onClick={() => { setOpen(false); onConfirm(); }}><Check size={13}/> Confirm</button>
+          <button onClick={() => setOpen(false)}><X size={13}/> Cancel</button>
+        </div>
+      </m.div>}</AnimatePresence>, document.body)}
   </div>;
 }
 
@@ -276,10 +327,24 @@ function TurnOrderList({ players, game, order, localPlayer, expanded = false, on
   const activeId = order[0]?.id;
   const acted = new Set(game?.actedThisRound ?? []);
   const branchPlayers = expanded ? (game?.roundOrder ?? order.map((player) => player.id)).map((id) => players.find((player) => player.id === id)).filter((player): player is PlayerSession => Boolean(player)) : order.slice(0, 2);
-  return <div className={`turn-queue-list ${expanded ? "expanded-turn-list turn-branch" : ""}`}>{branchPlayers.map((player) => { const status = player.id === activeId ? "current" : acted.has(player.id) ? "passed" : "future"; return <article className={`turn-queue-item ${status}`} aria-label={`${status}: ${player.displayName}`} key={player.id}><button className="portrait-button" onClick={() => onInspect(player.id)} aria-label={`View ${player.displayName}'s character`}><CharacterAvatar hero={player.hero} className="portrait mini" sizes="28px"/></button><div className="turn-player-copy"><strong className={`player-name-highlight ${playerRelationClass(player, localPlayer)}`}>{player.displayName}</strong><span className="turn-player-meta">{player.hero.name} · Speed {player.hero.speed} · {teamName[player.hero.team]} · {game?.playerStates[player.id]?.hp ?? player.hero.hp} HP</span></div>{expanded && <i className="turn-branch-node" aria-hidden="true"/>}</article>; })}</div>;
+  return <LayoutGroup id={expanded ? "expanded-turn-order" : "compact-turn-order"}>
+    <div className={`turn-queue-list ${expanded ? "expanded-turn-list turn-branch" : ""}`}>
+      <AnimatePresence initial={false} mode="popLayout">
+        {branchPlayers.map((player) => {
+          const status = player.id === activeId ? "current" : acted.has(player.id) ? "passed" : "future";
+          return <m.article layout="position" className={`turn-queue-item ${status}`} aria-label={`${status}: ${player.displayName}`} variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.layout} key={player.id}>
+            <button className="portrait-button" onClick={() => onInspect(player.id)} aria-label={`View ${player.displayName}'s character`}><CharacterAvatar hero={player.hero} className="portrait mini" sizes="28px"/></button>
+            <div className="turn-player-copy"><strong className={`player-name-highlight ${playerRelationClass(player, localPlayer)}`}>{player.displayName}</strong><span className="turn-player-meta">{player.hero.name} · Speed {player.hero.speed} · {teamName[player.hero.team]} · {game?.playerStates[player.id]?.hp ?? player.hero.hp} HP</span></div>
+            {expanded && <i className="turn-branch-node" aria-hidden="true"/>}
+          </m.article>;
+        })}
+      </AnimatePresence>
+    </div>
+  </LayoutGroup>;
 }
 
 function RunStatus({ completedPhases, secondsLeft, worldEvents, worldEventPlan, pendingEvent, onOpenWorldEvents }: { completedPhases: number; secondsLeft: number; worldEvents: SyncedGameState["worldEventHistory"]; worldEventPlan?: SyncedGameState["worldEventPlan"]; pendingEvent?: SyncedGameState["pendingWorldEvent"]; onOpenWorldEvents: () => void }) {
+  const reducedMotion = Boolean(useReducedMotion());
   const currentPhase = getCurrentBattlePhase(completedPhases);
   const visualizedCompletedPhases = getVisualizedCompletedPhases(completedPhases);
   return <nav className="run-status" aria-label="Battle status"><div><span className="eyebrow">PHASE</span><strong>{currentPhase} <i>/ {getPhaseCountDenominator(currentPhase)}</i></strong></div><div className="chapter-pips" aria-label="First 30 phases">{Array.from({ length: PHASE_TIMELINE_LENGTH }).map((_, index) => {
@@ -299,8 +364,29 @@ function RunStatus({ completedPhases, secondsLeft, worldEvents, worldEventPlan, 
         : plannedDefinition
           ? `${plannedDefinition.title}: ${plannedDefinition.fullDescription}`
           : `${schedule?.intensity} Level ${schedule?.level}. The event will be selected before phase ${phase}.`;
-    return <i key={phase} data-turn={phase} title={eventPhase ? undefined : `Phase ${phase}`} tabIndex={eventPhase ? 0 : undefined} aria-label={eventPhase ? `Phase ${phase}, World Event${waiting ? ", waiting for choices" : ""}. ${eventDetail}` : `Phase ${phase}`} className={`${phaseClass} ${eventPhase ? "world-event-turn" : ""} ${resolvedEvent ? "event-triggered" : ""} ${waiting ? "event-pending" : ""}`}>{eventPhase && <span className="phase-event-tooltip" role="tooltip"><span className="tooltip-arrow phase-tooltip-arrow" aria-hidden="true"/><b><Zap size={13}/> Phase {phase} World Event{waiting ? " · Waiting for choices" : ""}</b><small>{eventDetail}</small></span>}</i>;
-  })}</div><div className={`turn-clock ${pendingEvent ? "event-paused" : secondsLeft <= 10 ? "urgent" : ""}`}><Clock3 size={14}/> {pendingEvent ? "Event choice" : `${secondsLeft} seconds`}</div><button type="button" className="icon-button phase-world-events-button" onClick={onOpenWorldEvents} aria-label="View all World Events" title="View all World Events"><Zap size={17}/></button></nav>;
+    const emphasizeEvent = eventPhase && (phaseClass === "current" || waiting) && !reducedMotion;
+    return <m.i key={phase} data-turn={phase} title={eventPhase ? undefined : `Phase ${phase}`} tabIndex={eventPhase ? 0 : undefined} aria-label={eventPhase ? `Phase ${phase}, World Event${waiting ? ", waiting for choices" : ""}. ${eventDetail}` : `Phase ${phase}`} className={`${phaseClass} ${eventPhase ? "world-event-turn" : ""} ${resolvedEvent ? "event-triggered" : ""} ${waiting ? "event-pending" : ""}`} animate={emphasizeEvent ? { scale: [1, 1.32, 1], boxShadow: ["0 0 7px rgba(239,67,48,.68)", "0 0 18px rgba(255,82,61,1)", "0 0 7px rgba(239,67,48,.68)"] } : { scale: 1 }} transition={emphasizeEvent ? { duration: 1.05, repeat: Infinity, ease: "easeInOut" } : motionTransition.quick}>{eventPhase && <span className="phase-event-tooltip" role="tooltip"><span className="tooltip-arrow phase-tooltip-arrow" aria-hidden="true"/><b><Zap size={13}/> Phase {phase} World Event{waiting ? " · Waiting for choices" : ""}</b><small>{eventDetail}</small></span>}</m.i>;
+  })}</div><m.div className={`turn-clock ${pendingEvent ? "event-paused" : secondsLeft <= 10 ? "urgent" : ""}`} animate={!pendingEvent && secondsLeft <= 10 && !reducedMotion ? { scale: [1, 1.045, 1], opacity: [1, .72, 1] } : { scale: 1, opacity: 1 }} transition={!pendingEvent && secondsLeft <= 10 && !reducedMotion ? { duration: .72, repeat: Infinity, ease: "easeInOut" } : motionTransition.quick}><Clock3 size={14}/> {pendingEvent ? "Event choice" : `${secondsLeft} seconds`}</m.div><m.button type="button" className="icon-button phase-world-events-button" onClick={onOpenWorldEvents} aria-label="View all World Events" title="View all World Events" whileHover={subtleHover} whileTap={subtleTap}><Zap size={17}/></m.button></nav>;
+}
+
+function TurnStatusBanner({ isLocalActiveTurn, worldEventBlocking, pendingTitle, activePlayer, players, localPlayer }: {
+  isLocalActiveTurn: boolean;
+  worldEventBlocking: boolean;
+  pendingTitle?: string;
+  activePlayer?: PlayerSession;
+  players: PlayerSession[];
+  localPlayer?: PlayerSession;
+}) {
+  const reducedMotion = Boolean(useReducedMotion());
+  const stateKey = worldEventBlocking ? `world:${pendingTitle}` : isLocalActiveTurn ? "local-turn" : `waiting:${activePlayer?.id ?? "none"}`;
+  return <m.section layout className={`objective-card turn-status-banner ${isLocalActiveTurn ? "active" : "waiting"}`} animate={{ scale: isLocalActiveTurn && !reducedMotion ? [1, 1.012, 1] : 1 }} transition={isLocalActiveTurn && !reducedMotion ? { duration: 0.42 } : motionTransition.standard}>
+    <AnimatePresence initial={false} mode="wait">
+      <m.div className="turn-status-content" key={stateKey} variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard}>
+        <div className="objective-icon">{isLocalActiveTurn ? <Target size={22}/> : worldEventBlocking ? <Zap size={22}/> : <m.span className="waiting-hourglass" animate={reducedMotion ? undefined : { rotate: 360 }} transition={reducedMotion ? undefined : { duration: 2.1, repeat: Infinity, ease: "linear" }}><Hourglass size={22}/></m.span>}</div>
+        <div><strong>{worldEventBlocking ? <>Resolving <span className="active-turn-word">{pendingTitle}</span>&hellip;</> : isLocalActiveTurn ? <>Here is <b className="active-turn-word">your</b> turn</> : activePlayer ? <>Waiting for <HighlightPlayerNames text={playerReference(activePlayer, localPlayer, { includeRelation: true })} players={players} localPlayer={localPlayer}/>&apos;s decision&hellip;</> : "Waiting for a player…"}</strong><p>{worldEventBlocking ? "Turns pause until choices arrive or time expires." : "Defeat the enemy team, or press End battle to settle the current result."}</p></div>
+      </m.div>
+    </AnimatePresence>
+  </m.section>;
 }
 
 function TargetPlayerPicker({ options, selectedId, game, localPlayer, onChange }: { options: PlayerSession[]; selectedId: string; game: SyncedGameState | null; localPlayer?: PlayerSession; onChange: (id: string) => void }) {
@@ -323,14 +409,14 @@ function TargetPlayerPicker({ options, selectedId, game, localPlayer, onChange }
     return `${player.hero.name} · ${state?.hp ?? player.hero.hp} HP · ${state?.shield ?? 0} shield${(state?.skipTurns ?? 0) > 0 ? " · NEXT TURN CANCELLED" : ""}${(state?.reviveIn ?? 0) > 0 ? " · REVIVING" : ""}`;
   };
   return <div className={`target-player-dropdown ${open ? "open" : ""}`} ref={pickerRef}>
-    <button type="button" className="target-dropdown-trigger" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)}>
+    <m.button type="button" className="target-dropdown-trigger" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)} whileTap={subtleTap}>
       {selected ? <span className="target-option-copy"><strong className={`player-name-highlight ${playerRelationClass(selected, localPlayer)}`}>{selected.displayName}</strong><small>{playerMeta(selected)}</small></span> : <span>No target available</span>}
-      <ChevronDown size={17}/>
-    </button>
-    {open && <div className="target-dropdown-options" role="listbox" aria-label="Choose target player">{options.map((player) => {
+      <m.span animate={{ rotate: open ? 180 : 0 }} transition={motionTransition.quick}><ChevronDown size={17}/></m.span>
+    </m.button>
+    <AnimatePresence>{open && <m.div className="target-dropdown-options" role="listbox" aria-label="Choose target player" variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.quick}>{options.map((player) => {
       const isSelected = player.id === selected?.id;
-      return <button type="button" role="option" aria-selected={isSelected} className={`target-dropdown-option ${isSelected ? "selected" : ""}`} onClick={() => { onChange(player.id); setOpen(false); }} key={player.id}><span className="target-option-copy"><strong className={`player-name-highlight ${playerRelationClass(player, localPlayer)}`}>{player.displayName}</strong><small>{playerMeta(player)}</small></span>{isSelected && <Check size={16}/>}</button>;
-    })}</div>}
+      return <m.button type="button" role="option" aria-selected={isSelected} className={`target-dropdown-option ${isSelected ? "selected" : ""}`} onClick={() => { onChange(player.id); setOpen(false); }} whileHover={{ x: 3 }} whileTap={subtleTap} key={player.id}><span className="target-option-copy"><strong className={`player-name-highlight ${playerRelationClass(player, localPlayer)}`}>{player.displayName}</strong><small>{playerMeta(player)}</small></span>{isSelected && <Check size={16}/>}</m.button>;
+    })}</m.div>}</AnimatePresence>
   </div>;
 }
 
@@ -412,9 +498,11 @@ export default function GameApp() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  return activeRoomId
-    ? <RoomGame roomId={activeRoomId} onRoomUnavailable={returnHome} onReturnHome={() => returnHome()}/>
-    : <HomeScreen busy={homeBusy} error={homeError} onCreateRoom={createRoom} onJoinRoom={joinRoom}/>;
+  return <AnimatePresence initial={false} mode="popLayout">
+    {activeRoomId
+      ? <m.div className="app-screen" key={`room:${activeRoomId}`} variants={screenPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard}><RoomGame roomId={activeRoomId} onRoomUnavailable={returnHome} onReturnHome={() => returnHome()}/></m.div>
+      : <m.div className="app-screen" key="home" variants={screenPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard}><HomeScreen busy={homeBusy} error={homeError} onCreateRoom={createRoom} onJoinRoom={joinRoom}/></m.div>}
+  </AnimatePresence>;
 }
 
 function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string; onRoomUnavailable: (message: string) => void; onReturnHome: () => void }) {
@@ -427,6 +515,7 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [lobbyAdventure] = useState(() => createAdventure("ARENA"));
   const [selectedCard, setSelectedCard] = useState("");
+  const [handOrder, setHandOrder] = useState<string[]>([]);
   const [targetPlayerId, setTargetPlayerId] = useState("");
   const [animatedRoll, setAnimatedRoll] = useState<number | null>(null);
   const [rolling, setRolling] = useState(false);
@@ -466,6 +555,17 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
   const previewCardCatalog = useMemo(() => characterOptions.flatMap((option) => option.skillDeck), [characterOptions]);
   const panelCardNames = useMemo(() => [...new Set([...previewCardCatalog.map((card) => card.name), ...cardCatalog.map((card) => card.name), ...SHOP_CATALOG.filter((offer) => offer.card).map((offer) => offer.name)])], [previewCardCatalog, cardCatalog]);
   const localHand = localState?.hand.map((id) => cardCatalog.find((card) => card.id === id)).filter((card): card is ActionCard => Boolean(card)) ?? [];
+  const authoritativeHandKey = localHand.map((card) => card.id).join("|");
+  useEffect(() => {
+    const authoritativeIds = authoritativeHandKey ? authoritativeHandKey.split("|") : [];
+    setHandOrder((current) => {
+      const reconciled = [...current.filter((id) => authoritativeIds.includes(id)), ...authoritativeIds.filter((id) => !current.includes(id))];
+      return reconciled.length === current.length && reconciled.every((id, index) => id === current[index]) ? current : reconciled;
+    });
+  }, [authoritativeHandKey]);
+  const orderedLocalHand = useMemo(() => handOrder.map((id) => localHand.find((card) => card.id === id)).filter((card): card is ActionCard => Boolean(card)), [handOrder, localHand]);
+  const displayedLocalHand = orderedLocalHand.length === localHand.length ? orderedLocalHand : localHand;
+  const cardTravel = useCardTravel({ game: game ?? null, localState, sessionId, cards: cardCatalog });
   const runComplete = phase === "game" && Boolean(game?.ended);
   const pendingWorldEvent = game?.pendingWorldEvent ?? null;
   const worldEventBlocking = Boolean(pendingWorldEvent);
@@ -731,6 +831,14 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
     if (!game || !activePlayer || activePlayer.id !== sessionId || !activeCard || runComplete || worldEventBlocking || status !== "connected" || rolling || (activeState?.hp ?? 0) <= 0) return;
     if (send({ type: "discard-card", sessionId, cardId: activeCard.id })) playEffect("discard");
   };
+  const moveHandCard = (cardId: string, direction: -1 | 1) => setHandOrder((current) => {
+    const index = current.indexOf(cardId);
+    const destination = index + direction;
+    if (index < 0 || destination < 0 || destination >= current.length) return current;
+    const next = [...current];
+    [next[index], next[destination]] = [next[destination], next[index]];
+    return next;
+  });
   const buyShopOffer = (offerId: string) => { clearError(); send({ type: "shop:buy", sessionId, offerId }); };
   const exchangePityForGold = () => { clearError(); send({ type: "shop:exchange-pity", sessionId }); };
   const useInventoryItem = (itemId: string) => { clearError(); send({ type: "shop:use-item", sessionId, itemId }); };
@@ -768,33 +876,36 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
     if (showRunComplete) send({ type: "return:lobby" });
   };
 
-  return <main className="game-shell arena-focus"><div className="grain"/>{visibleNotices.length > 0 && <section className="game-notice-stack" aria-live="polite" aria-label="Battle notices">{visibleNotices.map((notice) => <article className={`outcome-toast game-notice ${notice.kind}`} key={notice.id}><GameNoticeIcon kind={notice.kind}/><div><strong><GameNoticeTitle notice={notice} players={players} localPlayer={localPlayer}/></strong><span><HighlightPlayerNames text={notice.detail} players={players} localPlayer={localPlayer} useActualNames/></span></div></article>)}</section>}{showGuide && <DetailedGuide onClose={() => setShowGuide(false)}/>} {showPendingWorldEventChoice && pendingWorldEvent && <ShatteredTributeChoicePanel pendingEvent={pendingWorldEvent} players={players} localPlayer={localPlayer} localState={localState} handCards={localHand} cardNames={panelCardNames} serverTimeOffsetMs={serverTimeOffsetMs} connectionError={roomError} onInspectCard={inspectCard} onSubmit={submitWorldEventChoice}/>}
+  return <main className="game-shell arena-focus"><div className="grain"/><CardTravelVfx events={cardTravel.events} onComplete={cardTravel.complete}/>
+    <AnimatePresence>{visibleNotices.length > 0 && <m.section layout className="game-notice-stack" aria-live="polite" aria-label="Battle notices">{visibleNotices.map((notice) => <m.article layout className={`outcome-toast game-notice ${notice.kind}`} variants={noticePresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard} key={notice.id}><GameNoticeIcon kind={notice.kind}/><div><strong><GameNoticeTitle notice={notice} players={players} localPlayer={localPlayer}/></strong><span><HighlightPlayerNames text={notice.detail} players={players} localPlayer={localPlayer} useActualNames/></span></div></m.article>)}</m.section>}</AnimatePresence>
+    <AnimatePresence>{showGuide && <DetailedGuide onClose={() => setShowGuide(false)}/>}</AnimatePresence>
+    <AnimatePresence>{showPendingWorldEventChoice && pendingWorldEvent && <ShatteredTributeChoicePanel pendingEvent={pendingWorldEvent} players={players} localPlayer={localPlayer} localState={localState} handCards={localHand} cardNames={panelCardNames} serverTimeOffsetMs={serverTimeOffsetMs} connectionError={roomError} onInspectCard={inspectCard} onSubmit={submitWorldEventChoice}/>}</AnimatePresence>
     <header className="topbar"><div className="brand"><div className="brand-mark"><Crown size={20}/></div><div><strong>SHATTERED OATH</strong><span>Two teams. One victor.</span></div></div>
       {phase === "game" ? <RunStatus completedPhases={game?.completedPhases ?? Math.max(0, (game?.roundNumber ?? 1) - 1)} secondsLeft={secondsLeft} worldEvents={game?.worldEventHistory ?? []} worldEventPlan={game?.worldEventPlan} pendingEvent={pendingWorldEvent} onOpenWorldEvents={() => setExpandedPanel("world-events")}/> : <div className="lobby-top-status"><Users size={16}/> {players.length}/10 players · {players.filter((player) => player.ready).length} ready</div>}
       <div className="top-actions"><div className="audio-controls"><button className={`icon-button music-toggle ${musicOn ? "playing" : ""}`} onClick={() => void toggleMusic()} aria-label={musicOn ? "Pause medieval music" : "Play medieval music"} title={musicOn ? "Pause medieval music" : "Play medieval music"}>{musicOn ? <Volume2 size={18}/> : <AudioLines size={18}/>}</button><label className="volume-control" title={`Audio volume ${volume}%`}><input type="range" min="0" max="100" value={volume} style={{ "--audio-volume": `${volume}%` } as React.CSSProperties} onChange={(event) => setVolume(Number(event.target.value))} aria-label="Game audio volume"/><output>{volume}%</output></label></div><button className="text-button" onClick={() => setShowGuide(true)}><CircleHelp size={16}/> How to play</button>{phase === "game" && localPlayer && <ConfirmedTopAction className="leave-game-control" icon={<LogOut size={16}/>} label="Leave battle" title="Leave this battle?" detail="Your player leaves the battle." onConfirm={() => send({ type: "leave-game", sessionId })}/>} {phase === "game" && localPlayer && !runComplete && <ConfirmedTopAction className="end-game-control" icon={<Octagon size={16}/>} label="End battle" title="End this battle?" detail="Current team totals decide the result." onConfirm={() => send({ type: "end-game", sessionId })}/>} {runComplete && !presentationQueue.some((item) => item.kind === "battle") && <button className="text-button" onClick={() => { if (battleResultKey) setPresentationQueue((current) => [...current, { id: `battle:reopen:${battleResultKey}`, kind: "battle", battleKey: battleResultKey }]); }}><Crown size={16}/> Battle result</button>}</div>
     </header>
-    {phase === "lobby" ? <Lobby roomId={roomId} players={players} playerName={playerName} error={lobbyError || roomError} selectedPlayerId={selectedPlayerId} localSessionId={sessionId} connectionStatus={status} characterOptions={characterOptions} selectedHeroName={selectedHeroName} onNameChange={(name) => { setPlayerName(name); window.localStorage.setItem(PLAYER_NAME_STORAGE_KEY, name); setLobbyError(""); clearError(); }} onSlotSelect={selectLobbySlot} onSelectPlayer={setSelectedPlayerId} onToggleReady={toggleReady} onLeave={leaveLobby} onRemovePlayer={removePlayer} onEnterGame={enterGame} onHeroSelect={selectLobbyHero} onReturnHome={onReturnHome}/> :
-      <div className="game-layout"><PartyRail players={players} game={game} localSessionId={localPlayer ? sessionId : ""} onInspectPlayer={inspectPlayer}/>
+    <AnimatePresence initial={false} mode="wait">{phase === "lobby" ? <m.div className="room-phase-stage" key="lobby" variants={screenPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.panel}><Lobby roomId={roomId} players={players} playerName={playerName} error={lobbyError || roomError} selectedPlayerId={selectedPlayerId} localSessionId={sessionId} connectionStatus={status} characterOptions={characterOptions} selectedHeroName={selectedHeroName} onNameChange={(name) => { setPlayerName(name); window.localStorage.setItem(PLAYER_NAME_STORAGE_KEY, name); setLobbyError(""); clearError(); }} onSlotSelect={selectLobbySlot} onSelectPlayer={setSelectedPlayerId} onToggleReady={toggleReady} onLeave={leaveLobby} onRemovePlayer={removePlayer} onEnterGame={enterGame} onHeroSelect={selectLobbyHero} onReturnHome={onReturnHome}/></m.div> :
+      <m.div className="room-phase-stage" key="battle" variants={screenPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.panel}><div className="game-layout"><PartyRail players={players} game={game} localSessionId={localPlayer ? sessionId : ""} onInspectPlayer={inspectPlayer}/>
         <section className="world-stage combat-stage"><div className="realm-meta"><div><span className="eyebrow">TEAM BATTLE ARENA · UNLIMITED-PHASE MATCH</span><h1>Eliminate the opposing team</h1></div></div>
-          <div className="encounter-row"><section className={`objective-card turn-status-banner ${isLocalActiveTurn ? "active" : "waiting"}`}><div className="objective-icon">{isLocalActiveTurn ? <Target size={22}/> : worldEventBlocking ? <Zap size={22}/> : <Hourglass className="waiting-hourglass" size={22}/>}</div><div><strong>{worldEventBlocking ? <>Resolving <span className="active-turn-word">{pendingWorldEvent?.title}</span>&hellip;</> : isLocalActiveTurn ? <>Here is <b className="active-turn-word">your</b> turn</> : activePlayer ? <>Waiting for <HighlightPlayerNames text={playerReference(activePlayer, localPlayer, { includeRelation: true })} players={players} localPlayer={localPlayer}/>&apos;s decision&hellip;</> : "Waiting for a player…"}</strong><p>{worldEventBlocking ? "Turns pause until choices arrive or time expires." : "Defeat the enemy team, or press End battle to settle the current result."}</p></div></section><DiceRoller roll={rolling ? animatedRoll : game?.roll ?? null} rolling={rolling} target={adventure.target} passiveBonus={visibleDiceModifier(passiveDiceBonus, activePlayer?.id, sessionId)} diceBuff={visibleDiceModifier((activeState?.diceBuff ?? 0) + (activeState?.shopDiceBonus ?? 0), activePlayer?.id, sessionId)} dicePenalty={visibleDiceModifier(activeState?.dicePenalty, activePlayer?.id, sessionId)} pityPoints={localState?.pityPoints ?? 0} pityCost={activePityCost} hasSelectedCard={Boolean(activeCard)} canPlaySelectedCard={activeCardCanBePlayed} selectedCardBlockReason={activeCardBlockReason} onRoll={castDie} onPity={usePityRoll} onSkip={skipTurn} onDiscard={discardCard} disabled={worldEventBlocking || activePlayer?.id !== sessionId || status !== "connected" || runComplete || (localState?.hp ?? 1) <= 0}/></div>
-          <div className="battle-interaction-space">{activePlayer?.id === sessionId && activeCard && ["enemy", "ally", "defeated-ally", "player"].includes(activeCard.target) ? <section className="interaction-selector" aria-label="Choose interaction target"><div className="target-picker"><Target size={16}/><span>Choose {getCardTargetLabel(activeCard).toLowerCase()}</span>{targetOptions.length ? <TargetPlayerPicker options={targetOptions} selectedId={targetPlayerId} game={game} localPlayer={localPlayer} onChange={setTargetPlayerId}/> : <span className="no-valid-target">No valid target; success has no effect.</span>}</div></section> : null}</div>
-          <section className="hand-zone private-hand-zone"><div className="hand-heading"><div><span className="eyebrow">{localPlayer ? "YOUR PRIVATE HAND" : "PRIVATE HAND"}</span><strong>{activePlayer?.id === sessionId ? "Choose a card and target, then roll." : "Plan while the current player acts."}</strong></div>{localPlayer && <div className="pile-review-actions"><span><Hand size={16}/> Hand ({localState?.hand.length ?? 0})</span><button onClick={() => setDeckReview("draw")}><Layers size={16}/> Draw pile ({localState?.drawPile.length ?? 0})</button><button onClick={() => setDeckReview("discard")}><Archive size={16}/> Discard ({localState?.discardPile.length ?? 0})</button><button onClick={() => setDeckReview("graveyard")}><Skull size={16}/> Graveyard ({localState?.graveyard?.length ?? 0})</button></div>}</div>
-            {localState && <div className="active-effects-strip"><b>ACTIVE EFFECTS</b>{localStatusPresentations.map((status) => <span className={status.negative ? "effect-penalty" : status.kind === "attackBuff" || status.kind === "shopAttack" ? "effect-attack" : status.kind === "goldenShield" ? "effect-golden" : status.kind === "revive" ? "effect-heal" : "effect-support"} title={status.tooltip} key={status.kind}>{status.label.replace(/^Your /, "")} {status.displayValue}{status.duration && !status.displayValue.endsWith(status.duration) ? ` · ${status.duration}` : ""}</span>)}{!localStatusPresentations.length && <span>No active effects</span>}</div>}
-            {localPlayer ? <div className="action-hand four-cards">{localHand.map((card) => {
+          <div className="encounter-row"><TurnStatusBanner isLocalActiveTurn={isLocalActiveTurn} worldEventBlocking={worldEventBlocking} pendingTitle={pendingWorldEvent?.title} activePlayer={activePlayer} players={players} localPlayer={localPlayer}/><DiceRoller roll={rolling ? animatedRoll : game?.roll ?? null} rolling={rolling} target={adventure.target} passiveBonus={visibleDiceModifier(passiveDiceBonus, activePlayer?.id, sessionId)} diceBuff={visibleDiceModifier((activeState?.diceBuff ?? 0) + (activeState?.shopDiceBonus ?? 0), activePlayer?.id, sessionId)} dicePenalty={visibleDiceModifier(activeState?.dicePenalty, activePlayer?.id, sessionId)} pityPoints={localState?.pityPoints ?? 0} pityCost={activePityCost} hasSelectedCard={Boolean(activeCard)} canPlaySelectedCard={activeCardCanBePlayed} selectedCardBlockReason={activeCardBlockReason} onRoll={castDie} onPity={usePityRoll} onSkip={skipTurn} onDiscard={discardCard} disabled={worldEventBlocking || activePlayer?.id !== sessionId || status !== "connected" || runComplete || (localState?.hp ?? 1) <= 0}/></div>
+          <div className="battle-interaction-space"><AnimatePresence initial={false}>{activePlayer?.id === sessionId && activeCard && ["enemy", "ally", "defeated-ally", "player"].includes(activeCard.target) ? <m.section className="interaction-selector" aria-label="Choose interaction target" variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard} key={activeCard.id}><div className="target-picker"><Target size={16}/><span>Choose {getCardTargetLabel(activeCard).toLowerCase()}</span>{targetOptions.length ? <TargetPlayerPicker options={targetOptions} selectedId={targetPlayerId} game={game} localPlayer={localPlayer} onChange={setTargetPlayerId}/> : <span className="no-valid-target">No valid target; success has no effect.</span>}</div></m.section> : null}</AnimatePresence></div>
+          <section className="hand-zone private-hand-zone"><div className="hand-heading"><div><span className="eyebrow">{localPlayer ? "YOUR PRIVATE HAND" : "PRIVATE HAND"}</span><strong>{activePlayer?.id === sessionId ? "Choose a card and target, then roll. Drag handles to reorder." : "Plan while the current player acts. Drag handles to reorder."}</strong></div>{localPlayer && <div className="pile-review-actions"><span><Hand size={16}/> Hand ({localState?.hand.length ?? 0})</span><button onClick={() => setDeckReview("draw")}><Layers size={16}/> Draw pile ({localState?.drawPile.length ?? 0})</button><button onClick={() => setDeckReview("discard")}><Archive size={16}/> Discard ({localState?.discardPile.length ?? 0})</button><button onClick={() => setDeckReview("graveyard")}><Skull size={16}/> Graveyard ({localState?.graveyard?.length ?? 0})</button></div>}</div>
+            {localState && <LayoutGroup id="local-effects"><m.div layout className="active-effects-strip"><b>ACTIVE EFFECTS</b><AnimatePresence initial={false} mode="popLayout">{localStatusPresentations.map((status) => <m.span layout className={status.negative ? "effect-penalty" : status.kind === "attackBuff" || status.kind === "shopAttack" ? "effect-attack" : status.kind === "goldenShield" ? "effect-golden" : status.kind === "revive" ? "effect-heal" : "effect-support"} title={status.tooltip} variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard} key={status.kind}>{status.label.replace(/^Your /, "")} {status.displayValue}{status.duration && !status.displayValue.endsWith(status.duration) ? ` · ${status.duration}` : ""}</m.span>)}{!localStatusPresentations.length && <m.span variants={fadePresence} initial="hidden" animate="visible" exit="exit" key="empty-effects">No active effects</m.span>}</AnimatePresence></m.div></LayoutGroup>}
+            {localPlayer ? <Reorder.Group as="div" axis="x" values={displayedLocalHand.map((card) => card.id)} onReorder={setHandOrder} className="action-hand four-cards" aria-label="Your hand. Drag card handles to rearrange.">{displayedLocalHand.map((card) => {
               const playable = isLocalActiveTurn && status === "connected" && !rolling;
               const isSelected = isLocalActiveTurn && selectedCard === card.id;
               const healthRequirementMet = canPayLioraVennHealthCost(card, localState?.hp);
-              return <button className={`action-card gothic-card effect-${card.effect} ${card.unique ? "hero-special-card" : "common-action-card"} ${card.effect === "none" ? "no-effect-card" : ""} ${isSelected ? "selected" : ""}`} aria-pressed={isSelected} title={!healthRequirementMet ? `Requires at least ${LIORA_VENN_MINIMUM_HP} HP to play; you can still discard it.` : undefined} style={{ "--hero-color": localPlayer.hero.color } as React.CSSProperties} key={card.id} onClick={() => setSelectedCard((current) => current === card.id ? "" : card.id)} disabled={!playable}><HandCardContents card={card} pityCostOverride={favorableOmenActive ? 0 : undefined}/></button>;
-            })}</div> : <div className="private-hand-empty"><Eye size={20}/><strong>Join the battle to receive a private hand.</strong></div>}
+              return <HandCardItem card={card} selected={isSelected} playable={playable} blockedReason={!healthRequirementMet ? `Requires at least ${LIORA_VENN_MINIMUM_HP} HP to play; you can still discard it.` : undefined} heroColor={localPlayer.hero.color} pityCostOverride={favorableOmenActive ? 0 : undefined} onSelect={() => setSelectedCard((current) => current === card.id ? "" : card.id)} onMove={(direction) => moveHandCard(card.id, direction)} key={card.id}/>;
+            })}</Reorder.Group> : <div className="private-hand-empty"><Eye size={20}/><strong>Join the battle to receive a private hand.</strong></div>}
           </section>
         </section>
         <aside className="rival-panel"><section className="turn-queue-card"><div className="panel-heading"><div><span className="eyebrow">TURN ORDER</span><strong>Current and next</strong></div><button className="panel-expand-button" onClick={() => setExpandedPanel("turns")} aria-label="Expand turn order"><ListOrdered size={17}/></button></div><TurnOrderList players={players} game={game} order={visibleTurnOrder} localPlayer={localPlayer} onInspect={inspectPlayer}/></section>
-          <section className="rivalry"><div className="panel-heading"><div><span className="eyebrow">TEAM STATUS</span><strong>One team wins</strong></div><Shield size={17}/></div>{(["veil", "ember"] as TeamId[]).map((team) => { const data = team === "veil" ? veil : ember; return <article className={`faction-card ${team}`} key={team}><div className="faction-title"><div className="faction-seal">{team === "veil" ? <Eye size={18}/> : <Flame size={18}/>}</div><div><span>{teamName[team]}</span><strong>{data.hp}/{data.maxHp} total HP</strong></div></div><p>{data.alive}/{data.total} alive · {data.shield} shield</p><div className="influence-track"><i style={{ width: `${data.maxHp ? data.hp / data.maxHp * 100 : 0}%` }}/></div></article>; })}</section>
+          <section className="rivalry"><div className="panel-heading"><div><span className="eyebrow">TEAM STATUS</span><strong>One team wins</strong></div><Shield size={17}/></div>{(["veil", "ember"] as TeamId[]).map((team) => { const data = team === "veil" ? veil : ember; return <m.article layout className={`faction-card ${team}`} key={team}><div className="faction-title"><div className="faction-seal">{team === "veil" ? <Eye size={18}/> : <Flame size={18}/>}</div><div><span>{teamName[team]}</span><AnimatePresence initial={false} mode="popLayout"><m.strong key={`${data.hp}:${data.maxHp}`} variants={popPresence} initial="hidden" animate="visible" exit="exit">{data.hp}/{data.maxHp} total HP</m.strong></AnimatePresence></div></div><p>{data.alive}/{data.total} alive · {data.shield} shield</p><div className="influence-track"><m.i initial={false} animate={{ scaleX: data.maxHp ? data.hp / data.maxHp : 0 }} transition={motionTransition.standard} style={{ transformOrigin: "left center" }}/></div></m.article>; })}</section>
           <button className="panel-expand-button battle-history-button" onClick={() => setExpandedPanel("history")} aria-haspopup="dialog"><History size={17}/> BATTLE HISTORY</button>
           {localState && <button className="panel-expand-button shop-open-button" onClick={() => { clearError(); setExpandedPanel("shop"); }} aria-haspopup="dialog"><span className="shop-open-title"><ShoppingBag size={17}/> SHOP</span><span className="shop-open-gold"><Coins size={16}/> {formatGoldUnits(localState.goldUnits ?? 0)} GOLD</span></button>}
         </aside>
-      </div>}
-    {modalOpen && !showGuide && <div className={`modal-backdrop ${activeAutoPanel ? "auto-panel-backdrop" : ""}`} role={activeAutoPanel === "world" ? undefined : "dialog"} aria-modal={activeAutoPanel === "world" ? undefined : true} onClick={closeModal}>{modalAutoPanelVfx && <AutoPanelVfx key={modalAutoPanelVfx.key} variant={modalAutoPanelVfx.variant}/>}<section className={`modal-card ${showGuide ? "tutorial-modal" : ""} ${deckReview || expandedPanel || inspectedPlayer ? "wide-modal" : ""} ${(showOutcome || showTurnSummary || showLifeEvent || showWorldEvent) && !showGuide && !deckReview && !expandedPanel && !inspectedPlayer && !inspectedCard ? "resolution-card" : ""}`} onClick={(event) => event.stopPropagation()}>{activeAutoPanel !== "world" && <button className="modal-close icon-button" onClick={closeModal} aria-label="Close"><X size={18}/></button>}
+      </div></m.div>}</AnimatePresence>
+    <AnimatePresence initial={false} mode="wait">{modalOpen && !showGuide && <m.div className={`modal-backdrop ${activeAutoPanel ? "auto-panel-backdrop" : ""}`} role={activeAutoPanel === "world" ? undefined : "dialog"} aria-modal={activeAutoPanel === "world" ? undefined : true} onClick={closeModal} variants={fadePresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard}>{modalAutoPanelVfx && <AutoPanelVfx key={modalAutoPanelVfx.key} variant={modalAutoPanelVfx.variant}/>}<m.section key={deckReview ?? expandedPanel ?? inspectedPlayer?.id ?? inspectedCard?.id ?? activeAutoPanel ?? "modal"} className={`modal-card ${showGuide ? "tutorial-modal" : ""} ${deckReview || expandedPanel || inspectedPlayer ? "wide-modal" : ""} ${(showOutcome || showTurnSummary || showLifeEvent || showWorldEvent) && !showGuide && !deckReview && !expandedPanel && !inspectedPlayer && !inspectedCard ? "resolution-card" : ""}`} onClick={(event) => event.stopPropagation()} variants={panelPresence} initial="hidden" animate="visible" exit="exit" transition={activeAutoPanel === "battle" ? motionTransition.dramatic : motionTransition.panel}>{activeAutoPanel !== "world" && <button className="modal-close icon-button" onClick={closeModal} aria-label="Close"><X size={18}/></button>}
       {showGuide ? <div className="tutorial-scroll"><span className="eyebrow">COMPLETE TUTORIAL</span><h2>How to win Shattered Oath</h2><p className="modal-lead">Defeat the enemy team, or press End battle to settle the current result.</p><section className="tutorial-section"><h3><Users size={20}/> Setup</h3><div className="tutorial-steps"><article><b>1</b><div><strong>Choose a class: each deck has 3 specials and 7 common cards.</strong></div></article><article><b>2</b><div><strong>Your card zones are private; avatars show public details.</strong></div></article></div></section><section className="tutorial-section"><h3><Dices size={20}/> Playing a turn</h3><div className="tutorial-steps"><article><b>1</b><div><strong>Play or discard a card to replace it; graveyard cards never return.</strong></div></article><article><b>2</b><div><strong>Meet the fresh 8–16 target with your modified d20.</strong></div></article><article><b>3</b><div><strong>Skip or time out to keep every card in place.</strong></div></article></div></section><section className="tutorial-section"><h3><Zap size={20}/> Special failures cause the listed backlash; common failures do nothing.</h3></section><section className="tutorial-section warning-section"><h3><Clock3 size={20}/> Turns last 60 seconds; timeout skips without changing cards.</h3></section></div> :
       deckReview ? <div className="expanded-panel-content"><span className="eyebrow">YOUR PRIVATE DECK</span><h2>{deckReview === "draw" ? "Draw pile" : deckReview === "discard" ? "Discard pile" : "Graveyard"}</h2><p className="modal-lead">{deckReview === "draw" ? "Available replacements; order is private." : deckReview === "discard" ? "Recycles into draw when draw is empty." : "Permanently unavailable this battle."}</p>{reviewedCards.length ? <div className="pile-card-grid">{reviewedCards.map((card, index) => <div className="pile-card-slot" key={`${card.id}-${index}`}><article className={`pile-review-card gothic-card effect-${card.effect} ${card.unique ? "special" : ""}`}><CardFace card={card} contextLabel={card.external ? undefined : `${index + 1} · ${getCardRarityLabel(card)}`}/></article></div>)}</div> : <div className="private-hand-empty"><Archive size={24}/><strong>This pile is empty.</strong></div>}</div> :
       expandedPanel === "history" ? <div className="expanded-panel-content"><span className="eyebrow">EXPANDED BATTLE HISTORY</span><h2>Every action and World Event</h2><HistoryEntries entries={game?.history ?? []} players={players} localPlayer={localPlayer} expanded onInspectPlayer={inspectPlayer} onInspectCard={inspectCard}/></div> :
@@ -808,6 +919,6 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
       showWorldEvent && queuedWorldEvent ? <ResolvedWorldEventPanel event={queuedWorldEvent} players={players} localPlayerId={localPlayer?.id} cardNames={panelCardNames} onInspectCard={inspectCard} onClose={() => dismissPresentation()}/> :
       showLifeEvent && activeLifeEvent && activeLifePresentation ? <div className={`resolution-content life-event-content ${activeLifeEvent.kind}`}><div className={`resolution-hero ${activeLifeEvent.kind === "revive" ? "success" : "failure"}`}>{activeLifeEvent.kind === "revive" ? <Heart size={34}/> : <Skull size={34}/>}</div><span className="eyebrow">{activeLifePresentation.category}</span><h2><HighlightInteractiveNames text={activeLifePresentation.title} cardNames={panelCardNames} players={players} localPlayer={localPlayer} onInspectCard={inspectCard}/></h2><p className="modal-lead"><HighlightInteractiveNames text={activeLifePresentation.detail} cardNames={panelCardNames} players={players} localPlayer={localPlayer} onInspectCard={inspectCard}/></p><button className="primary-button continue-button" onClick={() => dismissPresentation()}>Continue <ChevronRight size={17}/></button></div> :
       showRunComplete ? <div className={`resolution-content battle-result-content ${localBattleVerdict}`}><div className={`resolution-hero ${localBattleVerdict === "victory" ? "success" : localBattleVerdict === "defeat" ? "failure" : "world"}`}>{localBattleVerdict === "defeat" ? <Skull size={34}/> : <Crown size={34}/>}</div><span className="eyebrow">BATTLE COMPLETE</span><h2>{localBattleVerdict === "victory" ? "Victory" : localBattleVerdict === "defeat" ? "Defeat" : game?.winnerTeam ? `${teamName[game.winnerTeam]} wins!` : "The battle was ended."}</h2><p className="modal-lead"><HighlightInteractiveNames text={localBattleVerdict === "victory" && localPlayer ? `${teamName[localPlayer.hero.team]} won the battle. ${game?.endReason ?? ""}` : localBattleVerdict === "defeat" && localPlayer && game?.winnerTeam ? `${teamName[game.winnerTeam]} defeated ${teamName[localPlayer.hero.team]}. ${game?.endReason ?? ""}` : game?.endReason ?? undefined} cardNames={panelCardNames} players={players} localPlayer={localPlayer} onInspectCard={inspectCard}/></p><div className="resolution-metrics"><div><span>Veilbound</span><strong>{veil.hp} HP</strong></div><div><span>Embercourt</span><strong>{ember.hp} HP</strong></div></div><button className="primary-button" onClick={() => send({ type: "return:lobby" })}><RefreshCw size={17}/> Return to lobby</button></div> : null}
-    </section></div>}
+    </m.section></m.div>}</AnimatePresence>
   </main>;
 }

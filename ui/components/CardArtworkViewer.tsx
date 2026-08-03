@@ -1,10 +1,13 @@
 "use client";
 
 import { Eye, X } from "lucide-react";
+import { AnimatePresence, useReducedMotion } from "motion/react";
+import * as m from "motion/react-m";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CardArtwork } from "../cardArtwork";
+import { fadePresence, motionTransition, panelPresence } from "../motion/presets";
 
 type Props = {
   artwork: CardArtwork;
@@ -18,6 +21,7 @@ export function CardArtworkViewer({ artwork, cardName, onOpenChange, open }: Pro
   const closeRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLSpanElement>(null);
   const [loadedSource, setLoadedSource] = useState("");
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (!open) return;
@@ -51,7 +55,7 @@ export function CardArtworkViewer({ artwork, cardName, onOpenChange, open }: Pro
     closeRef.current?.focus({ preventScroll: true });
   };
 
-  const portalRoot = open && artwork.scene && typeof document !== "undefined" ? document.body : null;
+  const portalRoot = artwork.scene && typeof document !== "undefined" ? document.body : null;
 
   return <>
     <span
@@ -65,24 +69,29 @@ export function CardArtworkViewer({ artwork, cardName, onOpenChange, open }: Pro
       onClickCapture={openViewer}
       onKeyDownCapture={openWithKeyboard}
     ><Eye aria-hidden="true"/><span>View Image</span></span>
-    {portalRoot && createPortal(<div className="card-artwork-viewer-backdrop" onClick={() => onOpenChange(false)}>
-      <section
+    {portalRoot && createPortal(<AnimatePresence>{open && <m.div className="card-artwork-viewer-backdrop" onClick={() => onOpenChange(false)} variants={fadePresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard}>
+      <m.section
         className="card-artwork-viewer-panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={keepFocusInViewer}
+        variants={panelPresence}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+        transition={motionTransition.panel}
       >
         <header>
           <div><small>FULL ILLUSTRATION</small><h2 id={titleId}>{cardName}</h2></div>
           <button ref={closeRef} type="button" className="card-artwork-viewer-close" onClick={() => onOpenChange(false)} aria-label="Close full illustration"><X/></button>
         </header>
         <div className={`card-artwork-viewer-frame ${loadedSource === artwork.scene ? "is-loaded" : "is-loading"}`} aria-busy={loadedSource !== artwork.scene}>
-          <img className={`card-artwork-viewer-image ${loadedSource === artwork.scene ? "is-loaded" : ""}`} src={artwork.scene} alt={artwork.alt} decoding="async" draggable={false} onLoad={() => setLoadedSource(artwork.scene ?? "")}/>
-          {loadedSource !== artwork.scene && <span className="card-artwork-viewer-loading" role="status">Loading full illustration&hellip;</span>}
+          <m.img className="card-artwork-viewer-image" src={artwork.scene} alt={artwork.alt} decoding="async" draggable={false} onLoad={() => setLoadedSource(artwork.scene ?? "")} initial={{ opacity: 0 }} animate={{ opacity: loadedSource === artwork.scene ? 1 : 0 }}/>
+          {loadedSource !== artwork.scene && <m.span className="card-artwork-viewer-loading" role="status" animate={{ opacity: reducedMotion ? 0.65 : [0.25, 0.8, 0.25] }} transition={reducedMotion ? { duration: 0 } : { duration: 1.1, repeat: Infinity, ease: "easeInOut" }}>Loading full illustration&hellip;</m.span>}
         </div>
-      </section>
-    </div>, portalRoot)}
+      </m.section>
+    </m.div>}</AnimatePresence>, portalRoot)}
   </>;
 }

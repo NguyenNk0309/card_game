@@ -3,12 +3,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, Dices, SkipForward, Sparkles, Trash2, X } from "lucide-react";
+import { AnimatePresence, useReducedMotion } from "motion/react";
+import * as m from "motion/react-m";
 import { PityIcon } from "./PityCost";
+import { motionTransition, popPresence, subtleHover, subtleTap } from "../motion/presets";
 
 type ConfirmAction = "skip" | "discard" | null;
 
 export function DiceRoller({ roll, rolling, target, passiveBonus = 0, diceBuff = 0, dicePenalty = 0, pityPoints = 0, pityCost = 0, hasSelectedCard = false, canPlaySelectedCard = true, selectedCardBlockReason = "", onRoll, onPity, onSkip, onDiscard, disabled = false }: { roll: number | null; rolling: boolean; target: number; passiveBonus?: number; diceBuff?: number; dicePenalty?: number; pityPoints?: number; pityCost?: number; hasSelectedCard?: boolean; canPlaySelectedCard?: boolean; selectedCardBlockReason?: string; onRoll: () => void; onPity: () => void; onSkip: () => void; onDiscard: () => void; disabled?: boolean; }) {
   const modifier = passiveBonus + diceBuff - dicePenalty;
+  const reducedMotion = useReducedMotion();
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [popoverPosition, setPopoverPosition] = useState({ top: 8, left: 8 });
   const [popoverBelow, setPopoverBelow] = useState(false);
@@ -70,11 +74,11 @@ export function DiceRoller({ roll, rolling, target, passiveBonus = 0, diceBuff =
     if (action === "discard") onDiscard();
   };
 
-  return <section className="dice-panel">
-    <div className={`d20 ${rolling ? "rolling" : ""}`} aria-label={rolling ? "Rolling d20" : roll === null ? "D20" : `D20 rolled ${roll}`}><span aria-hidden="true">?</span></div>
+  return <m.section className="dice-panel" layout>
+    <m.div className={`d20 ${rolling ? "rolling" : ""}`} aria-label={rolling ? "Rolling d20" : roll === null ? "D20" : `D20 rolled ${roll}`} animate={rolling && !reducedMotion ? { rotate: [0, 180, 360], scale: [1, 0.86, 1] } : { rotate: 0, scale: roll == null ? 1 : [1, 1.16, 1] }} transition={rolling && !reducedMotion ? { duration: 0.4, ease: "linear", repeat: Infinity } : motionTransition.standard}><AnimatePresence initial={false} mode="popLayout"><m.span aria-hidden="true" key={roll ?? "empty"} variants={popPresence} initial="hidden" animate="visible" exit="exit">{roll ?? "?"}</m.span></AnimatePresence></m.div>
     <div className="dice-copy"><span className="eyebrow">ACTION CHECK</span><strong>Target <b>{target}</b></strong><small>d20{passiveBonus ? ` + ${passiveBonus} Marshal's Fortune` : ""}{diceBuff ? ` + ${diceBuff} Precision Order` : ""}{dicePenalty ? ` - ${dicePenalty} omen/hex` : ""}</small><em>Total modifier: <b>{modifier >= 0 ? "+" : ""}{modifier}</b></em></div>
-    <button className="roll-button" onClick={onRoll} disabled={rolling || disabled || !hasSelectedCard || !canPlaySelectedCard} title={selectedCardBlockReason || undefined}>{rolling ? <Sparkles size={17}/> : <Dices size={18}/>}<span>{rolling ? "Rolling..." : !hasSelectedCard && !disabled ? "Select a card" : selectedCardBlockReason || "Roll the die"}</span></button>
-    <button className="pity-button" onClick={onPity} disabled={rolling || disabled || !hasSelectedCard || !canPlaySelectedCard || pityPoints < pityCost} title={!hasSelectedCard ? "Select a card" : selectedCardBlockReason || (pityPoints < pityCost ? `Need ${pityCost - pityPoints} pity` : `Spend ${pityCost} pity to succeed`)}><PityIcon size={18}/><span>Pity roll<small>{pityPoints} available · cost {pityCost}</small></span></button>
+    <m.button className="roll-button" onClick={onRoll} disabled={rolling || disabled || !hasSelectedCard || !canPlaySelectedCard} title={selectedCardBlockReason || undefined} whileHover={!rolling && !disabled && hasSelectedCard && canPlaySelectedCard ? subtleHover : undefined} whileTap={!rolling && !disabled && hasSelectedCard && canPlaySelectedCard ? subtleTap : undefined}>{rolling ? <Sparkles size={17}/> : <Dices size={18}/>}<span>{rolling ? "Rolling..." : !hasSelectedCard && !disabled ? "Select a card" : selectedCardBlockReason || "Roll the die"}</span></m.button>
+    <m.button className="pity-button" onClick={onPity} disabled={rolling || disabled || !hasSelectedCard || !canPlaySelectedCard || pityPoints < pityCost} title={!hasSelectedCard ? "Select a card" : selectedCardBlockReason || (pityPoints < pityCost ? `Need ${pityCost - pityPoints} pity` : `Spend ${pityCost} pity to succeed`)} whileHover={!rolling && !disabled && hasSelectedCard && canPlaySelectedCard && pityPoints >= pityCost ? subtleHover : undefined} whileTap={!rolling && !disabled && hasSelectedCard && canPlaySelectedCard && pityPoints >= pityCost ? subtleTap : undefined}><PityIcon size={18}/><span>Pity roll<small>{pityPoints} available · cost {pityCost}</small></span></m.button>
     <div className="turn-action-buttons" ref={controlsRef}>
       <div className="turn-action-control">
         <button ref={skipButtonRef} className="skip-turn-button" onClick={() => setConfirmAction("skip")} disabled={rolling || disabled} aria-expanded={confirmAction === "skip"}><SkipForward size={17}/><span>Skip</span></button>
@@ -83,10 +87,10 @@ export function DiceRoller({ roll, rolling, target, passiveBonus = 0, diceBuff =
         <button ref={discardButtonRef} className="discard-card-button" onClick={() => setConfirmAction("discard")} disabled={rolling || disabled || !hasSelectedCard} aria-expanded={confirmAction === "discard"}><Trash2 size={17}/><span>Discard</span></button>
       </div>
     </div>
-    {confirmAction && createPortal(<div className={`turn-action-confirm turn-action-confirm-portal ${popoverBelow ? "below" : ""}`} ref={confirmationRef} role="dialog" aria-label={confirmAction === "skip" ? "Confirm skip turn" : "Confirm discard card"} style={popoverPosition}>
+    {typeof document !== "undefined" && createPortal(<AnimatePresence>{confirmAction && <m.div className={`turn-action-confirm turn-action-confirm-portal ${popoverBelow ? "below" : ""}`} ref={confirmationRef} role="dialog" aria-label={confirmAction === "skip" ? "Confirm skip turn" : "Confirm discard card"} style={popoverPosition} variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.quick}>
       <strong>{confirmAction === "skip" ? "Skip this turn?" : "Discard this card?"}</strong>
       <span>{confirmAction === "skip" ? "Hand stays unchanged." : "Card leaves your hand."}</span>
       <div><button onClick={confirm}><Check size={13}/> Confirm</button><button onClick={() => setConfirmAction(null)}><X size={13}/> Cancel</button></div>
-    </div>, document.body)}
-  </section>;
+    </m.div>}</AnimatePresence>, document.body)}
+  </m.section>;
 }
