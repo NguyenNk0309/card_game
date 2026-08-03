@@ -1,3 +1,4 @@
+import { DAGAN_FLINT_SPECIAL_CARDS } from "@/shared/daganFlint.mjs";
 import { LIORA_VENN_SPECIAL_CARDS } from "@/shared/lioraVenn.mjs";
 import { MIREFIELD_SEIZURE_CARD } from "@/shared/mirefieldSeizure.mjs";
 import type { ActionCard, Hero, PlayerSession, Realm } from "@/shared/types";
@@ -13,7 +14,7 @@ export const HERO_TEMPLATES: Omit<Hero, "id" | "team" | "isYou">[] = [
   { name: "Sable Fen", title: "The Eye of the Storm", role: "Controller", classId: "oracle", className: "Fate Oracle", passiveName: "Foreseen Return", passiveText: "The first time Sable is defeated, she revives at half HP.", skill: "Foretold Success", skillText: "Set one ally's next card to 0 pity.", summary: "A controller who changes rolls, pity, and turns.", impact: "Makes one crucial action automatic.", hp: 8, maxHp: 8, speed: 7, color: "#6aa8a5", initials: "SF" },
   { name: "Kael Rook", title: "The Challenger", role: "Duelist", classId: "duelist", className: "Disruptive Duelist", passiveName: "Unshielded Edge", passiveText: "Kael's Attack cards deal +1 damage while he has no shield.", skill: "Unshielded Riposte", skillText: "Deal heavy single-target damage.", summary: "A risky duelist who attacks and strips defenses.", impact: "Breaks defenses before finishing.", hp: 10, maxHp: 10, speed: 8, color: "#a96161", initials: "KR" },
   { name: "Ione Mire", title: "Marshal of the Drowned Road", role: "Support", classId: "support", className: "Mirefield Marshal", passiveName: "Marshal's Fortune", passiveText: "Ione gains +1 on every d20 roll.", skill: "Assault Order", skillText: "Boost the team's next attacks.", summary: "A scarred marsh-born field marshal who maps drowned roads, binds warbands by oath, and turns stolen plans against their owners.", impact: "Directs allies from flooded front lines while stripping one enemy option.", hp: 9, maxHp: 9, speed: 6, color: "#7f9c91", initials: "IM" },
-  { name: "Dagan Flint", title: "Blood of the Front Line", role: "Berserker", classId: "berserker", className: "Blood Berserker", passiveName: "Bloodied Power", passiveText: "At half HP or lower, Dagan's attacks deal +1 damage.", skill: "Bloodied Onslaught", skillText: "Damage every enemy while wounded.", summary: "A durable attacker who grows stronger when wounded.", impact: "Trades safety for finishing power.", hp: 12, maxHp: 12, speed: 2, color: "#768493", initials: "DF" }
+  { name: "Dagan Flint", title: "Blood of the Front Line", role: "Berserker", classId: "berserker", className: "Blood Berserker", passiveName: "Bloodied Power", passiveText: "At half HP or lower, Dagan's attacks deal +2 damage.", skill: "Bloodied Onslaught", skillText: "Damage every enemy while wounded.", summary: "A durable attacker who grows stronger when wounded.", impact: "Trades safety for finishing power.", hp: 12, maxHp: 12, speed: 2, color: "#768493", initials: "DF" }
 ];
 
 type CardWithoutPity = Omit<ActionCard, "pityCost">;
@@ -79,11 +80,7 @@ export const CHARACTER_SKILL_CARDS: Record<string, CharacterSkillCard[]> = {
     { id: "im-focus", name: "Precision Order", description: "All living allies, including yourself, gain +2 d20; expires at the end of each target's next turn.", bonus: 0, effect: "support", target: "all-allies", value: 2, supportType: "dice", failureEffect: "team-damage", failureValue: 1, pityCost: 6 },
     { ...MIREFIELD_SEIZURE_CARD }
   ],
-  "Dagan Flint": [
-    { id: "df-none", name: "Bloodied Onslaught", description: "Deal 3 damage to every living enemy (4 while Dagan is at half HP).", bonus: 0, effect: "aoe", target: "all-enemies", value: 3, failureEffect: "self-damage", failureValue: 2, pityCost: 7 },
-    { id: "df-cleave", name: "Bloodied Cleave", description: "Deal 4 damage to one living enemy (5 while Dagan is at half HP).", bonus: 0, effect: "damage", target: "enemy", value: 4, failureEffect: "self-damage", failureValue: 2, pityCost: 7 },
-    { id: "df-frenzy", name: "Flintblood Fury", description: "Gain +3 attack damage; expires at the end of your next turn.", bonus: 0, effect: "support", target: "self", value: 3, supportType: "attack", failureEffect: "self-damage", failureValue: 2, pityCost: 6 }
-  ]
+  "Dagan Flint": DAGAN_FLINT_SPECIAL_CARDS.map((card) => ({ ...card }))
 };
 
 export const PHASE_FIVE_CARD_UPGRADES = {

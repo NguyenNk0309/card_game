@@ -1,4 +1,16 @@
 import { ACTION_CARDS, calculatePityCost, CHARACTER_SKILL_CARDS, EVENTS, HERO_TEMPLATES, REALMS, STORY_BEATS } from "./catalog";
+import {
+  completeThorneValePassiveTurn as completeThorneValePassiveTurnForAnyCard,
+  getCharacterAttackPassiveDamageBonus,
+  getKaelRookPassiveDamageBonus as getKaelRookPassiveDamageBonusForAnyCard,
+  getPassiveDiceBonus as getPassiveDiceBonusForAnyCard,
+  getPassiveGuardBonus,
+  getPassiveGuardDurationTurns,
+  getPassiveHealingBonus,
+  getThorneValePassiveDamageBonus as getThorneValePassiveDamageBonusForAnyCard,
+  passiveAttackIgnoresShield,
+  thorneValeConsumesPassiveCharge
+} from "@/shared/characterPassives.mjs";
 import { calculateRuntimePityCost, isTestModeEnabled } from "@/shared/pityCost.mjs";
 import { canPayLioraVennHealthCost, isLioraVennHealthExchangeCard, LIORA_VENN_HEALTH_COST, LIORA_VENN_NAME } from "@/shared/lioraVenn.mjs";
 import { getCurrentBattlePhase, PHASE_TIMELINE_LENGTH, UNLIMITED_BATTLE_PHASES } from "@/shared/battlePhases.mjs";
@@ -87,7 +99,7 @@ export function createPlayerSession(displayName: string, seatIndex: number, hero
 
 function createRunState(player: PlayerSession): PlayerRunState {
   const drawPile = shuffle(player.skillDeck.map((card) => card.id));
-  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, pityPoints: 0, goldUnits: 0, goldenShield: 0, shopInventory: [], shopPurchases: {}, externalCardsPurchased: 0, shopShieldUntilTurn: 0, shopAttackBonus: 0, shopDiceBonus: 0, shopFreePity: false, additionalDieActive: false, luckyDieActive: false, piercingAttackActive: false, markedTargetId: "", markedTargetBonus: 0, reviveIn: 0, passiveReviveUsed: false, sanguineRecompense: false, skipTurns: 0, completedPlayerTurns: 0, zeroPityUntilTurn: 0, timedEffects: [], borrowedCards: [], purgedCards: [], cardUses: {}, hand: drawPile.splice(0, 4), drawPile, discardPile: [], graveyard: [] };
+  return { sessionId: player.id, hp: player.hero.maxHp, maxHp: player.hero.maxHp, shield: 0, attackBuff: 0, diceBuff: 0, dicePenalty: 0, pityPoints: 0, goldUnits: 0, goldenShield: 0, shopInventory: [], shopPurchases: {}, externalCardsPurchased: 0, shopShieldUntilTurn: 0, shopAttackBonus: 0, shopDiceBonus: 0, shopFreePity: false, additionalDieActive: false, luckyDieActive: false, piercingAttackActive: false, markedTargetId: "", markedTargetBonus: 0, reviveIn: 0, passiveReviveUsed: false, sanguineRecompense: false, thorneDeadeyeCharge: false, skipTurns: 0, completedPlayerTurns: 0, zeroPityUntilTurn: 0, timedEffects: [], borrowedCards: [], purgedCards: [], cardUses: {}, hand: drawPile.splice(0, 4), drawPile, discardPile: [], graveyard: [] };
 }
 
 const timedField = (kind: TimedEffectKind) => kind;
@@ -165,20 +177,19 @@ export function nextStory(adventure: Adventure): Adventure {
 }
 
 export function getPassiveDiceBonus(player: PlayerSession, card: ActionCard, state: PlayerRunState) {
-  void card;
-  void state;
-  return player.hero.classId === "support" ? 1 : 0;
+  return getPassiveDiceBonusForAnyCard(player, card, state);
 }
 
 export function getThorneValePassiveDamageBonus(player: PlayerSession, card: ActionCard, state: PlayerRunState) {
-  if (player.hero.name !== "Thorne Vale" || card.effect !== "damage") return 0;
-  const currentPlayerTurn = (state.completedPlayerTurns ?? 0) + 1;
-  return currentPlayerTurn % 2 === 0 ? 1 : 0;
+  return getThorneValePassiveDamageBonusForAnyCard(player, card, state);
+}
+
+export function completeThorneValePassiveTurn(player: PlayerSession, state: PlayerRunState, consumedCharge = false) {
+  return completeThorneValePassiveTurnForAnyCard(player, state, consumedCharge);
 }
 
 export function getKaelRookPassiveDamageBonus(player: PlayerSession, card: ActionCard, state: PlayerRunState, targetState: PlayerRunState) {
-  if (player.hero.name !== "Kael Rook" || !["damage", "aoe"].includes(card.effect) || state.shield > 0) return 0;
-  return card.id === "kr-duel" && targetState.shield === 0 ? 2 : 1;
+  return getKaelRookPassiveDamageBonusForAnyCard(player, card, state, targetState);
 }
 
 function drawOneOrRecycleDiscard(state: PlayerRunState, handIndex = state.hand.length): PlayerRunState {
@@ -395,6 +406,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     reviveIn: state.reviveIn ?? 0,
     passiveReviveUsed: state.passiveReviveUsed ?? false,
     sanguineRecompense: state.sanguineRecompense ?? false,
+    thorneDeadeyeCharge: state.thorneDeadeyeCharge ?? false,
     skipTurns: state.skipTurns ?? 0,
     completedPlayerTurns: state.completedPlayerTurns ?? 0,
     zeroPityUntilTurn: state.zeroPityUntilTurn ?? 0,
@@ -483,16 +495,13 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         states[actor.id].hp = Math.max(1, states[actor.id].hp - paidHealth);
         if (actor.hero.name === LIORA_VENN_NAME) states[actor.id].sanguineRecompense = true;
       }
-      let passive = getThorneValePassiveDamageBonus(actor, card, resolvingActorState);
-      if (actor.hero.classId === "mage" && card.effect === "aoe") passive += 1;
-      if (actor.hero.classId === "berserker" && resolvingActorState.hp <= resolvingActorState.maxHp / 2) passive += 1;
-      const ignoresShield = Boolean(card.ignoresShield || actor.hero.classId === "assassin" || resolvingActorState.piercingAttackActive);
+      const ignoresShield = Boolean(card.ignoresShield || passiveAttackIgnoresShield(actor, card) || resolvingActorState.piercingAttackActive);
       const reports: string[] = [];
       for (const target of targets) {
         const state = states[target.id];
-        const kaelPassive = getKaelRookPassiveDamageBonus(actor, card, resolvingActorState, state);
+        const passive = getCharacterAttackPassiveDamageBonus(actor, card, resolvingActorState, state);
         const basePower = card.id === BULWARK_TO_BLADE_CARD_ID ? sacrificedShield : card.value;
-        const power = basePower + resolvingActorState.attackBuff + resolvingActorState.shopAttackBonus + passive + kaelPassive;
+        const power = basePower + resolvingActorState.attackBuff + resolvingActorState.shopAttackBonus + passive;
         const normalBlocked = ignoresShield ? 0 : Math.min(state.shield, power);
         removeTimedEffectAmount(state, "shield", normalBlocked);
         const goldenBlocked = ignoresShield ? 0 : Math.min(state.goldenShield, power - normalBlocked);
@@ -515,7 +524,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
         : `${actor.displayName}'s attack had no valid target and no effect.`;
     } else if (card.effect === "heal") {
       const recompenseActive = actor.hero.name === LIORA_VENN_NAME && states[actor.id].sanguineRecompense;
-      const power = card.value + (actor.hero.name === "Brother Orren" ? 1 : 0);
+      const power = card.value + getPassiveHealingBonus(actor, card);
       const restoredByTarget = new Map<string, number>();
       for (const target of targets) {
         const before = states[target.id].hp;
@@ -544,8 +553,8 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
             ? `${actor.displayName} restored ${amount} HP to ${targets[0].displayName}.`
             : `${actor.displayName}'s Heal card had no valid target and no effect.`;
     } else if (card.effect === "guard") {
-      amount = card.value + (actor.hero.name === "Elara Voss" ? 1 : 0);
-      const durationTurns = actor.hero.name === "Bram Coalhand" ? 2 : 1;
+      amount = card.value + getPassiveGuardBonus(actor, card);
+      const durationTurns = getPassiveGuardDurationTurns(actor, card);
       for (const target of targets) {
         addTimedEffect(states[target.id], "shield", amount, target.id === actor.id, durationTurns);
       }
@@ -698,6 +707,8 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
   }
 
   const playedCardIndex = finishPlayedCard(states, actor.id, card.id);
+  const consumedThorneDeadeyeCharge = thorneValeConsumesPassiveCharge(actor, card, resolvingActorState, success, targets.length > 0);
+  completeThorneValePassiveTurnForAnyCard(actor, states[actor.id], consumedThorneDeadeyeCharge);
   expireTimedEffectsAtTurnEnd(states[actor.id]);
   returnExpiredBorrowedCards(states, actor.id);
   states[actor.id] = refillHandToMinimum(states[actor.id], playedCardIndex >= 0 ? playedCardIndex : states[actor.id].hand.length);

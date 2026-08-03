@@ -1,3 +1,5 @@
+import { getCharacterAttackPassiveDamageBonus, passiveAttackIgnoresShield } from './characterPassives.mjs';
+
 export const BULWARK_TO_BLADE_CARD = Object.freeze({
   id: 'bc-march',
   name: 'Bulwark to Blade',
@@ -59,12 +61,9 @@ export function reconcileBulwarkToBladeImpact(previousGame, incomingGame, actor,
 
   const sacrificedShield = Math.max(0, Number(previousActorState.shield) || 0);
   const attackBonus = Math.max(0, Number(previousActorState.attackBuff) || 0);
-  let passiveBonus = 0;
-  if (actor.hero?.name === 'Thorne Vale' && ((previousActorState.completedPlayerTurns || 0) + 1) % 2 === 0) passiveBonus += 1;
-  if (actor.hero?.classId === 'berserker' && previousActorState.hp <= previousActorState.maxHp / 2) passiveBonus += 1;
-  if (actor.hero?.name === 'Kael Rook' && sacrificedShield === 0) passiveBonus += 1;
+  const passiveBonus = getCharacterAttackPassiveDamageBonus(actor, card, previousActorState, previousTargetState);
   const power = sacrificedShield + attackBonus + passiveBonus;
-  const ignoresShield = Boolean(card.ignoresShield || actor.hero?.classId === 'assassin');
+  const ignoresShield = Boolean(card.ignoresShield || passiveAttackIgnoresShield(actor, card));
   const blocked = ignoresShield ? 0 : Math.min(Math.max(0, Number(previousTargetState.shield) || 0), power);
   const damage = Math.max(0, power - blocked);
 

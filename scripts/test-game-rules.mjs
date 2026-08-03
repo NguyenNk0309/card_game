@@ -8,13 +8,18 @@ const compile = (source, fileName) => ts.transpileModule(source, {
 }).outputText;
 
 const catalogSource = await readFile(new URL("../backend/game/catalog.ts", import.meta.url), "utf8");
+const characterPassiveRulesUrl = new URL("../shared/characterPassives.mjs", import.meta.url).href;
+const daganRulesUrl = new URL("../shared/daganFlint.mjs", import.meta.url).href;
 const lioraRulesUrl = new URL("../shared/lioraVenn.mjs", import.meta.url).href;
 const mirefieldRulesUrl = new URL("../shared/mirefieldSeizure.mjs", import.meta.url).href;
 const compiledCatalog = compile(catalogSource, "catalog.ts")
+  .replace('from "@/shared/daganFlint.mjs"', `from "${daganRulesUrl}"`)
   .replace('from "@/shared/lioraVenn.mjs"', `from "${lioraRulesUrl}"`)
   .replace('from "@/shared/mirefieldSeizure.mjs"', `from "${mirefieldRulesUrl}"`);
 const catalogUrl = `data:text/javascript;base64,${Buffer.from(compiledCatalog).toString("base64")}`;
 const catalog = await import(catalogUrl);
+const characterPassiveRules = await import(characterPassiveRulesUrl);
+const daganRules = await import(daganRulesUrl);
 const lioraRules = await import(lioraRulesUrl);
 const mirefieldRules = await import(mirefieldRulesUrl);
 const pityCostUrl = new URL("../shared/pityCost.mjs", import.meta.url).href;
@@ -32,6 +37,7 @@ const diceVisibility = await import(`data:text/javascript;base64,${Buffer.from(c
 const engineSource = await readFile(new URL("../backend/game/engine.ts", import.meta.url), "utf8");
 const compiledEngine = compile(engineSource, "engine.ts")
   .replace('from "./catalog"', `from "${catalogUrl}"`)
+  .replace('from "@/shared/characterPassives.mjs"', `from "${characterPassiveRulesUrl}"`)
   .replace('from "@/shared/pityCost.mjs"', `from "${pityCostUrl}"`)
   .replace('from "@/shared/lioraVenn.mjs"', `from "${lioraRulesUrl}"`)
   .replace('from "@/shared/battlePhases.mjs"', `from "${battlePhasesUrl}"`)
@@ -535,25 +541,56 @@ assert.match(markedArrow.description, /5 when Second-Beat Deadeye triggers/i, "D
 assert.match(thorne.skillDeck.find((card) => card.id === "tv-pierce").description, /4 when Second-Beat Deadeye triggers/i, "Armor-Piercing Bolt states its triggered Second-Beat Deadeye damage");
 const thorneCadenceState = engine.createInitialGame(thorneParty, engine.createAdventure("DEADEYE-CADENCE"), 30).playerStates[thorne.id];
 assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 0, "Second-Beat Deadeye is inactive on Thorne's first battle turn");
-engine.expireTimedEffectsAtTurnEnd(thorneCadenceState);
-assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 1, "a completed first turn makes Second-Beat Deadeye active on Thorne's second turn");
-engine.expireTimedEffectsAtTurnEnd(thorneCadenceState);
-assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 0, "Second-Beat Deadeye restarts its count on the turn after it triggers");
-engine.expireTimedEffectsAtTurnEnd(thorneCadenceState);
-assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 1, "Second-Beat Deadeye triggers again on Thorne's fourth turn");
+engine.completeThorneValePassiveTurn(thorne, thorneCadenceState);
+assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 1, "completing Thorne's first turn readies Second-Beat Deadeye for the second turn");
+engine.completeThorneValePassiveTurn(thorne, thorneCadenceState);
+engine.completeThorneValePassiveTurn(thorne, thorneCadenceState);
+assert.equal(engine.getThorneValePassiveDamageBonus(thorne, markedArrow, thorneCadenceState), 1, "an unused Second-Beat Deadeye charge lasts through any number of Thorne turns");
 assert.equal(engine.getThorneValePassiveDamageBonus(thorne, thorneBlank, thorneCadenceState), 0, "Second-Beat Deadeye only adds damage to single-target attacks");
 const deadeyeGame = engine.createInitialGame(thorneParty, engine.createAdventure("DEADEYE-DAMAGE"), 30);
 deadeyeGame.turnOrder = [thorne.id, thorneTarget.id];
 deadeyeGame.adventure.target = 8;
-deadeyeGame.playerStates[thorne.id].completedPlayerTurns = 1;
+deadeyeGame.playerStates[thorne.id].thorneDeadeyeCharge = true;
 deadeyeGame.playerStates[thorne.id].attackBuff = 2;
 deadeyeGame.playerStates[thorne.id].hand = [markedArrow.id];
 deadeyeGame.playerStates[thorneTarget.id].hp = 14;
 deadeyeGame.playerStates[thorneTarget.id].maxHp = 14;
 const deadeyeAttack = engine.resolveCardTurn(deadeyeGame, thorneParty, markedArrow.id, thorneTarget.id, 20);
-assert.equal(deadeyeAttack.outcome.amount, 7, "a second-turn Deadeye Bolt deals its 4 base damage, +1 Second-Beat Deadeye damage, and +2 attack buff");
+assert.equal(deadeyeAttack.outcome.amount, 7, "a charged Deadeye Bolt deals its 4 base damage, +1 Second-Beat Deadeye damage, and +2 attack buff");
 assert.equal(deadeyeAttack.playerStates[thorneTarget.id].hp, 7, "Second-Beat Deadeye's bonus changes synchronized target HP in actual card resolution");
-assert.equal(deadeyeAttack.playerStates[thorne.id].completedPlayerTurns, 2, "the triggering turn completes before Second-Beat Deadeye's cadence restarts");
+assert.equal(deadeyeAttack.playerStates[thorne.id].thorneDeadeyeCharge, false, "a successful single-target Attack consumes Thorne's ready passive charge");
+
+const heldDeadeyeGame = engine.createInitialGame(thorneParty, engine.createAdventure("DEADEYE-HOLD"), 30);
+heldDeadeyeGame.turnOrder = [thorne.id, thorneTarget.id];
+heldDeadeyeGame.playerStates[thorne.id].thorneDeadeyeCharge = true;
+heldDeadeyeGame.playerStates[thorne.id].hand = [thorneBlank.id];
+const heldDeadeye = engine.resolveCardTurn(heldDeadeyeGame, thorneParty, thorneBlank.id, thorne.id, 20);
+assert.equal(heldDeadeye.playerStates[thorne.id].thorneDeadeyeCharge, true, "playing a non-Attack card preserves Thorne's passive charge indefinitely");
+
+const failedDeadeyeGame = engine.createInitialGame(thorneParty, engine.createAdventure("DEADEYE-FAIL"), 30);
+failedDeadeyeGame.turnOrder = [thorne.id, thorneTarget.id];
+failedDeadeyeGame.adventure.target = 20;
+failedDeadeyeGame.playerStates[thorne.id].thorneDeadeyeCharge = true;
+failedDeadeyeGame.playerStates[thorne.id].hand = [markedArrow.id];
+const failedDeadeye = engine.resolveCardTurn(failedDeadeyeGame, thorneParty, markedArrow.id, thorneTarget.id, 1);
+assert.equal(failedDeadeye.outcome.success, false);
+assert.equal(failedDeadeye.playerStates[thorne.id].thorneDeadeyeCharge, true, "a failed Attack cannot apply or consume Thorne's passive charge");
+
+const restartedDeadeyeGame = engine.createInitialGame(thorneParty, engine.createAdventure("DEADEYE-RESTART"), 30);
+restartedDeadeyeGame.turnOrder = [thorne.id, thorneTarget.id];
+restartedDeadeyeGame.playerStates[thorne.id].thorneDeadeyeCharge = false;
+restartedDeadeyeGame.playerStates[thorne.id].hand = [thorneBlank.id];
+const restartedDeadeye = engine.resolveCardTurn(restartedDeadeyeGame, thorneParty, thorneBlank.id, thorne.id, 20);
+assert.equal(restartedDeadeye.playerStates[thorne.id].thorneDeadeyeCharge, true, "the turn after consumption counts as one and readies the buff for Thorne's following turn");
+
+const reconciledDeadeyeAttack = structuredClone(deadeyeAttack);
+reconciledDeadeyeAttack.playerStates[thorne.id].thorneDeadeyeCharge = true;
+characterPassiveRules.reconcileThorneValePassive(deadeyeGame, reconciledDeadeyeAttack, thorne, thorneParty);
+assert.equal(reconciledDeadeyeAttack.playerStates[thorne.id].thorneDeadeyeCharge, false, "realtime reconciliation consumes a forged retained charge after a successful Attack");
+const reconciledDeadeyeRestart = structuredClone(restartedDeadeye);
+reconciledDeadeyeRestart.playerStates[thorne.id].thorneDeadeyeCharge = false;
+characterPassiveRules.reconcileThorneValePassive(restartedDeadeyeGame, reconciledDeadeyeRestart, thorne, thorneParty);
+assert.equal(reconciledDeadeyeRestart.playerStates[thorne.id].thorneDeadeyeCharge, true, "realtime reconciliation starts the next passive count after an uncharged turn");
 
 const mira = engine.createPlayerSession("Mira", 0, "Mira Ash", "mira-inferno");
 const infernoTargetOne = engine.createPlayerSession("Wildfire Inferno target one", 1, "Bram Coalhand", "inferno-target-one");
@@ -674,27 +711,66 @@ assert.equal(shieldedCommonAttackResult.outcome.amount, kaelCommonAttack.value, 
 const dagan = engine.createPlayerSession("Dagan", 0, "Dagan Flint", "dagan-cleave");
 const daganTarget = engine.createPlayerSession("Bloodied Cleave target", 1, "Elara Voss", "dagan-cleave-target");
 const daganParty = [dagan, daganTarget];
+const onslaught = dagan.skillDeck.find((card) => card.id === "df-none");
 const cleave = dagan.skillDeck.find((card) => card.id === "df-cleave");
-assert.equal(cleave.value, 4, "Bloodied Cleave has 4 base damage");
+const daganCommonAttack = dagan.skillDeck.find((card) => !card.unique && card.id.endsWith("common-slash"));
+const flintbloodFury = dagan.skillDeck.find((card) => card.id === "df-frenzy");
+assert.equal(dagan.hero.passiveText, "At half HP or lower, Dagan's attacks deal +2 damage.", "Bloodied Power states the requested half-HP attack bonus");
+assert.equal(onslaught.value, 3, "Bloodied Onslaught keeps 3 base damage");
+assert.match(onslaught.description, /3 damage.*5 while Dagan is at half HP or lower/i, "Bloodied Onslaught describes its base and Bloodied Power damage");
+assert.equal(cleave.value, 3, "Bloodied Cleave has 3 base damage");
 assert.equal(cleave.pityCost, 7, "Bloodied Cleave's pity cost reflects its reduced damage tier");
 assert.equal(cleave.failureValue, 2, "Bloodied Cleave's failure backlash reflects its reduced damage tier");
-assert.match(cleave.description, /4 damage.*5 while Dagan is at half HP/i, "Bloodied Cleave describes its base and Bloodied Power damage");
+assert.match(cleave.description, /3 damage.*5 while Dagan is at half HP or lower/i, "Bloodied Cleave describes its base and Bloodied Power damage");
+assert.equal(daganRules.getDaganFlintPassiveDamageBonus(dagan, cleave, { hp: 7, maxHp: 12 }), 0, "Bloodied Power is inactive above half HP");
+assert.equal(daganRules.getDaganFlintPassiveDamageBonus(dagan, cleave, { hp: 6, maxHp: 12 }), 2, "Bloodied Power grants exactly +2 damage at half HP");
+assert.equal(daganRules.getDaganFlintPassiveDamageBonus(dagan, cleave, { hp: 5, maxHp: 12 }), 2, "Bloodied Power remains active below half HP");
+assert.equal(daganRules.getDaganFlintPassiveDamageBonus(dagan, flintbloodFury, { hp: 6, maxHp: 12 }), 0, "Bloodied Power does not add damage to Support cards");
+assert.deepEqual(
+  dagan.skillDeck.filter((card) => card.unique).map(({ unique: _unique, ...card }) => card),
+  daganRules.DAGAN_FLINT_SPECIAL_CARDS.map((card) => ({ ...card })),
+  "the catalog and authoritative Dagan migration share one exact special-card contract"
+);
+const legacyDaganPlayers = structuredClone(daganParty);
+Object.assign(legacyDaganPlayers[0].skillDeck.find((card) => card.id === "df-cleave"), { value: 4, description: "Deal 4 damage to one living enemy (5 while Dagan is at half HP)." });
+assert.equal(daganRules.normalizeDaganFlintCards(legacyDaganPlayers), true, "persisted rooms detect Dagan's previous special-card balance");
+assert.deepEqual(
+  legacyDaganPlayers[0].skillDeck.find((card) => card.id === "df-cleave"),
+  { ...daganRules.DAGAN_FLINT_SPECIAL_CARDS.find((card) => card.id === "df-cleave"), unique: true },
+  "persisted rooms migrate Bloodied Cleave to 3 base damage"
+);
+assert.equal(daganRules.normalizeDaganFlintCards(legacyDaganPlayers), false, "the Dagan persisted-room migration is idempotent");
 const cleaveHealthyGame = engine.createInitialGame(daganParty, engine.createAdventure("CLEAVE-HEALTHY"), 30);
 cleaveHealthyGame.turnOrder = [dagan.id, daganTarget.id];
 cleaveHealthyGame.adventure.target = 8;
 cleaveHealthyGame.playerStates[dagan.id].hp = dagan.hero.maxHp / 2 + 1;
 cleaveHealthyGame.playerStates[dagan.id].hand = [cleave.id];
 const cleaveHealthyResult = engine.resolveCardTurn(cleaveHealthyGame, daganParty, cleave.id, daganTarget.id, 20);
-assert.equal(cleaveHealthyResult.outcome.amount, 4, "Bloodied Cleave deals exactly 4 damage while Dagan is above half HP");
-assert.equal(cleaveHealthyResult.playerStates[daganTarget.id].hp, daganTarget.hero.maxHp - 4, "Bloodied Cleave applies its reduced base damage to synchronized target HP");
+assert.equal(cleaveHealthyResult.outcome.amount, 3, "Bloodied Cleave deals exactly 3 damage while Dagan is above half HP");
+assert.equal(cleaveHealthyResult.playerStates[daganTarget.id].hp, daganTarget.hero.maxHp - 3, "Bloodied Cleave applies its reduced base damage to synchronized target HP");
 const cleaveWoundedGame = engine.createInitialGame(daganParty, engine.createAdventure("CLEAVE-WOUNDED"), 30);
 cleaveWoundedGame.turnOrder = [dagan.id, daganTarget.id];
 cleaveWoundedGame.adventure.target = 8;
 cleaveWoundedGame.playerStates[dagan.id].hp = dagan.hero.maxHp / 2;
 cleaveWoundedGame.playerStates[dagan.id].hand = [cleave.id];
 const cleaveWoundedResult = engine.resolveCardTurn(cleaveWoundedGame, daganParty, cleave.id, daganTarget.id, 20);
-assert.equal(cleaveWoundedResult.outcome.amount, 5, "Bloodied Power raises Bloodied Cleave from 4 to 5 damage at half HP");
+assert.equal(cleaveWoundedResult.outcome.amount, 5, "Bloodied Power raises Bloodied Cleave from 3 to 5 damage at half HP");
 assert.equal(cleaveWoundedResult.playerStates[daganTarget.id].hp, daganTarget.hero.maxHp - 5, "Bloodied Cleave's half-HP bonus updates synchronized target HP");
+const onslaughtWoundedGame = engine.createInitialGame(daganParty, engine.createAdventure("ONSLAUGHT-WOUNDED"), 30);
+onslaughtWoundedGame.turnOrder = [dagan.id, daganTarget.id];
+onslaughtWoundedGame.adventure.target = 8;
+onslaughtWoundedGame.playerStates[dagan.id].hp = dagan.hero.maxHp / 2;
+onslaughtWoundedGame.playerStates[dagan.id].hand = [onslaught.id];
+const onslaughtWoundedResult = engine.resolveCardTurn(onslaughtWoundedGame, daganParty, onslaught.id, daganTarget.id, 20);
+assert.equal(onslaughtWoundedResult.outcome.amount, 5, "Bloodied Power raises Bloodied Onslaught from 3 to 5 damage per enemy at half HP");
+assert.equal(onslaughtWoundedResult.playerStates[daganTarget.id].hp, daganTarget.hero.maxHp - 5, "Bloodied Onslaught applies the +2 passive bonus to synchronized enemy HP");
+const commonBloodiedGame = engine.createInitialGame(daganParty, engine.createAdventure("COMMON-BLOODIED"), 30);
+commonBloodiedGame.turnOrder = [dagan.id, daganTarget.id];
+commonBloodiedGame.adventure.target = 8;
+commonBloodiedGame.playerStates[dagan.id].hp = dagan.hero.maxHp / 2 - 1;
+commonBloodiedGame.playerStates[dagan.id].hand = [daganCommonAttack.id];
+const commonBloodiedResult = engine.resolveCardTurn(commonBloodiedGame, daganParty, daganCommonAttack.id, daganTarget.id, 20);
+assert.equal(commonBloodiedResult.outcome.amount, daganCommonAttack.value + 2, "Bloodied Power also grants +2 damage to Dagan's common Attack cards below half HP");
 
 const healer = engine.createPlayerSession("Orren", 0, "Brother Orren", "healer");
 const supportAlly = engine.createPlayerSession("Support ally", 2, "Elara Voss", "support-ally");
@@ -834,6 +910,23 @@ assert.equal(authorityReconciled.playerStates[tankEnemy.id].hp, tankEnemy.hero.m
 assert.equal(authorityReconciled.outcome.amount, 5, "the realtime authority publishes corrected damage");
 assert.match(authorityReconciled.outcome.detail, /removed 5 shield.*lost 5 HP/i, "the realtime authority publishes corrected effect detail");
 
+const bloodiedBulwarkParty = [dagan, daganTarget, tank];
+const bloodiedBulwarkGame = engine.createInitialGame(bloodiedBulwarkParty, engine.createAdventure("BLOODIED-BULWARK"), 30);
+bloodiedBulwarkGame.turnOrder = [dagan.id, daganTarget.id, tank.id];
+bloodiedBulwarkGame.adventure.target = 8;
+bloodiedBulwarkGame.playerStates[dagan.id].hp = dagan.hero.maxHp / 2;
+bloodiedBulwarkGame.playerStates[dagan.id].shield = 1;
+bloodiedBulwarkGame.playerStates[dagan.id].hand = [shieldforgedAssault.id];
+bloodiedBulwarkGame.playerStates[dagan.id].borrowedCards = [{ cardId: shieldforgedAssault.id, ownerId: tank.id, borrowedAtTurn: 0, expiresAfterBorrowerTurn: 2 }];
+const bloodiedBulwark = engine.resolveCardTurn(bloodiedBulwarkGame, bloodiedBulwarkParty, shieldforgedAssault.id, daganTarget.id, 20);
+assert.equal(bloodiedBulwark.outcome.amount, 3, "Bloodied Power adds +2 damage when Dagan uses a borrowed Attack card");
+const reconciledBloodiedBulwark = structuredClone(bloodiedBulwark);
+reconciledBloodiedBulwark.playerStates[daganTarget.id].hp = daganTarget.hero.maxHp;
+reconciledBloodiedBulwark.outcome.amount = 0;
+assert.equal(bulwarkRules.reconcileBulwarkToBladeImpact(bloodiedBulwarkGame, reconciledBloodiedBulwark, dagan, bloodiedBulwarkParty), "", "the realtime authority accepts Dagan's valid borrowed Bulwark to Blade target");
+assert.equal(reconciledBloodiedBulwark.playerStates[daganTarget.id].hp, daganTarget.hero.maxHp - 3, "the realtime authority applies Dagan's +2 passive to a borrowed Attack card");
+assert.equal(reconciledBloodiedBulwark.outcome.amount, 3, "the realtime authority publishes Dagan's corrected borrowed-card damage");
+
 const rejectedAuthorityTarget = structuredClone(shieldsForged);
 rejectedAuthorityTarget.outcome.targetIds = [tankAlly.id];
 assert.match(bulwarkRules.reconcileBulwarkToBladeImpact(conversionGame, rejectedAuthorityTarget, tank, tankParty), /one living enemy/i, "the realtime authority rejects an allied Bulwark to Blade target");
@@ -942,6 +1035,7 @@ const diceCard = commander.skillDeck.find((card) => card.supportType === "dice")
 assert.equal(diceCard.name, "Precision Order", "Precision Order is the only allied d20 buff card");
 diceGame.playerStates[commander.id].hand = [diceCard.id];
 const diceBuffed = engine.resolveCardTurn(diceGame, diceParty, diceCard.id, commander.id, 20);
+assert.equal(diceBuffed.outcome.bonus, 1, "Marshal's Fortune applies to Ione's special cards");
 assert.equal(diceBuffed.playerStates[commander.id].diceBuff, 2);
 assert.equal(diceBuffed.playerStates[diceAlly.id].diceBuff, 2);
 assert.equal(diceBuffed.playerStates[diceEnemy.id].diceBuff, 0);
@@ -1479,6 +1573,133 @@ assert.equal(reconciledSecondWind.playerStates[lioraDeadAlly.id].hp, 0, "realtim
 assert.equal(reconciledSecondWind.playerStates[liora.id].sanguineRecompense, false, "realtime reconciliation consumes the team-wide healing charge once");
 assert.equal(reconciledSecondWind.outcome.amount, 5, "realtime reconciliation repairs Second Wind's combined healing total");
 
+const addExternalPassiveTestCard = (player, slug, abilities) => {
+  const card = {
+    id: `${player.id}::passive-test::${slug}`,
+    name: `External passive test ${slug}`,
+    description: "External passive gameplay test.",
+    bonus: 0,
+    value: 1,
+    unique: true,
+    external: true,
+    pityCost: 2,
+    failureEffect: "self-damage",
+    failureValue: 1,
+    ...abilities
+  };
+  player.skillDeck.push(card);
+  return card;
+};
+const prepareExternalPassiveGame = (seed, party, actor, card) => {
+  const game = engine.createInitialGame(party, engine.createAdventure(seed), 30);
+  game.turnOrder = [actor.id, ...party.filter((player) => player.id !== actor.id).map((player) => player.id)];
+  game.adventure.target = 8;
+  game.playerStates[actor.id].hand = [card.id];
+  game.playerStates[actor.id].drawPile = game.playerStates[actor.id].drawPile.filter((id) => id !== card.id);
+  return game;
+};
+
+const elaraExternalGuard = addExternalPassiveTestCard(elara, "elara-guard", { effect: "guard", target: "self", value: 2 });
+const elaraExternalGame = prepareExternalPassiveGame("EXTERNAL-ELARA", [elara, elaraEnemy], elara, elaraExternalGuard);
+const elaraExternalResult = engine.resolveCardTurn(elaraExternalGame, [elara, elaraEnemy], elaraExternalGuard.id, elara.id, 20);
+assert.equal(elaraExternalResult.outcome.amount, 3, "Lantern-Forged Guard grants +1 shield to Elara's External Guard cards");
+
+const thorneExternalAttack = addExternalPassiveTestCard(thorne, "thorne-attack", { effect: "damage", target: "enemy", value: 2 });
+const thorneExternalGame = prepareExternalPassiveGame("EXTERNAL-THORNE", thorneParty, thorne, thorneExternalAttack);
+thorneExternalGame.playerStates[thorne.id].thorneDeadeyeCharge = true;
+const thorneExternalResult = engine.resolveCardTurn(thorneExternalGame, thorneParty, thorneExternalAttack.id, thorneTarget.id, 20);
+assert.equal(thorneExternalResult.outcome.amount, 3, "Second-Beat Deadeye grants +1 damage to Thorne's External single-target Attack cards on its active turn");
+assert.equal(thorneExternalResult.playerStates[thorne.id].thorneDeadeyeCharge, false, "an External Attack consumes Thorne's passive charge");
+const thorneCommonAttack = thorne.skillDeck.find((card) => !card.unique && card.effect === "damage");
+const thorneCommonGame = engine.createInitialGame(thorneParty, engine.createAdventure("COMMON-THORNE"), 30);
+thorneCommonGame.turnOrder = [thorne.id, thorneTarget.id];
+thorneCommonGame.adventure.target = 8;
+thorneCommonGame.playerStates[thorne.id].thorneDeadeyeCharge = true;
+thorneCommonGame.playerStates[thorne.id].hand = [thorneCommonAttack.id];
+const thorneCommonResult = engine.resolveCardTurn(thorneCommonGame, thorneParty, thorneCommonAttack.id, thorneTarget.id, 20);
+assert.equal(thorneCommonResult.outcome.amount, thorneCommonAttack.value + 1, "Second-Beat Deadeye also grants +1 damage to Thorne's common single-target Attack cards");
+assert.equal(thorneCommonResult.playerStates[thorne.id].thorneDeadeyeCharge, false, "a common Attack consumes Thorne's passive charge");
+
+const miraExternalAoe = addExternalPassiveTestCard(mira, "mira-aoe", { effect: "aoe", target: "all-enemies", value: 1 });
+const miraExternalParty = [mira, infernoTargetOne, infernoTargetTwo];
+const miraExternalGame = prepareExternalPassiveGame("EXTERNAL-MIRA", miraExternalParty, mira, miraExternalAoe);
+const miraExternalResult = engine.resolveCardTurn(miraExternalGame, miraExternalParty, miraExternalAoe.id, infernoTargetOne.id, 20);
+assert.equal(miraExternalResult.outcome.amount, 4, "Wildfire Reach grants +1 damage per enemy to Mira's External AOE Attack cards");
+
+const orrenExternalHeal = addExternalPassiveTestCard(healer, "orren-heal", { effect: "heal", target: "self", value: 2 });
+const orrenExternalParty = [healer, supportEnemy];
+const orrenExternalGame = prepareExternalPassiveGame("EXTERNAL-ORREN", orrenExternalParty, healer, orrenExternalHeal);
+orrenExternalGame.playerStates[healer.id].hp = 1;
+const orrenExternalResult = engine.resolveCardTurn(orrenExternalGame, orrenExternalParty, orrenExternalHeal.id, healer.id, 20);
+assert.equal(orrenExternalResult.outcome.amount, 3, "Graceful Restoration grants +1 HP to Orren's External Heal cards");
+
+const lioraExternalHeal = addExternalPassiveTestCard(liora, "liora-heal", { effect: "heal", target: "self", value: 2 });
+const lioraExternalParty = [liora, lioraEnemy, lioraAlly];
+const lioraExternalGame = prepareExternalPassiveGame("EXTERNAL-LIORA", lioraExternalParty, liora, lioraExternalHeal);
+Object.assign(lioraExternalGame.playerStates[liora.id], { hp: 5, sanguineRecompense: true });
+lioraExternalGame.playerStates[lioraAlly.id].hp = 5;
+const lioraExternalResult = engine.resolveCardTurn(lioraExternalGame, lioraExternalParty, lioraExternalHeal.id, liora.id, 20);
+assert.equal(lioraExternalResult.playerStates[liora.id].hp, 8, "Sanguine Recompense grants +1 HP to Liora's External Heal card");
+assert.equal(lioraExternalResult.playerStates[lioraAlly.id].hp, 6, "Sanguine Recompense pulses 1 HP to each other living ally from an External Heal card");
+assert.equal(lioraExternalResult.playerStates[liora.id].sanguineRecompense, false, "an External Heal card consumes Sanguine Recompense once");
+const reconciledLioraExternal = structuredClone(lioraExternalResult);
+reconciledLioraExternal.playerStates[liora.id].hp = liora.hero.maxHp;
+reconciledLioraExternal.playerStates[lioraAlly.id].hp = lioraAlly.hero.maxHp;
+reconciledLioraExternal.outcome.amount = 999;
+assert.equal(lioraRules.reconcileLioraVennImpact(lioraExternalGame, reconciledLioraExternal, liora, lioraExternalParty), "", "the realtime authority accepts Sanguine Recompense from an External Heal card");
+assert.equal(reconciledLioraExternal.playerStates[liora.id].hp, 8, "the realtime authority restores Liora's passive-enhanced External healing");
+assert.equal(reconciledLioraExternal.playerStates[lioraAlly.id].hp, 6, "the realtime authority restores the External Heal card's passive ally pulse");
+
+const nyxExternalAttack = addExternalPassiveTestCard(nyx, "nyx-attack", { effect: "damage", target: "enemy", value: 2 });
+const nyxExternalGame = prepareExternalPassiveGame("EXTERNAL-NYX", nyxParty, nyx, nyxExternalAttack);
+nyxExternalGame.playerStates[nyxTarget.id].shield = 3;
+const nyxExternalResult = engine.resolveCardTurn(nyxExternalGame, nyxParty, nyxExternalAttack.id, nyxTarget.id, 20);
+assert.equal(nyxExternalResult.outcome.amount, 2, "Veilpiercer lets Nyx's External Attack cards deal full damage through shield");
+assert.equal(nyxExternalResult.playerStates[nyxTarget.id].shield, 3, "Nyx's External Attack card ignores rather than consumes shield");
+const nyxCommonAttack = nyx.skillDeck.find((card) => !card.unique && card.effect === "damage");
+const nyxCommonGame = engine.createInitialGame(nyxParty, engine.createAdventure("COMMON-NYX"), 30);
+nyxCommonGame.turnOrder = [nyx.id, nyxTarget.id];
+nyxCommonGame.adventure.target = 8;
+nyxCommonGame.playerStates[nyx.id].hand = [nyxCommonAttack.id];
+nyxCommonGame.playerStates[nyxTarget.id].shield = 3;
+const nyxCommonResult = engine.resolveCardTurn(nyxCommonGame, nyxParty, nyxCommonAttack.id, nyxTarget.id, 20);
+assert.equal(nyxCommonResult.outcome.amount, nyxCommonAttack.value, "Veilpiercer also lets Nyx's common Attack cards deal full damage through shield");
+
+const bramExternalGuard = addExternalPassiveTestCard(tank, "bram-guard", { effect: "guard", target: "self", value: 2 });
+const bramExternalGame = prepareExternalPassiveGame("EXTERNAL-BRAM", [tank, tankEnemy], tank, bramExternalGuard);
+const bramExternalResult = engine.resolveCardTurn(bramExternalGame, [tank, tankEnemy], bramExternalGuard.id, tank.id, 20);
+engine.expireTimedEffectsAtTurnEnd(bramExternalResult.playerStates[tank.id]);
+assert.equal(bramExternalResult.playerStates[tank.id].shield, 2, "Two-Turn Temper keeps shield from Bram's External Guard card through his next turn");
+engine.expireTimedEffectsAtTurnEnd(bramExternalResult.playerStates[tank.id]);
+assert.equal(bramExternalResult.playerStates[tank.id].shield, 0, "shield from Bram's External Guard card expires after his second turn");
+
+const sableExternalThreat = addExternalPassiveTestCard(cursedEnemy, "sable-threat", { effect: "damage", target: "enemy", value: 1 });
+const sableExternalParty = [oracle, cursedEnemy];
+const sableExternalGame = prepareExternalPassiveGame("EXTERNAL-SABLE", sableExternalParty, cursedEnemy, sableExternalThreat);
+sableExternalGame.playerStates[oracle.id].hp = 1;
+const sableExternalResult = engine.resolveCardTurn(sableExternalGame, sableExternalParty, sableExternalThreat.id, oracle.id, 20);
+assert.equal(sableExternalResult.playerStates[oracle.id].hp, Math.ceil(oracle.hero.maxHp / 2), "Foreseen Return revives Sable when an External card defeats her");
+assert.equal(sableExternalResult.playerStates[oracle.id].passiveReviveUsed, true, "an External card defeat consumes Sable's one passive revival");
+
+const kaelExternalAttack = addExternalPassiveTestCard(kael, "kael-attack", { effect: "damage", target: "enemy", value: 2 });
+const kaelExternalGame = prepareExternalPassiveGame("EXTERNAL-KAEL", kaelParty, kael, kaelExternalAttack);
+const kaelExternalResult = engine.resolveCardTurn(kaelExternalGame, kaelParty, kaelExternalAttack.id, kaelTarget.id, 20);
+assert.equal(kaelExternalResult.outcome.amount, 3, "Unshielded Edge grants +1 damage to Kael's External Attack cards while he has no shield");
+
+const ioneExternalSupport = addExternalPassiveTestCard(commander, "ione-support", { effect: "support", supportType: "shield", target: "self", value: 1 });
+const ioneExternalParty = [commander, diceEnemy];
+const ioneExternalGame = prepareExternalPassiveGame("EXTERNAL-IONE", ioneExternalParty, commander, ioneExternalSupport);
+ioneExternalGame.adventure.target = 8;
+const ioneExternalResult = engine.resolveCardTurn(ioneExternalGame, ioneExternalParty, ioneExternalSupport.id, commander.id, 7);
+assert.equal(ioneExternalResult.outcome.success, true, "Marshal's Fortune lets Ione's External card meet its d20 target");
+assert.equal(ioneExternalResult.outcome.bonus, 1, "Marshal's Fortune grants +1 on Ione's External card roll");
+
+const daganExternalAttack = addExternalPassiveTestCard(dagan, "dagan-attack", { effect: "damage", target: "enemy", value: 2 });
+const daganExternalGame = prepareExternalPassiveGame("EXTERNAL-DAGAN", daganParty, dagan, daganExternalAttack);
+daganExternalGame.playerStates[dagan.id].hp = dagan.hero.maxHp / 2;
+const daganExternalResult = engine.resolveCardTurn(daganExternalGame, daganParty, daganExternalAttack.id, daganTarget.id, 20);
+assert.equal(daganExternalResult.outcome.amount, 4, "Bloodied Power grants +2 damage to Dagan's External Attack cards at half HP");
+
 let resolvedSuccessCardCopies = 0;
 for (const option of options) {
   for (const templateCard of option.skillDeck) {
@@ -1546,7 +1767,7 @@ for (const option of options) {
         return matrixCard.value
           + engine.getThorneValePassiveDamageBonus(matrixActor, matrixCard, beforeSuccess.playerStates[matrixActor.id])
           + (matrixActor.hero.classId === "mage" && matrixCard.effect === "aoe" ? 1 : 0)
-          + (matrixActor.hero.classId === "berserker" && beforeSuccess.playerStates[matrixActor.id].hp <= beforeSuccess.playerStates[matrixActor.id].maxHp / 2 ? 1 : 0)
+          + daganRules.getDaganFlintPassiveDamageBonus(matrixActor, matrixCard, beforeSuccess.playerStates[matrixActor.id])
           + engine.getKaelRookPassiveDamageBonus(matrixActor, matrixCard, beforeSuccess.playerStates[matrixActor.id], targetState);
       });
       assert.equal(matrixSuccess.outcome.amount, expectedDamage.reduce((sum, value) => sum + value, 0), `${matrixCard.name} must apply its exact total attack damage`);
@@ -2034,6 +2255,7 @@ for (const [label, source] of [["Node", serverAuthoritySource], ["Worker", worke
   assert.match(source, /card\.supportType === 'purge-card'[\s\S]*const specialCandidates = candidates\.filter[\s\S]*const preferredCandidates = specialCandidates\.length \? specialCandidates : candidates[\s\S]*const removedId = preferredCandidates/, `${label} authority makes Mirefield Seizure prefer special cards with common-card fallback`);
   assert.match(source, /returnBorrowedCards\(game, passingPlayer\.id\);[\s\S]*refillHandToMinimum\(game\.playerStates\[passingPlayer\.id\]\)/, `${label} authority refills only after borrowed cards return at turn end`);
   assert.match(source, /purchaseShopOffer[\s\S]*exchangePityForGold[\s\S]*useShopItem/, `${label} authority exposes all three Shop command families`);
+  assert.equal(source.match(/normalizeDaganFlintCards\(room\.players\)/g)?.length, 2, `${label} authority migrates Dagan's special cards before publishing state and accepting turns`);
 }
 
 if (originalTestMode === undefined) delete process.env.TEST_MODE;

@@ -80,7 +80,7 @@ try {
   await command(thirdId, { type: "join", player: player(thirdId, `Third ${runId}`, "veil") });
 
   const changedSecond = player(secondId, `Second ${runId}`, "veil");
-  changedSecond.hero.name = `Changed Hero ${runId}`;
+  changedSecond.hero.name = "Thorne Vale";
   const changedCharacter = await command(secondId, { type: "character", player: changedSecond });
   assert.equal(changedCharacter.players.find((item) => item.id === secondId).hero.name, changedSecond.hero.name, "a joined player can change character before readying");
   assert.equal(changedCharacter.players.find((item) => item.id === secondId).hero.team, "veil", "changing character preserves the joined team");
@@ -181,6 +181,7 @@ try {
   assert.equal(forcedSkipped.game.outcome.kind, "forced-skip");
   assert.equal(forcedSkipped.game.history.at(-1).kind, "forced-skip");
   assert.equal(forcedSkipped.game.completedPhases, 0, "a phase remains open until every player has acted");
+  assert.equal(forcedSkipped.game.playerStates[secondId].thorneDeadeyeCharge, true, "Thorne's forced-skipped first turn readies his persistent passive charge in polling play");
   assert.equal(forcedSkipped.game.turnOrder[0], thirdId);
   assert.deepEqual(forcedOwnerView.game.playerStates[secondId].hand, [`card-${secondId}`], "forced skip preserves the affected player's hand");
   assert.equal(forcedOwnerView.game.playerStates[secondId].goldUnits, 1, "an automatic polling skip earns half a Gold");

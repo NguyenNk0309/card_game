@@ -15,6 +15,8 @@ import { createRoomId, isValidRoomId, normalizeRoomId, roomExpiresAt, roomIsExpi
 import { sanitizeCommunicationGame } from '../shared/viewpoint.mjs';
 import { calculateRuntimePityCost, isTestModeEnabled } from '../shared/pityCost.mjs';
 import { normalizeBulwarkToBladeCards, reconcileBulwarkToBladeImpact } from '../shared/bulwarkToBlade.mjs';
+import { completeThorneValePassiveTurn, reconcileThorneValePassive } from '../shared/characterPassives.mjs';
+import { normalizeDaganFlintCards } from '../shared/daganFlint.mjs';
 import { normalizeLioraVennCards, reconcileLioraVennImpact } from '../shared/lioraVenn.mjs';
 import { normalizeMirefieldSeizureCards } from '../shared/mirefieldSeizure.mjs';
 import { getCurrentBattlePhase, PHASE_TIMELINE_LENGTH, UNLIMITED_BATTLE_PHASES } from '../shared/battlePhases.mjs';
@@ -52,6 +54,7 @@ function roomMetadata(source = room) {
 
 function publicState(viewerId = '') {
   normalizeBulwarkToBladeCards(room.players);
+  normalizeDaganFlintCards(room.players);
   normalizeMirefieldSeizureCards(room.players);
   if (room.game) {
     normalizeWorldEventState(room.game);
@@ -285,6 +288,7 @@ function normalizeServerTurnOrder(game) {
     state.zeroPityUntilTurn = Math.max(0, Math.floor(Number(state.zeroPityUntilTurn) || 0));
     state.pityPoints = Math.max(0, Math.floor(Number(state.pityPoints) || 0));
     state.sanguineRecompense = Boolean(state.sanguineRecompense);
+    state.thorneDeadeyeCharge = Boolean(state.thorneDeadeyeCharge);
   }
   const validIds = new Set(room.players.map((player) => player.id));
   const currentId = room.players[game.activePlayerIndex]?.id;
@@ -793,6 +797,7 @@ async function passCurrentTurn(kind, now = Date.now(), discardedCardName = '', d
   const completedTurns = game.completedTurns + 1;
   const actionPhase = getCurrentBattlePhase(game.completedPhases || 0);
   if (passingPlayer) expireTimedEffectsAtTurnEnd(game.playerStates[passingPlayer.id]);
+  if (passingPlayer) completeThorneValePassiveTurn(passingPlayer, game.playerStates[passingPlayer.id]);
   if (passingPlayer) returnBorrowedCards(game, passingPlayer.id);
   if (passingPlayer) refillHandToMinimum(game.playerStates[passingPlayer.id]);
   const revived = tickPendingRevives(game);
@@ -1026,6 +1031,7 @@ async function applyCommand(ownerId, message, deadlineAdvanced = false) {
     if (!message.game?.adventure) return 'The turn update is incomplete.';
     if ((room.game.playerStates[activePlayer.id]?.hp || 0) <= 0) return 'A defeated player cannot play a card.';
     normalizeBulwarkToBladeCards(room.players);
+    normalizeDaganFlintCards(room.players);
     normalizeLioraVennCards(room.players);
     normalizeMirefieldSeizureCards(room.players);
     const previousGame = room.game;
@@ -1055,6 +1061,7 @@ async function applyCommand(ownerId, message, deadlineAdvanced = false) {
       incomingState.borrowedCards = [...(state.borrowedCards || [])];
       incomingState.zeroPityUntilTurn = state.zeroPityUntilTurn || 0;
       incomingState.sanguineRecompense = Boolean(state.sanguineRecompense);
+      incomingState.thorneDeadeyeCharge = Boolean(state.thorneDeadeyeCharge);
       if (id !== activePlayer.id) {
         incomingState.hand = [...(state.hand || [])];
         incomingState.drawPile = [...(state.drawPile || [])];
@@ -1071,6 +1078,7 @@ async function applyCommand(ownerId, message, deadlineAdvanced = false) {
     if (lioraError) return lioraError;
     const bulwarkError = reconcileBulwarkToBladeImpact(previousGame, message.game, activePlayer, room.players);
     if (bulwarkError) return bulwarkError;
+    reconcileThorneValePassive(previousGame, message.game, activePlayer, room.players);
     reconcileFailureImpact(previousGame, message.game, activePlayer);
     reconcileHiddenCardEffects(previousGame, message.game, activePlayer);
     reconcileShopTurn(previousGame, message.game, room.players, activePlayer);

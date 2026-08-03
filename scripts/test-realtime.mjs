@@ -171,7 +171,7 @@ try {
   await first.waitFor((state) => state.players.find((item) => item.id === secondId)?.hero.team === "ember");
 
   const changedSecond = player(secondId, `Second ${runId}`, "ember");
-  changedSecond.hero.name = `Changed Hero ${runId}`;
+  changedSecond.hero.name = "Thorne Vale";
   second.send({ type: "character", sessionId: secondId, player: changedSecond });
   const changedCharacter = await first.waitFor((state) => state.players.find((item) => item.id === secondId)?.hero.name === changedSecond.hero.name);
   assert.equal(changedCharacter.players.find((item) => item.id === secondId).hero.team, "ember", "changing character preserves the joined team");
@@ -277,6 +277,7 @@ try {
   assert.equal(forcedSkippedOwnerView.game.playerStates[secondId].goldUnits, 1, "an automatic realtime skip earns half a Gold");
   assert.equal(forcedSkippedOwnerView.game.playerStates[secondId].skipTurns, 0);
   assert.equal(forcedSkippedOwnerView.game.playerStates[secondId].completedPlayerTurns, 1, "a forced skip counts toward recurring passives in realtime play");
+  assert.equal(forcedSkippedOwnerView.game.playerStates[secondId].thorneDeadeyeCharge, true, "Thorne's forced-skipped first turn readies his persistent passive charge");
   assert.deepEqual(
     ["shield", "attackBuff", "diceBuff", "dicePenalty"].map((field) => forcedSkippedOwnerView.game.playerStates[secondId][field]),
     [0, 0, 0, 0],
