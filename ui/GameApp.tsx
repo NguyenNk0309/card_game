@@ -93,7 +93,7 @@ function HandCardItem({ card, selected, playable, blockedReason, heroColor, pity
     initial={{ opacity: 0 }}
     whileDrag={{ y: -14, scale: 1.055, rotate: 1.5, zIndex: 25 }}
     whileHover={playable ? { y: selected ? -7 : -4, scale: selected ? 1.035 : 1.02 } : undefined}
-    animate={{ opacity: 1, y: selected ? -7 : 0, scale: selected ? 1.035 : 1 }}
+    animate={{ opacity: 1, y: selected ? -7 : 0, scale: selected ? 1.035 : 1, rotate: 0 }}
     exit={{ opacity: 0 }}
     transition={{ ...motionTransition.layout, opacity: motionTransition.standard }}
   >
