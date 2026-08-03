@@ -32,6 +32,8 @@ const roomSocket = read("ui/hooks/useRoomSocket.ts");
 const gameAudio = read("ui/hooks/useGameAudio.ts");
 const autoPanelVfx = read("ui/components/AutoPanelVfx.tsx");
 const tooltipPosition = read("ui/components/tooltipPosition.ts");
+const deviceSupportGate = read("ui/components/DeviceSupportGate.tsx");
+const homePage = read("app/page.tsx");
 const styles = read("app/globals.css");
 const pityHoverRules = [...styles.matchAll(/\.pity-button:hover:not\(:disabled\)\s*\{([^}]*)\}/g)];
 assert.match(pityHoverRules.at(-1)?.[1] ?? "", /background:\s*linear-gradient\(180deg,\s*#ffb766,\s*#e88a35\);/, "the final Play Pity hover rule must retain its original gold gradient");
@@ -259,13 +261,27 @@ assert.match(gameApp, /getCurrentBattlePhase\(completedPhases\)[\s\S]*getVisuali
 assert.match(gameApp, /TEAM BATTLE ARENA · UNLIMITED-PHASE MATCH[\s\S]*Defeat the enemy team, or press End battle to settle the current result\./, "battle UI explains the unlimited ending contract");
 assert.doesNotMatch([gameApp, homeScreen, cardCatalog].join("\n"), /lead in HP after phase 30|30-PHASE MATCH|Survive thirty phases|Defeat the enemy team by phase 30/, "player-facing UI and catalog copy must not advertise the removed phase-30 ending");
 assert.match(gameApp, /activeRoomId[\s\S]*<RoomGame roomId=\{activeRoomId\}[\s\S]*<HomeScreen/, "the bare app must enter through the home screen before rendering a room");
+assert.match(homePage, /<DeviceSupportGate><GameApp\/><\/DeviceSupportGate>/, "the entire game must stay behind the supported-device boundary");
+assert.match(deviceSupportGate, /\(min-width: 1280px\) and \(min-height: 720px\)[\s\S]*MOBILE_DEVICE_PATTERN[\s\S]*userAgentData\?\.mobile === true[\s\S]*deviceQuery\.matches && !isMobileDevice\(\)[\s\S]*return supported \? children : <UnsupportedDevice\/>/, "only non-mobile viewports at or above 1280 by 720 may mount the app");
+assert.match(deviceSupportGate, /App currently does not support this device\./, "unsupported devices must receive the requested static message");
+assert.match(styles, /\.unsupported-device\s*\{[^}]*width:\s*100vw;[^}]*height:\s*100dvh;[^}]*place-items:\s*center;[^}]*moonfall-citadel\.png[^}]*\}/, "the unsupported-device message must fill a static themed background");
+assert.doesNotMatch([gameApp, styles].join("\n"), /mobileParty|setMobileParty|mobile-party|mobile-rail|mobile-close/, "the removed mobile party drawer must not leave code or styles behind");
+const viewportMediaConditions = [...styles.matchAll(/@media\s+([^\{]+)\{/g)].map((match) => match[1].replace(/\s+/g, " ").trim());
+for (const condition of viewportMediaConditions.filter((value) => /(?:min|max)-(?:width|height):/.test(value))) {
+  const minimumWidth = [...condition.matchAll(/min-width:\s*(\d+)px/g)].map((match) => Number(match[1]));
+  const maximumWidth = [...condition.matchAll(/max-width:\s*(\d+)px/g)].map((match) => Number(match[1]));
+  const maximumHeight = [...condition.matchAll(/max-height:\s*(\d+)px/g)].map((match) => Number(match[1]));
+  assert(minimumWidth.length > 0 && minimumWidth.every((width) => width >= 1280), `viewport media query must not target widths below 1280px: ${condition}`);
+  assert(maximumWidth.every((width) => width >= 1280), `viewport media query must not target widths below 1280px: ${condition}`);
+  assert(maximumHeight.every((height) => height >= 720), `viewport media query must not target heights below 720px: ${condition}`);
+}
 assert.match(roomSocket, /\/api\/room\?\$\{query\.toString\(\)\}/, "room polling must include the selected room ID");
 assert.match(roomSocket, /\/ws\?roomId=\$\{encodeURIComponent\(roomId\)\}/, "room WebSockets must include the selected room ID");
 assert.match(lobby, /navigator\.clipboard\.writeText\(roomId\)[\s\S]*className=\{`lobby-room-id/, "the entire lobby room ID control must copy the room ID");
 assert.match(lobby, /className="lobby-home-button" onClick=\{onReturnHome\}/, "the lobby must provide a return-to-home button");
 assert.match(lobby, /Room <strong>\{roomId\}<\/strong>/, "the lobby must display its room ID");
 assert.match(styles, /\.lobby-room-id strong\s*\{[\s\S]*font-size:\s*14px;/, "the lobby room ID must be visually prominent");
-assert.match(styles, /\.home-screen\s*\{[\s\S]*min-height:\s*100dvh;[\s\S]*@media \(max-height: 820px\) and \(min-width: 901px\)/, "the themed home screen must include a compact 720p desktop layout");
+assert.match(styles, /\.home-screen\s*\{[\s\S]*min-height:\s*100dvh;[\s\S]*@media \(min-width: 1280px\) and \(min-height: 720px\) and \(max-height: 820px\)/, "the themed home screen must include a compact supported 720p desktop layout");
 assert.match(shopPanel, /<header className="shop-heading">\s*<h2>BATTLE SHOP<\/h2>\s*<p>Rolled success \+1 Gold · rolled failure \+0\.5 Gold · Skip or Discard \+0\.5 Gold<\/p>\s*<\/header>/, "the Shop must use the full-size requested header and exact Gold reward summary");
 assert.doesNotMatch(shopPanel, /Spend Gold without ending your turn/, "the removed Shop headline must stay absent");
 assert.match(shopPanel, /<section className="shop-exchange-bar">[\s\S]*className="shop-exchange-actions">[\s\S]*className="shop-wallet"/, "the Gold wallet must sit below the header beside the pity exchange controls");
@@ -286,9 +302,9 @@ assert.match(gameApp, /PASSIVE · <b className="passive-name-highlight">\{inspec
 assert.match(styles, /\.passive-callout \.passive-name-highlight\s*\{[^}]*color:\s*#ffd76a\s*!important;[^}]*text-shadow:/, "passive names must use the dedicated gold highlight color in the final theme layer");
 assert.match(lobby, /className="joined-actions local-player-actions"[\s\S]*className="out-team-button"[\s\S]*Out team[\s\S]*onToggleReady/, "the local player action row must expose Out team and Ready controls");
 assert.match(lobby, /className="joined-actions remote-player-actions"[\s\S]*className="remove-player-button"[\s\S]*Remove/, "another player's action row must expose the expanded Remove control");
-assert.match(styles, /@media \(min-width: 721px\) \{[\s\S]*\.team-slot-player,\s*\.empty-team-slot \{\s*height: 118px;\s*min-height: 118px;/, "joined players and empty slots must keep equal desktop heights");
-assert.match(styles, /@media \(min-width: 721px\) \{[\s\S]*\.team-slot-player \{\s*display: grid;\s*grid-template-rows: minmax\(0, 1fr\) auto;/, "joined desktop slots must reserve the action row so its bottom padding is not clipped");
-assert.match(styles, /@media \(min-width: 1360px\) and \(max-height: 1100px\) \{[\s\S]*\.team-slot-player \.joined-actions \{\s*padding: 3px 7px 5px;[\s\S]*\.team-slot-player \.joined-actions button \{\s*min-height: 28px;/, "compact desktop player slots must fit their profile and action rows without overlap");
+assert.match(styles, /@media \(min-width: 1280px\) and \(min-height: 720px\) \{[\s\S]*\.team-slot-player,\s*\.empty-team-slot \{\s*height: 118px;\s*min-height: 118px;/, "joined players and empty slots must keep equal supported-desktop heights");
+assert.match(styles, /@media \(min-width: 1280px\) and \(min-height: 720px\) \{[\s\S]*\.team-slot-player \{\s*display: grid;\s*grid-template-rows: minmax\(0, 1fr\) auto;/, "joined supported-desktop slots must reserve the action row so its bottom padding is not clipped");
+assert.match(styles, /@media \(min-width: 1360px\) and \(min-height: 720px\) and \(max-height: 1100px\) \{[\s\S]*\.team-slot-player \.joined-actions \{\s*padding: 3px 7px 5px;[\s\S]*\.team-slot-player \.joined-actions button \{\s*min-height: 28px;/, "compact supported-desktop player slots must fit their profile and action rows without overlap");
 
 const autoPanelVariants = [
   "action-success", "action-failure", "action-skip", "action-discard", "action-neutral",
