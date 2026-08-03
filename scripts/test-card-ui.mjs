@@ -102,7 +102,9 @@ assert.match(cardHoverPreview, /getCardRarityLabel\(card\)[\s\S]*Pity points[\s\
 assert.match(cardHoverPreview, /<small>\{getCardEffectLabel\(card\)\}<\/small>/, "the hover preview identity must show only the meaningful action label");
 assert(!/\bcardType\b|card\.type|\btype:\s*["']/.test([cardCatalog, gameEngine, sharedTypes, cardHoverPreview].join("\n")), "the obsolete card-type field must stay removed from data, outcomes, shared types, and UI");
 assert.match(cardFace, /const rarity = getCardRarity\(card\)[\s\S]*data-rarity=\{rarity\}[\s\S]*rarity === "special" && <Crown\/>[\s\S]*rarity\.toUpperCase\(\)/, "External cards must override the Common and Special labels on the universal card face");
-assert.match(gameApp, /contextLabel=\{card\.external \? undefined : `\$\{index \+ 1\} · \$\{getCardRarityLabel\(card\)\}`\}/, "private draw, discard, and graveyard reviews must omit the small context label from External cards");
+assert(!/contextLabel=/.test(cardSurfaces), "card surfaces must not place small context labels over card artwork");
+assert(!/contextLabel|gothic-card-context/.test(cardFace), "the universal card face must not expose or render an in-card context label");
+assert(!/\.gothic-card-context/.test(styles), "obsolete in-card context-label styling must stay removed");
 assert.match(cardDescription, /maxLines=\{4\}[\s\S]*text=\{card\.description\}/, "main descriptions must use the shared four-line truncator");
 assert.match(cardFace, /className="gothic-card-result-text" maxLines=\{2\}/, "result text must use the shared two-line truncator");
 assert(!/gothic-card-type/.test(cardFace), "card faces must omit the redundant Common or Special type strip");

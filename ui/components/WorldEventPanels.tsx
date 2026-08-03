@@ -364,9 +364,7 @@ export function ShatteredTributeChoicePanel({
               transition={motionTransition.standard}
               key={entry.slotKey}
             >
-              {entry.card ? <CardFace card={entry.card} contextLabel={<>{entry.borrowed
-                ? <><LockKeyhole/> Borrowed · unavailable</>
-                : selected ? <><Check/> Selected</> : `${entry.zoneLabel} · Available`}</>}/> : <>
+              {entry.card ? <CardFace card={entry.card}/> : <>
                 <div className="card-sigil"><LockKeyhole size={18}/></div>
                 <strong>Borrowed card</strong>
               </>}

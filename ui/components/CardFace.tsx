@@ -24,7 +24,6 @@ export type CardResultRow = {
 
 type Props = {
   card: ActionCard;
-  contextLabel?: ReactNode;
   pityCostOverride?: number;
   previewTrigger?: "click" | "hover";
   resultRows?: CardResultRow[];
@@ -35,7 +34,7 @@ const defaultRows = (card: ActionCard): CardResultRow[] => [
   { icon: <X/>, label: "FAILURE", result: describeCardFailure(card), tone: "failure" },
 ];
 
-export function CardFace({ card, contextLabel, pityCostOverride, previewTrigger = "click", resultRows }: Props) {
+export function CardFace({ card, pityCostOverride, previewTrigger = "click", resultRows }: Props) {
   const artwork = getCardArtwork(card);
   const rarity = getCardRarity(card);
   const artworkSource = artwork.preview ?? artwork.scene;
@@ -59,7 +58,6 @@ export function CardFace({ card, contextLabel, pityCostOverride, previewTrigger 
     </div>
     <div className="gothic-card-rarity-banner">{rarity === "special" && <Crown/>}<span>{rarity.toUpperCase()}</span></div>
     <PityCostBadge card={card} costOverride={pityCostOverride}/>
-    {contextLabel && <div className="gothic-card-context">{contextLabel}</div>}
     <div className="gothic-card-copy">
       <div className={`gothic-card-action-icon effect-${card.effect}`} title={getCardEffectLabel(card)}><CardEffectIcon card={card}/></div>
       <strong className="gothic-card-title">{card.name}</strong>

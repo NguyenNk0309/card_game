@@ -7503,29 +7503,6 @@ button:disabled :where(span, small, strong, b, p),
 .gothic-card-action-icon.effect-support { color: #a7abb0; }
 .gothic-card-action-icon.effect-none { color: #bbb4aa; }
 
-.gothic-card-context {
-  position: absolute;
-  z-index: 19;
-  top: 49.3%;
-  left: 8%;
-  max-width: 84%;
-  min-height: 5.4%;
-  padding: .9cqw 1.8cqw;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1cqw;
-  color: #f0d38e !important;
-  border: .3cqw solid rgba(209, 161, 69, .65);
-  background: rgba(8, 7, 8, .88);
-  box-shadow: 0 .6cqw 0 #000;
-  font: 800 2.7cqw/1.15 var(--pixel-font);
-  letter-spacing: .055em;
-  text-transform: uppercase;
-  white-space: normal;
-}
-.gothic-card-context svg { width: 3cqw; height: 3cqw; }
-
 .gothic-card-copy {
   position: absolute;
   z-index: 12;
