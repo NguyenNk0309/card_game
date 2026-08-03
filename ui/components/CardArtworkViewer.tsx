@@ -4,7 +4,7 @@ import { Eye, X } from "lucide-react";
 import { AnimatePresence, useReducedMotion } from "motion/react";
 import * as m from "motion/react-m";
 import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CardArtwork } from "../cardArtwork";
 import { fadePresence, motionTransition, panelPresence } from "../motion/presets";
@@ -22,6 +22,9 @@ export function CardArtworkViewer({ artwork, cardName, onOpenChange, open }: Pro
   const triggerRef = useRef<HTMLSpanElement>(null);
   const [loadedSource, setLoadedSource] = useState("");
   const reducedMotion = useReducedMotion();
+  const revealCachedScene = useCallback((image: HTMLImageElement | null) => {
+    if (image?.complete && image.naturalWidth > 0) setLoadedSource(artwork.scene ?? "");
+  }, [artwork.scene]);
 
   useEffect(() => {
     if (!open) return;
@@ -88,7 +91,7 @@ export function CardArtworkViewer({ artwork, cardName, onOpenChange, open }: Pro
           <button ref={closeRef} type="button" className="card-artwork-viewer-close" onClick={() => onOpenChange(false)} aria-label="Close full illustration"><X/></button>
         </header>
         <div className={`card-artwork-viewer-frame ${loadedSource === artwork.scene ? "is-loaded" : "is-loading"}`} aria-busy={loadedSource !== artwork.scene}>
-          <m.img className="card-artwork-viewer-image" src={artwork.scene} alt={artwork.alt} decoding="async" draggable={false} onLoad={() => setLoadedSource(artwork.scene ?? "")} initial={{ opacity: 0 }} animate={{ opacity: loadedSource === artwork.scene ? 1 : 0 }}/>
+          <m.img className="card-artwork-viewer-image" ref={revealCachedScene} src={artwork.scene} alt={artwork.alt} decoding="async" draggable={false} onLoad={() => setLoadedSource(artwork.scene ?? "")} initial={{ opacity: 0 }} animate={{ opacity: loadedSource === artwork.scene ? 1 : 0 }}/>
           {loadedSource !== artwork.scene && <m.span className="card-artwork-viewer-loading" role="status" animate={{ opacity: reducedMotion ? 0.65 : [0.25, 0.8, 0.25] }} transition={reducedMotion ? { duration: 0 } : { duration: 1.1, repeat: Infinity, ease: "easeInOut" }}>Loading full illustration&hellip;</m.span>}
         </div>
       </m.section>
