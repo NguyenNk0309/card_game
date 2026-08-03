@@ -74,8 +74,10 @@ function DetailedGuide({ onClose }: { onClose: () => void }) {
         <article><strong>4 · Meet the target with your modified d20 to succeed.</strong></article>
         <article><strong>5 · Failed rolls grant pity; spend the shown cost for guaranteed success.</strong></article>
         <article><strong>6 · World Events occur before phases 3, 7, 12, 17, 22, and 27.</strong></article>
-        <article><strong>7 · Rolled actions earn Gold. Open Shop below Battle History to buy Potions, Items, and External Cards.</strong></article>
-        <article><strong>8 · Defeat the enemy team, or press End battle to settle the current result.</strong></article>
+        <article><strong>7 · Rolled actions earn Gold. Open Shop below Battle History at any time.</strong></article>
+        <article><strong>8 · Potions activate when bought; Items activate when used from Inventory. Effects active before your action apply this turn.</strong></article>
+        <article><strong>9 · External Cards enter your draw pile when bought.</strong></article>
+        <article><strong>10 · Defeat the enemy team, or press End battle to settle the current result.</strong></article>
       </div>
     </section>
   </div>;

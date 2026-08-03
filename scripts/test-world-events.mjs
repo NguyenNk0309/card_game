@@ -81,8 +81,8 @@ const EXPECTED_KEYS = [
   const guideStart = gameAppSource.indexOf("function DetailedGuide");
   const guideEnd = gameAppSource.indexOf("function ConfirmedTopAction", guideStart);
   const guideSource = gameAppSource.slice(guideStart, guideEnd);
-  assert.equal((guideSource.match(/<article><strong>/g) || []).length, 8, "the quick guide includes the Shop while staying concise");
-  assert.match(guideSource, /6 · World Events occur before phases 3, 7, 12, 17, 22, and 27\.[\s\S]*7 · Rolled actions earn Gold\.[\s\S]*8 · Defeat the enemy team, or press End battle to settle the current result\./, "World Events remain guidance 6, followed by Shop and the unlimited-battle ending rule");
+  assert.equal((guideSource.match(/<article><strong>/g) || []).length, 10, "the quick guide includes concise Shop location, activation, and External Card guidance");
+  assert.match(guideSource, /6 · World Events occur before phases 3, 7, 12, 17, 22, and 27\.[\s\S]*7 · Rolled actions earn Gold\. Open Shop below Battle History at any time\.[\s\S]*8 · Potions activate when bought; Items activate when used from Inventory\. Effects active before your action apply this turn\.[\s\S]*9 · External Cards enter your draw pile when bought\.[\s\S]*10 · Defeat the enemy team, or press End battle to settle the current result\./, "World Events remain guidance 6, complete Shop guidance follows, and the battle-ending rule stays last");
   assert.doesNotMatch(guideSource, /<article><strong>[^<]+<\/strong><p>|WorldEventLibrary|World Event system/, "guidance uses one-sentence headers without World Event detail");
   assert.doesNotMatch(gameAppSource, /guide-world-event-library|tutorial-world-event-library/, "guidance surfaces do not embed the World Event library");
   assert.doesNotMatch(gameAppSource, /getWorldEventsForPhase|possibleEventDetails/, "phase tooltips must not list every possible World Event");
