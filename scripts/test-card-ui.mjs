@@ -33,8 +33,6 @@ const gameAudio = read("ui/hooks/useGameAudio.ts");
 const autoPanelVfx = read("ui/components/AutoPanelVfx.tsx");
 const gameMotionProvider = read("ui/motion/GameMotionProvider.tsx");
 const motionPresets = read("ui/motion/presets.ts");
-const cardTravelVfx = read("ui/motion/CardTravelVfx.tsx");
-const cardTravelHook = read("ui/hooks/useCardTravel.ts");
 const tooltipPosition = read("ui/components/tooltipPosition.ts");
 const deviceSupportGate = read("ui/components/DeviceSupportGate.tsx");
 const homePage = read("app/page.tsx");
@@ -350,13 +348,12 @@ for (const preset of ["motionTransition", "screenPresence", "panelPresence", "no
   assert(motionPresets.includes(`export const ${preset}`), `${preset} must remain available from the shared Motion presets`);
 }
 assert.match(gameApp, /<Reorder\.Group[\s\S]*axis="x"[\s\S]*values=\{displayedLocalHand\.map\(\(card\) => card\.id\)\}[\s\S]*onReorder=\{setHandOrder\}[\s\S]*<HandCardItem/, "the local hand must use horizontal Motion reordering without changing authoritative card ownership");
-assert.match(gameApp, /useDragControls\(\)[\s\S]*dragListener=\{false\}[\s\S]*dragControls=\{dragControls\}[\s\S]*className="hand-reorder-handle"[\s\S]*ArrowLeft[\s\S]*ArrowRight/, "hand cards must have a dedicated drag handle plus keyboard reordering");
-for (const kind of ["deal", "draw", "discard", "graveyard", "borrow", "lent", "return", "restore", "recycle", "acquire"]) {
-  assert(cardTravelVfx.includes(`case "${kind}"`) || cardTravelVfx.includes(`${kind}: "`), `${kind} must have a semantic card-travel treatment`);
-  assert(cardTravelHook.includes(`emit(cardId, "${kind}")`), `${kind} must be detected from authoritative card-zone changes`);
-}
-assert.match(cardTravelVfx, /if \(reduced\) return \{[\s\S]*initial: \{ opacity: 0 \}[\s\S]*useReducedMotion\(\)/, "card-travel feedback must reduce to opacity-only presence when requested");
-assert.match(gameApp, /useCardTravel\([\s\S]*<CardTravelVfx events=\{cardTravel\.events\} onComplete=\{cardTravel\.complete\}\/>/, "the battle must render card-travel feedback from authoritative zone changes");
-assert.doesNotMatch([gameApp, styles].join("\n"), /battle-card-vfx|card-zone-vfx|zone-vfx-slot-hidden/, "all previous battle-card and card-zone VFX implementations must stay removed");
+assert.match(gameApp, /function HandCardItem[\s\S]*dragMomentum=\{false\}[\s\S]*Drag anywhere on the card[\s\S]*initial=\{\{ opacity: 0 \}\}[\s\S]*animate=\{\{ opacity: 1,[\s\S]*exit=\{\{ opacity: 0 \}\}/, "the whole hand card must be draggable while additions and removals use opacity-only Motion presence");
+assert.match(gameApp, /onDragEnd=\{\(\) => \{ lastDragEndRef\.current = Date\.now\(\); \}\}[\s\S]*onClickCapture=\{\(event\) => \{[\s\S]*event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);/, "finishing a whole-card drag must not also select the card or open its artwork viewer");
+assert.match(gameApp, /<Reorder\.Group[\s\S]*Drag anywhere on a card to rearrange[\s\S]*<AnimatePresence initial=\{false\} mode="popLayout">[\s\S]*<HandCardItem/, "hand additions, returns, discards, and graveyard moves must fade through AnimatePresence inside the reorder group");
+assert.match(gameApp, /tabIndex=\{0\}[\s\S]*ArrowLeft[\s\S]*ArrowRight/, "whole-card dragging must retain keyboard reordering without a separate handle");
+assert.doesNotMatch([gameApp, styles].join("\n"), /GripVertical|hand-reorder-handle|CardTravelVfx|useCardTravel|card-travel-|battle-card-vfx|card-zone-vfx|zone-vfx-slot-hidden/, "drag icons and every previous card-travel VFX implementation must stay removed");
+assert.equal(existsSync(new URL("../ui/motion/CardTravelVfx.tsx", import.meta.url)), false, "the card-travel renderer file must stay removed");
+assert.equal(existsSync(new URL("../ui/hooks/useCardTravel.ts", import.meta.url)), false, "the card-travel state observer file must stay removed");
 
-console.log("Card UI contract passed: Motion-only presentation, draggable hand order, semantic card travel, shared card sizing, and gameplay-safe UI contracts.");
+console.log("Card UI contract passed: Motion-only presentation, whole-card drag ordering, opacity-only hand presence, shared card sizing, and gameplay-safe UI contracts.");
