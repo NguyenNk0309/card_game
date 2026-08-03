@@ -6753,7 +6753,6 @@ button:disabled :where(span, small, strong, b, p),
   padding: clamp(16px, 2vw, 24px);
 }
 
-.expanded-panel-content > .eyebrow,
 .expanded-panel-content > h2 {
   min-width: 0;
   max-width: 100%;
@@ -7764,8 +7763,7 @@ button:disabled :where(span, small, strong, b, p),
   justify-content: space-between;
   gap: 16px;
 }
-.card-artwork-viewer-panel > header small { color: #c79c52; font-size: 11px; letter-spacing: .12em; }
-.card-artwork-viewer-panel > header h2 { margin: 3px 0 0; color: #f3e6d1; font: 500 clamp(24px, 4vw, 38px)/1 Georgia, "Times New Roman", serif; }
+.card-artwork-viewer-panel > header h2 { margin: 0; color: #f3e6d1; font: 500 clamp(24px, 4vw, 38px)/1 Georgia, "Times New Roman", serif; }
 .card-artwork-viewer-close {
   width: 42px;
   height: 42px;

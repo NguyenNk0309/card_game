@@ -37,6 +37,11 @@ const tooltipPosition = read("ui/components/tooltipPosition.ts");
 const deviceSupportGate = read("ui/components/DeviceSupportGate.tsx");
 const homePage = read("app/page.tsx");
 const styles = read("app/globals.css");
+const panelTitleSources = [gameApp, lobby, worldEvents, cardArtworkViewer];
+const stackedPanelTitleLabel = /<(?:span className="eyebrow"|small)>[\s\S]*?<\/(?:span|small)>\s*<h[12]\b/;
+for (const source of panelTitleSources) {
+  assert(!stackedPanelTitleLabel.test(source), "panel titles must not render a small overline label above the main heading");
+}
 const pityHoverRules = [...styles.matchAll(/\.pity-button:hover:not\(:disabled\)\s*\{([^}]*)\}/g)];
 assert.match(pityHoverRules.at(-1)?.[1] ?? "", /background:\s*linear-gradient\(180deg,\s*#ffb766,\s*#e88a35\);/, "the final Play Pity hover rule must retain its original gold gradient");
 assert.match(pityHoverRules.at(-1)?.[1] ?? "", /border-color:\s*#ffba6c;/, "the final Play Pity hover rule must retain its original gold border");
@@ -267,7 +272,7 @@ assert.match(homeScreen, /Play game[\s\S]*placeholder="Enter room ID"[\s\S]*> Jo
 assert(!/home-oath-card|Stand together|Fall remembered/.test(homeScreen), "the home screen must omit the decorative oath quote card");
 assert.match(battlePhases, /PHASE_TIMELINE_LENGTH = 30[\s\S]*UNLIMITED_BATTLE_PHASES = 0[\s\S]*LAST_WORLD_EVENT_PHASE = 30/, "shared phase rules separate the frozen 30-cell visualization from the unlimited battle duration and World Event cutoff");
 assert.match(gameApp, /getCurrentBattlePhase\(completedPhases\)[\s\S]*getVisualizedCompletedPhases\(completedPhases\)[\s\S]*getPhaseCountDenominator\(currentPhase\)[\s\S]*Array\.from\(\{ length: PHASE_TIMELINE_LENGTH \}\)/, "battle status keeps counting after phase 30 while rendering only the fixed timeline");
-assert.match(gameApp, /TEAM BATTLE ARENA · UNLIMITED-PHASE MATCH[\s\S]*Defeat the enemy team, or press End battle to settle the current result\./, "battle UI explains the unlimited ending contract");
+assert.match(gameApp, /<h1>Eliminate the opposing team<\/h1>[\s\S]*Defeat the enemy team, or press End battle to settle the current result\./, "battle UI retains its main objective and ending guidance after removing title overlines");
 assert.doesNotMatch([gameApp, homeScreen, cardCatalog].join("\n"), /lead in HP after phase 30|30-PHASE MATCH|Survive thirty phases|Defeat the enemy team by phase 30/, "player-facing UI and catalog copy must not advertise the removed phase-30 ending");
 assert.match(gameApp, /activeRoomId[\s\S]*<RoomGame roomId=\{activeRoomId\}[\s\S]*<HomeScreen/, "the bare app must enter through the home screen before rendering a room");
 assert.match(homePage, /<GameMotionProvider><DeviceSupportGate><GameApp\/><\/DeviceSupportGate><\/GameMotionProvider>/, "the entire supported game must run inside the shared Motion provider");

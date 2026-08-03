@@ -93,7 +93,6 @@ export function WorldEventLibrary({ className = "", cardNames = [], onInspectCar
 
   return <section className={`world-event-library ${className}`.trim()} aria-labelledby={headingId}>
     <header className="world-event-library-heading">
-      <span className="eyebrow"><Zap size={14}/> WORLD EVENT LIBRARY</span>
       <h2 id={headingId}>Six escalating event phases</h2>
       <p>Phases 3, 7, 12, 17, 22, and 27; phase 3 is fixed.</p>
     </header>
@@ -305,7 +304,6 @@ export function ShatteredTributeChoicePanel({
       <header className="world-event-choice-heading">
         <div className="resolution-hero world"><Archive size={30}/></div>
         <div>
-          <span className="eyebrow">WORLD EVENT · PHASE {pendingEvent.phase} · LEVEL {pendingEvent.level}</span>
           <h2 id={titleId}>{pendingEvent.title}</h2>
           <span className={`world-event-intensity ${intensityClass(pendingEvent.intensity)}`}>{pendingEvent.intensity}</span>
         </div>
@@ -435,7 +433,6 @@ export function ResolvedWorldEventPanel({
   >
     <button type="button" className="modal-close icon-button" onClick={onClose} aria-label="Close"><X size={18}/></button>
     <div className="resolution-hero world"><Zap size={34}/></div>
-    <span className="eyebrow">WORLD EVENT · PHASE {event.phase} · LEVEL {event.level}</span>
     <h2 id={titleId}>{event.title}</h2>
     <span className={`world-event-intensity ${intensityClass(event.intensity)}`}>{event.intensity}</span>
     <p className="modal-lead world-event-rule" id={descriptionId}><HighlightCardNames text={fullRule} cardNames={cardNames} onInspectCard={onInspectCard}/></p>

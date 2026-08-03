@@ -87,7 +87,7 @@ export function CardArtworkViewer({ artwork, cardName, onOpenChange, open }: Pro
         transition={motionTransition.panel}
       >
         <header>
-          <div><small>FULL ILLUSTRATION</small><h2 id={titleId}>{cardName}</h2></div>
+          <div><h2 id={titleId}>{cardName}</h2></div>
           <button ref={closeRef} type="button" className="card-artwork-viewer-close" onClick={() => onOpenChange(false)} aria-label="Close full illustration"><X/></button>
         </header>
         <div className={`card-artwork-viewer-frame ${loadedSource === artwork.scene ? "is-loaded" : "is-loading"}`} aria-busy={loadedSource !== artwork.scene}>
