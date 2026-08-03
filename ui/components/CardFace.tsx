@@ -52,7 +52,7 @@ export function CardFace({ card, pityCostOverride, previewTrigger = "click", res
     <div className="gothic-card-art" data-target={artwork.target} data-art-kind={artwork.kind}>
       <m.div className="gothic-card-art-backdrop" animate={loadedArtwork === artworkSource || reducedMotion ? { opacity: 1 } : { opacity: [0.24, 0.62, 0.24] }} transition={loadedArtwork === artworkSource || reducedMotion ? { duration: 0 } : { duration: 1.1, repeat: Infinity, ease: "easeInOut" }}/>
       {artworkSource
-        ? <m.img className="gothic-card-scene" ref={revealCachedArtwork} src={artworkSource} alt={artwork.alt} width="640" height="640" loading="lazy" decoding="async" draggable={false} onLoad={() => setLoadedArtwork(artworkSource)} initial={{ opacity: 0, scale: reducedMotion ? 1 : 1.015 }} animate={{ opacity: loadedArtwork === artworkSource ? 1 : 0, scale: loadedArtwork === artworkSource ? 1 : reducedMotion ? 1 : 1.015 }}/>
+        ? <img className="gothic-card-scene" ref={revealCachedArtwork} src={artworkSource} alt={artwork.alt} width="640" height="640" loading="lazy" decoding="async" draggable={false} onLoad={() => setLoadedArtwork(artworkSource)}/>
         : <div className="gothic-card-art-missing" role="img" aria-label={artwork.alt}><span>?</span><small>ARTWORK PENDING</small></div>}
       <div className={`gothic-card-effect-wash effect-${card.effect}`} aria-hidden="true"/>
     </div>

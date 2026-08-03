@@ -219,8 +219,9 @@ for (const group of ["common", "external", "special"]) {
 }
 assert.match(cardArtwork, /"lost momentum"[\s\S]*"broken plan"[\s\S]*"empty gesture"/, "the three approved reference cards must have explicit artwork mappings");
 assert.match(cardArtwork, /previewSource[\s\S]*preloadCardArtwork[\s\S]*artwork\.preview \?\? artwork\.scene[\s\S]*preloadedCardArtwork\.get\(source\)[\s\S]*image\.decoding = "async"[\s\S]*image\.decode\(\)/, "lobby artwork warming must deduplicate and decode optimized previews instead of full illustrations");
-assert.match(cardFace, /const artworkSource = artwork\.preview \?\? artwork\.scene[\s\S]*gothic-card-scene[\s\S]*onLoad=\{\(\) => setLoadedArtwork\(artworkSource\)\}/, "card faces must reveal optimized artwork only after it has loaded");
+assert.match(cardFace, /const artworkSource = artwork\.preview \?\? artwork\.scene[\s\S]*<img className="gothic-card-scene"[\s\S]*onLoad=\{\(\) => setLoadedArtwork\(artworkSource\)\}/, "card faces must render optimized artwork on a stable native image layer while retaining loading feedback");
 assert.match(cardFace, /revealCachedArtwork[\s\S]*image\?\.complete && image\.naturalWidth > 0[\s\S]*ref=\{revealCachedArtwork\}/, "card faces must reveal previews that finished loading before the mounted image received its load event");
+assert.doesNotMatch(cardFace, /<m\.img className="gothic-card-scene"|gothic-card-scene[\s\S]{0,300}animate=\{\{ opacity:/, "card artwork must not create a nested Motion compositor layer that can disappear during card overlap");
 assert.match(cardHoverPreview, /backgroundImage: `url\("\$\{artwork\.preview \?\? artwork\.scene\}"\)`/, "card hover previews must reuse optimized display artwork");
 assert.match(cardArtworkViewer, /className=\{`card-artwork-viewer-frame[\s\S]*aria-busy[\s\S]*src=\{artwork\.scene\}[\s\S]*Loading full illustration/, "the full-resolution artwork viewer must retain the original source and expose a stable loading state");
 assert.match(cardArtworkViewer, /revealCachedScene[\s\S]*image\?\.complete && image\.naturalWidth > 0[\s\S]*ref=\{revealCachedScene\}/, "the full-art viewer must reveal an already-cached illustration without waiting for another load event");
@@ -228,7 +229,7 @@ assert.match(lobby, /useDeferredValue\(selectedHeroName\)[\s\S]*requestIdleCallb
 assert(!/preloadCardArtwork\(visibleCharacterOptions\.flatMap/.test(lobby), "switching classes must not download every character's full deck before selection");
 assert.match(lobby, /const CharacterSkillDeck = memo[\s\S]*<CharacterSkillDeck cards=\{shownDeck\}/, "socket and roster updates must not repaint an unchanged ten-card lobby deck");
 assert.match(characterAvatar, /avatar-loading-shimmer[\s\S]*animate=\{\{ opacity:[\s\S]*avatar-image-motion[\s\S]*initial=\{\{ opacity: 0, scale:/, "portrait loading and reveal feedback must be Motion-driven");
-assert.match(cardFace, /gothic-card-art-backdrop[\s\S]*animate=\{loadedArtwork[\s\S]*<m\.img className="gothic-card-scene"[\s\S]*initial=\{\{ opacity: 0, scale:/, "card artwork loading and reveal feedback must be Motion-driven");
+assert.match(cardFace, /<m\.div className="gothic-card-art-backdrop"[\s\S]*animate=\{loadedArtwork[\s\S]*transition=\{loadedArtwork[\s\S]*<img className="gothic-card-scene"/, "card artwork loading feedback must remain Motion-driven behind a stable native image layer");
 assert(!/SPECIAL\s*·|SPECIAL CARD|toUpperCase\(\)\}\s*SKILL/.test(cardSurfaces), "special-card headers must not include a character or class name");
 assert.match(gameApp, /className="history-penalty-cell"><HighlightPlayerNames text=\{presentation\.penalty \|\| "—"\}[^>]*useActualNames/, "expanded-history penalties must use real player names and display the standard empty placeholder");
 assert.match(gameApp, /function HistoryMessage[\s\S]*useActualNames/, "history details must preserve real player names");
