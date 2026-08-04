@@ -8570,3 +8570,111 @@ button:disabled :where(span, small, strong, b, p),
   background: #302719;
   box-shadow: inset 0 -2px #c8953d;
 }
+
+/* Unclipped top-layer d20 canvas, camera-framed to the existing battle stage. */
+.battle-interaction-space {
+  position: relative;
+}
+
+.d20-roll-anchor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.d20-roll-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  overflow: hidden;
+  isolation: isolate;
+  cursor: wait;
+  pointer-events: none;
+  background: transparent;
+}
+
+.d20-roll-scene,
+.d20-roll-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.d20-roll-scene { z-index: 1; }
+.d20-roll-canvas { display: block; touch-action: none; }
+
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* The compact control-panel token mirrors the resin-and-gold scene while idle. */
+.dice-panel .d20 {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: #ffd166;
+  background:
+    linear-gradient(30deg, transparent 48%, rgba(87, 215, 255, .44) 49%, transparent 52%),
+    linear-gradient(150deg, transparent 45%, rgba(0, 20, 64, .62) 47%, transparent 51%),
+    radial-gradient(circle at 36% 24%, #38c7ff 0, #047fc4 18%, #004b8c 48%, #012a57 76%, #001a38 100%);
+  border: 1px solid rgba(131, 224, 255, .7);
+  box-shadow: inset 4px 3px 8px rgba(255, 255, 255, .22), inset -5px -7px 10px rgba(0, 7, 31, .62);
+  filter: drop-shadow(0 5px 9px rgba(0, 77, 137, .42));
+  text-shadow: 0 2px 1px #4c2500, 0 0 4px rgba(255, 214, 92, .72);
+}
+
+.dice-panel .d20::before,
+.dice-panel .d20::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.dice-panel .d20::before {
+  background: conic-gradient(from 30deg at 50% 50%, rgba(116, 223, 255, .2), transparent 17%, rgba(0, 14, 54, .35) 33%, transparent 50%, rgba(102, 221, 255, .2) 67%, transparent 84%);
+}
+
+.dice-panel .d20::after {
+  background-image: radial-gradient(circle, rgba(170, 240, 255, .8) 0 1px, transparent 1.4px);
+  background-size: 9px 11px;
+  opacity: .34;
+}
+
+.d20-debug-panel {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2300;
+  width: 218px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  padding: 11px;
+  color: #e8f3f8;
+  background: rgba(3, 10, 16, .96);
+  border: 1px solid rgba(96, 193, 230, .55);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .58);
+  font: 11px/1.2 ui-monospace, monospace;
+}
+
+.d20-debug-panel > strong,
+.d20-debug-panel > output,
+.d20-debug-panel > div { grid-column: 1 / -1; }
+.d20-debug-panel label { display: grid; gap: 3px; }
+.d20-debug-panel input,
+.d20-debug-panel select { min-width: 0; width: 100%; color: inherit; background: #111d26; border: 1px solid #355567; padding: 4px; }
+.d20-debug-panel output { color: #76d4f4; }
+.d20-debug-panel > div { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.d20-debug-panel button { padding: 5px; color: #071016; background: #82cde8; }
+.d20-debug-panel button:disabled { opacity: .45; }

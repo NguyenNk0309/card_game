@@ -16,6 +16,8 @@ import { formatGoldUnits, getShopOffer, SHOP_CATALOG } from "@/shared/shop.mjs";
 import { formatHistoryPresentation, formatLifeEventPresentation, formatOutcomePresentation, formatViewpointText, getStatusPresentations, playerReference, viewerRelation } from "@/shared/viewpoint.mjs";
 import type { ActionCard, GameHistoryEntry, GameNotice, GameOutcome, PlayerLifeEvent, PlayerSession, SyncedGameState, TeamId, WorldEventOutcome } from "@/shared/types";
 import { DiceRoller } from "./components/DiceRoller";
+import { D20Dice } from "./d20/D20Dice";
+import { D20DebugPanel } from "./d20/D20DebugPanel";
 import { CardFace } from "./components/CardFace";
 import { CharacterAvatar } from "./components/CharacterAvatar";
 import { HighlightCardNames } from "./components/HighlightCardNames";
@@ -497,11 +499,11 @@ export default function GameApp() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []);
 
-  return <AnimatePresence initial={false} mode="popLayout">
+  return <><AnimatePresence initial={false} mode="popLayout">
     {activeRoomId
       ? <m.div className="app-screen" key={`room:${activeRoomId}`} variants={screenPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard}><RoomGame roomId={activeRoomId} onRoomUnavailable={returnHome} onReturnHome={() => returnHome()}/></m.div>
       : <m.div className="app-screen" key="home" variants={screenPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard}><HomeScreen busy={homeBusy} error={homeError} onCreateRoom={createRoom} onJoinRoom={joinRoom}/></m.div>}
-  </AnimatePresence>;
+  </AnimatePresence><D20DebugPanel/></>;
 }
 
 function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string; onRoomUnavailable: (message: string) => void; onReturnHome: () => void }) {
@@ -516,8 +518,8 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
   const [selectedCard, setSelectedCard] = useState("");
   const [handOrder, setHandOrder] = useState<string[]>([]);
   const [targetPlayerId, setTargetPlayerId] = useState("");
-  const [animatedRoll, setAnimatedRoll] = useState<number | null>(null);
-  const [rolling, setRolling] = useState(false);
+  const [rollRequestPending, setRollRequestPending] = useState(false);
+  const [completedDiceOutcomeKey, setCompletedDiceOutcomeKey] = useState("");
   const [showGuide, setShowGuide] = useState(false);
   const [dismissedOutcomeKey, setDismissedOutcomeKey] = useState("");
   const [dismissedSummaryKey, setDismissedSummaryKey] = useState("");
@@ -536,6 +538,7 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
   const seenNoticeIdsRef = useRef(new Set<string>());
   const seenPresentationIdsRef = useRef(new Set<string>());
   const noticeTimersRef = useRef(new Map<string, number>());
+  const rollRequestPendingRef = useRef(false);
 
   useEffect(() => {
     if (!roomAccessError) return;
@@ -582,6 +585,12 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
   const outcomePresentation = outcome ? formatOutcomePresentation(outcome, players, localPlayer?.id) : null;
   const localStatusPresentations = localPlayer && localState ? getStatusPresentations(localPlayer, localState, players, localPlayer.id, currentBattlePhase) : [];
   const outcomeKey = outcome ? outcome.id ?? `${game?.completedTurns ?? 0}-${outcome.kind}-${outcome.actorName ?? ""}-${outcome.cardId ?? ""}` : "";
+  const diceRollInput = outcome?.kind === "card" && outcome.resolution === "roll" && Number.isInteger(outcome.roll) && (outcome.roll ?? 0) >= 1 && (outcome.roll ?? 0) <= 20
+    ? { rawResult: outcome.roll as number, modifier: (outcome.bonus ?? 0) - (outcome.dicePenalty ?? 0), finalResult: outcome.total }
+    : null;
+  const diceSequencePending = Boolean(diceRollInput && completedDiceOutcomeKey !== outcomeKey);
+  const rolling = rollRequestPending || diceSequencePending;
+  const displayedDiceTarget = diceSequencePending && outcome ? outcome.target : adventure.target;
   const queuedPresentation = presentationQueue[0];
   const queuedWorldEvent = queuedPresentation?.kind === "world" ? queuedPresentation.event : undefined;
   const activeLifeEvent = queuedPresentation?.kind === "life" ? queuedPresentation.lifeEvent : undefined;
@@ -599,8 +608,8 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
   const reviewedCardIds = deckReview === "draw" ? localState?.drawPile ?? [] : deckReview === "discard" ? localState?.discardPile ?? [] : deckReview === "graveyard" ? localState?.graveyard ?? [] : [];
   const reviewedCards = reviewedCardIds.map((id) => cardCatalog.find((card) => card.id === id)).filter((card): card is ActionCard => Boolean(card));
   const manualPanelOpen = Boolean(deckReview) || Boolean(expandedPanel) || Boolean(inspectedPlayer) || Boolean(inspectedCard);
-  const showPendingWorldEventChoice = Boolean(pendingWorldEvent && !manualPanelOpen && !showOutcome && !showTurnSummary && !showNonWorldLifeEvent);
-  const activeAutoPanel = manualPanelOpen ? null : showOutcome ? "outcome" : showTurnSummary ? "summary" : showNonWorldLifeEvent ? "life" : worldEventBlocking ? null : showWorldEvent ? "world" : showWorldLifeEvent ? "life" : showRunComplete ? "battle" : null;
+  const showPendingWorldEventChoice = Boolean(!diceSequencePending && pendingWorldEvent && !manualPanelOpen && !showOutcome && !showTurnSummary && !showNonWorldLifeEvent);
+  const activeAutoPanel = manualPanelOpen || diceSequencePending ? null : showOutcome ? "outcome" : showTurnSummary ? "summary" : showNonWorldLifeEvent ? "life" : worldEventBlocking ? null : showWorldEvent ? "world" : showWorldLifeEvent ? "life" : showRunComplete ? "battle" : null;
   const modalOpen = manualPanelOpen || Boolean(activeAutoPanel);
   const outcomeVfxTone = getOutcomeVfxTone(outcome);
   const modalAutoPanelVfx: { key: string; variant: AutoPanelVfxVariant } | null = activeAutoPanel === "outcome"
@@ -653,6 +662,10 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
     setSelectedCard("");
     setTargetPlayerId("");
   }, [localPlayer?.id, game?.turnStartedAt]);
+  useEffect(() => {
+    rollRequestPendingRef.current = false;
+    setRollRequestPending(false);
+  }, [outcomeKey]);
   useEffect(() => {
     const savedName = window.localStorage.getItem(PLAYER_NAME_STORAGE_KEY);
     if (savedName) setPlayerName(savedName);
@@ -732,6 +745,7 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
     noticeTimersRef.current.clear();
   }, []);
   useEffect(() => {
+    if (diceSequencePending) return;
     if (!outcomeSoundReadyRef.current) {
       outcomeSoundReadyRef.current = true;
       lastOutcomeSoundKeyRef.current = outcomeKey;
@@ -740,7 +754,7 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
     if (!outcomeKey || lastOutcomeSoundKeyRef.current === outcomeKey) return;
     lastOutcomeSoundKeyRef.current = outcomeKey;
     if (outcome?.kind === "card") playEffect(outcome.success ? "roll-success" : "roll-fail");
-  }, [outcomeKey, outcome?.kind, outcome?.success, playEffect]);
+  }, [diceSequencePending, outcomeKey, outcome?.kind, outcome?.success, playEffect]);
   useEffect(() => {
     if (teamJoinSoundSequence > 0) playEffect("team-join");
   }, [teamJoinSoundSequence, playEffect]);
@@ -812,10 +826,16 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
     send({ type: "start", players: battlePlayers, game: createInitialGame(battlePlayers, createAdventure(), 30) });
   };
   const castDie = () => {
-    if (rolling || !game || !activePlayer || activePlayer.id !== sessionId || !activeCard || !activeCardCanBePlayed || runComplete || worldEventBlocking || status !== "connected" || (activeState?.hp ?? 0) <= 0) return;
+    if (rolling || rollRequestPendingRef.current || !game || !activePlayer || activePlayer.id !== sessionId || !activeCard || !activeCardCanBePlayed || runComplete || worldEventBlocking || status !== "connected" || (activeState?.hp ?? 0) <= 0) return;
     playEffect("roll");
-    setRolling(true); let ticks = 0;
-    const timer = window.setInterval(() => { setAnimatedRoll(randomD20Roll()); ticks += 1; if (ticks >= 9) { window.clearInterval(timer); const finalRoll = randomD20Roll(); const alternateRoll = localState?.additionalDieActive || localState?.luckyDieActive ? randomD20Roll() : undefined; if (send({ type: "game:update", game: resolveCardTurn(game, players, activeCard.id, targetPlayerId, finalRoll, false, alternateRoll) })) playEffect("play"); setAnimatedRoll(finalRoll); setRolling(false); } }, 85);
+    rollRequestPendingRef.current = true;
+    setRollRequestPending(true);
+    const rawRoll = randomD20Roll();
+    const alternateRoll = localState?.additionalDieActive || localState?.luckyDieActive ? randomD20Roll() : undefined;
+    if (!send({ type: "game:update", game: resolveCardTurn(game, players, activeCard.id, targetPlayerId, rawRoll, false, alternateRoll) })) {
+      rollRequestPendingRef.current = false;
+      setRollRequestPending(false);
+    }
   };
   const usePityRoll = () => {
     if (!game || !activePlayer || activePlayer.id !== sessionId || !activeCard || !activeCardCanBePlayed || runComplete || worldEventBlocking || status !== "connected" || rolling || (activeState?.hp ?? 0) <= 0 || (localState?.pityPoints ?? 0) < activePityCost) return;
@@ -885,8 +905,17 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
     <AnimatePresence initial={false} mode="wait">{phase === "lobby" ? <m.div className="room-phase-stage" key="lobby" variants={screenPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.panel}><Lobby roomId={roomId} players={players} playerName={playerName} error={lobbyError || roomError} selectedPlayerId={selectedPlayerId} localSessionId={sessionId} connectionStatus={status} characterOptions={characterOptions} selectedHeroName={selectedHeroName} onNameChange={(name) => { setPlayerName(name); window.localStorage.setItem(PLAYER_NAME_STORAGE_KEY, name); setLobbyError(""); clearError(); }} onSlotSelect={selectLobbySlot} onSelectPlayer={setSelectedPlayerId} onToggleReady={toggleReady} onLeave={leaveLobby} onRemovePlayer={removePlayer} onEnterGame={enterGame} onHeroSelect={selectLobbyHero} onReturnHome={onReturnHome}/></m.div> :
       <m.div className="room-phase-stage" key="battle" variants={screenPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.panel}><div className="game-layout"><PartyRail players={players} game={game} localSessionId={localPlayer ? sessionId : ""} onInspectPlayer={inspectPlayer}/>
         <section className="world-stage combat-stage"><div className="realm-meta"><div><h1>Eliminate the opposing team</h1></div></div>
-          <div className="encounter-row"><TurnStatusBanner isLocalActiveTurn={isLocalActiveTurn} worldEventBlocking={worldEventBlocking} pendingTitle={pendingWorldEvent?.title} activePlayer={activePlayer} players={players} localPlayer={localPlayer}/><DiceRoller roll={rolling ? animatedRoll : game?.roll ?? null} rolling={rolling} target={adventure.target} passiveBonus={visibleDiceModifier(passiveDiceBonus, activePlayer?.id, sessionId)} diceBuff={visibleDiceModifier((activeState?.diceBuff ?? 0) + (activeState?.shopDiceBonus ?? 0), activePlayer?.id, sessionId)} dicePenalty={visibleDiceModifier(activeState?.dicePenalty, activePlayer?.id, sessionId)} pityPoints={localState?.pityPoints ?? 0} pityCost={activePityCost} hasSelectedCard={Boolean(activeCard)} canPlaySelectedCard={activeCardCanBePlayed} selectedCardBlockReason={activeCardBlockReason} onRoll={castDie} onPity={usePityRoll} onSkip={skipTurn} onDiscard={discardCard} disabled={worldEventBlocking || activePlayer?.id !== sessionId || status !== "connected" || runComplete || (localState?.hp ?? 1) <= 0}/></div>
-          <div className="battle-interaction-space"><AnimatePresence initial={false}>{activePlayer?.id === sessionId && activeCard && ["enemy", "ally", "defeated-ally", "player"].includes(activeCard.target) ? <m.section className="interaction-selector" aria-label="Choose interaction target" variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard} key={activeCard.id}><div className="target-picker"><Target size={16}/><span>Choose {getCardTargetLabel(activeCard).toLowerCase()}</span>{targetOptions.length ? <TargetPlayerPicker options={targetOptions} selectedId={targetPlayerId} game={game} localPlayer={localPlayer} onChange={setTargetPlayerId}/> : <span className="no-valid-target">No valid target; success has no effect.</span>}</div></m.section> : null}</AnimatePresence></div>
+          <div className="encounter-row"><TurnStatusBanner isLocalActiveTurn={isLocalActiveTurn} worldEventBlocking={worldEventBlocking} pendingTitle={pendingWorldEvent?.title} activePlayer={activePlayer} players={players} localPlayer={localPlayer}/><DiceRoller rolling={rolling} target={displayedDiceTarget} passiveBonus={visibleDiceModifier(passiveDiceBonus, activePlayer?.id, sessionId)} diceBuff={visibleDiceModifier((activeState?.diceBuff ?? 0) + (activeState?.shopDiceBonus ?? 0), activePlayer?.id, sessionId)} dicePenalty={visibleDiceModifier(activeState?.dicePenalty, activePlayer?.id, sessionId)} pityPoints={localState?.pityPoints ?? 0} pityCost={activePityCost} hasSelectedCard={Boolean(activeCard)} canPlaySelectedCard={activeCardCanBePlayed} selectedCardBlockReason={activeCardBlockReason} onRoll={castDie} onPity={usePityRoll} onSkip={skipTurn} onDiscard={discardCard} disabled={worldEventBlocking || activePlayer?.id !== sessionId || status !== "connected" || runComplete || (localState?.hp ?? 1) <= 0}/></div>
+          <div className={`battle-interaction-space${diceSequencePending ? " dice-active" : ""}`}>
+            {diceSequencePending && diceRollInput && <D20Dice
+              key={outcomeKey}
+              rollId={outcomeKey}
+              {...diceRollInput}
+              onRollComplete={() => setCompletedDiceOutcomeKey(outcomeKey)}
+              onRollError={(error) => { console.error(error); setCompletedDiceOutcomeKey(outcomeKey); }}
+            />}
+            <AnimatePresence initial={false}>{!diceSequencePending && activePlayer?.id === sessionId && activeCard && ["enemy", "ally", "defeated-ally", "player"].includes(activeCard.target) ? <m.section className="interaction-selector" aria-label="Choose interaction target" variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard} key={activeCard.id}><div className="target-picker"><Target size={16}/><span>Choose {getCardTargetLabel(activeCard).toLowerCase()}</span>{targetOptions.length ? <TargetPlayerPicker options={targetOptions} selectedId={targetPlayerId} game={game} localPlayer={localPlayer} onChange={setTargetPlayerId}/> : <span className="no-valid-target">No valid target; success has no effect.</span>}</div></m.section> : null}</AnimatePresence>
+          </div>
           <section className="hand-zone private-hand-zone"><div className="hand-heading"><div><span className="eyebrow">{localPlayer ? "YOUR PRIVATE HAND" : "PRIVATE HAND"}</span><strong>{activePlayer?.id === sessionId ? "Choose a card and target, then roll. Drag any card to reorder." : "Plan while the current player acts. Drag any card to reorder."}</strong></div>{localPlayer && <div className="pile-review-actions"><span><Hand size={16}/> Hand ({localState?.hand.length ?? 0})</span><button onClick={() => setDeckReview("draw")}><Layers size={16}/> Draw pile ({localState?.drawPile.length ?? 0})</button><button onClick={() => setDeckReview("discard")}><Archive size={16}/> Discard ({localState?.discardPile.length ?? 0})</button><button onClick={() => setDeckReview("graveyard")}><Skull size={16}/> Graveyard ({localState?.graveyard?.length ?? 0})</button></div>}</div>
             {localState && <LayoutGroup id="local-effects"><m.div layout className="active-effects-strip"><b>ACTIVE EFFECTS</b><AnimatePresence initial={false} mode="popLayout">{localStatusPresentations.map((status) => <m.span layout className={status.negative ? "effect-penalty" : status.kind === "attackBuff" || status.kind === "shopAttack" ? "effect-attack" : status.kind === "goldenShield" ? "effect-golden" : status.kind === "revive" ? "effect-heal" : "effect-support"} title={status.tooltip} variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard} key={status.kind}>{status.label.replace(/^Your /, "")} {status.displayValue}{status.duration && !status.displayValue.endsWith(status.duration) ? ` · ${status.duration}` : ""}</m.span>)}{!localStatusPresentations.length && <m.span variants={fadePresence} initial="hidden" animate="visible" exit="exit" key="empty-effects">No active effects</m.span>}</AnimatePresence></m.div></LayoutGroup>}
             {localPlayer ? <Reorder.Group as="div" axis="x" values={displayedLocalHand.map((card) => card.id)} onReorder={setHandOrder} className="action-hand four-cards" aria-label="Your hand. Drag anywhere on a card to rearrange."><AnimatePresence initial={false} mode="popLayout">{displayedLocalHand.map((card) => {
