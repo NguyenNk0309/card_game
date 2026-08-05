@@ -29,7 +29,7 @@ const EXPECTED_KEYS = [
   const priorityLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const activeAutoPanel =")) ?? "";
   const priorityTokens = [
     "showOutcome",
-    "showTurnSummary",
+    "showActionOutcome",
     "showNonWorldLifeEvent",
     "worldEventBlocking",
     "showWorldEvent",
@@ -60,14 +60,16 @@ const EXPECTED_KEYS = [
   }
 
   const outcomeLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const showOutcome =")) ?? "";
-  const summaryLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const showTurnSummary =")) ?? "";
+  const actionOutcomeLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const showActionOutcome =")) ?? "";
   const outcomeKeyLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const outcomeKey =")) ?? "";
-  assert(!outcomeLine.includes("runComplete") && !summaryLine.includes("runComplete"), "the final action or summary displays before Battle Complete");
+  assert(!outcomeLine.includes("runComplete") && !actionOutcomeLine.includes("runComplete"), "the final action or Action Outcome displays before Battle Complete");
   const localOutcomeLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const isLocalActionOutcome =")) ?? "";
   assert(outcomeKeyLine.includes("outcome.id ??") && !outcomeKeyLine.includes("turnStartedAt"), "authoritative action identity remains stable when a World Event resets turn timing");
-  assert(localOutcomeLine.includes("outcome.actorId === localPlayer.id"), "Your Action identifies its local actor by stable session ID");
-  assert.match(gameAppSource, /outcome\.kind === "card" \|\| outcome\.kind === "discard" \|\| outcome\.kind === "skip"/, "local card, Discard, and manual Skip outcomes use Your Action");
-  assert.match(gameAppSource, /outcome\.kind === "discard" \|\| outcome\.kind === "skip" \? <LocalTurnActionPanel/, "local Discard and manual Skip render the non-dice Your Action panel");
+  assert(localOutcomeLine.includes("outcome.actorId === localPlayer.id"), "the local action panel identifies its actor by stable session ID");
+  assert.match(gameAppSource, /outcome\.kind === "card" \|\| outcome\.kind === "discard" \|\| outcome\.kind === "skip"/, "local card, Discard, and manual Skip outcomes use the local action panel");
+  assert.match(gameAppSource, /outcome\.kind === "discard" \|\| outcome\.kind === "skip" \? <LocalTurnActionPanel/, "local Discard and manual Skip render the non-dice local action panel");
+  assert.match(gameAppSource, /showActionOutcome \? "action-outcome"/, "other-player actions route to Action Outcome instead of Turn Summary");
+  assert.doesNotMatch(gameAppSource, /showTurnSummary|TURN SUMMARY|Turn Summary/, "the removed Turn Summary panel stays absent");
   assert.match(gameAppSource, /showPendingWorldEventChoice && pendingWorldEvent && <ShatteredTributeChoicePanel/, "the phase-3 choice waits for higher-priority presentations");
   assert.match(worldEventPanelsSource, /cardIds: localState\.hand[\s\S]*cardIds: localState\.drawPile[\s\S]*cardIds: localState\.discardPile/, "the phase-3 choice panel includes hand, draw-pile, and discard-pile cards");
   assert.match(worldEventPanelsSource, /eligible: owned && !borrowed && !ownedCard\?\.unique/, "the phase-3 choice panel enables only owned common cards");
@@ -82,7 +84,7 @@ const EXPECTED_KEYS = [
   const guideEnd = gameAppSource.indexOf("function ConfirmedTopAction", guideStart);
   const guideSource = gameAppSource.slice(guideStart, guideEnd);
   assert.equal((guideSource.match(/<article><strong>/g) || []).length, 10, "the quick guide includes concise Shop location, activation, and External Card guidance");
-  assert.match(guideSource, /6 · World Events occur before phases 3, 7, 12, 17, 22, and 27\.[\s\S]*7 · Rolled actions earn Gold\. Open Shop below Battle History at any time\.[\s\S]*8 · Potions activate when bought; Items activate when used from Inventory\. Effects active before your action apply this turn\.[\s\S]*9 · External Cards enter your draw pile when bought\.[\s\S]*10 · Defeat the enemy team, or press End battle to settle the current result\./, "World Events remain guidance 6, complete Shop guidance follows, and the battle-ending rule stays last");
+  assert.match(guideSource, /6 · World Events occur before phases 3, 7, 12, 17, 22, and 27\.[\s\S]*7 · Rolled actions earn Gold\. Open Shop below Battle History at any time\.[\s\S]*8 · Potions activate when bought; Items activate when used from Inventory\. Effects active before an action apply that turn\.[\s\S]*9 · External Cards enter the draw pile when bought\.[\s\S]*10 · Defeat the enemy team, or press End battle to settle the current result\./, "World Events remain guidance 6, complete Shop guidance follows, and the battle-ending rule stays last");
   assert.doesNotMatch(guideSource, /<article><strong>[^<]+<\/strong><p>|WorldEventLibrary|World Event system/, "guidance uses one-sentence headers without World Event detail");
   assert.doesNotMatch(gameAppSource, /guide-world-event-library|tutorial-world-event-library/, "guidance surfaces do not embed the World Event library");
   assert.doesNotMatch(gameAppSource, /getWorldEventsForPhase|possibleEventDetails/, "phase tooltips must not list every possible World Event");

@@ -532,8 +532,8 @@ try {
   assert.equal(pendingSecond.game.pendingWorldEvent.id, pendingEventId, "both WebSocket clients observe the same stable pending event");
   assert.deepEqual(pendingFirst.game.outcome.notices, [], "a failed card emits no toast and phase 3 is not announced early");
   const phaseTwoOutcomeId = pendingFirst.game.outcome.id;
-  assert.equal(pendingFirst.game.outcome.actorId, firstId, "the Phase 2 actor receives an authoritative session ID for Your Action");
-  assert.equal(pendingSecond.game.outcome.actorId, firstId, "observers receive the same actor ID for Turn Summary");
+  assert.equal(pendingFirst.game.outcome.actorId, firstId, "the Phase 2 actor receives an authoritative session ID for the local action panel");
+  assert.equal(pendingSecond.game.outcome.actorId, firstId, "observers receive the same actor ID for Action Outcome");
   assert(phaseTwoOutcomeId, "the action before Shattered Tribute receives a stable outcome ID");
   assert.equal(pendingFirst.game.turnDeadline, 0, "normal turn timing pauses during Shattered Tribute");
   assert.equal(pendingFirst.game.pendingWorldEvent.deadlineAt - pendingFirst.game.pendingWorldEvent.startedAt, 60_000, "Shattered Tribute has a 60-second choice deadline");

@@ -14,6 +14,7 @@ const gameEngine = read("backend/game/engine.ts");
 const nodeServer = read("backend/server.mjs");
 const realtimeWorker = read("backend/realtime-worker.js");
 const sharedTypes = read("shared/types.ts");
+const sharedViewpoint = read("shared/viewpoint.mjs");
 const lioraRules = read("shared/lioraVenn.mjs");
 const diceRoller = read("ui/components/DiceRoller.tsx");
 const pityCost = read("ui/components/PityCost.tsx");
@@ -66,7 +67,7 @@ for (const [heroName, fileName] of characterAvatars) {
 assert.match(characterAvatar, /showImage \? <span className="avatar-image-motion"><Image[\s\S]*onError=\{\(\) => setFailedSource\(avatar\)\}[\s\S]*: <span className="avatar-fallback">\{hero\.initials\}/, "native character avatars must retain initials as a safe fallback when an image is missing or fails");
 assert.match(characterAvatar, /preloadCharacterAvatars[\s\S]*preloadedCharacterAvatars\.get\(source\)[\s\S]*image\.decoding = "async"[\s\S]*image\.decode\(\)/, "character portraits must be deduplicated and decoded off the interaction path");
 assert.match(gameApp, /canPayLioraVennHealthCost\(activeCard, localState\?\.hp\)[\s\S]*canPlaySelectedCard=\{activeCardCanBePlayed\}[\s\S]*selectedCardBlockReason=\{activeCardBlockReason\}/, "low-HP blood cards must disable Roll and Pity through the shared health-cost rule");
-assert.match(gameApp, /Requires at least \$\{LIORA_VENN_MINIMUM_HP\} HP to play; you can still discard it\./, "low-HP blood cards must remain selectable for discarding with a clear explanation");
+assert.match(gameApp, /Requires at least \$\{LIORA_VENN_MINIMUM_HP\} HP to play; discarding remains available\./, "low-HP blood cards must remain selectable for discarding with a clear explanation");
 assert.match(diceRoller, /className="roll-button"[\s\S]*!canPlaySelectedCard[\s\S]*className="pity-button"[\s\S]*!canPlaySelectedCard[\s\S]*className="discard-card-button"[\s\S]*disabled=\{rolling \|\| disabled \|\| !hasSelectedCard\}/, "the health requirement blocks Roll and Pity without blocking the existing discard action");
 for (const authority of [nodeServer, realtimeWorker]) {
   assert.match(authority, /normalizeLioraVennCards[\s\S]*reconcileLioraVennImpact[\s\S]*sanguineRecompense/, "each realtime authority must normalize Liora's cards and reconcile her passive state");
@@ -251,10 +252,16 @@ assert.match(styles, /\.resolution-chips > span\s*\{[\s\S]*\.resolution-chips > 
 assert.match(styles, /\.resolution-verdict\s*\{[^}]*padding:\s*5px 10px 6px;/, "action SUCCESS and FAILURE verdicts must have readable inner padding");
 assert.match(gameApp, /function LocalTurnActionPanel[\s\S]*presentation\.title[\s\S]*HighlightInteractiveNames[\s\S]*presentation\.detail[\s\S]*HighlightInteractiveNames/, "discard and skip panels must render interactive card names");
 assert.match(gameApp, /showOutcome && outcome && outcomePresentation \?[^\n]*outcomePresentation\.title[^\n]*cardNames=\{panelCardNames\}[^\n]*outcomePresentation\.detail[^\n]*cardNames=\{panelCardNames\}[^\n]*outcome\.failureDetail[^\n]*onInspectCard=\{inspectCard\}/, "local action panels must link card names in titles, details, and failure effects");
-assert.match(gameApp, /showTurnSummary && outcome && outcomePresentation \?[^\n]*outcomePresentation\.title[^\n]*cardNames=\{panelCardNames\}[^\n]*outcomePresentation\.detail[^\n]*cardNames=\{panelCardNames\}/, "turn-summary panels must link visible card names");
+assert.match(gameApp, /showActionOutcome && outcome && outcomePresentation \?[^\n]*outcomePresentation\.title[^\n]*cardNames=\{panelCardNames\}[^\n]*outcomePresentation\.detail[^\n]*cardNames=\{panelCardNames\}/, "Action Outcome panels must link visible card names");
 assert.match(gameApp, /showLifeEvent && activeLifeEvent && activeLifePresentation \?[^\n]*activeLifePresentation\.title[^\n]*cardNames=\{panelCardNames\}[^\n]*activeLifePresentation\.detail[^\n]*cardNames=\{panelCardNames\}/, "defeat and revival panels must link card names in their explanations");
 assert.match(gameApp, /showRunComplete \?[^\n]*<HighlightInteractiveNames[^\n]*cardNames=\{panelCardNames\}[^\n]*onInspectCard=\{inspectCard\}/, "battle-result panels must preserve interactive card names if the end reason names a card");
 assert.match(worldEvents, /WorldEventLibrary[\s\S]*HighlightCardNames text=\{event\.fullDescription\}[\s\S]*ShatteredTributeChoicePanel[\s\S]*HighlightCardNames text=\{fullRule\}[\s\S]*ResolvedWorldEventPanel[\s\S]*HighlightCardNames text=\{formatViewpointText\(localResult\.privateSummary/, "World Event reference, choice, and result panels must link visible card names");
+assert(sharedViewpoint.includes("return 'ACTION OUTCOME';"), "other-player actions must use the Action Outcome panel category");
+assert(!sharedViewpoint.includes("TURN SUMMARY"), "the removed Turn Summary category must stay absent");
+assert(sharedViewpoint.includes("useActualNames: true"), "outcome panels must preserve stored player names");
+assert(worldEvents.includes("localPlayer.displayName") && worldEvents.includes("useActualNames: true"), "World Event panels must use real player names for local status, private controls, and private results");
+assert(shopPanel.includes("player.displayName") && shopPanel.includes("&apos;S GOLD") && shopPanel.includes("&apos;s Inventory"), "the Shop panel must name the player who owns the Gold and Inventory");
+assert(shopPanel.includes("panelError") && worldEvents.includes("panelConnectionError") && lobby.includes("panelError"), "panel errors must replace second-person references with the local player's real name");
 assert.match(sharedTypes, /kind:\s*"card-transform" \| "phase-start" \| "shop-use";[\s\S]*actorId\?: string;[\s\S]*shopOfferId\?: string;/, "Shop-use notices must carry stable actor and catalog identities");
 assert.match(sharedShop, /function appendShopUseNotice[\s\S]*kind: 'shop-use'[\s\S]*actorId: player\.id[\s\S]*shopOfferId: offer\.id[\s\S]*if \(offer\.category === 'potion'\) appendShopUseNotice[\s\S]*export function useShopItem[\s\S]*appendShopUseNotice\(game, player, offer, now\)/, "Potions must toast on immediate activation and Items only when used");
 assert.match(gameApp, /GAME_NOTICE_DURATION_MS = 10_000[\s\S]*\["card-transform", "phase-start", "shop-use"\][\s\S]*GAME_NOTICE_DURATION_MS/, "all supported battle toasts must remain visible for ten seconds");
@@ -326,7 +333,7 @@ assert.match(styles, /@media \(min-width: 1360px\) and \(min-height: 720px\) and
 
 const autoPanelVariants = [
   "action-success", "action-failure", "action-skip", "action-discard", "action-neutral",
-  "summary-success", "summary-failure", "summary-skip", "summary-discard", "summary-neutral",
+  "action-outcome-success", "action-outcome-failure", "action-outcome-skip", "action-outcome-discard", "action-outcome-neutral",
   "life-revive", "life-defeat", "world-pending", "world-resolved",
   "battle-victory", "battle-defeat", "battle-complete",
 ];
@@ -335,10 +342,10 @@ for (const variant of autoPanelVariants) {
   assert(styles.includes(`.auto-panel-vfx-${variant}`), `${variant} must retain its contextual automatic-panel palette`);
 }
 const semanticVfxPalettes = new Map([
-  ["action-success", "#79dc98"], ["summary-success", "#79dc98"], ["life-revive", "#80e0a0"],
-  ["action-failure", "#f06558"], ["summary-failure", "#f06558"], ["life-defeat", "#d54846"],
-  ["action-skip", "#5aa8ff"], ["summary-skip", "#5aa8ff"],
-  ["action-discard", "#47c9c2"], ["summary-discard", "#47c9c2"],
+  ["action-success", "#79dc98"], ["action-outcome-success", "#79dc98"], ["life-revive", "#80e0a0"],
+  ["action-failure", "#f06558"], ["action-outcome-failure", "#f06558"], ["life-defeat", "#d54846"],
+  ["action-skip", "#5aa8ff"], ["action-outcome-skip", "#5aa8ff"],
+  ["action-discard", "#47c9c2"], ["action-outcome-discard", "#47c9c2"],
   ["world-pending", "#e0b74f"], ["world-resolved", "#c78cf0"],
   ["battle-victory", "#ffd66a"], ["battle-defeat", "#d7473f"],
 ]);
@@ -347,7 +354,7 @@ for (const [variant, primaryColor] of semanticVfxPalettes) {
 }
 assert.match(gameApp, /modalAutoPanelVfx && <AutoPanelVfx key=\{modalAutoPanelVfx\.key\} variant=\{modalAutoPanelVfx\.variant\}/, "standard automatic panels must render their keyed contextual VFX layer");
 assert.match(gameApp, /function getOutcomeVfxTone[\s\S]*outcome\?\.kind === "card"[\s\S]*"success" : "failure"[\s\S]*outcome\?\.kind === "discard"[\s\S]*return "discard"[\s\S]*outcome\?\.kind === "skip" \|\| outcome\?\.kind === "timeout" \|\| outcome\?\.kind === "forced-skip"[\s\S]*return "skip"/, "automatic action panels must map success, failure, discard, skip, timeout, and forced skip to semantic VFX colors");
-assert.match(gameApp, /activeAutoPanel === "outcome"[\s\S]*variant: `action-\$\{outcomeVfxTone\}`[\s\S]*activeAutoPanel === "summary"[\s\S]*variant: `summary-\$\{outcomeVfxTone\}`/, "Your Action and Turn Summary must select their own result-sensitive VFX families");
+assert.match(gameApp, /activeAutoPanel === "outcome"[\s\S]*variant: `action-\$\{outcomeVfxTone\}`[\s\S]*activeAutoPanel === "action-outcome"[\s\S]*variant: `action-outcome-\$\{outcomeVfxTone\}`/, "local actions and Action Outcome must select their own result-sensitive VFX families");
 assert.match(gameApp, /activeAutoPanel === "life"[\s\S]*"life-revive" : "life-defeat"[\s\S]*activeAutoPanel === "world"[\s\S]*variant: "world-resolved"[\s\S]*activeAutoPanel === "battle"[\s\S]*"battle-victory"[\s\S]*"battle-defeat"[\s\S]*"battle-complete"/, "life events, resolved World Events, and every Battle Complete verdict must select contextual VFX");
 assert.match(worldEvents, /world-event-choice-backdrop auto-panel-backdrop[\s\S]*<AutoPanelVfx key=\{pendingEvent\.id\} variant="world-pending"/, "the pending World Event choice must render its own keyed VFX layer");
 const autoPanelVfxStyles = styles.slice(styles.indexOf("/* Contextual VFX shown only behind panels that open automatically. */"));

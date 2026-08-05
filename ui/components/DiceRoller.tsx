@@ -89,7 +89,7 @@ export function DiceRoller({ rolling, target, passiveBonus = 0, diceBuff = 0, di
     </div>
     {typeof document !== "undefined" && createPortal(<AnimatePresence>{confirmAction && <m.div className={`turn-action-confirm turn-action-confirm-portal ${popoverBelow ? "below" : ""}`} ref={confirmationRef} role="dialog" aria-label={confirmAction === "skip" ? "Confirm skip turn" : "Confirm discard card"} style={popoverPosition} variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.quick}>
       <strong>{confirmAction === "skip" ? "Skip this turn?" : "Discard this card?"}</strong>
-      <span>{confirmAction === "skip" ? "Hand stays unchanged." : "Card leaves your hand."}</span>
+      <span>{confirmAction === "skip" ? "Hand stays unchanged." : "Selected card leaves the hand."}</span>
       <div><button onClick={confirm}><Check size={13}/> Confirm</button><button onClick={() => setConfirmAction(null)}><X size={13}/> Cancel</button></div>
     </m.div>}</AnimatePresence>, document.body)}
   </m.section>;

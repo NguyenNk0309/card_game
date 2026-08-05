@@ -9,6 +9,7 @@ import type { PlayerSession, SyncedGameState, TeamId } from "@/shared/types";
 import { getStatusPresentations } from "@/shared/viewpoint.mjs";
 import { getCurrentBattlePhase } from "@/shared/battlePhases.mjs";
 import { CharacterAvatar } from "./CharacterAvatar";
+import { HighlightPlayerNames } from "./HighlightPlayerNames";
 import { fitTooltipToViewport } from "./tooltipPosition";
 import { fadePresence, motionTransition, popPresence } from "../motion/presets";
 
@@ -100,7 +101,7 @@ function RosterAvatar({ hero, playerName, onInspect }: {
   </>;
 }
 
-function RosterEffect({ buff, icon }: { buff: StatusPresentation; icon: React.ReactNode }) {
+function RosterEffect({ buff, icon, players, localPlayer }: { buff: StatusPresentation; icon: React.ReactNode; players: PlayerSession[]; localPlayer?: PlayerSession }) {
   const [open, setOpen] = useState(false);
   const [portalRoot, setPortalRoot] = useState<HTMLElement | null>(null);
   const [position, setPosition] = useState({ arrowLeft: 12, arrowTop: 12, left: 12, placement: "right" as "left" | "right", ready: false, top: 12 });
@@ -164,7 +165,7 @@ function RosterEffect({ buff, icon }: { buff: StatusPresentation; icon: React.Re
         exit="exit"
         transition={motionTransition.quick}
       >
-        <strong>{buff.label}</strong>
+        <strong><HighlightPlayerNames text={buff.label} players={players} localPlayer={localPlayer} useActualNames/></strong>
         <span className={buff.negative ? "negative" : buff.kind === "attackBuff" ? "attack" : ""}><em>{buff.tooltipValue ?? buff.value}</em>{buff.durationLabel && <><i aria-hidden="true">-</i><b>{buff.durationLabel}</b></>}</span>
         <p>{buff.tooltip}</p>
       </m.span>
@@ -212,7 +213,7 @@ export function PartyRail({ players, game, localSessionId, onInspectPlayer }: {
               <div className="hero-name"><strong className={`player-name-highlight ${relationClass(player)}`}>{player.displayName}</strong><AnimatePresence>{dead ? <m.em variants={popPresence} initial="hidden" animate="visible" exit="exit">DEFEATED</m.em> : null}</AnimatePresence></div>
               <span>{hero.name}</span>
               <div className="hp-line"><Heart size={11} fill="currentColor"/><div className="hp-meter" role="progressbar" aria-label={`${player.displayName} health`} aria-valuemin={0} aria-valuemax={maxHp} aria-valuenow={hp}><m.i initial={false} animate={{ scaleX: Math.max(0, hp / maxHp) }} transition={motionTransition.standard} style={{ transformOrigin: "left center" }}/><AnimatePresence initial={false} mode="popLayout"><m.strong key={`${hp}:${maxHp}`} variants={popPresence} initial="hidden" animate="visible" exit="exit">{hp} / {maxHp} HP</m.strong></AnimatePresence></div></div>
-              <AnimatePresence initial={false}>{buffs.length > 0 && <m.div layout className="roster-buff-row" aria-label={`${player.displayName} active effects`} variants={fadePresence} initial="hidden" animate="visible" exit="exit">{buffs.map((buff, index) => <m.span layout className="roster-effect-motion" variants={popPresence} initial="hidden" animate="visible" exit="exit" key={`${buff.kind}-${index}`}><RosterEffect buff={buff} icon={statusIcon(buff.kind)}/></m.span>)}</m.div>}</AnimatePresence>
+              <AnimatePresence initial={false}>{buffs.length > 0 && <m.div layout className="roster-buff-row" aria-label={`${player.displayName} active effects`} variants={fadePresence} initial="hidden" animate="visible" exit="exit">{buffs.map((buff, index) => <m.span layout className="roster-effect-motion" variants={popPresence} initial="hidden" animate="visible" exit="exit" key={`${buff.kind}-${index}`}><RosterEffect buff={buff} icon={statusIcon(buff.kind)} players={players} localPlayer={localPlayer}/></m.span>)}</m.div>}</AnimatePresence>
             </div>
           </m.article>;
         })}</AnimatePresence>

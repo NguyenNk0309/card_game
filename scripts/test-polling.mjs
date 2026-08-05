@@ -395,7 +395,7 @@ try {
   assert.deepEqual(pendingTribute.game.pendingWorldEvent.submittedPlayerIds, []);
   assert.deepEqual(pendingTribute.game.outcome.notices, [], "a failed polling card emits no toast while Tribute is pending");
   const phaseTwoOutcomeId = pendingTribute.game.outcome.id;
-  assert.equal(pendingTribute.game.outcome.actorId, secondId, "the polling Phase 2 actor receives an authoritative session ID for Your Action");
+  assert.equal(pendingTribute.game.outcome.actorId, secondId, "the polling Phase 2 actor receives an authoritative session ID for the local action panel");
   assert(phaseTwoOutcomeId, "the polling action before Shattered Tribute receives a stable outcome ID");
   assert.equal(pendingTribute.game.turnDeadline, 0, "Shattered Tribute pauses the normal polling turn timer");
   assert.equal(pendingTribute.game.pendingWorldEvent.deadlineAt - pendingTribute.game.pendingWorldEvent.startedAt, 60_000);

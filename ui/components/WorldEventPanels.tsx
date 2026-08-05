@@ -21,6 +21,7 @@ import type {
 import { CardFace } from "./CardFace";
 import { AutoPanelVfx } from "./AutoPanelVfx";
 import { HighlightCardNames } from "./HighlightCardNames";
+import { HighlightPlayerNames } from "./HighlightPlayerNames";
 import { fadePresence, motionTransition, panelPresence, popPresence, subtleHover, subtleTap } from "../motion/presets";
 
 const DIALOG_FOCUSABLE_SELECTOR = [
@@ -283,6 +284,7 @@ export function ShatteredTributeChoicePanel({
   };
 
   const submittedCount = submittedIds.length;
+  const panelConnectionError = connectionError ? formatViewpointText(connectionError, players, localPlayer?.id, { useActualNames: true }) : "";
 
   return <m.div className="world-event-choice-backdrop auto-panel-backdrop" data-world-event-id={pendingEvent.id} variants={fadePresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard}>
     <AutoPanelVfx key={pendingEvent.id} variant="world-pending"/>
@@ -326,7 +328,7 @@ export function ShatteredTributeChoicePanel({
           const submitted = submittedIds.includes(playerId);
           const status = autoResolved ? "Auto-resolved" : submitted ? "Submitted" : "Waiting";
           return <m.li layout className={autoResolved ? "auto-resolved" : submitted ? "submitted" : "waiting"} variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.layout} key={playerId}>
-            <span>{playerId === localPlayer?.id ? "You" : player?.displayName ?? "Player no longer in battle"}</span>
+            <span className={`inline-player-name ${player && localPlayer ? (player.hero.team === localPlayer.hero.team ? "ally" : "enemy") : "neutral"}`}>{player?.displayName ?? "Player no longer in battle"}</span>
             <AnimatePresence initial={false} mode="popLayout"><m.strong key={status} variants={popPresence} initial="hidden" animate="visible" exit="exit">{status}</m.strong></AnimatePresence>
           </m.li>;
         })}
@@ -336,7 +338,7 @@ export function ShatteredTributeChoicePanel({
         <div className="world-event-choice-instructions">
           <div>
             <Eye size={17}/>
-            <span><strong>Your private cards</strong><small>Choose owned common cards from hand, draw, or discard.</small></span>
+            <span><strong>{localPlayer ? <><span className="inline-player-name ally">{localPlayer.displayName}</span>&apos;s private cards</> : "Private cards"}</strong><small>Choose owned common cards from hand, draw, or discard.</small></span>
           </div>
           <b>Selected {selectedIds.length} of {requiredSelectionCount}</b>
         </div>
@@ -371,7 +373,7 @@ export function ShatteredTributeChoicePanel({
           {!eligibleCards.length && <p className="world-event-no-choice-cards">No eligible owned common cards.</p>}
         </div>
 
-        {connectionError && <p className="world-event-choice-error" role="alert">{connectionError}</p>}
+        {panelConnectionError && <p className="world-event-choice-error" role="alert"><HighlightPlayerNames text={panelConnectionError} players={players} localPlayer={localPlayer} useActualNames/></p>}
 
         <m.button type="button" className="primary-button world-event-confirm-choice" ref={confirmRef} disabled={!canSubmit} onClick={() => void submitChoice()} whileHover={canSubmit ? subtleHover : undefined} whileTap={canSubmit ? subtleTap : undefined}>
           Confirm {requiredSelectionCount} {requiredSelectionCount === 1 ? "card" : "cards"} <ChevronRight size={17}/>
@@ -409,6 +411,7 @@ export function ResolvedWorldEventPanel({
   const panelRef = useRef<HTMLDivElement>(null);
   const definition = getWorldEventDefinition(event.eventKey);
   const fullRule = definition?.fullDescription ?? event.fullDescription ?? event.description;
+  const localPlayer = players.find((player) => player.id === localPlayerId);
   const localResult = localPlayerId ? event.results.find((result) => result.playerId === localPlayerId) : undefined;
 
   useEffect(() => {
@@ -437,9 +440,9 @@ export function ResolvedWorldEventPanel({
     <span className={`world-event-intensity ${intensityClass(event.intensity)}`}>{event.intensity}</span>
     <p className="modal-lead world-event-rule" id={descriptionId}><HighlightCardNames text={fullRule} cardNames={cardNames} onInspectCard={onInspectCard}/></p>
 
-    <AnimatePresence>{localResult && <m.section className="world-event-private-result" aria-label="Your private World Event result" variants={popPresence} initial="hidden" animate="visible" exit="exit">
-      <span><LockKeyhole size={15}/> YOUR PRIVATE RESULT</span>
-      <strong><HighlightCardNames text={formatViewpointText(localResult.privateSummary || localResult.publicSummary, players, localPlayerId, { involvedPlayerIds: [localResult.playerId] })} cardNames={cardNames} onInspectCard={onInspectCard}/></strong>
+    <AnimatePresence>{localResult && <m.section className="world-event-private-result" aria-label={`${localPlayer?.displayName || "Player"}'s private World Event result`} variants={popPresence} initial="hidden" animate="visible" exit="exit">
+      <span><LockKeyhole size={15}/> <span className="inline-player-name ally">{localPlayer?.displayName || "PLAYER"}</span>&apos;S PRIVATE RESULT</span>
+      <strong><HighlightCardNames text={formatViewpointText(localResult.privateSummary || localResult.publicSummary, players, localPlayerId, { involvedPlayerIds: [localResult.playerId], useActualNames: true })} cardNames={cardNames} onInspectCard={onInspectCard} renderRemainder={(text) => <HighlightPlayerNames text={text} players={players} localPlayer={localPlayer} useActualNames/>}/></strong>
       {localResult.autoResolved && <small>Auto-resolved at the deadline.</small>}
     </m.section>}</AnimatePresence>
 

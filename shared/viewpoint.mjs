@@ -23,7 +23,8 @@ export function playerReference(player, viewer, options = {}) {
   const includeRelation = options.includeRelation === true;
   const relation = viewerRelation(player, viewer);
   let label = player?.displayName || 'Player';
-  if (relation === 'self') label = possessive ? 'your' : 'you';
+  if (options.useActualName === true) label = possessive ? `${label}'s` : label;
+  else if (relation === 'self') label = possessive ? 'your' : 'you';
   else {
     if (includeRelation && relation === 'ally') label = `your ally ${label}`;
     if (includeRelation && relation === 'enemy') label = `enemy ${label}`;
@@ -51,11 +52,18 @@ export function formatViewpointText(text, players, viewerId = '', options = {}) 
     const atSentenceStart = nameOffset === 0 || /[.!?]\s*$/.test(source.slice(0, nameOffset));
     return `${prefix}${playerReference(player, viewer, {
       possessive: Boolean(possessiveSuffix),
-      includeRelation: !viewerInvolved && emphasizedIds.has(player.id),
+      includeRelation: options.useActualNames !== true && !viewerInvolved && emphasizedIds.has(player.id),
+      useActualName: options.useActualNames === true,
       capitalize: atSentenceStart
     })}`;
   });
-  if (viewer && options.pronounPlayerId === viewer.id) {
+  if (viewer && options.useActualNames === true) {
+    const possessiveName = `${viewer.displayName}'s`;
+    formatted = formatted
+      .replace(/\byours\b/gi, () => possessiveName)
+      .replace(/\byour\b/gi, () => possessiveName)
+      .replace(/\byou\b/gi, () => viewer.displayName);
+  } else if (viewer && options.pronounPlayerId === viewer.id) {
     const viewerPronouns = [
       [/\b(their|his|her)\b/gi, 'your'],
       [/\b(theirs|his|hers)\b/gi, 'yours'],
@@ -98,28 +106,26 @@ function outcomeContext(outcome, players, viewerId) {
 }
 
 function actorCategory(context) {
-  if (context.viewerIsActor) return 'YOUR ACTION';
-  const relation = viewerRelation(context.actor, context.viewer);
-  if (relation === 'ally') return 'ALLY ACTION';
-  if (relation === 'enemy') return 'ENEMY ACTION';
-  return 'TURN SUMMARY';
+  if (context.viewerIsActor) return `${(context.actor?.displayName || 'PLAYER').toLocaleUpperCase()}'S ACTION`;
+  return 'ACTION OUTCOME';
 }
 
 export function formatOutcomePresentation(outcome, players, viewerId = '') {
   const context = outcomeContext(outcome, players, viewerId);
   const actorLabel = playerReference(context.actor, context.viewer, {
-    includeRelation: !context.viewerInvolved,
+    useActualName: true,
     capitalize: true
   });
   const actorPossessive = playerReference(context.actor, context.viewer, {
     possessive: true,
-    includeRelation: !context.viewerInvolved,
+    useActualName: true,
     capitalize: true
   });
   const textOptions = {
     involvedPlayerIds: context.involvedIds,
     emphasizedPlayerIds: context.actor ? [context.actor.id] : [],
-    pronounPlayerId: context.targets.length === 1 ? context.targets[0]?.id : undefined
+    pronounPlayerId: context.targets.length === 1 ? context.targets[0]?.id : undefined,
+    useActualNames: true
   };
   const rawDetail = formatViewpointText(outcome?.detail || '', players, viewerId, textOptions);
   const kind = outcome?.kind || 'card';
@@ -127,8 +133,8 @@ export function formatOutcomePresentation(outcome, players, viewerId = '') {
   if (kind === 'discard') {
     const card = context.viewerIsActor && outcome.cardName ? outcome.cardName : 'a card';
     return {
-      category: context.viewerIsActor ? 'YOUR ACTION' : 'TURN SUMMARY',
-      title: context.viewerIsActor ? `You discarded ${card}` : `${actorLabel} discarded a card`,
+      category: actorCategory(context),
+      title: context.viewerIsActor ? `${actorLabel} discarded ${card}` : `${actorLabel} discarded a card`,
       detail: context.viewerIsActor
         ? `${outcome.cardName || 'The card'} entered discard; hand refilled to 4 if needed.`
         : `${actorLabel} voluntarily discarded a card.`,
@@ -137,8 +143,8 @@ export function formatOutcomePresentation(outcome, players, viewerId = '') {
   }
   if (kind === 'skip') {
     return {
-      category: context.viewerIsActor ? 'YOUR ACTION' : 'TURN SUMMARY',
-      title: context.viewerIsActor ? 'You passed' : `${actorLabel} passed`,
+      category: actorCategory(context),
+      title: `${actorLabel} passed`,
       detail: context.viewerIsActor
         ? 'No card played; cards preserved.'
         : `${actorLabel} played no card.`,
@@ -147,8 +153,8 @@ export function formatOutcomePresentation(outcome, players, viewerId = '') {
   }
   if (kind === 'timeout') {
     return {
-      category: context.viewerIsActor ? 'YOUR ACTION' : 'TURN SUMMARY',
-      title: context.viewerIsActor ? 'You ran out of time' : `${actorLabel} ran out of time`,
+      category: actorCategory(context),
+      title: `${actorLabel} ran out of time`,
       detail: context.viewerIsActor
         ? 'Time expired; no card played or discarded.'
         : `${actorLabel}'s turn timed out.`,
@@ -157,24 +163,16 @@ export function formatOutcomePresentation(outcome, players, viewerId = '') {
   }
   if (kind === 'forced-skip') {
     return {
-      category: context.viewerIsActor ? 'TURN SKIPPED' : 'TURN SUMMARY',
-      title: context.viewerIsActor ? 'Your turn was skipped' : `${actorPossessive} turn was skipped`,
+      category: actorCategory(context),
+      title: `${actorPossessive} turn was skipped`,
       detail: context.viewerIsActor
-        ? 'An effect skipped your turn; cards preserved.'
-        : `An effect skipped ${playerReference(context.actor, context.viewer, { includeRelation: !context.viewerInvolved })}.`,
+        ? `An effect skipped ${actorPossessive} turn; cards preserved.`
+        : `An effect skipped ${actorLabel}.`,
       involvedPlayerIds: context.involvedIds
     };
   }
 
-  let category = actorCategory(context);
-  if (context.viewerIsTarget && !context.viewerIsActor) {
-    if (outcome.effect === 'damage' || outcome.effect === 'aoe') category = 'YOU WERE HIT';
-    else if (outcome.effect === 'heal') category = 'HEALTH RESTORED';
-    else if (outcome.effect === 'guard') category = 'SHIELD RECEIVED';
-    else if (outcome.supportType === 'enemy-dice' || outcome.supportType === 'dispel-enemy' || outcome.supportType === 'skip-enemy' || outcome.supportType === 'delay-enemy') category = 'DEBUFF RECEIVED';
-    else if (outcome.supportType === 'purge-card' || outcome.supportType === 'steal-card') category = 'CARD LOST';
-    else if (outcome.effect === 'support') category = 'BUFF RECEIVED';
-  }
+  const category = actorCategory(context);
   const fallbackDetail = `${actorLabel} used ${outcome?.cardName || 'a card'}.`;
   return {
     category,
@@ -270,26 +268,22 @@ export function formatLifeEventPresentation(event, players, viewerId = '') {
   const affected = playerByIdOrName(players, event?.playerId, event?.playerName);
   const actor = players.find((player) => player.id !== affected?.id && String(event?.reason || '').includes(player.displayName)) || null;
   const involvedIds = unique([affected?.id, actor?.id]);
-  const self = affected?.id === viewerId;
-  const actorSelf = actor?.id === viewerId;
-  const relation = viewerRelation(affected, viewer);
-  const actorRelation = viewerRelation(actor, viewer);
-  const affectedLabel = playerReference(affected, viewer, { includeRelation: !involvedIds.includes(viewerId), capitalize: true });
-  const emphasisId = actorRelation === 'ally' ? actor?.id : affected?.id;
+  const affectedLabel = playerReference(affected, viewer, { useActualName: true, capitalize: true });
+  const actorLabel = playerReference(actor, viewer, { useActualName: true, capitalize: true });
   const detail = formatViewpointText(event?.reason || '', players, viewerId, {
     involvedPlayerIds: involvedIds,
-    emphasizedPlayerIds: emphasisId ? [emphasisId] : []
+    useActualNames: true
   });
   if (event?.kind === 'revive') {
     return {
-      category: self ? 'YOU REVIVED' : relation === 'ally' ? 'ALLY REVIVED' : relation === 'enemy' ? 'ENEMY REVIVED' : 'PLAYER REVIVED',
-      title: self ? 'You returned to battle' : `${affectedLabel} returned to battle`,
+      category: `${(affected?.displayName || 'PLAYER').toLocaleUpperCase()} REVIVED`,
+      title: `${affectedLabel} returned to battle`,
       detail
     };
   }
   return {
-    category: self ? 'YOU WERE DEFEATED' : actorSelf ? 'ENEMY DEFEATED' : relation === 'ally' ? 'ALLY DEFEATED' : relation === 'enemy' ? 'ENEMY DEFEATED' : 'PLAYER DEFEATED',
-    title: self ? 'You were defeated' : actorSelf ? `You defeated ${affected?.displayName || 'the target'}` : `${affectedLabel} was defeated`,
+    category: `${(affected?.displayName || 'PLAYER').toLocaleUpperCase()} DEFEATED`,
+    title: actor ? `${actorLabel} defeated ${affected?.displayName || 'the target'}` : `${affectedLabel} was defeated`,
     detail
   };
 }
@@ -308,18 +302,13 @@ function phaseLabel(phases) {
   return `${phases} ${phases === 1 ? 'Phase' : 'Phases'}`;
 }
 
-function statusOwnerCopy(player, viewer) {
-  const relation = viewerRelation(player, viewer);
-  if (relation === 'self') return { possessive: 'Your', subject: 'You' };
-  if (relation === 'ally') return { possessive: `Ally ${player.displayName}'s`, subject: `Your ally ${player.displayName}` };
-  if (relation === 'enemy') return { possessive: `Enemy ${player.displayName}'s`, subject: `Enemy ${player.displayName}` };
+function statusOwnerCopy(player) {
   return { possessive: `${player.displayName}'s`, subject: player.displayName };
 }
 
 export function getStatusPresentations(player, state, players, viewerId = '', currentPhase = 1) {
   if (!player || !state) return [];
-  const viewer = players.find((candidate) => candidate.id === viewerId) || null;
-  const owner = statusOwnerCopy(player, viewer);
+  const owner = statusOwnerCopy(player);
   const statuses = [];
   const add = (status) => statuses.push(status);
   if (state.shield > 0) {

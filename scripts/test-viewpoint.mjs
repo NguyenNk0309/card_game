@@ -64,6 +64,11 @@ assert.equal(
   "an uninvolved opponent sees the acting player as an enemy"
 );
 assert.equal(formatViewpointText(sentence, players), sentence, "a neutral viewer sees player names without relationship prefixes");
+assert.equal(
+  formatViewpointText("You discarded your card.", players, rowan.id, { useActualNames: true }),
+  "Rowan discarded Rowan's card.",
+  "panel copy replaces second-person references with the stored display name"
+);
 
 const numericOne = player("numeric-one", "1", "veil");
 const numericTwo = player("numeric-two", "2", "ember");
@@ -91,17 +96,18 @@ const voluntaryPass = {
 assert.deepEqual(
   formatOutcomePresentation(voluntaryPass, players, rowan.id),
   {
-    category: "YOUR ACTION",
-    title: "You passed",
+    category: "ROWAN'S ACTION",
+    title: "Rowan passed",
     detail: "No card played; cards preserved.",
     involvedPlayerIds: [rowan.id]
   },
   "a voluntary pass is not described as a forced skip"
 );
-assert.equal(formatOutcomePresentation({ ...voluntaryPass, kind: "timeout" }, players, rowan.id).title, "You ran out of time");
-assert.equal(formatOutcomePresentation({ ...voluntaryPass, kind: "forced-skip" }, players, rowan.id).title, "Your turn was skipped");
-assert.equal(formatOutcomePresentation(voluntaryPass, players, elias.id).title, "Your ally Rowan passed");
-assert.equal(formatOutcomePresentation(voluntaryPass, players, mira.id).title, "Enemy Rowan passed");
+assert.equal(formatOutcomePresentation({ ...voluntaryPass, kind: "timeout" }, players, rowan.id).title, "Rowan ran out of time");
+assert.equal(formatOutcomePresentation({ ...voluntaryPass, kind: "forced-skip" }, players, rowan.id).title, "Rowan's turn was skipped");
+assert.equal(formatOutcomePresentation(voluntaryPass, players, elias.id).category, "ACTION OUTCOME");
+assert.equal(formatOutcomePresentation(voluntaryPass, players, elias.id).title, "Rowan passed");
+assert.equal(formatOutcomePresentation(voluntaryPass, players, mira.id).title, "Rowan passed");
 
 const hit = {
   id: "hit-1",
@@ -119,12 +125,12 @@ const hit = {
   amount: 3,
   cardName: "Slash"
 };
-assert.equal(formatOutcomePresentation(hit, players, mira.id).category, "YOU WERE HIT");
-assert.equal(formatOutcomePresentation(hit, players, mira.id).detail, "Rowan dealt 3 damage to you.");
+assert.equal(formatOutcomePresentation(hit, players, mira.id).category, "ACTION OUTCOME");
+assert.equal(formatOutcomePresentation(hit, players, mira.id).detail, "Rowan dealt 3 damage to Mira.");
 assert.equal(
   formatOutcomePresentation({ ...hit, effect: "support", supportType: "enemy-dice", detail: "Rowan gave Mira −2 to their next d20 result." }, players, mira.id).detail,
-  "Rowan gave you −2 to your next d20 result.",
-  "target pronouns follow the affected viewer's perspective"
+  "Rowan gave Mira −2 to their next d20 result.",
+  "panel outcomes preserve real target names instead of viewer-relative wording"
 );
 
 const historyEntry = {
@@ -194,9 +200,9 @@ const lifeEvent = {
   reason: "Rowan defeated Mira.",
   source: "card"
 };
-assert.equal(formatLifeEventPresentation(lifeEvent, players, mira.id).title, "You were defeated");
-assert.equal(formatLifeEventPresentation(lifeEvent, players, rowan.id).title, "You defeated Mira");
-assert.equal(formatLifeEventPresentation(lifeEvent, players, nyx.id).category, "ALLY DEFEATED");
+assert.equal(formatLifeEventPresentation(lifeEvent, players, mira.id).title, "Rowan defeated Mira");
+assert.equal(formatLifeEventPresentation(lifeEvent, players, rowan.id).title, "Rowan defeated Mira");
+assert.equal(formatLifeEventPresentation(lifeEvent, players, nyx.id).category, "MIRA DEFEATED");
 
 const statusState = {
   shield: 3,
@@ -218,14 +224,14 @@ const statusState = {
   purgedCards: [{ cardId: "purged", returnAfterPhase: 8 }]
 };
 const ownStatuses = getStatusPresentations(rowan, statusState, players, rowan.id, 6);
-assert.equal(ownStatuses.find((status) => status.kind === "shield").label, "Your shield");
+assert.equal(ownStatuses.find((status) => status.kind === "shield").label, "Rowan's shield");
 assert.equal(ownStatuses.find((status) => status.kind === "shield").duration, "2T");
 assert.equal(ownStatuses.find((status) => status.kind === "shield").durationLabel, "2 Turns");
 assert.equal(`${ownStatuses.find((status) => status.kind === "shield").value} - ${ownStatuses.find((status) => status.kind === "shield").durationLabel}`, "3 - 2 Turns");
 assert.equal(ownStatuses.find((status) => status.kind === "shield").tooltip, "3 shield · 2T or until depleted.");
 assert.equal(ownStatuses.find((status) => status.kind === "diceBuff").value, "+2");
 assert.equal(ownStatuses.find((status) => status.kind === "dicePenalty").value, "−1");
-assert.equal(ownStatuses.find((status) => status.kind === "sanguineRecompense").label, "Your Sanguine Recompense");
+assert.equal(ownStatuses.find((status) => status.kind === "sanguineRecompense").label, "Rowan's Sanguine Recompense");
 assert.equal(ownStatuses.find((status) => status.kind === "sanguineRecompense").displayValue, "+1 team heal");
 assert.equal(ownStatuses.find((status) => status.kind === "sanguineRecompense").tooltip, "Next successful Heal card restores 1 additional HP to every living ally.");
 assert.equal(ownStatuses.find((status) => status.kind === "zeroPity").duration, "1T");
@@ -238,8 +244,8 @@ assert.equal(ownStatuses.find((status) => status.kind === "purgedCards").duratio
 assert.equal(ownStatuses.find((status) => status.kind === "purgedCards").durationLabel, "3 Phases");
 for (const status of ownStatuses.filter((entry) => entry.duration)) assert.match(status.durationLabel, /^\d+ (?:Turn|Turns|Phase|Phases)$/, `${status.kind} tooltip duration must use a full unit label`);
 for (const status of ownStatuses) assert.equal((status.tooltip.match(/[.!?](?:\s|$)/g) || []).length, 1, `${status.kind} tooltip must contain exactly one sentence`);
-assert.equal(getStatusPresentations(rowan, statusState, players, elias.id, 6)[0].label, "Ally Rowan's shield");
-assert.equal(getStatusPresentations(rowan, statusState, players, mira.id, 6)[0].label, "Enemy Rowan's shield");
+assert.equal(getStatusPresentations(rowan, statusState, players, elias.id, 6)[0].label, "Rowan's shield");
+assert.equal(getStatusPresentations(rowan, statusState, players, mira.id, 6)[0].label, "Rowan's shield");
 
 const discardOutcome = {
   id: "discard-1",

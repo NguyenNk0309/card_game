@@ -1,7 +1,7 @@
 import type { GameHistoryEntry, GameOutcome, PlayerLifeEvent, PlayerRunState, PlayerSession, SyncedGameState } from "./types";
 
 export type ViewerRelation = "self" | "ally" | "enemy" | "neutral";
-export type ViewpointTextOptions = { involvedPlayerIds?: string[]; emphasizedPlayerIds?: string[]; pronounPlayerId?: string };
+export type ViewpointTextOptions = { involvedPlayerIds?: string[]; emphasizedPlayerIds?: string[]; pronounPlayerId?: string; useActualNames?: boolean };
 export type OutcomePresentation = { category: string; title: string; detail: string; involvedPlayerIds: string[] };
 export type HistoryPresentation = { type: string; actor: string; target: string; card: string; result: string; changes: string; penalty: string; duration: string; details: string; involvedPlayerIds: string[] };
 export type LifeEventPresentation = { category: string; title: string; detail: string };
@@ -20,7 +20,7 @@ export type StatusPresentation = {
 };
 
 export function viewerRelation(player?: PlayerSession | null, viewer?: PlayerSession | null): ViewerRelation;
-export function playerReference(player?: PlayerSession | null, viewer?: PlayerSession | null, options?: { possessive?: boolean; includeRelation?: boolean; capitalize?: boolean }): string;
+export function playerReference(player?: PlayerSession | null, viewer?: PlayerSession | null, options?: { possessive?: boolean; includeRelation?: boolean; capitalize?: boolean; useActualName?: boolean }): string;
 export function formatViewpointText(text: string, players: PlayerSession[], viewerId?: string, options?: ViewpointTextOptions): string;
 export function formatOutcomePresentation(outcome: GameOutcome, players: PlayerSession[], viewerId?: string): OutcomePresentation;
 export function formatHistoryPresentation(entry: GameHistoryEntry, players: PlayerSession[]): HistoryPresentation;
