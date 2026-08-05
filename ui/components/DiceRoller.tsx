@@ -10,8 +10,24 @@ import { motionTransition, popPresence, subtleHover, subtleTap } from "../motion
 
 type ConfirmAction = "skip" | "discard" | null;
 
-export function DiceRoller({ rolling, target, passiveBonus = 0, diceBuff = 0, dicePenalty = 0, pityPoints = 0, pityCost = 0, hasSelectedCard = false, canPlaySelectedCard = true, selectedCardBlockReason = "", onRoll, onPity, onSkip, onDiscard, disabled = false }: { rolling: boolean; target: number; passiveBonus?: number; diceBuff?: number; dicePenalty?: number; pityPoints?: number; pityCost?: number; hasSelectedCard?: boolean; canPlaySelectedCard?: boolean; selectedCardBlockReason?: string; onRoll: () => void; onPity: () => void; onSkip: () => void; onDiscard: () => void; disabled?: boolean; }) {
-  const modifier = passiveBonus + diceBuff - dicePenalty;
+type ModifierDetail = {
+  label: string;
+  value: number;
+};
+
+function signedModifier(value: number) {
+  return `${value >= 0 ? "+" : ""}${value}`;
+}
+
+export function DiceRoller({ rolling, target, passiveBonus = 0, passiveName = "character passive", diceBuff = 0, dicePenalty = 0, shopDiceBonus = 0, markedTargetBonus = 0, pityPoints = 0, pityCost = 0, hasSelectedCard = false, canPlaySelectedCard = true, selectedCardBlockReason = "", onRoll, onPity, onSkip, onDiscard, disabled = false }: { rolling: boolean; target: number; passiveBonus?: number; passiveName?: string; diceBuff?: number; dicePenalty?: number; shopDiceBonus?: number; markedTargetBonus?: number; pityPoints?: number; pityCost?: number; hasSelectedCard?: boolean; canPlaySelectedCard?: boolean; selectedCardBlockReason?: string; onRoll: () => void; onPity: () => void; onSkip: () => void; onDiscard: () => void; disabled?: boolean; }) {
+  const modifierDetails: ModifierDetail[] = [
+    { value: passiveBonus, label: `from passive of ${passiveName}` },
+    { value: diceBuff, label: "from buff" },
+    { value: -dicePenalty, label: "from debuff" },
+    { value: shopDiceBonus, label: "from potion/item" },
+    { value: markedTargetBonus, label: "from Marked Target" },
+  ].filter((detail) => detail.value !== 0);
+  const modifier = modifierDetails.reduce((total, detail) => total + detail.value, 0);
   const reducedMotion = useReducedMotion();
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [popoverPosition, setPopoverPosition] = useState({ top: 8, left: 8 });
@@ -76,7 +92,7 @@ export function DiceRoller({ rolling, target, passiveBonus = 0, diceBuff = 0, di
 
   return <m.section className="dice-panel" layout>
     <m.div className={`d20 ${rolling ? "rolling" : ""}`} aria-label={rolling ? "Rolling d20" : "D20"} animate={rolling && !reducedMotion ? { scale: [1, 0.94, 1] } : { scale: 1 }} transition={rolling && !reducedMotion ? { duration: 0.7, ease: "easeInOut", repeat: Infinity } : motionTransition.standard}><span aria-hidden="true">?</span></m.div>
-    <div className="dice-copy"><span className="eyebrow">ACTION CHECK</span><strong>Target <b>{target}</b></strong><small>d20{passiveBonus ? ` + ${passiveBonus} Marshal's Fortune` : ""}{diceBuff ? ` + ${diceBuff} Precision Order` : ""}{dicePenalty ? ` - ${dicePenalty} omen/hex` : ""}</small><em>Total modifier: <b>{modifier >= 0 ? "+" : ""}{modifier}</b></em></div>
+    <div className="dice-copy"><span className="eyebrow">ACTION CHECK</span><strong className="dice-target">Target <b>{target}</b></strong><em className="dice-total-modifier">Total modifier: <span className="dice-modifier-anchor"><b className="dice-modifier-value" tabIndex={0} aria-describedby="dice-modifier-tooltip">{signedModifier(modifier)}</b><span className="dice-modifier-tooltip" id="dice-modifier-tooltip" role="tooltip"><span className="dice-modifier-tooltip-title">Modifier details</span>{modifierDetails.length ? modifierDetails.map((detail) => <span className="dice-modifier-detail" key={detail.label}><b>{signedModifier(detail.value)}</b> {detail.label}</span>) : <span className="dice-modifier-empty">No active modifiers</span>}</span></span></em></div>
     <m.button className="roll-button" onClick={onRoll} disabled={rolling || disabled || !hasSelectedCard || !canPlaySelectedCard} title={selectedCardBlockReason || undefined} whileHover={!rolling && !disabled && hasSelectedCard && canPlaySelectedCard ? subtleHover : undefined} whileTap={!rolling && !disabled && hasSelectedCard && canPlaySelectedCard ? subtleTap : undefined}>{rolling ? <Sparkles size={17}/> : <Dices size={18}/>}<span>{rolling ? "Rolling..." : !hasSelectedCard && !disabled ? "Select a card" : selectedCardBlockReason || "Roll the die"}</span></m.button>
     <m.button className="pity-button" onClick={onPity} disabled={rolling || disabled || !hasSelectedCard || !canPlaySelectedCard || pityPoints < pityCost} title={!hasSelectedCard ? "Select a card" : selectedCardBlockReason || (pityPoints < pityCost ? `Need ${pityCost - pityPoints} pity` : `Spend ${pityCost} pity to succeed`)} whileHover={!rolling && !disabled && hasSelectedCard && canPlaySelectedCard && pityPoints >= pityCost ? subtleHover : undefined} whileTap={!rolling && !disabled && hasSelectedCard && canPlaySelectedCard && pityPoints >= pityCost ? subtleTap : undefined}><PityIcon size={18}/><span>Pity roll<small>{pityPoints} available · cost {pityCost}</small></span></m.button>
     <div className="turn-action-buttons" ref={controlsRef}>

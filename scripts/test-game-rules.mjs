@@ -1036,6 +1036,11 @@ assert.equal(diceCard.name, "Precision Order", "Precision Order is the only alli
 diceGame.playerStates[commander.id].hand = [diceCard.id];
 const diceBuffed = engine.resolveCardTurn(diceGame, diceParty, diceCard.id, commander.id, 20);
 assert.equal(diceBuffed.outcome.bonus, 1, "Marshal's Fortune applies to Ione's special cards");
+assert.equal(diceBuffed.outcome.cardBonus, 0, "the outcome captures the played card's direct d20 contribution");
+assert.equal(diceBuffed.outcome.passiveBonus, 1, "the outcome captures Marshal's Fortune separately");
+assert.equal(diceBuffed.outcome.diceBuff, 0, "the outcome captures the pre-roll stored buff separately");
+assert.equal(diceBuffed.outcome.shopDiceBonus, 0, "the outcome captures the pre-roll Shop contribution separately");
+assert.equal(diceBuffed.outcome.markedTargetBonus, 0, "the outcome captures the pre-roll Marked Target contribution separately");
 assert.equal(diceBuffed.playerStates[commander.id].diceBuff, 2);
 assert.equal(diceBuffed.playerStates[diceAlly.id].diceBuff, 2);
 assert.equal(diceBuffed.playerStates[diceEnemy.id].diceBuff, 0);
@@ -1046,6 +1051,7 @@ diceBuffed.adventure.target = 12;
 diceBuffed.playerStates[diceAlly.id].hand = [allyAttack.id];
 const boostedRoll = engine.resolveCardTurn(diceBuffed, diceParty, allyAttack.id, diceEnemy.id, 10);
 assert.equal(boostedRoll.outcome.total, 10 + engine.getPassiveDiceBonus(diceAlly, allyAttack, diceBuffed.playerStates[diceAlly.id]) + 2);
+assert.equal(boostedRoll.outcome.diceBuff, 2, "the consumed Precision Order value remains available to the result breakdown");
 assert.doesNotMatch(boostedRoll.history.at(-1).message, /\+ bonus|- penalty/, "shared history prose does not expose a player's dice modifier");
 assert.equal(boostedRoll.playerStates[diceAlly.id].diceBuff, 0, "next-turn d20 bonus is consumed after one roll");
 assert.equal(engine.getPassiveDiceBonus(commander, commander.skillDeck.find((card) => card.effect === "none"), diceBuffed.playerStates[commander.id]), 1, "Ione adds +1 to every d20 result");
@@ -1134,6 +1140,7 @@ cursed.adventure.target = 10;
 cursed.playerStates[cursedEnemy.id].hand = [cursedAttack.id];
 const penalizedRoll = engine.resolveCardTurn(cursed, curseParty, cursedAttack.id, oracle.id, 10);
 assert.equal(penalizedRoll.outcome.total, 10 + engine.getPassiveDiceBonus(cursedEnemy, cursedAttack, cursed.playerStates[cursedEnemy.id]) - 3);
+assert.equal(penalizedRoll.outcome.dicePenalty, 3, "the consumed debuff remains available to the result breakdown");
 assert.equal(penalizedRoll.history.at(-1).dicePenalty, 3);
 assert.equal(penalizedRoll.playerStates[cursedEnemy.id].dicePenalty, 0, "enemy d20 penalty is consumed after one turn");
 
@@ -2162,6 +2169,7 @@ dicePotionBattle.actorState.hand = [attack.id];
 const dicePotionResult = engine.resolveCardTurn(dicePotionBattle.game, [dicePotionBattle.actor, dicePotionBattle.target], attack.id, second.id, 8);
 assert.equal(dicePotionResult.outcome.success, true, "Truecast Tonic can turn a short roll into success");
 assert.equal(dicePotionResult.outcome.bonus, 2);
+assert.equal(dicePotionResult.outcome.shopDiceBonus, 2, "the consumed Truecast Tonic remains available to the result breakdown");
 assert.equal(dicePotionResult.playerStates[first.id].shopDiceBonus, 0);
 
 const pityPotionBattle = freshShopEffectGame("SHOP-PITY-POTION");
@@ -2222,6 +2230,7 @@ markedApplied.playerStates[first.id].hand = [attack.id];
 const markedAttack = engine.resolveCardTurn(markedApplied, [markedBattle.actor, markedBattle.target], attack.id, second.id, 9);
 assert.equal(markedAttack.outcome.success, true);
 assert.equal(markedAttack.outcome.bonus, 1, "Marked Target adds one to the next attack roll against that player");
+assert.equal(markedAttack.outcome.markedTargetBonus, 1, "the consumed Marked Target remains available to the result breakdown");
 assert.equal(markedAttack.playerStates[first.id].markedTargetId, "", "the mark is consumed by the matching attack roll");
 
 const badLuckBattle = freshShopEffectGame("SHOP-BAD-LUCK");

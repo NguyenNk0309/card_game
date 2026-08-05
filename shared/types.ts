@@ -129,6 +129,8 @@ export type GameOutcome = {
   targetName?: string;
   roll?: number;
   bonus?: number;
+  cardBonus?: number;
+  passiveBonus?: number;
   doomChange?: number;
   influenceChange?: number;
   amount?: number;
@@ -136,6 +138,8 @@ export type GameOutcome = {
   nextTarget?: number;
   diceBuff?: number;
   dicePenalty?: number;
+  shopDiceBonus?: number;
+  markedTargetBonus?: number;
   resolution?: "roll" | "pity";
   cardId?: string;
   pityCost?: number;
