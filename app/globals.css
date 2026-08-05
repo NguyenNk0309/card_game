@@ -8612,20 +8612,20 @@ button:disabled :where(span, small, strong, b, p),
   border: 0 !important;
 }
 
-/* The compact control-panel token mirrors the resin-and-gold scene while idle. */
+/* The compact control-panel token mirrors the gothic gold-and-blood-red d20. */
 .dice-panel .d20 {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  color: #ffd166;
+  color: #5a0717;
   background:
-    linear-gradient(30deg, transparent 48%, rgba(87, 215, 255, .44) 49%, transparent 52%),
-    linear-gradient(150deg, transparent 45%, rgba(0, 20, 64, .62) 47%, transparent 51%),
-    radial-gradient(circle at 36% 24%, #38c7ff 0, #047fc4 18%, #004b8c 48%, #012a57 76%, #001a38 100%);
-  border: 1px solid rgba(131, 224, 255, .7);
-  box-shadow: inset 4px 3px 8px rgba(255, 255, 255, .22), inset -5px -7px 10px rgba(0, 7, 31, .62);
-  filter: drop-shadow(0 5px 9px rgba(0, 77, 137, .42));
-  text-shadow: 0 2px 1px #4c2500, 0 0 4px rgba(255, 214, 92, .72);
+    linear-gradient(30deg, transparent 48%, rgba(255, 218, 118, .42) 49%, transparent 52%),
+    linear-gradient(150deg, transparent 45%, rgba(61, 6, 15, .55) 47%, transparent 51%),
+    radial-gradient(circle at 36% 24%, #f1cc70 0, #b77b20 20%, #795012 48%, #432407 75%, #180b03 100%);
+  border: 1px solid rgba(224, 174, 65, .82);
+  box-shadow: inset 4px 3px 8px rgba(255, 238, 169, .26), inset -5px -7px 10px rgba(26, 5, 1, .72);
+  filter: drop-shadow(0 5px 9px rgba(45, 3, 10, .52));
+  text-shadow: 0 1px 1px #e6ad43, 0 0 4px rgba(72, 0, 12, .72);
 }
 
 .dice-panel .d20::before,
@@ -8638,11 +8638,11 @@ button:disabled :where(span, small, strong, b, p),
 }
 
 .dice-panel .d20::before {
-  background: conic-gradient(from 30deg at 50% 50%, rgba(116, 223, 255, .2), transparent 17%, rgba(0, 14, 54, .35) 33%, transparent 50%, rgba(102, 221, 255, .2) 67%, transparent 84%);
+  background: conic-gradient(from 30deg at 50% 50%, rgba(255, 222, 128, .22), transparent 17%, rgba(69, 4, 15, .4) 33%, transparent 50%, rgba(233, 178, 65, .22) 67%, transparent 84%);
 }
 
 .dice-panel .d20::after {
-  background-image: radial-gradient(circle, rgba(170, 240, 255, .8) 0 1px, transparent 1.4px);
+  background-image: radial-gradient(circle, rgba(76, 5, 17, .72) 0 1px, transparent 1.4px);
   background-size: 9px 11px;
   opacity: .34;
 }

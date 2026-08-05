@@ -127,9 +127,9 @@ export function mountD20Scene(container: HTMLElement, options: SceneOptions) {
       const environment = pmrem.fromScene(roomEnvironment, 0.035).texture;
       disposeScene(roomEnvironment);
       scene.environment = environment;
-      scene.add(new HemisphereLight(0x8bc9e7, 0x07111b, 1.55));
-      scene.add(new AmbientLight(0x7895ad, 0.52));
-      const keyLight = new DirectionalLight(0xffdfb5, 3.15);
+      scene.add(new HemisphereLight(0xb78b4e, 0x100207, 1.38));
+      scene.add(new AmbientLight(0x6b4138, 0.46));
+      const keyLight = new DirectionalLight(0xffd38a, 3.35);
       keyLight.position.set(-4.5, 7, 4.2);
       keyLight.castShadow = true;
       keyLight.shadow.mapSize.set(quality === "high" ? 1536 : 768, quality === "high" ? 1536 : 768);
@@ -138,7 +138,7 @@ export function mountD20Scene(container: HTMLElement, options: SceneOptions) {
       keyLight.shadow.camera.top = 6;
       keyLight.shadow.camera.bottom = -5;
       scene.add(keyLight);
-      const rimLight = new SpotLight(0x15bfff, 16, 18, 0.58, 0.75, 1.25);
+      const rimLight = new SpotLight(0x8f1027, 15, 18, 0.58, 0.75, 1.25);
       rimLight.position.set(4, 4.5, -3.5);
       rimLight.target.position.set(0, -0.3, 0);
       scene.add(rimLight, rimLight.target);

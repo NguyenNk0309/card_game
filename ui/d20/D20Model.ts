@@ -110,21 +110,21 @@ function createNumberTexture(value: number, palette: "standard" | "result" = "st
   context.font = `900 ${value >= 10 ? 132 : 146}px Georgia, serif`;
   context.lineJoin = "round";
   const isResult = palette === "result";
-  context.shadowColor = isResult ? "rgba(8, 2, 8, .98)" : "rgba(28, 12, 0, .95)";
+  context.shadowColor = isResult ? "rgba(28, 12, 0, .96)" : "rgba(8, 0, 2, .98)";
   context.shadowBlur = 8;
   context.shadowOffsetY = 5;
   context.lineWidth = 10;
-  context.strokeStyle = isResult ? "#210611" : "#4a2503";
+  context.strokeStyle = isResult ? "#4a2503" : "#21030a";
   context.strokeText(String(value), 128, 96);
-  const gold = context.createLinearGradient(0, 38, 0, 154);
-  gold.addColorStop(0, isResult ? "#ffffff" : "#fff0a1");
-  gold.addColorStop(0.28, isResult ? "#c9f8ff" : "#e4aa35");
-  gold.addColorStop(0.62, isResult ? "#42d4ff" : "#9a570d");
-  gold.addColorStop(1, isResult ? "#f1fdff" : "#f4c65d");
-  context.fillStyle = gold;
+  const numberFill = context.createLinearGradient(0, 38, 0, 154);
+  numberFill.addColorStop(0, isResult ? "#fff0a1" : "#d45a60");
+  numberFill.addColorStop(0.28, isResult ? "#e4aa35" : "#98172b");
+  numberFill.addColorStop(0.62, isResult ? "#9a570d" : "#43040e");
+  numberFill.addColorStop(1, isResult ? "#f4c65d" : "#761020");
+  context.fillStyle = numberFill;
   context.fillText(String(value), 128, 96);
   context.lineWidth = 2;
-  context.strokeStyle = isResult ? "rgba(255, 255, 255, .96)" : "rgba(255, 242, 175, .9)";
+  context.strokeStyle = isResult ? "rgba(255, 242, 175, .9)" : "rgba(242, 111, 120, .7)";
   context.strokeText(String(value), 128, 94);
   if (value === 6 || value === 16) {
     const underlineHalfWidth = Math.min(82, Math.max(42, context.measureText(String(value)).width * 0.43));
@@ -133,10 +133,10 @@ function createNumberTexture(value: number, palette: "standard" | "result" = "st
     context.lineTo(128 + underlineHalfWidth, 164);
     context.lineCap = "round";
     context.lineWidth = 13;
-    context.strokeStyle = isResult ? "#210611" : "#4a2503";
+    context.strokeStyle = isResult ? "#4a2503" : "#21030a";
     context.stroke();
     context.lineWidth = 7;
-    context.strokeStyle = gold;
+    context.strokeStyle = numberFill;
     context.stroke();
   }
   const texture = new CanvasTexture(canvas);
@@ -154,7 +154,7 @@ function createMarbleMaterial() {
     depthTest: false,
     blending: AdditiveBlending,
     side: DoubleSide,
-    uniforms: { uTime: { value: 0 }, uTone: { value: new Color(0x20bdf2) } },
+    uniforms: { uTime: { value: 0 }, uTone: { value: new Color(0x650a18) } },
     vertexShader: `
       varying vec3 vLocal;
       void main() {
@@ -183,29 +183,34 @@ function seededRandom(seedState: { value: number }) {
 
 export function createD20Model(radius: number, bevelAmount: number, quality: D20Quality, highlightedValue: number) {
   const group = new Group();
-  group.name = "manufactured-blue-resin-d20";
+  group.name = "gothic-antique-gold-d20";
   const faceMaterial = new MeshPhysicalMaterial({
-    color: 0x004f99,
-    emissive: 0x001126,
-    emissiveIntensity: 0.24,
-    metalness: 0.02,
-    roughness: 0.1,
-    transmission: quality === "high" ? 0.58 : 0.22,
-    thickness: 2.2,
-    ior: 1.46,
-    attenuationColor: new Color(0x003f91),
-    attenuationDistance: 1.05,
-    clearcoat: 1,
-    clearcoatRoughness: 0.065,
-    transparent: true,
-    opacity: quality === "high" ? 0.965 : 0.99,
+    color: 0xa66d18,
+    emissive: 0x241000,
+    emissiveIntensity: 0.18,
+    metalness: 0.68,
+    roughness: 0.24,
+    transmission: quality === "high" ? 0.08 : 0,
+    thickness: 0.72,
+    ior: 1.38,
+    attenuationColor: new Color(0x5b2d05),
+    attenuationDistance: 1.6,
+    clearcoat: 0.72,
+    clearcoatRoughness: 0.18,
+    transparent: false,
+    opacity: 1,
     side: DoubleSide,
   });
   const resultFaceMaterial = faceMaterial.clone();
   const bevelMaterial = faceMaterial.clone();
-  bevelMaterial.color.set(0x003a77);
-  bevelMaterial.roughness = 0.14;
-  bevelMaterial.transmission = quality === "high" ? 0.43 : 0.12;
+  bevelMaterial.color.set(0x2b1306);
+  bevelMaterial.emissive.set(0x070100);
+  bevelMaterial.emissiveIntensity = 0.12;
+  bevelMaterial.metalness = 0.84;
+  bevelMaterial.roughness = 0.34;
+  bevelMaterial.transmission = 0;
+  bevelMaterial.clearcoat = 0.38;
+  bevelMaterial.clearcoatRoughness = 0.3;
   const shell = new Mesh(createBeveledD20Geometry(radius, bevelAmount, highlightedValue), [faceMaterial, resultFaceMaterial, bevelMaterial]);
   shell.castShadow = true;
   shell.receiveShadow = true;
@@ -235,7 +240,7 @@ export function createD20Model(radius: number, bevelAmount: number, quality: D20
   }
   const glitterGeometry = new BufferGeometry();
   glitterGeometry.setAttribute("position", new Float32BufferAttribute(glitterPositions, 3));
-  const glitter = new Points(glitterGeometry, new PointsMaterial({ color: 0xa9efff, size: quality === "high" ? 0.032 : 0.038, transparent: true, opacity: 0.46, depthTest: false, depthWrite: false, blending: AdditiveBlending }));
+  const glitter = new Points(glitterGeometry, new PointsMaterial({ color: 0xd7a13b, size: quality === "high" ? 0.032 : 0.038, transparent: true, opacity: 0.38, depthTest: false, depthWrite: false, blending: AdditiveBlending }));
   glitter.renderOrder = 3;
   group.add(glitter);
 
@@ -244,11 +249,11 @@ export function createD20Model(radius: number, bevelAmount: number, quality: D20
   for (const face of D20_FACE_DEFINITIONS) {
     const labelMaterial = new MeshStandardMaterial({
       map: createNumberTexture(face.value),
-      color: 0xffcf63,
-      emissive: 0x5b2a00,
-      emissiveIntensity: 0.25,
-      metalness: 0.82,
-      roughness: 0.23,
+      color: 0xffffff,
+      emissive: 0x260006,
+      emissiveIntensity: 0.22,
+      metalness: 0.68,
+      roughness: 0.25,
       transparent: true,
       alphaTest: 0.04,
       depthWrite: false,
@@ -268,20 +273,21 @@ export function createD20Model(radius: number, bevelAmount: number, quality: D20
   const applyResultHighlight = () => {
     if (resultHighlightApplied || !resultLabelMaterial) return;
     resultHighlightApplied = true;
-    resultFaceMaterial.color.set(0xa01838);
-    resultFaceMaterial.emissive.set(0x4b020e);
-    resultFaceMaterial.emissiveIntensity = 0.72;
-    resultFaceMaterial.roughness = 0.16;
-    resultFaceMaterial.transmission = quality === "high" ? 0.25 : 0.08;
-    resultFaceMaterial.attenuationColor.set(0x7a0b25);
+    resultFaceMaterial.color.set(0x560713);
+    resultFaceMaterial.emissive.set(0x1b0005);
+    resultFaceMaterial.emissiveIntensity = 0.4;
+    resultFaceMaterial.metalness = 0.5;
+    resultFaceMaterial.roughness = 0.23;
+    resultFaceMaterial.transmission = quality === "high" ? 0.025 : 0;
+    resultFaceMaterial.attenuationColor.set(0x2b0008);
 
     const standardNumberTexture = resultLabelMaterial.map;
     resultLabelMaterial.map = createNumberTexture(highlightedValue, "result");
     resultLabelMaterial.color.set(0xffffff);
-    resultLabelMaterial.emissive.set(0x087d9f);
-    resultLabelMaterial.emissiveIntensity = 0.68;
-    resultLabelMaterial.metalness = 0.46;
-    resultLabelMaterial.roughness = 0.16;
+    resultLabelMaterial.emissive.set(0x5b2a00);
+    resultLabelMaterial.emissiveIntensity = 0.34;
+    resultLabelMaterial.metalness = 0.82;
+    resultLabelMaterial.roughness = 0.2;
     resultLabelMaterial.needsUpdate = true;
     standardNumberTexture?.dispose();
   };

@@ -152,7 +152,11 @@ assert.doesNotMatch(sceneSource, /applyingBuff|applyingDebuff|settlingRaw|settli
 assert.doesNotMatch(sceneSource, /config\.settledX|config\.settledZ/, "the scene has no scripted center destination");
 assert.match(modelSource, /face\.value === highlightedValue \? 1 : 0/, "only the final-result physical face receives the result material");
 assert.match(modelSource, /createNumberTexture\(highlightedValue, "result"\)/, "the final-result numeral receives its own high-contrast texture");
-assert.match(modelSource, /resultFaceMaterial\.color\.set\(0xa01838\)[\s\S]*resultLabelMaterial\.color\.set\(0xffffff\)/, "the final face and numeral use colors distinct from the other blue-and-gold faces");
+assert.match(modelSource, /color:\s*0xa66d18[\s\S]*bevelMaterial\.color\.set\(0x2b1306\)/, "normal faces use aged gold with dark bronze gothic bevels");
+assert.match(modelSource, /isResult \? "#fff0a1" : "#d45a60"[\s\S]*isResult \? "#9a570d" : "#43040e"/, "normal numerals use dark red while the result numeral uses gold");
+assert.match(modelSource, /resultFaceMaterial\.color\.set\(0x560713\)[\s\S]*resultLabelMaterial\.emissive\.set\(0x5b2a00\)/, "the completed result inverts to a dark-red face with a golden numeral");
+assert.match(modelSource, /uTone:\s*\{ value: new Color\(0x650a18\)/, "the die uses blood-red shadow veins instead of the former blue resin");
+assert.match(modelSource, /group\.name = "gothic-antique-gold-d20"/, "the model declares its gothic antique-gold visual identity");
 assert.match(modelSource, /if \(value === 6 \|\| value === 16\)[\s\S]*context\.lineTo\([\s\S]*context\.stroke\(\)/, "6 and 16 receive a clear underline to distinguish them from 9 and 19");
 assert.match(sceneSource, /if \(state === "completed"\) d20Materials\.applyResultHighlight\(\)/, "the result colors appear only after the physical roll completes");
 assert.match(diceRollerSource, /<span aria-hidden="true">\?<\/span>/, "the compact dice icon always displays a question mark");
@@ -169,6 +173,7 @@ assert.match(gameAppSource, /className=\{`battle-interaction-space[\s\S]*<D20Dic
 assert.match(gameAppSource, /!diceSequencePending && activePlayer/, "the target panel waits for the d20 roll to finish");
 assert.match(globalStyles, /\.d20-roll-anchor\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?inset:\s*0;/, "the d20 portal uses the existing battle space as its geometry anchor");
 assert.match(globalStyles, /\.d20-roll-overlay\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?inset:\s*0;[\s\S]*?z-index:\s*2147483647;[\s\S]*?background:\s*transparent;/, "the unclipped transparent canvas stays above every app UI layer");
+assert.match(globalStyles, /\.dice-panel \.d20\s*\{[\s\S]*?color:\s*#5a0717;[\s\S]*?#f1cc70[\s\S]*?#180b03/, "the compact question-mark die matches the gothic gold-and-dark-red palette");
 assert.doesNotMatch(globalStyles, /d20-roll-vignette/, "the separate-screen vignette is removed");
 
 console.log("D20 geometry, mapping, in-game placement, sequencing, and panel-gating tests passed.");
