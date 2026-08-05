@@ -63,7 +63,7 @@ for (const [heroName, fileName] of characterAvatars) {
   assert(characterAvatar.includes(`"${heroName}": "/art/characters/${fileName}"`), `${heroName} must have a unique avatar mapping`);
   assert(existsSync(new URL(`../public/art/characters/${fileName}`, import.meta.url)), `${heroName}'s avatar asset must exist`);
 }
-assert.match(characterAvatar, /showImage \? <m\.span[\s\S]*<Image[\s\S]*onError=\{\(\) => setFailedSource\(avatar\)\}[\s\S]*: <AnimatePresence>[\s\S]*\{hero\.initials\}/, "Motion character avatars must retain initials as a safe fallback when an image is missing or fails");
+assert.match(characterAvatar, /showImage \? <span className="avatar-image-motion"><Image[\s\S]*onError=\{\(\) => setFailedSource\(avatar\)\}[\s\S]*: <span className="avatar-fallback">\{hero\.initials\}/, "native character avatars must retain initials as a safe fallback when an image is missing or fails");
 assert.match(characterAvatar, /preloadCharacterAvatars[\s\S]*preloadedCharacterAvatars\.get\(source\)[\s\S]*image\.decoding = "async"[\s\S]*image\.decode\(\)/, "character portraits must be deduplicated and decoded off the interaction path");
 assert.match(gameApp, /canPayLioraVennHealthCost\(activeCard, localState\?\.hp\)[\s\S]*canPlaySelectedCard=\{activeCardCanBePlayed\}[\s\S]*selectedCardBlockReason=\{activeCardBlockReason\}/, "low-HP blood cards must disable Roll and Pity through the shared health-cost rule");
 assert.match(gameApp, /Requires at least \$\{LIORA_VENN_MINIMUM_HP\} HP to play; you can still discard it\./, "low-HP blood cards must remain selectable for discarding with a clear explanation");
@@ -97,7 +97,7 @@ assert.match(cardFace, /previewTrigger = "click"[\s\S]*<CardArtworkViewer artwor
 assert.match(cardArtworkViewer, /onClickCapture=\{openViewer\}[\s\S]*onKeyDownCapture=\{openWithKeyboard\}/, "the View Image control must intercept pointer and keyboard activation before the containing card");
 assert.match(cardArtworkViewer, /event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);[\s\S]*onOpenChange\(true\)/, "opening artwork must not trigger card selection or its detail tooltip");
 assert.match(cardArtworkViewer, /role="dialog"[\s\S]*aria-modal="true"[\s\S]*className="card-artwork-viewer-image"[\s\S]*src=\{artwork\.scene\}/, "View Image must open the original illustration in an accessible Motion modal panel");
-assert.match(gameApp, /function HandCardContents[\s\S]*<CardFace card=\{card\} pityCostOverride=\{pityCostOverride\} previewTrigger="hover"\/>/, "cards in hand must retain hover-triggered full-content previews");
+assert.match(gameApp, /HandCardContents = memo[\s\S]*<CardFace card=\{card\} pityCostOverride=\{pityCostOverride\} previewTrigger="hover" imageLoading="eager" imagePriority="high"\/>/, "cards in hand must retain hover-triggered previews while loading visible artwork eagerly");
 assert.match(cardHoverPreview, /trigger === "hover"[\s\S]*addEventListener\("mouseenter", show\)[\s\S]*addEventListener\("mouseleave", hide\)[\s\S]*addEventListener\("click", toggle\)/, "only hover-mode cards should use mouse entry while other cards toggle their preview on click");
 assert.match(cardHoverPreview, /document\.addEventListener\("click", closeOutside\)[\s\S]*document\.addEventListener\("keydown", closeWithEscape\)/, "click-triggered card previews must close on outside click or Escape");
 assert.match(styles, /\.gothic-card\.card-preview-click-trigger:not\(:disabled\)\s*\{\s*cursor:\s*pointer;/, "cards with click-triggered previews must show a pointer cursor");
@@ -146,7 +146,7 @@ assert.match(cardHoverPreview, /const card = anchorRef\.current\?\.closest<HTMLE
 assert.match(styles, /\.roster-tooltip-arrow\.placement-right[\s\S]*border-right:[^;]+;[\s\S]*\.roster-tooltip-arrow\.placement-left[\s\S]*border-left:[^;]+;/, "roster tooltip arrows must point toward triggers on either side");
 assert.match(styles, /\.card-tooltip-arrow\.placement-top[\s\S]*border-top:[^;]+;[\s\S]*\.card-tooltip-arrow\.placement-right[\s\S]*border-right:[^;]+;/, "card tooltip arrows must point toward top and right card triggers");
 assert.match(styles, /\.card-tooltip-arrow\.placement-right\s*\{[^}]*border-right:\s*10px solid var\(--card-tooltip-accent\);[^}]*transform:\s*translate\(-100%, -50%\);/, "right-side card-preview arrows must sit fully outside the tooltip border");
-assert.match(gameApp, /function HandCardItem[\s\S]*whileHover=\{playable \? \{ y: selected \? -7 : -4, scale: selected \? 1\.035 : 1\.02 \}/, "enabled hand cards must use Motion for their hover lift");
+assert.match(gameApp, /function HandCardItem[\s\S]*whileHover=\{playable \? \{ y: selected \? -5 : -3, scale: selected \? 1\.02 : 1\.01 \}/, "enabled hand cards must use the faster Motion hover lift");
 assert.match(styles, /\.action-hand\s*\{[\s\S]*--hand-card-gap:\s*16px;[\s\S]*--hand-card-width:\s*min\(260px, calc\(\(100% - 48px\) \/ 4\)\)/, "battle-hand cards must use a wider gap and an adaptive desktop cap");
 assert.match(styles, /\.action-hand\s*\{[\s\S]*padding:\s*20px 10px 22px;/, "the battle hand must reserve vertical room for card hover effects");
 assert.match(styles, /\.action-hand > \.hand-card-slot > \.gothic-card\.selected,[\s\S]*\.world-event-choice-card\.gothic-card\.selected[\s\S]*transform:\s*none\s*!important;[\s\S]*box-shadow:\s*none\s*!important;/, "Motion hand selection and World Event selection must not add a second inner-card transform or shadow");
@@ -161,7 +161,7 @@ assert.match(styles, /\.pile-card-slot\s*\{[^}]*position:\s*relative;[^}]*aspect
 assert.match(styles, /\.action-hand > \.hand-card-slot > \.gothic-card:hover:not\(:disabled\),\s*\.pile-card-slot > \.gothic-card:hover:not\(:disabled\),\s*\.public-character-deck > div:last-child > \.gothic-card:hover:not\(:disabled\)\s*\{\s*transform:\s*none\s*!important;/, "nested Motion hand cards and private pile cards must not shift row spacing through an inner CSS transform");
 assert.match(styles, /@media \(min-width: 2200px\) and \(min-height: 1200px\)\s*\{[\s\S]*--hand-card-width:\s*min\(330px,[\s\S]*\.lobby-skill-deck\s*\{\s*grid-template-columns:\s*repeat\(2, minmax\(0, min\(486px, calc\(\(100% - 28px\) \/ 2\)\)\)/, "1440p layouts must enlarge lobby cards by up to 50 percent without changing battle-hand sizing");
 assert.match(styles, /\.history-card-detail\.gothic-card\s*\{[\s\S]*width:\s*min\(360px,/, "inspected history cards must use the larger preview size");
-assert.match(styles, /\.gothic-card:disabled \.gothic-card-face\s*\{[\s\S]*grayscale/, "disabled cards should retain a clear unavailable state");
+assert.match(styles, /\.gothic-card:disabled \.gothic-card-face\s*\{\s*opacity:\s*\.76;\s*\}[\s\S]*\.action-hand \.gothic-card:disabled\s*\{\s*filter:\s*none;\s*opacity:\s*\.68;/, "disabled cards should retain a clear unavailable state without an expensive moving filter");
 assert.deepEqual(
   fitCardTooltipToViewport(
     { left: 400, right: 600, top: 500, width: 200, height: 300 },
@@ -224,8 +224,8 @@ for (const group of ["common", "external", "special"]) {
 }
 assert.match(cardArtwork, /"lost momentum"[\s\S]*"broken plan"[\s\S]*"empty gesture"/, "the three approved reference cards must have explicit artwork mappings");
 assert.match(cardArtwork, /previewSource[\s\S]*preloadCardArtwork[\s\S]*artwork\.preview \?\? artwork\.scene[\s\S]*preloadedCardArtwork\.get\(source\)[\s\S]*image\.decoding = "async"[\s\S]*image\.decode\(\)/, "lobby artwork warming must deduplicate and decode optimized previews instead of full illustrations");
-assert.match(cardFace, /const artworkSource = artwork\.preview \?\? artwork\.scene[\s\S]*<img className="gothic-card-scene"[\s\S]*onLoad=\{\(\) => setLoadedArtwork\(artworkSource\)\}/, "card faces must render optimized artwork on a stable native image layer while retaining loading feedback");
-assert.match(cardFace, /revealCachedArtwork[\s\S]*image\?\.complete && image\.naturalWidth > 0[\s\S]*ref=\{revealCachedArtwork\}/, "card faces must reveal previews that finished loading before the mounted image received its load event");
+assert.match(cardFace, /const artworkSource = artwork\.preview \?\? artwork\.scene[\s\S]*<div className="gothic-card-art-backdrop"\/>[\s\S]*<img className="gothic-card-scene"[\s\S]*loading=\{imageLoading\}[\s\S]*fetchPriority=\{imagePriority\}[\s\S]*decoding="async"/, "card faces must render optimized artwork through a stable, priority-aware native image layer");
+assert.doesNotMatch(cardFace, /loadedArtwork|revealCachedArtwork|onLoad=/, "card faces must not schedule React state updates merely to reveal browser-decoded artwork");
 assert.doesNotMatch(cardFace, /<m\.img className="gothic-card-scene"|gothic-card-scene[\s\S]{0,300}animate=\{\{ opacity:/, "card artwork must not create a nested Motion compositor layer that can disappear during card overlap");
 assert.match(cardHoverPreview, /backgroundImage: `url\("\$\{artwork\.preview \?\? artwork\.scene\}"\)`/, "card hover previews must reuse optimized display artwork");
 assert.match(cardArtworkViewer, /className=\{`card-artwork-viewer-frame[\s\S]*aria-busy[\s\S]*src=\{artwork\.scene\}[\s\S]*Loading full illustration/, "the full-resolution artwork viewer must retain the original source and expose a stable loading state");
@@ -233,8 +233,12 @@ assert.match(cardArtworkViewer, /revealCachedScene[\s\S]*image\?\.complete && im
 assert.match(lobby, /useDeferredValue\(selectedHeroName\)[\s\S]*requestIdleCallback\(warmPortraits[\s\S]*onPointerEnter=\{\(\) => warmCharacterGroup\(group\.id\)\}[\s\S]*onPointerEnter=\{\(\) => preloadCardArtwork\(option\.skillDeck, "high"\)\}/, "character selection must acknowledge immediately while portrait and selected-deck previews warm around user intent");
 assert(!/preloadCardArtwork\(visibleCharacterOptions\.flatMap/.test(lobby), "switching classes must not download every character's full deck before selection");
 assert.match(lobby, /const CharacterSkillDeck = memo[\s\S]*<CharacterSkillDeck cards=\{shownDeck\}/, "socket and roster updates must not repaint an unchanged ten-card lobby deck");
-assert.match(characterAvatar, /avatar-loading-shimmer[\s\S]*animate=\{\{ opacity:[\s\S]*avatar-image-motion[\s\S]*initial=\{\{ opacity: 0, scale:/, "portrait loading and reveal feedback must be Motion-driven");
-assert.match(cardFace, /<m\.div className="gothic-card-art-backdrop"[\s\S]*animate=\{loadedArtwork[\s\S]*transition=\{loadedArtwork[\s\S]*<img className="gothic-card-scene"/, "card artwork loading feedback must remain Motion-driven behind a stable native image layer");
+assert.doesNotMatch(characterAvatar, /motion\/react|motion\/react-m|animate=/, "portrait loading must not create per-image Motion subscriptions or animation loops");
+assert.doesNotMatch(cardFace, /motion\/react|motion\/react-m|repeat:\s*Infinity/, "card loading must not create per-card Motion subscriptions or animation loops");
+const arenaBackground = new URL("../public/art/moonfall-citadel.webp", import.meta.url);
+assert(existsSync(arenaBackground) && statSync(arenaBackground).size < 200_000, "the shared arena background must remain a compact WebP under 200 KB");
+assert.match(styles, /moonfall-citadel\.webp/);
+assert.doesNotMatch(styles, /moonfall-citadel\.png/, "runtime styles must not request the multi-megabyte PNG background");
 assert(!/SPECIAL\s*·|SPECIAL CARD|toUpperCase\(\)\}\s*SKILL/.test(cardSurfaces), "special-card headers must not include a character or class name");
 assert.match(gameApp, /className="history-penalty-cell"><HighlightPlayerNames text=\{presentation\.penalty \|\| "—"\}[^>]*useActualNames/, "expanded-history penalties must use real player names and display the standard empty placeholder");
 assert.match(gameApp, /function HistoryMessage[\s\S]*useActualNames/, "history details must preserve real player names");
@@ -278,7 +282,7 @@ assert.match(gameApp, /activeRoomId[\s\S]*<RoomGame roomId=\{activeRoomId\}[\s\S
 assert.match(homePage, /<GameMotionProvider><DeviceSupportGate><GameApp\/><\/DeviceSupportGate><\/GameMotionProvider>/, "the entire supported game must run inside the shared Motion provider");
 assert.match(deviceSupportGate, /\(min-width: 1280px\) and \(min-height: 720px\)[\s\S]*MOBILE_DEVICE_PATTERN[\s\S]*userAgentData\?\.mobile === true[\s\S]*deviceQuery\.matches && !isMobileDevice\(\)[\s\S]*supported[\s\S]*key="supported"[\s\S]*\{children\}[\s\S]*key="unsupported"[\s\S]*<UnsupportedDevice\/>/, "only non-mobile viewports at or above 1280 by 720 may mount the Motion-wrapped app");
 assert.match(deviceSupportGate, /App currently does not support this device\./, "unsupported devices must receive the requested static message");
-assert.match(styles, /\.unsupported-device\s*\{[^}]*width:\s*100vw;[^}]*height:\s*100dvh;[^}]*place-items:\s*center;[^}]*moonfall-citadel\.png[^}]*\}/, "the unsupported-device message must fill a static themed background");
+assert.match(styles, /\.unsupported-device\s*\{[^}]*width:\s*100vw;[^}]*height:\s*100dvh;[^}]*place-items:\s*center;[^}]*moonfall-citadel\.webp[^}]*\}/, "the unsupported-device message must fill a compact static themed background");
 assert.doesNotMatch([gameApp, styles].join("\n"), /mobileParty|setMobileParty|mobile-party|mobile-rail|mobile-close/, "the removed mobile party drawer must not leave code or styles behind");
 const viewportMediaConditions = [...styles.matchAll(/@media\s+([^\{]+)\{/g)].map((match) => match[1].replace(/\s+/g, " ").trim());
 for (const condition of viewportMediaConditions.filter((value) => /(?:min|max)-(?:width|height):/.test(value))) {
@@ -357,14 +361,21 @@ assert.match(gameMotionProvider, /<LazyMotion features=\{domMax\} strict>[\s\S]*
 for (const preset of ["motionTransition", "screenPresence", "panelPresence", "noticePresence"]) {
   assert(motionPresets.includes(`export const ${preset}`), `${preset} must remain available from the shared Motion presets`);
 }
-assert.match(gameApp, /<Reorder\.Group[\s\S]*axis="x"[\s\S]*values=\{displayedLocalHand\.map\(\(card\) => card\.id\)\}[\s\S]*onReorder=\{setHandOrder\}[\s\S]*<HandCardItem/, "the local hand must use horizontal Motion reordering without changing authoritative card ownership");
+const roomGameSource = gameApp.slice(gameApp.indexOf("function RoomGame"));
+assert.match(gameApp, /function BattleHand[\s\S]*useState<string\[]>\(\(\) => cards\.map[\s\S]*<Reorder\.Group[\s\S]*axis="x"[\s\S]*values=\{displayedCards\.map\(\(card\) => card\.id\)\}[\s\S]*onReorder=\{setHandOrder\}[\s\S]*<HandCardItem/, "the local hand must isolate horizontal Motion reordering from the room-level render tree");
+assert.doesNotMatch(roomGameSource, /\[handOrder, setHandOrder\]|onReorder=\{setHandOrder\}/, "drag frames must not update RoomGame state and repaint the full battle UI");
+assert.match(gameApp, /selectionActive=\{isLocalActiveTurn\}[\s\S]*playable=\{isLocalActiveTurn && status === "connected" && !rolling\}/, "a selected card must stay visibly selected while rolling temporarily disables interaction");
 assert.match(gameApp, /function HandCardItem[\s\S]*dragMomentum=\{false\}[\s\S]*Drag anywhere on the card[\s\S]*initial=\{\{ opacity: 0 \}\}[\s\S]*animate=\{\{ opacity: 1,[\s\S]*exit=\{\{ opacity: 0 \}\}/, "the whole hand card must be draggable while additions and removals use opacity-only Motion presence");
-assert.match(gameApp, /whileDrag=\{\{ y: -14, scale: 1\.055, rotate: 1\.5,[\s\S]*animate=\{\{ opacity: 1, y: selected \? -7 : 0, scale: selected \? 1\.035 : 1, rotate: 0 \}\}/, "hand cards must explicitly restore their resting rotation after every drag");
+assert.match(gameApp, /dragElastic=\{0\.08\}[\s\S]*whileDrag=\{\{ y: -9, scale: 1\.025, rotate: 0\.6,[\s\S]*animate=\{\{ opacity: 1, y: selected \? -5 : 0, scale: selected \? 1\.02 : 1, rotate: 0 \}\}[\s\S]*motionTransition\.hand/, "hand cards must use a tight, fast drag response and explicitly restore resting rotation");
 assert.match(gameApp, /onDragEnd=\{\(\) => \{ lastDragEndRef\.current = Date\.now\(\); \}\}[\s\S]*onClickCapture=\{\(event\) => \{[\s\S]*event\.preventDefault\(\);[\s\S]*event\.stopPropagation\(\);/, "finishing a whole-card drag must not also select the card or open its artwork viewer");
 assert.match(gameApp, /<Reorder\.Group[\s\S]*Drag anywhere on a card to rearrange[\s\S]*<AnimatePresence initial=\{false\} mode="popLayout">[\s\S]*<HandCardItem/, "hand additions, returns, discards, and graveyard moves must fade through AnimatePresence inside the reorder group");
 assert.match(gameApp, /tabIndex=\{0\}[\s\S]*ArrowLeft[\s\S]*ArrowRight/, "whole-card dragging must retain keyboard reordering without a separate handle");
+assert.match(gameApp, /function TurnClock[\s\S]*window\.setInterval\(updateClock, 250\)[\s\S]*const timer = window\.setTimeout\(expireTurn, delay \+ 50\)/, "clock ticks must stay local while turn expiry uses one room-level timeout");
+assert.doesNotMatch(roomGameSource, /setNow\(Date\.now\(\)\)|setInterval\(\(\) => setNow/, "the battle tree must not rerender on clock polling ticks");
+assert.match(gameApp, /const loadD20Dice = \(\) => import\("\.\/d20\/D20Dice"\)[\s\S]*dynamic<D20DiceProps>[\s\S]*requestIdleCallback\(warmDice/, "the 3D d20 stack must be code-split and warmed away from battle entry");
+assert.match(gameApp, /<AnimatePresence initial=\{false\} mode="sync">\{phase === "lobby"[\s\S]*motionTransition\.screen/, "lobby-to-battle presence must mount immediately with the fast screen transition");
 assert.doesNotMatch([gameApp, styles].join("\n"), /GripVertical|hand-reorder-handle|CardTravelVfx|useCardTravel|card-travel-|battle-card-vfx|card-zone-vfx|zone-vfx-slot-hidden/, "drag icons and every previous card-travel VFX implementation must stay removed");
 assert.equal(existsSync(new URL("../ui/motion/CardTravelVfx.tsx", import.meta.url)), false, "the card-travel renderer file must stay removed");
 assert.equal(existsSync(new URL("../ui/hooks/useCardTravel.ts", import.meta.url)), false, "the card-travel state observer file must stay removed");
 
-console.log("Card UI contract passed: Motion-only presentation, whole-card drag ordering, opacity-only hand presence, shared card sizing, and gameplay-safe UI contracts.");
+console.log("Card UI contract passed: isolated fast Motion, native image loading, whole-card ordering, shared card sizing, and gameplay-safe UI contracts.");

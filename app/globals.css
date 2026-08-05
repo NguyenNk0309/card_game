@@ -65,7 +65,7 @@ body {
   padding: 32px;
   background:
     linear-gradient(rgba(4, 8, 10, .76), rgba(4, 8, 10, .9)),
-    url("/art/moonfall-citadel.png") center / cover no-repeat;
+    url("/art/moonfall-citadel.webp") center / cover no-repeat;
 }
 
 .unsupported-device p {
@@ -102,7 +102,7 @@ button:focus-visible {
   background:
     linear-gradient(90deg, rgba(6, 10, 12, 0.94) 0%, rgba(7, 11, 13, 0.48) 34%, rgba(7, 11, 13, 0.28) 61%, rgba(5, 9, 11, 0.91) 100%),
     linear-gradient(0deg, rgba(4, 8, 10, 0.95) 0%, transparent 50%, rgba(5, 9, 11, 0.68) 100%),
-    url("/art/moonfall-citadel.png") center / cover no-repeat;
+    url("/art/moonfall-citadel.webp") center / cover no-repeat;
 }
 
 .grain {
@@ -1405,7 +1405,7 @@ button:focus-visible {
   background:
     linear-gradient(90deg, rgba(4, 9, 11, 0.88), rgba(4, 9, 11, 0.34) 45%, rgba(4, 8, 10, 0.86)),
     linear-gradient(0deg, rgba(4, 8, 10, 0.88), transparent 60%),
-    url("/art/moonfall-citadel.png") center / cover no-repeat;
+    url("/art/moonfall-citadel.webp") center / cover no-repeat;
 }
 
 .combat-stage {
@@ -5543,11 +5543,10 @@ input:focus-visible {
 }
 
 .game-shell::before {
-  filter: saturate(.68) contrast(1.18) brightness(.78);
   background:
     linear-gradient(90deg, rgba(3, 4, 6, .96), rgba(6, 7, 10, .62) 38%, rgba(8, 7, 9, .3) 67%, rgba(3, 4, 6, .9)),
     linear-gradient(0deg, rgba(2, 3, 4, .96), transparent 57%, rgba(4, 5, 8, .74)),
-    url("/art/moonfall-citadel.png") center / cover no-repeat;
+    url("/art/moonfall-citadel.webp") center / cover no-repeat;
 }
 
 .game-shell::after {
@@ -5560,7 +5559,6 @@ input:focus-visible {
   background:
     repeating-linear-gradient(0deg, transparent 0 3px, rgba(0, 0, 0, .42) 3px 4px),
     repeating-linear-gradient(90deg, transparent 0 7px, rgba(190, 152, 77, .04) 7px 8px);
-  mix-blend-mode: multiply;
 }
 
 .grain {
@@ -5569,7 +5567,7 @@ input:focus-visible {
     conic-gradient(from 90deg at 1px 1px, transparent 0 25%, rgba(227, 201, 140, .19) 0 50%, transparent 0 75%, rgba(0, 0, 0, .32) 0),
     repeating-linear-gradient(0deg, transparent 0 5px, rgba(0, 0, 0, .18) 5px 6px);
   background-size: 4px 4px, 100% 6px;
-  mix-blend-mode: overlay;
+  mix-blend-mode: normal;
 }
 
 h1,
@@ -7373,8 +7371,7 @@ button:disabled :where(span, small, strong, b, p),
   inset: 0;
   background:
     linear-gradient(180deg, rgba(4, 5, 8, .06), rgba(4, 4, 6, .3)),
-    url("/art/moonfall-citadel.png") center / cover no-repeat;
-  filter: grayscale(.08) brightness(.82) contrast(1.08) saturate(.82);
+    url("/art/moonfall-citadel.webp") center / cover no-repeat;
   transform: scale(1.04);
 }
 
@@ -7387,7 +7384,6 @@ button:disabled :where(span, small, strong, b, p),
   max-width: none;
   object-fit: cover;
   image-rendering: pixelated;
-  filter: brightness(1.08) contrast(1.08) saturate(.96);
 }
 
 .gothic-card-effect-wash {
@@ -7396,7 +7392,6 @@ button:disabled :where(span, small, strong, b, p),
   inset: 0;
   pointer-events: none;
   box-shadow: inset 0 -5cqw 6cqw #050506, inset 0 0 4cqw rgba(0, 0, 0, .62);
-  mix-blend-mode: screen;
   opacity: .34;
 }
 .gothic-card-effect-wash.effect-damage,
@@ -8057,9 +8052,8 @@ button:disabled :where(span, small, strong, b, p),
   border: 1.4cqw solid #e14b3f;
   clip-path: polygon(0 2.2%, 2.2% 2.2%, 2.2% 0, 97.8% 0, 97.8% 2.2%, 100% 2.2%, 100% 97.8%, 97.8% 97.8%, 97.8% 100%, 2.2% 100%, 2.2% 97.8%, 0 97.8%);
 }
-.gothic-card:disabled .gothic-card-face {
-  filter: grayscale(.42) saturate(.62) brightness(.76);
-}
+.gothic-card:disabled .gothic-card-face { opacity: .76; }
+.action-hand .gothic-card:disabled { filter: none; opacity: .68; }
 
 /* The surrounding views choose only the overall card width; the 2:3 face owns
    every internal proportion, so equal-width cards are always equal-height. */
@@ -8234,7 +8228,7 @@ button:disabled :where(span, small, strong, b, p),
 .roster-buff-tooltip.golden { border-color: #c99a38; }
 .active-effects-strip .effect-golden { border-color: #b78932; color: #ffd56a; background: #3b2c13; }
 
-/* Motion owns loading feedback and every state transition. */
+/* Native image layers paint directly; their static backdrops avoid per-image animation work. */
 .avatar-loading-shimmer,
 .avatar-image-motion {
   position: absolute;
@@ -8502,6 +8496,8 @@ button:disabled :where(span, small, strong, b, p),
   min-width: 0;
   width: 100%;
   align-self: end;
+  contain: layout style;
+  isolation: isolate;
   list-style: none;
   scroll-snap-align: start;
 }

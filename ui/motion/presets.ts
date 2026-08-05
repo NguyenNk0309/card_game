@@ -4,11 +4,13 @@ export const motionEase = [0.22, 1, 0.36, 1] as const;
 export const motionEaseIn = [0.4, 0, 1, 1] as const;
 
 export const motionTransition = {
-  quick: { duration: 0.14, ease: motionEase },
-  standard: { duration: 0.24, ease: motionEase },
-  panel: { duration: 0.32, ease: motionEase },
-  dramatic: { duration: 0.56, ease: motionEase },
-  layout: { type: "spring", stiffness: 430, damping: 38, mass: 0.78 },
+  quick: { duration: 0.1, ease: motionEase },
+  standard: { duration: 0.16, ease: motionEase },
+  screen: { duration: 0.18, ease: motionEase },
+  panel: { duration: 0.22, ease: motionEase },
+  dramatic: { duration: 0.38, ease: motionEase },
+  layout: { type: "spring", stiffness: 560, damping: 46, mass: 0.58 },
+  hand: { type: "spring", stiffness: 680, damping: 52, mass: 0.48 },
 } satisfies Record<string, Transition>;
 
 export const fadePresence: Variants = {
