@@ -890,6 +890,8 @@ button:focus-visible {
   gap: 10px;
 }
 
+.dice-action-check { display: contents; }
+
 .d20 {
   width: 48px;
   height: 48px;
@@ -3690,6 +3692,43 @@ button:focus-visible {
 .active-effects-strip .effect-bonus,
 .active-effects-strip .effect-support { color: #efd27f; border-color: rgba(219, 181, 77, .35); }
 .active-effects-strip .effect-heal { color: #9bd6ac; border-color: rgba(86, 168, 109, .35); }
+
+.active-passive-strip {
+  margin: 10px 0 12px;
+  padding: 9px 11px;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 2px solid #4a4037;
+  background: #0d0c10;
+  box-shadow: inset 3px 3px 0 #030405;
+}
+
+.active-passive-strip > b {
+  color: var(--pixel-text-secondary);
+  font-size: 9px;
+  letter-spacing: .12em;
+}
+
+.active-passive-effect {
+  min-width: 0;
+  padding: 8px 10px;
+  overflow-wrap: anywhere;
+  color: #cbd3d0;
+  border: 1px solid #554834;
+  background: #171418;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.active-passive-effect.is-active {
+  color: #d8f3d1;
+  border-color: #4f8a52;
+  background: #17351e;
+  box-shadow: inset 3px 0 0 #70bd6f;
+}
 
 .no-valid-target {
   padding: 10px 12px;
@@ -7051,6 +7090,73 @@ button:disabled :where(span, small, strong, b, p),
 
 .encounter-row {
   grid-template-columns: minmax(250px, 32fr) minmax(0, 68fr);
+}
+
+@media (min-width: 1280px) and (max-width: 1439px) and (min-height: 720px) {
+  .encounter-row {
+    grid-template-columns: minmax(240px, 30fr) minmax(0, 70fr);
+  }
+
+  .dice-panel {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto minmax(58px, auto) minmax(52px, auto);
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .dice-panel .dice-action-check {
+    grid-column: 1 / -1;
+    min-width: 0;
+    padding-bottom: 2px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .dice-panel .dice-copy {
+    min-width: 0;
+    display: flex;
+  }
+
+  .dice-panel .roll-button,
+  .dice-panel .pity-button {
+    width: 100%;
+    min-width: 0;
+    align-self: stretch;
+    height: 100%;
+    min-height: 58px;
+    margin: 0;
+    padding: 6px 9px;
+    white-space: normal;
+  }
+
+  .dice-panel .turn-action-buttons .skip-turn-button,
+  .dice-panel .turn-action-buttons .discard-card-button {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    min-height: 52px;
+    margin: 0;
+    padding: 6px 9px;
+    white-space: normal;
+  }
+
+  .dice-panel .turn-action-buttons {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .dice-panel .turn-action-control {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+  }
 }
 
 .history-filter-control {

@@ -14,8 +14,8 @@ import { visibleDiceModifier } from "@/shared/diceVisibility";
 import { isValidRoomId, normalizeRoomId } from "@/shared/roomId.mjs";
 import { getWorldEventDefinition, getWorldEventScheduleEntry, isWorldEventPhase } from "@/shared/worldEvents.mjs";
 import { formatGoldUnits, getShopOffer, SHOP_CATALOG } from "@/shared/shop.mjs";
-import { formatHistoryPresentation, formatLifeEventPresentation, formatOutcomePresentation, formatViewpointText, getStatusPresentations, viewerRelation } from "@/shared/viewpoint.mjs";
-import type { ActionCard, GameHistoryEntry, GameNotice, GameOutcome, PlayerLifeEvent, PlayerSession, SyncedGameState, TeamId, WorldEventOutcome } from "@/shared/types";
+import { formatHistoryPresentation, formatLifeEventPresentation, formatOutcomePresentation, formatViewpointText, viewerRelation } from "@/shared/viewpoint.mjs";
+import type { ActionCard, GameHistoryEntry, GameNotice, GameOutcome, PlayerLifeEvent, PlayerRunState, PlayerSession, SyncedGameState, TeamId, WorldEventOutcome } from "@/shared/types";
 import { DiceRoller } from "./components/DiceRoller";
 import type { D20DiceProps } from "./d20/D20Dice";
 import { CardFace } from "./components/CardFace";
@@ -43,6 +43,16 @@ const D20DebugPanel = process.env.TEST_MODE === "true"
 const teamName: Record<TeamId, string> = { veil: "Veilbound", ember: "Embercourt" };
 const PLAYER_NAME_STORAGE_KEY = "shattered-oath-player-name";
 const GAME_NOTICE_DURATION_MS = 10_000;
+
+function isCharacterPassiveActive(player: PlayerSession, state: PlayerRunState) {
+  if (state.hp <= 0) return false;
+  if (player.hero.name === "Thorne Vale") return Boolean(state.thorneDeadeyeCharge);
+  if (player.hero.name === "Liora Venn") return Boolean(state.sanguineRecompense);
+  if (player.hero.name === "Sable Fen") return !state.passiveReviveUsed;
+  if (player.hero.name === "Kael Rook") return state.shield <= 0;
+  if (player.hero.name === "Dagan Flint") return state.hp <= state.maxHp / 2;
+  return true;
+}
 type OutcomeVfxTone = "success" | "failure" | "skip" | "discard" | "neutral";
 type PresentationQueueItem =
   | { id: string; kind: "world"; event: WorldEventOutcome }
@@ -709,9 +719,8 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
   const passiveDiceBonus = localPlayer && activeCard && localState ? getPassiveDiceBonus(localPlayer, activeCard, localState) : 0;
   const markedTargetDiceBonus = activeCard && localState && ["damage", "aoe"].includes(activeCard.effect) && localState.markedTargetId === targetPlayerId ? localState.markedTargetBonus ?? 0 : 0;
   const outcome = game?.outcome ?? null;
-  const currentBattlePhase = getCurrentBattlePhase(game?.completedPhases ?? 0);
   const outcomePresentation = outcome ? formatOutcomePresentation(outcome, players, localPlayer?.id) : null;
-  const localStatusPresentations = localPlayer && localState ? getStatusPresentations(localPlayer, localState, players, localPlayer.id, currentBattlePhase) : [];
+  const localPassiveActive = localPlayer && localState ? isCharacterPassiveActive(localPlayer, localState) : false;
   const outcomeKey = outcome ? outcome.id ?? `${game?.completedTurns ?? 0}-${outcome.kind}-${outcome.actorName ?? ""}-${outcome.cardId ?? ""}` : "";
   const diceRollInput = outcome?.kind === "card" && outcome.resolution === "roll" && Number.isInteger(outcome.roll) && (outcome.roll ?? 0) >= 1 && (outcome.roll ?? 0) <= 20
     ? { rawResult: outcome.roll as number, modifier: (outcome.bonus ?? 0) - (outcome.dicePenalty ?? 0), finalResult: outcome.total }
@@ -1046,7 +1055,7 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
             <AnimatePresence initial={false}>{!diceSequencePending && activePlayer?.id === sessionId && activeCard && ["enemy", "ally", "defeated-ally", "player"].includes(activeCard.target) ? <m.section className="interaction-selector" aria-label="Choose interaction target" variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard} key={activeCard.id}><div className="target-picker"><Target size={16}/><span>Choose {getCardTargetLabel(activeCard).toLowerCase()}</span>{targetOptions.length ? <TargetPlayerPicker options={targetOptions} selectedId={targetPlayerId} game={game} localPlayer={localPlayer} onChange={setTargetPlayerId}/> : <span className="no-valid-target">No valid target; success has no effect.</span>}</div></m.section> : null}</AnimatePresence>
           </div>
           <section className="hand-zone private-hand-zone"><div className="hand-heading"><div><span className="eyebrow">{localPlayer ? <><span className={`player-name-highlight ${playerRelationClass(localPlayer, localPlayer)}`}>{localPlayer.displayName}</span>&apos;S PRIVATE HAND</> : "PRIVATE HAND"}</span><strong>{activePlayer?.id === sessionId ? "Choose a card and target, then roll. Drag any card to reorder." : "Plan while the current player acts. Drag any card to reorder."}</strong></div>{localPlayer && <div className="pile-review-actions"><span><Hand size={16}/> Hand ({localState?.hand.length ?? 0})</span><button onClick={() => setDeckReview("draw")}><Layers size={16}/> Draw pile ({localState?.drawPile.length ?? 0})</button><button onClick={() => setDeckReview("discard")}><Archive size={16}/> Discard ({localState?.discardPile.length ?? 0})</button><button onClick={() => setDeckReview("graveyard")}><Skull size={16}/> Graveyard ({localState?.graveyard?.length ?? 0})</button></div>}</div>
-            {localState && <LayoutGroup id="local-effects"><m.div layout className="active-effects-strip"><b>ACTIVE EFFECTS</b><AnimatePresence initial={false} mode="popLayout">{localStatusPresentations.map((status) => <m.span layout className={status.negative ? "effect-penalty" : status.kind === "attackBuff" || status.kind === "shopAttack" ? "effect-attack" : status.kind === "goldenShield" ? "effect-golden" : status.kind === "revive" ? "effect-heal" : "effect-support"} title={status.tooltip} variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard} key={status.kind}><HighlightPlayerNames text={status.label} players={players} localPlayer={localPlayer} useActualNames/> {status.displayValue}{status.duration && !status.displayValue.endsWith(status.duration) ? ` · ${status.duration}` : ""}</m.span>)}{!localStatusPresentations.length && <m.span variants={fadePresence} initial="hidden" animate="visible" exit="exit" key="empty-effects">No active effects</m.span>}</AnimatePresence></m.div></LayoutGroup>}
+            {localPlayer && localState && <m.div layout className="active-passive-strip"><b>ACTIVE PASSIVE</b><m.span layout className={`active-passive-effect${localPassiveActive ? " is-active" : ""}`} title={`${localPlayer.hero.passiveName}: ${localPlayer.hero.passiveText}`} aria-label={`${localPlayer.hero.passiveName} passive ${localPassiveActive ? "active" : "inactive"}`} transition={motionTransition.standard}>{localPlayer.hero.passiveText}</m.span></m.div>}
             {localPlayer ? <BattleHand
               cards={localHand}
               selectedCard={selectedCard}
