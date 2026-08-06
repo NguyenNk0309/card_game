@@ -103,7 +103,9 @@ assert.deepEqual(
   },
   "a voluntary pass is not described as a forced skip"
 );
-assert.equal(formatOutcomePresentation({ ...voluntaryPass, kind: "timeout" }, players, rowan.id).title, "Rowan ran out of time");
+const timeoutPresentation = formatOutcomePresentation({ ...voluntaryPass, kind: "timeout" }, players, rowan.id);
+assert.equal(timeoutPresentation.title, "Rowan ran out of time");
+assert.equal(timeoutPresentation.detail, "", "the timeout title must stand alone without a repeated expiry explanation");
 assert.equal(formatOutcomePresentation({ ...voluntaryPass, kind: "forced-skip" }, players, rowan.id).title, "Rowan's turn was skipped");
 assert.equal(formatOutcomePresentation(voluntaryPass, players, elias.id).category, "ACTION OUTCOME");
 assert.equal(formatOutcomePresentation(voluntaryPass, players, elias.id).title, "Rowan passed");

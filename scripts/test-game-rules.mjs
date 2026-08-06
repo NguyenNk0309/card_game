@@ -512,6 +512,8 @@ wardGame.adventure.target = 8;
 wardGame.playerStates[elara.id].hand = [lanternWard.id];
 const wardResult = engine.resolveCardTurn(wardGame, elaraParty, lanternWard.id, elaraAlly.id, 20);
 assert.equal(wardResult.outcome.amount, 4, "Lantern-Forged Guard raises Undying Ward from 3 to 4 shield");
+const wardBreakdown = wardResult.outcome.effectBreakdowns.find((entry) => entry.id === `shield-${elaraAlly.id}`);
+assert.deepEqual(wardBreakdown.parts.map((part) => [part.value, part.label]), [[3, "from Undying Ward card"], [1, "from Elara's Lantern-Forged Guard passive"]], "Guard outcomes separate base Shield from the character passive");
 assert.equal(wardResult.playerStates[elaraAlly.id].shield, 4, "Undying Ward applies its passive-enhanced shield to the chosen ally");
 const commonGuardGame = engine.createInitialGame(elaraParty, engine.createAdventure("ELARA-COMMON-GUARD"), 30);
 commonGuardGame.turnOrder = [elara.id, elaraEnemy.id, elaraAlly.id];
@@ -557,6 +559,10 @@ deadeyeGame.playerStates[thorneTarget.id].hp = 14;
 deadeyeGame.playerStates[thorneTarget.id].maxHp = 14;
 const deadeyeAttack = engine.resolveCardTurn(deadeyeGame, thorneParty, markedArrow.id, thorneTarget.id, 20);
 assert.equal(deadeyeAttack.outcome.amount, 7, "a charged Deadeye Bolt deals its 4 base damage, +1 Second-Beat Deadeye damage, and +2 attack buff");
+const deadeyeBreakdown = deadeyeAttack.outcome.effectBreakdowns.find((entry) => entry.id === `damage-${thorneTarget.id}`);
+assert.equal(deadeyeBreakdown.value, 7, "the Deadeye effect breakdown publishes the final HP loss");
+assert.deepEqual(deadeyeBreakdown.parts.map((part) => [part.value, part.label]), [[4, "from Deadeye Bolt card"], [2, "from attack buff"], [1, "from Thorne's Second-Beat Deadeye passive"]], "the Deadeye effect breakdown separates card base damage, buff, and passive damage");
+assert.deepEqual(deadeyeAttack.outcome.effectBreakdowns.find((entry) => entry.id === `gold-${thorne.id}`).parts.map((part) => [part.value, part.label]), [[1, "from a successful card action"]], "earned Gold publishes its own source");
 assert.equal(deadeyeAttack.playerStates[thorneTarget.id].hp, 7, "Second-Beat Deadeye's bonus changes synchronized target HP in actual card resolution");
 assert.equal(deadeyeAttack.playerStates[thorne.id].thorneDeadeyeCharge, false, "a successful single-target Attack consumes Thorne's ready passive charge");
 
@@ -610,6 +616,7 @@ infernoGame.playerStates[mira.id].hand = [inferno.id];
 infernoGame.playerStates[infernoTargetOne.id].shield = 1;
 const infernoResult = engine.resolveCardTurn(infernoGame, infernoParty, inferno.id, infernoTargetOne.id, 20);
 assert.equal(infernoResult.outcome.amount, 7, "Wildfire Inferno deals 4 damage per enemy with Wildfire Reach, reduced normally by shield");
+assert.deepEqual(infernoResult.outcome.effectBreakdowns.find((entry) => entry.id === `damage-${infernoTargetOne.id}`).parts.map((part) => part.value), [3, 1, -1], "damage breakdowns subtract blocked Shield from card and passive power");
 assert.equal(infernoResult.playerStates[infernoTargetOne.id].hp, infernoTargetOne.hero.maxHp - 3, "shield blocks one point of Wildfire Inferno's passive-enhanced damage");
 assert.equal(infernoResult.playerStates[infernoTargetTwo.id].hp, infernoTargetTwo.hero.maxHp - 4, "Wildfire Inferno deals 3 base plus 1 Wildfire Reach damage to each unshielded enemy");
 assert.equal(infernoResult.playerStates[infernoAlly.id].hp, infernoAlly.hero.maxHp, "Wildfire Inferno never damages Mira's allies");
@@ -795,6 +802,7 @@ healGame.playerStates[healer.id].hand = [prayerOfLife.id];
 healGame.playerStates[supportAlly.id].hp = 1;
 const allyHealed = engine.resolveCardTurn(healGame, supportParty, prayerOfLife.id, supportAlly.id, 20);
 assert.equal(allyHealed.outcome.amount, 4, "Graceful Restoration raises Graceful Renewal from 3 to 4 restored HP");
+assert.deepEqual(allyHealed.outcome.effectBreakdowns.find((entry) => entry.id === `healing-${supportAlly.id}`).parts.map((part) => [part.value, part.label]), [[3, "from Graceful Renewal card"], [1, "from Orren's Graceful Restoration passive"]], "Heal outcomes separate card healing from passive healing");
 assert.equal(allyHealed.playerStates[supportAlly.id].hp, 5, "Graceful Renewal restores the chosen ally with its updated passive bonus");
 assert.equal(allyHealed.playerStates[healer.id].hp, healer.hero.maxHp, "ally heal does not redirect to the caster");
 
@@ -1763,6 +1771,7 @@ for (const option of options) {
     assert.equal(matrixSuccess.outcome.cardId, matrixCard.id, `${matrixCard.name} must preserve its card identity in the synchronized outcome`);
     assert.equal(matrixSuccess.outcome.effect, matrixCard.effect, `${matrixCard.name} must publish its catalog effect type`);
     assert.deepEqual([...matrixSuccess.outcome.targetIds].sort(), [...expectedTargetIds].sort(), `${matrixCard.name} must affect exactly its legal targets`);
+    for (const breakdown of matrixSuccess.outcome.effectBreakdowns) assert.equal(breakdown.parts.reduce((sum, part) => sum + part.value, 0), breakdown.value, `${matrixCard.name} effect breakdown ${breakdown.id} must add up to its displayed value`);
     assert.equal(matrixSuccess.outcome.failureDetail, "", `${matrixCard.name} success must not publish or apply a failure impact`);
     assert.equal(matrixSuccess.playerStates[matrixActor.id].cardUses[matrixCard.id], 1, `${matrixCard.name} must record its successful use`);
     if (matrixCard.id === "bo-return") assert(matrixSuccess.playerStates[matrixActor.id].graveyard.includes(matrixCard.id), "Immediate Resurrection enters the graveyard after successful use");
@@ -1845,6 +1854,7 @@ for (const option of options) {
     const matrixFailure = engine.resolveCardTurn(matrixGame, matrixParty, matrixCard.id, targetId, 1);
     assert.equal(matrixFailure.outcome.success, false, `${matrixCard.name} must fail below the d20 target`);
     assert.equal(matrixFailure.outcome.amount, 0, `${matrixCard.name} must not apply its main effect on failure`);
+    for (const breakdown of matrixFailure.outcome.effectBreakdowns) assert.equal(breakdown.parts.reduce((sum, part) => sum + part.value, 0), breakdown.value, `${matrixCard.name} failure breakdown ${breakdown.id} must add up to its displayed value`);
     assert.equal(matrixFailure.playerStates[matrixActor.id].pityPoints, 1, `${matrixCard.name} failure must grant 1 pity point`);
     assert(matrixFailure.outcome.failureDetail, `${matrixCard.name} must publish its failure impact`);
     if (matrixCard.failureEffect === "self-damage") {

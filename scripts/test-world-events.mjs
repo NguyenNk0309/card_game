@@ -63,12 +63,14 @@ const EXPECTED_KEYS = [
   const actionOutcomeLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const showActionOutcome =")) ?? "";
   const outcomeKeyLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const outcomeKey =")) ?? "";
   assert(!outcomeLine.includes("runComplete") && !actionOutcomeLine.includes("runComplete"), "the final action or Action Outcome displays before Battle Complete");
-  const localOutcomeLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const isLocalActionOutcome =")) ?? "";
+  const localActorLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const outcomeActorIsLocal =")) ?? "";
+  const detailedActionLine = gameAppSource.split(/\r?\n/).find((line) => line.includes("const usesDetailedActionResult =")) ?? "";
   assert(outcomeKeyLine.includes("outcome.id ??") && !outcomeKeyLine.includes("turnStartedAt"), "authoritative action identity remains stable when a World Event resets turn timing");
-  assert(localOutcomeLine.includes("outcome.actorId === localPlayer.id"), "the local action panel identifies its actor by stable session ID");
-  assert.match(gameAppSource, /outcome\.kind === "card" \|\| outcome\.kind === "discard" \|\| outcome\.kind === "skip"/, "local card, Discard, and manual Skip outcomes use the local action panel");
+  assert(localActorLine.includes("outcome.actorId === localPlayer.id"), "local non-card actions identify their actor by stable session ID");
+  assert(detailedActionLine.includes('outcome.kind === "card"') && detailedActionLine.includes("outcomeActorIsLocal") && detailedActionLine.includes('outcome.kind === "discard"') && detailedActionLine.includes('outcome.kind === "skip"'), "every card outcome and only local Discard or manual Skip outcomes use the detailed Action Result panel");
+  assert(!detailedActionLine.includes('outcome.kind === "timeout"') && !detailedActionLine.includes('outcome.kind === "forced-skip"'), "timeout and forced-skip presentation routing must stay unchanged");
   assert.match(gameAppSource, /outcome\.kind === "discard" \|\| outcome\.kind === "skip" \? <LocalTurnActionPanel/, "local Discard and manual Skip render the non-dice local action panel");
-  assert.match(gameAppSource, /showActionOutcome \? "action-outcome"/, "other-player actions route to Action Outcome instead of Turn Summary");
+  assert.match(gameAppSource, /showActionOutcome \? "action-outcome"/, "non-card outcomes retain the Action Outcome route instead of Turn Summary");
   assert.doesNotMatch(gameAppSource, /showTurnSummary|TURN SUMMARY|Turn Summary/, "the removed Turn Summary panel stays absent");
   assert.match(gameAppSource, /showPendingWorldEventChoice && pendingWorldEvent && <ShatteredTributeChoicePanel/, "the phase-3 choice waits for higher-priority presentations");
   assert.match(worldEventPanelsSource, /cardIds: localState\.hand[\s\S]*cardIds: localState\.drawPile[\s\S]*cardIds: localState\.discardPile/, "the phase-3 choice panel includes hand, draw-pile, and discard-pile cards");

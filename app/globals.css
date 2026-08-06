@@ -813,6 +813,27 @@ button:focus-visible {
 
 .discard-action-outcome-content h2 { margin: 0; }
 
+.action-outcome-event {
+  width: min(560px, 100%);
+  margin: 6px 0 0;
+  color: #ead9ae;
+  font-family: var(--pixel-font);
+  font-size: clamp(18px, 2.8vw, 24px);
+  font-weight: 900;
+  line-height: 1.3;
+  letter-spacing: .06em;
+  text-align: center;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.action-outcome-event .inline-player-name,
+.action-outcome-event .history-card-link {
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+}
+
 .encounter-row {
   gap: 12px;
   margin-bottom: 12px;
@@ -2859,29 +2880,6 @@ button:focus-visible {
 .resolution-equation strong {
   color: var(--paper);
   font: 500 28px Georgia, "Times New Roman", serif;
-}
-
-.resolution-equation .resolution-value-detail {
-  margin-top: 4px;
-  color: #c8bdcf;
-  font-size: clamp(10px, 1.25vw, 12px);
-  font-weight: 600;
-  letter-spacing: 0;
-  line-height: 1.4;
-  text-transform: none;
-  overflow-wrap: anywhere;
-}
-
-.resolution-equation .resolution-value-detail b {
-  color: #ddb0f5;
-  font-size: 1em;
-  font-weight: 900;
-}
-
-.resolution-equation .resolution-value-detail .inline-player-name,
-.resolution-equation .resolution-value-detail .history-card-link {
-  font: inherit;
-  line-height: inherit;
 }
 
 .resolution-equation i {
@@ -5688,6 +5686,35 @@ input:focus-visible {
   font-size: clamp(16px, 2.3vw, 19px);
   line-height: 1.55;
   text-align: center;
+}
+
+.outcome-effect-summary {
+  width: min(620px, 100%);
+  display: grid;
+  gap: 5px;
+  margin-top: 14px;
+  text-align: center;
+}
+
+.outcome-effect-summary p {
+  min-width: 0;
+  margin: 0;
+  color: var(--paper);
+  font-size: clamp(15px, 2vw, 18px);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.outcome-effect-number {
+  color: #ddb0f5;
+  font-weight: 900;
+  text-shadow: 0 0 8px rgba(158, 91, 196, .42);
+}
+
+.outcome-effect-summary .inline-player-name,
+.outcome-effect-summary .history-card-link {
+  font: inherit;
+  line-height: inherit;
 }
 
 @container (max-width: 640px) {

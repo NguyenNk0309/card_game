@@ -155,9 +155,7 @@ export function formatOutcomePresentation(outcome, players, viewerId = '') {
     return {
       category: actorCategory(context),
       title: `${actorLabel} ran out of time`,
-      detail: context.viewerIsActor
-        ? 'Time expired; no card played or discarded.'
-        : `${actorLabel}'s turn timed out.`,
+      detail: '',
       involvedPlayerIds: context.involvedIds
     };
   }

@@ -114,6 +114,19 @@ export type GameNotice = {
   shopOfferId?: string;
 };
 
+export type OutcomeEffectPart = {
+  value: number;
+  label: string;
+};
+
+export type OutcomeEffectBreakdown = {
+  id: string;
+  label: string;
+  value: number;
+  unit: string;
+  parts: OutcomeEffectPart[];
+};
+
 export type GameOutcome = {
   id?: string;
   success: boolean;
@@ -156,6 +169,7 @@ export type GameOutcome = {
   goldBefore?: number;
   goldChange?: number;
   goldAfter?: number;
+  effectBreakdowns?: OutcomeEffectBreakdown[];
 };
 
 export type GameHistoryEntry = {

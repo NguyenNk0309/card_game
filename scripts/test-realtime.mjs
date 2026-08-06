@@ -839,6 +839,7 @@ try {
   zeroPityAction.playerStates[firstId].drawPile = [];
   zeroPityAction.playerStates[firstId].discardPile = [`favor-${firstId}`, `card-${firstId}`];
   zeroPityAction.outcome = { kind: "card", success: true, total: 1, target: zeroPityAction.adventure.target, label: `${firstName} used Test Skill`, detail: "The zero-pity card resolved.", actorName: firstName, cardId: `card-${firstId}`, cardName: "Test Skill", effect: "damage", targetIds: [secondId], targetName: secondName, roll: 1, bonus: 0, resolution: "roll", pityCost: 0, pityBefore: 3, pityAfter: 3 };
+  zeroPityAction.outcome.effectBreakdowns = [{ id: `damage-${secondId}`, label: `${secondName} lost`, value: 3, unit: "HP", parts: [{ value: 2, label: "from Test Skill card" }, { value: 1, label: `from ${firstName}'s passive` }] }];
   zeroPityAction.history = [...zeroPityAction.history, { id: `favor-card-${runId}`, turn: 3, phase: 2, kind: "damage", actorName: firstName, targetName: secondName, cardName: "Test Skill", message: `${firstName} used Test Skill with Foretold Success.`, success: true, diceRoll: 1, diceTarget: zeroPityAction.adventure.target, diceBonus: 0, dicePenalty: 0, diceTotal: 1, resolution: "roll", pityCost: 0, pityBefore: 3, pityAfter: 3, createdAt: Date.now() }];
   const zeroPityActorPromise = first.waitForNext((state) => state.game?.completedTurns === 3 && state.game?.outcome?.cardName === "Test Skill");
   const zeroPityObserverPromise = second.waitForNext((state) => state.game?.completedTurns === 3 && state.game?.outcome?.cardName === "Test Skill");
@@ -846,6 +847,7 @@ try {
   const [zeroPityActorView, zeroPityObserverView] = await Promise.all([zeroPityActorPromise, zeroPityObserverPromise]);
   assert.equal(zeroPityActorView.game.outcome.success, true, "Foretold Success makes the next normal card action automatically succeed");
   assert.equal(zeroPityActorView.game.outcome.pityCost, 0, "the realtime authority reports the affected card's pity cost as 0");
+  assert.deepEqual(zeroPityObserverView.game.outcome.effectBreakdowns, zeroPityActorView.game.outcome.effectBreakdowns, "every player receives the same public effect-value breakdown");
   assert.equal(zeroPityActorView.game.playerStates[firstId].pityPoints, 3, "the affected card spends and gains no pity");
   assert.equal(zeroPityActorView.game.playerStates[firstId].zeroPityUntilTurn, 0, "the omen clears after the affected card is played");
   assert.equal(zeroPityObserverView.game.playerStates[firstId].zeroPityUntilTurn, 0, "the consumed omen clears for every player");

@@ -273,51 +273,74 @@ function ViewpointPlayerText({ text = "", players, localPlayer, involvedPlayerId
   return <HighlightInteractiveNames text={formatted} cardNames={cardNames} players={players} localPlayer={localPlayer} onInspectPlayer={onInspect} onInspectCard={onInspectCard} useActualNames={useActualNames}/>;
 }
 
-type OutcomeModifierPart = {
-  label: string;
-  value: number;
-};
-
 function signedOutcomeValue(value: number) {
   if (value === 0) return "0";
   return `${value > 0 ? "+" : "−"}${Math.abs(value)}`;
 }
 
-function OutcomeRollEquation({ outcome, players, localPlayer, cardNames, onInspectCard }: { outcome: GameOutcome; players: PlayerSession[]; localPlayer?: PlayerSession; cardNames: readonly string[]; onInspectCard: (name: string) => void }) {
+function OutcomeRollEquation({ outcome, players, localPlayer }: { outcome: GameOutcome; players: PlayerSession[]; localPlayer?: PlayerSession }) {
   if (outcome.resolution === "pity") return <div className="resolution-pity"><PityIcon size={24}/><span><small>Guaranteed pity success</small><strong>{outcome.pityBefore ?? 0} − {outcome.pityCost ?? 0} = {outcome.pityAfter ?? 0} pity</strong></span></div>;
   if (outcome.pityCost === 0) return <AutomaticSuccessNotice roll={outcome.roll}/>;
   if (outcome.resolution !== "roll") return null;
 
   const actor = players.find((player) => player.id === outcome.actorId) ?? players.find((player) => player.displayName === outcome.actorName);
-  const positiveParts: OutcomeModifierPart[] = [
-    { value: outcome.cardBonus ?? 0, label: `from ${outcome.cardName ?? "played"} card` },
-    { value: outcome.passiveBonus ?? 0, label: actor ? `from ${actor.displayName}'s ${actor.hero.passiveName} passive` : "from passive" },
-    { value: outcome.diceBuff ?? 0, label: "from d20 buff" },
-    { value: outcome.shopDiceBonus ?? 0, label: "from Truecast Tonic potion" },
-    { value: outcome.markedTargetBonus ?? 0, label: "from Marked Target card" },
-  ];
-  const knownPositiveBonus = positiveParts.reduce((sum, part) => sum + part.value, 0);
-  const unclassifiedBonus = Math.max(0, (outcome.bonus ?? knownPositiveBonus) - knownPositiveBonus);
-  const modifierParts = [
-    ...positiveParts,
-    { value: unclassifiedBonus, label: "from other roll effects" },
-    { value: -(outcome.dicePenalty ?? 0), label: "from debuff" },
-  ].filter((part) => part.value !== 0);
-  const totalModifier = (outcome.bonus ?? knownPositiveBonus + unclassifiedBonus) - (outcome.dicePenalty ?? 0);
+  const totalModifier = (outcome.bonus ?? 0) - (outcome.dicePenalty ?? 0);
   const roll = outcome.roll ?? 0;
-  const rollDetail = outcome.rollMode === "additional-die" && outcome.initialRoll != null && outcome.alternateRoll != null
-    ? `Higher of ${outcome.initialRoll} and ${outcome.alternateRoll} from Twin-Fate Die item`
-    : outcome.rollMode === "lucky-die" && outcome.initialRoll != null
-      ? `Rerolled ${outcome.initialRoll} to ${roll} with Lucky Die item`
-      : "Raw d20 result";
 
-  return <div className="resolution-equation"><span><small>d20 roll</small><strong>{roll}</strong><small className="resolution-value-detail">{rollDetail}</small></span><i>+</i><span className="modifier-result"><small>total modifier</small><strong>{signedOutcomeValue(totalModifier)}</strong><small className="resolution-value-detail">({modifierParts.length ? modifierParts.map((part, index) => <span key={part.label}>{index > 0 ? " " : ""}<b>{signedOutcomeValue(part.value)}</b> <HighlightInteractiveNames text={part.label} cardNames={cardNames} players={players} localPlayer={localPlayer} onInspectCard={onInspectCard} useActualNames/></span>) : "No active modifiers"})</small></span><i>=</i><span className={outcome.success ? "success" : "failure"}><small><HighlightPlayerNames text={`${outcome.actorName ?? actor?.displayName ?? "Player"}'s total`} players={players} localPlayer={localPlayer} useActualNames/></small><strong>{outcome.total}</strong><small className="resolution-value-detail">{roll} {totalModifier < 0 ? "−" : "+"} {Math.abs(totalModifier)}</small></span><i className="compare-word">vs</i><span className="dice-target-result"><small>dice target</small><strong>{outcome.target}</strong><small className="resolution-value-detail">Meet or exceed</small></span></div>;
+  return <div className="resolution-equation"><span><small>d20 roll</small><strong>{roll}</strong></span><i>+</i><span className="modifier-result"><small>total modifier</small><strong>{signedOutcomeValue(totalModifier)}</strong></span><i>=</i><span className={outcome.success ? "success" : "failure"}><small><HighlightPlayerNames text={`${outcome.actorName ?? actor?.displayName ?? "Player"}'s total`} players={players} localPlayer={localPlayer} useActualNames/></small><strong>{outcome.total}</strong></span><i className="compare-word">vs</i><span className="dice-target-result"><small>dice target</small><strong>{outcome.target}</strong></span></div>;
+}
+
+function conciseEffectSource(label: string) {
+  const source = label.toLowerCase();
+  if (source.includes("sacrificed shield") || source.includes("blocked by normal shield")) return "from Shield";
+  if (source.includes("golden shield") || source.includes("potion") || source.includes("item")) return "from item";
+  if (source.includes("attack buff")) return "from buff";
+  if (source.includes("passive")) return "from passive";
+  if (source.includes("maximum hp")) return "from max HP";
+  if (source.includes("available shield")) return "from available Shield";
+  if (source.includes("failure backlash")) return "from backlash";
+  if (source.includes("card")) return "base";
+  return label;
+}
+
+function withoutAutomaticGold(detail: string) {
+  return detail.replace(/\s*Earned\s+\d+(?:\.\d+)?\s+Gold\.\s*/gi, " ").replace(/\s+/g, " ").trim();
+}
+
+function OutcomeEffectSummary({ outcome, fallbackDetail, players, localPlayer, cardNames, onInspectCard }: { outcome: GameOutcome; fallbackDetail: string; players: PlayerSession[]; localPlayer?: PlayerSession; cardNames: readonly string[]; onInspectCard: (name: string) => void }) {
+  const breakdowns = (outcome.effectBreakdowns ?? []).filter((breakdown) => !breakdown.id.startsWith("gold-"));
+  if (!breakdowns.length) {
+    const detail = withoutAutomaticGold(fallbackDetail);
+    return detail ? <p className="modal-lead resolution-outcome-detail"><HighlightInteractiveNames text={detail} cardNames={cardNames} players={players} localPlayer={localPlayer} onInspectCard={onInspectCard} useActualNames/></p> : null;
+  }
+
+  return <div className="outcome-effect-summary" aria-label="Effect value details">{breakdowns.map((breakdown) => {
+    const isDamage = breakdown.id.startsWith("damage-") || breakdown.id.startsWith("failure-damage-");
+    const label = isDamage ? breakdown.label.replace(/ lost$/, " took") : breakdown.label;
+    const unit = isDamage ? "damage" : breakdown.unit;
+    return <p key={breakdown.id}><HighlightInteractiveNames text={label} cardNames={cardNames} players={players} localPlayer={localPlayer} onInspectCard={onInspectCard} useActualNames/> <b className="outcome-effect-number">{breakdown.value < 0 ? signedOutcomeValue(breakdown.value) : breakdown.value}</b> {unit}{breakdown.parts.length ? <> ({breakdown.parts.map((part, index) => <span key={`${breakdown.id}-${part.label}`}>{index === 0 ? (part.value < 0 ? "−" : "") : part.value < 0 ? " − " : " + "}<b className="outcome-effect-number">{Math.abs(part.value)}</b> {conciseEffectSource(part.label)}</span>)})</> : null}.</p>;
+  })}</div>;
 }
 
 function LocalTurnActionPanel({ outcome, players, localPlayer, cardNames, onInspectCard, onContinue }: { outcome: GameOutcome; players: PlayerSession[]; localPlayer?: PlayerSession; cardNames: readonly string[]; onInspectCard: (name: string) => void; onContinue: () => void }) {
   const discarded = outcome.kind === "discard";
   const presentation = formatOutcomePresentation(outcome, players, localPlayer?.id);
   return <div className={`resolution-content local-turn-action-content ${discarded ? "discard" : "skip"}`}><div className="resolution-hero world">{discarded ? <Archive size={34}/> : <Hourglass size={34}/>}</div><h2><HighlightInteractiveNames text={presentation.title} cardNames={cardNames} players={players} localPlayer={localPlayer} onInspectCard={onInspectCard} useActualNames/></h2><p className="modal-lead resolution-outcome-detail"><HighlightInteractiveNames text={presentation.detail} cardNames={cardNames} players={players} localPlayer={localPlayer} onInspectCard={onInspectCard} useActualNames/></p><button className="primary-button continue-button" onClick={onContinue}>Continue <ChevronRight size={17}/></button></div>;
+}
+
+function ActionOutcomePanel({ outcome, players, localPlayer, cardNames, onInspectCard }: { outcome: GameOutcome; players: PlayerSession[]; localPlayer?: PlayerSession; cardNames: readonly string[]; onInspectCard: (name: string) => void }) {
+  const presentation = formatOutcomePresentation(outcome, players, localPlayer?.id);
+  const separatesActionLabel = outcome.kind === "discard" || outcome.kind === "skip" || outcome.kind === "timeout";
+  const neutralOutcome = outcome.kind === "discard" || outcome.kind === "skip" || outcome.kind === "timeout" || outcome.kind === "forced-skip";
+  const title = <HighlightInteractiveNames text={presentation.title} cardNames={cardNames} players={players} localPlayer={localPlayer} onInspectCard={onInspectCard} useActualNames/>;
+
+  return <div className={`resolution-content ${outcome.kind === "discard" ? "discard-action-outcome-content" : ""}`}>
+    <div className={`resolution-hero ${neutralOutcome ? "world" : outcome.success ? "success" : "failure"}`}>{outcome.kind === "discard" ? <Archive size={34}/> : outcome.kind === "skip" || outcome.kind === "timeout" || outcome.kind === "forced-skip" ? <Hourglass size={34}/> : outcome.success ? <Check size={34}/> : <Skull size={34}/>}</div>
+    <h2>{separatesActionLabel ? "Action Outcome" : <>Action Outcome · {title}</>}</h2>
+    {separatesActionLabel && <p className="action-outcome-event">{title}</p>}
+    {outcome.resolution === "roll" && outcome.pityCost === 0 && <AutomaticSuccessNotice roll={outcome.roll}/>}
+    {presentation.detail && <p className="modal-lead resolution-outcome-detail"><HighlightInteractiveNames text={presentation.detail} cardNames={cardNames} players={players} localPlayer={localPlayer} onInspectCard={onInspectCard} useActualNames/></p>}
+  </div>;
 }
 
 function HistoryMessage({ entry, text, players, localPlayer, onInspectPlayer, onInspectCard }: { entry: GameHistoryEntry; text: string; players: PlayerSession[]; localPlayer?: PlayerSession; onInspectPlayer: (id: string) => void; onInspectCard: (name: string) => void }) {
@@ -704,9 +727,10 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
   const showNonWorldLifeEvent = Boolean(activeLifeEvent && activeLifeEvent.source !== "world-event");
   const showWorldLifeEvent = Boolean(activeLifeEvent?.source === "world-event");
   const showLifeEvent = showNonWorldLifeEvent || showWorldLifeEvent;
-  const isLocalActionOutcome = Boolean(outcome && localPlayer && (outcome.actorId ? outcome.actorId === localPlayer.id : outcome.actorName === localPlayer.displayName) && (outcome.kind === "card" || outcome.kind === "discard" || outcome.kind === "skip"));
-  const showOutcome = Boolean(isLocalActionOutcome && outcomeKey !== dismissedOutcomeKey);
-  const showActionOutcome = Boolean(outcome?.actorName && !isLocalActionOutcome && outcomeKey !== dismissedActionOutcomeKey);
+  const outcomeActorIsLocal = Boolean(outcome && localPlayer && (outcome.actorId ? outcome.actorId === localPlayer.id : outcome.actorName === localPlayer.displayName));
+  const usesDetailedActionResult = Boolean(outcome && (outcome.kind === "card" || (outcomeActorIsLocal && (outcome.kind === "discard" || outcome.kind === "skip"))));
+  const showOutcome = Boolean(usesDetailedActionResult && outcomeKey !== dismissedOutcomeKey);
+  const showActionOutcome = Boolean(outcome?.actorName && !usesDetailedActionResult && outcomeKey !== dismissedActionOutcomeKey);
   const showWorldEvent = Boolean(queuedWorldEvent && queuedWorldEvent.phase !== 3 && !worldEventBlocking);
   const inspectedPlayer = players.find((player) => player.id === inspectedPlayerId);
   const inspectedCard = [...cardCatalog, ...previewCardCatalog].find((card) => card.name === inspectedCardName);
@@ -1050,8 +1074,8 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
       expandedPanel === "world-events" ? <div className="expanded-panel-content world-event-reference-panel"><WorldEventLibrary cardNames={panelCardNames} onInspectCard={inspectCard}/></div> :
       inspectedPlayer ? inspectedView === "deck" ? <div className="character-deck-panel"><button className="deck-back-button" onClick={() => setInspectedView("status")}><ChevronLeft size={17}/> Back to character status</button><PublicDeck player={inspectedPlayer}/></div> : <div className="character-detail-modal"><CharacterAvatar hero={inspectedPlayer.hero} className="large-portrait" sizes="66px"/><h2>{inspectedPlayer.hero.name}</h2><div className="character-detail-stats"><div><span>HP</span><strong>{game?.playerStates[inspectedPlayer.id]?.hp ?? inspectedPlayer.hero.hp}/{game?.playerStates[inspectedPlayer.id]?.maxHp ?? inspectedPlayer.hero.maxHp}</strong></div><div><span>Shield</span><strong>{game?.playerStates[inspectedPlayer.id]?.shield ?? 0}</strong></div><div><span>Speed</span><strong>{inspectedPlayer.hero.speed}</strong></div><div><span>Status</span><strong>{(game?.playerStates[inspectedPlayer.id]?.hp ?? inspectedPlayer.hero.hp) > 0 ? "Living" : "Defeated"}</strong></div></div><div className="passive-callout"><Crown size={18}/><div><span>PASSIVE · <b className="passive-name-highlight">{inspectedPlayer.hero.passiveName}</b></span><strong>{inspectedPlayer.hero.passiveText}</strong></div></div><button className="primary-button preview-character-deck-button" onClick={() => setInspectedView("deck")}><Layers size={17}/> Preview full 10-card deck</button></div> :
       inspectedCard ? <article className={`history-card-detail gothic-card effect-${inspectedCard.effect}`}><CardFace card={inspectedCard}/></article> :
-      showOutcome && outcome && outcomePresentation ? outcome.kind === "discard" || outcome.kind === "skip" ? <LocalTurnActionPanel outcome={outcome} players={players} localPlayer={localPlayer} cardNames={panelCardNames} onInspectCard={inspectCard} onContinue={() => setDismissedOutcomeKey(outcomeKey)}/> : <div className="resolution-content"><div className={`resolution-hero ${outcome.success ? "success" : "failure"}`}>{outcome.success ? <Check size={34}/> : <Skull size={34}/>}</div><h2><HighlightInteractiveNames text={outcomePresentation.title} cardNames={panelCardNames} players={players} localPlayer={localPlayer} onInspectCard={inspectCard} useActualNames/></h2><div className="resolution-chips">{outcome.effect && <span>{outcome.effect}</span>}{outcome.targetName && <span>Target: <ViewpointPlayerText text={outcome.targetName} players={players} localPlayer={localPlayer} involvedPlayerIds={outcomePresentation.involvedPlayerIds} useActualNames/></span>}</div><OutcomeRollEquation outcome={outcome} players={players} localPlayer={localPlayer} cardNames={panelCardNames} onInspectCard={inspectCard}/><strong className={`resolution-verdict ${outcome.success ? "success" : "failure"}`}>{outcome.success ? "SUCCESS" : "FAILURE"}</strong><p className="modal-lead resolution-outcome-detail"><HighlightInteractiveNames text={outcomePresentation.detail} cardNames={panelCardNames} players={players} localPlayer={localPlayer} onInspectCard={inspectCard} useActualNames/></p>{outcome.failureDetail && <p className="negative-card-effect"><Skull size={16}/> <ViewpointPlayerText text={outcome.failureDetail} players={players} localPlayer={localPlayer} involvedPlayerIds={outcomePresentation.involvedPlayerIds} emphasizedPlayerIds={outcome.actorId ? [outcome.actorId] : []} cardNames={panelCardNames} onInspectCard={inspectCard} useActualNames/></p>}<div className="resolution-metrics single-metric"><div><span>Next random target</span><strong>{outcome.nextTarget ?? adventure.target}</strong></div></div><button className="primary-button continue-button" onClick={() => setDismissedOutcomeKey(outcomeKey)}>Continue <ChevronRight size={17}/></button></div> :
-      showActionOutcome && outcome && outcomePresentation ? <div className={`resolution-content ${outcome.kind === "discard" ? "discard-action-outcome-content" : ""}`}><div className={`resolution-hero ${outcome.kind === "discard" || outcome.kind === "skip" || outcome.kind === "timeout" || outcome.kind === "forced-skip" ? "world" : outcome.success ? "success" : "failure"}`}>{outcome.kind === "discard" ? <Archive size={34}/> : outcome.kind === "skip" || outcome.kind === "timeout" || outcome.kind === "forced-skip" ? <Hourglass size={34}/> : outcome.success ? <Check size={34}/> : <Skull size={34}/>}</div><h2>Action Outcome · <HighlightInteractiveNames text={outcomePresentation.title} cardNames={panelCardNames} players={players} localPlayer={localPlayer} onInspectCard={inspectCard} useActualNames/></h2>{outcome.resolution === "roll" && outcome.pityCost === 0 && <AutomaticSuccessNotice roll={outcome.roll}/>}<p className="modal-lead resolution-outcome-detail"><HighlightInteractiveNames text={outcomePresentation.detail} cardNames={panelCardNames} players={players} localPlayer={localPlayer} onInspectCard={inspectCard} useActualNames/></p></div> :
+      showOutcome && outcome && outcomePresentation ? outcome.kind === "discard" || outcome.kind === "skip" ? <LocalTurnActionPanel outcome={outcome} players={players} localPlayer={localPlayer} cardNames={panelCardNames} onInspectCard={inspectCard} onContinue={() => setDismissedOutcomeKey(outcomeKey)}/> : <div className="resolution-content"><div className={`resolution-hero ${outcome.success ? "success" : "failure"}`}>{outcome.success ? <Check size={34}/> : <Skull size={34}/>}</div><h2><HighlightInteractiveNames text={outcomePresentation.title} cardNames={panelCardNames} players={players} localPlayer={localPlayer} onInspectCard={inspectCard} useActualNames/></h2><div className="resolution-chips">{outcome.effect && <span>{outcome.effect}</span>}{outcome.targetName && <span>Target: <ViewpointPlayerText text={outcome.targetName} players={players} localPlayer={localPlayer} involvedPlayerIds={outcomePresentation.involvedPlayerIds} useActualNames/></span>}</div><OutcomeRollEquation outcome={outcome} players={players} localPlayer={localPlayer}/><strong className={`resolution-verdict ${outcome.success ? "success" : "failure"}`}>{outcome.success ? "SUCCESS" : "FAILURE"}</strong><OutcomeEffectSummary outcome={outcome} fallbackDetail={outcomePresentation.detail} players={players} localPlayer={localPlayer} cardNames={panelCardNames} onInspectCard={inspectCard}/><div className="resolution-metrics single-metric"><div><span>Next random target</span><strong>{outcome.nextTarget ?? adventure.target}</strong></div></div><button className="primary-button continue-button" onClick={() => setDismissedOutcomeKey(outcomeKey)}>Continue <ChevronRight size={17}/></button></div> :
+      showActionOutcome && outcome ? <ActionOutcomePanel outcome={outcome} players={players} localPlayer={localPlayer} cardNames={panelCardNames} onInspectCard={inspectCard}/> :
       showWorldEvent && queuedWorldEvent ? <ResolvedWorldEventPanel event={queuedWorldEvent} players={players} localPlayerId={localPlayer?.id} cardNames={panelCardNames} onInspectCard={inspectCard} onClose={() => dismissPresentation()}/> :
       showLifeEvent && activeLifeEvent && activeLifePresentation ? <div className={`resolution-content life-event-content ${activeLifeEvent.kind}`}><div className={`resolution-hero ${activeLifeEvent.kind === "revive" ? "success" : "failure"}`}>{activeLifeEvent.kind === "revive" ? <Heart size={34}/> : <Skull size={34}/>}</div><h2><HighlightInteractiveNames text={activeLifePresentation.title} cardNames={panelCardNames} players={players} localPlayer={localPlayer} onInspectCard={inspectCard}/></h2><p className="modal-lead"><HighlightInteractiveNames text={activeLifePresentation.detail} cardNames={panelCardNames} players={players} localPlayer={localPlayer} onInspectCard={inspectCard}/></p><button className="primary-button continue-button" onClick={() => dismissPresentation()}>Continue <ChevronRight size={17}/></button></div> :
       showRunComplete ? <div className={`resolution-content battle-result-content ${localBattleVerdict}`}><div className={`resolution-hero ${localBattleVerdict === "victory" ? "success" : localBattleVerdict === "defeat" ? "failure" : "world"}`}>{localBattleVerdict === "defeat" ? <Skull size={34}/> : <Crown size={34}/>}</div><h2>{localBattleVerdict === "victory" ? "Victory" : localBattleVerdict === "defeat" ? "Defeat" : game?.winnerTeam ? `${teamName[game.winnerTeam]} wins!` : "The battle was ended."}</h2><p className="modal-lead"><HighlightInteractiveNames text={localBattleVerdict === "victory" && localPlayer ? `${teamName[localPlayer.hero.team]} won the battle. ${game?.endReason ?? ""}` : localBattleVerdict === "defeat" && localPlayer && game?.winnerTeam ? `${teamName[game.winnerTeam]} defeated ${teamName[localPlayer.hero.team]}. ${game?.endReason ?? ""}` : game?.endReason ?? undefined} cardNames={panelCardNames} players={players} localPlayer={localPlayer} onInspectCard={inspectCard}/></p><div className="resolution-metrics"><div><span>Veilbound</span><strong>{veil.hp} HP</strong></div><div><span>Embercourt</span><strong>{ember.hp} HP</strong></div></div><button className="primary-button" onClick={() => send({ type: "return:lobby" })}><RefreshCw size={17}/> Return to lobby</button></div> : null}
