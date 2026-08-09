@@ -266,7 +266,7 @@ function ConfirmedTopAction({ className, icon, label, title, detail, onConfirm }
 function GameNoticeTitle({ notice, players, localPlayer }: { notice: GameNotice; players: PlayerSession[]; localPlayer?: PlayerSession }) {
   const actor = notice.actorId ? players.find((player) => player.id === notice.actorId) : undefined;
   const offer = notice.shopOfferId ? getShopOffer(notice.shopOfferId) : undefined;
-  if (notice.kind !== "shop-use" || !actor || !offer) return <HighlightPlayerNames text={notice.title} players={players} localPlayer={localPlayer} useActualNames/>;
+  if (notice.kind !== "shop-use" || !actor || !offer) return <HighlightPlayerNames text={formatViewpointText(notice.title, players, notice.actorId ?? localPlayer?.id, { useActualNames: true })} players={players} localPlayer={localPlayer} useActualNames/>;
   return <><b className={`inline-player-name ${playerRelationClass(actor, localPlayer)}`}>{actor.displayName}</b> used <b className={`shop-notice-offer ${offer.category}`}>{offer.name}</b></>;
 }
 
@@ -1051,7 +1051,7 @@ function RoomGame({ roomId, onRoomUnavailable, onReturnHome }: { roomId: string;
   };
 
   return <main className="game-shell arena-focus"><div className="grain"/>
-    <AnimatePresence>{visibleNotices.length > 0 && <m.section layout className="game-notice-stack" aria-live="polite" aria-label="Battle notices">{visibleNotices.map((notice) => <m.article layout className={`outcome-toast game-notice ${notice.kind}`} variants={noticePresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard} key={notice.id}><GameNoticeIcon kind={notice.kind}/><div><strong><GameNoticeTitle notice={notice} players={players} localPlayer={localPlayer}/></strong><span><HighlightPlayerNames text={notice.detail} players={players} localPlayer={localPlayer} useActualNames/></span></div></m.article>)}</m.section>}</AnimatePresence>
+    <AnimatePresence>{visibleNotices.length > 0 && <m.section layout className="game-notice-stack" aria-live="polite" aria-label="Battle notices">{visibleNotices.map((notice) => <m.article layout className={`outcome-toast game-notice ${notice.kind}`} variants={noticePresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.standard} key={notice.id}><GameNoticeIcon kind={notice.kind}/><div><strong><GameNoticeTitle notice={notice} players={players} localPlayer={localPlayer}/></strong><span><HighlightPlayerNames text={formatViewpointText(notice.detail, players, notice.actorId ?? localPlayer?.id, { useActualNames: true })} players={players} localPlayer={localPlayer} useActualNames/></span></div></m.article>)}</m.section>}</AnimatePresence>
     <AnimatePresence>{showGuide && <DetailedGuide onClose={() => setShowGuide(false)}/>}</AnimatePresence>
     <AnimatePresence>{showPendingWorldEventChoice && pendingWorldEvent && <ShatteredTributeChoicePanel pendingEvent={pendingWorldEvent} players={players} localPlayer={localPlayer} localState={localState} handCards={localHand} cardNames={panelCardNames} serverTimeOffsetMs={serverTimeOffsetMs} connectionError={roomError} onInspectCard={inspectCard} onSubmit={submitWorldEventChoice}/>}</AnimatePresence>
     <header className="topbar"><div className="brand"><div className="brand-mark"><Crown size={20}/></div><div><strong>SHATTERED OATH</strong><span>Two teams. One victor.</span></div></div>
