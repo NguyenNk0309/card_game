@@ -251,7 +251,7 @@ function ConfirmedTopAction({ className, icon, label, title, detail, onConfirm }
     };
   }, [open]);
   return <div className="top-action-confirm-control" ref={controlRef}>
-    <m.button className={`text-button ${className}`} onClick={() => { placeConfirmation(); setOpen(true); }} whileHover={subtleHover} whileTap={subtleTap}>{icon} {label}</m.button>
+    <m.button className={`text-button ${className}`} onClick={() => { placeConfirmation(); setOpen(true); }} whileHover={{ y: -2 }} whileTap={subtleTap}>{icon} {label}</m.button>
     {typeof document !== "undefined" && createPortal(<AnimatePresence>{open && <m.div className="turn-action-confirm top-action-confirm-popover" ref={confirmationRef} role="dialog" aria-label={title} style={popoverPosition} variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.quick}>
         <strong>{title}</strong>
         <span>{detail}</span>
