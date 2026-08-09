@@ -46,6 +46,7 @@ for (const source of panelTitleSources) {
 const pityHoverRules = [...styles.matchAll(/\.pity-button:hover:not\(:disabled\)\s*\{([^}]*)\}/g)];
 assert.match(pityHoverRules.at(-1)?.[1] ?? "", /background:\s*var\(--effect-pity\);/, "the final Play Pity hover rule must use the canonical pity color");
 assert.match(pityHoverRules.at(-1)?.[1] ?? "", /border-color:\s*var\(--effect-pity\)/, "the final Play Pity hover border must use the canonical pity color");
+assert.match(styles, /\.pity-button:hover:not\(:disabled\) small\s*\{\s*color:\s*#1b0c14\s*!important;\s*text-shadow:\s*none;\s*\}/, "the Pity hover subtitle must turn dark with the title on the gold background");
 
 const characterAvatars = [
   ["Elara Voss", "elara-voss.webp"],

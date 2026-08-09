@@ -9141,6 +9141,7 @@ button:disabled :where(span, small, strong, b, p),
 .resolution-pity { border-color: var(--effect-pity) !important; background-color: color-mix(in srgb, var(--effect-pity) 13%, #17121c); }
 .pity-button { background: linear-gradient(180deg, color-mix(in srgb, var(--effect-pity) 27%, #261522) 0 50%, #171018 50%); }
 .pity-button:hover:not(:disabled) { color: #1b0c14 !important; border-color: var(--effect-pity) !important; background: var(--effect-pity); }
+.pity-button:hover:not(:disabled) small { color: #1b0c14 !important; text-shadow: none; }
 .shop-exchange-bar button { color: var(--effect-pity); border-color: var(--effect-pity); }
 .shop-offer[class*="effect-"] .shop-offer-icon { color: var(--semantic-effect-color); border-color: color-mix(in srgb, var(--semantic-effect-color) 65%, transparent); background: color-mix(in srgb, var(--semantic-effect-color) 12%, #21191c); }
 
