@@ -157,6 +157,8 @@ assert.equal(targetHistory.changes, "3 damage");
 assert.equal(targetHistory.penalty, "");
 assert.equal(targetHistory.duration, "—");
 assert.equal(targetHistory.details, "Rowan dealt 3 damage to Mira with Slash.");
+assert.equal(formatHistoryPresentation({ ...historyEntry, kind: "support", targetName: elias.displayName }, players).type, "Buff", "friendly support history is labeled Buff");
+assert.equal(formatHistoryPresentation({ ...historyEntry, kind: "support", targetName: mira.displayName }, players).type, "Debuff", "hostile support history is labeled Debuff");
 const bram = player("bram", "Bram Player", "veil");
 bram.hero.name = "Bram Coalhand";
 bram.skillDeck = [

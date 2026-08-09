@@ -187,11 +187,12 @@ function historyContext(entry, players) {
   return { actor, targets, involvedIds };
 }
 
-function historyType(entry) {
+function historyType(entry, context) {
+  const actorTeam = context.actor?.hero?.team || entry.actorTeam;
   const type = entry.kind === 'damage' || entry.kind === 'aoe' ? 'attack'
     : entry.kind === 'heal' ? 'healing'
       : entry.kind === 'guard' ? 'shield'
-        : entry.kind === 'support' ? 'support'
+        : entry.kind === 'support' ? (context.targets.some((target) => actorTeam && target.hero.team !== actorTeam) ? 'debuff' : 'buff')
           : entry.kind === 'discard' ? 'discard'
             : entry.kind === 'skip' ? 'pass'
               : entry.kind === 'timeout' ? 'timeout'
@@ -248,7 +249,7 @@ export function formatHistoryPresentation(entry, players) {
           : entry.kind === 'world' || entry.kind === 'system' ? 'Resolved'
             : entry.success ? 'Success' : 'Failure';
   return {
-    type: historyType(entry),
+    type: historyType(entry, context),
     actor,
     target,
     card: entry.cardName || (entry.kind === 'discard' ? 'Hidden card' : entry.kind === 'world' ? 'World Event' : '—'),
