@@ -321,12 +321,15 @@ export function mountD20Scene(container: HTMLElement, options: SceneOptions) {
         const anchorRect = viewAnchor.getBoundingClientRect();
         const anchorWidth = Math.max(1, anchorRect.width);
         const anchorHeight = Math.max(1, anchorRect.height);
-        positionCamera(anchorHeight);
+        const viewScale = Math.max(1, config.screenDiameterPx / anchorHeight);
+        const viewWidth = anchorWidth * viewScale;
+        const viewHeight = anchorHeight * viewScale;
+        positionCamera(viewHeight);
         camera.setViewOffset(
-          anchorWidth,
-          anchorHeight,
-          -(anchorRect.left - containerRect.left),
-          -(anchorRect.top - containerRect.top),
+          viewWidth,
+          viewHeight,
+          -(anchorRect.left - containerRect.left - (viewWidth - anchorWidth) / 2),
+          -(anchorRect.top - containerRect.top - (viewHeight - anchorHeight) / 2),
           width,
           height,
         );
