@@ -21,7 +21,7 @@
   --effect-dispel: #14b8a6;
   --effect-support: #eabf32;
   --effect-none: #8b9098;
-  --effect-pity: #f06292;
+  --effect-pity: var(--gold);
 }
 
 * {
@@ -7892,8 +7892,8 @@ button:disabled :where(span, small, strong, b, p),
   box-shadow: inset 0 0 0 .45cqw #060506, 0 .55cqw 0 #000;
 }
 .gothic-card-result-icon svg { width: 56%; height: 56%; stroke-width: 3; }
-.gothic-card-result-row.success .gothic-card-result-icon { color: #e46a38 !important; border-color: #a04f28; }
-.gothic-card-result-row.failure .gothic-card-result-icon { color: #b8afa6 !important; filter: grayscale(1); }
+.gothic-card-result-row.success .gothic-card-result-icon { color: var(--pixel-text-green) !important; border-color: var(--pixel-text-green); }
+.gothic-card-result-row.failure .gothic-card-result-icon { color: var(--pixel-text-red) !important; border-color: var(--pixel-text-red); filter: none; }
 
 .gothic-card-result-row > b {
   min-width: 0;
@@ -7904,7 +7904,8 @@ button:disabled :where(span, small, strong, b, p),
   white-space: nowrap;
 }
 .game-shell .gothic-card .gothic-card-result-row > b { font-size: 4.25cqw !important; line-height: 1 !important; }
-.gothic-card-result-row.success > b { color: #de6136 !important; }
+.gothic-card-result-row.success > b { color: var(--pixel-text-green) !important; }
+.gothic-card-result-row.failure > b { color: var(--pixel-text-red) !important; }
 
 .gothic-card-result-text {
   box-sizing: border-box;
@@ -8276,9 +8277,9 @@ button:disabled :where(span, small, strong, b, p),
 }
 .card-hover-tooltip-results > section > span svg { width: 17px; height: 17px; }
 .card-hover-tooltip-results > section.success > span,
-.card-hover-tooltip-results > section.success > b { color: #f09a63; }
+.card-hover-tooltip-results > section.success > b { color: var(--pixel-text-green); }
 .card-hover-tooltip-results > section.failure > span,
-.card-hover-tooltip-results > section.failure > b { color: #e5c6bd; }
+.card-hover-tooltip-results > section.failure > b { color: var(--pixel-text-red); }
 .card-hover-tooltip-results b { font-size: 13px; letter-spacing: .06em; }
 .card-hover-tooltip-results p {
   min-width: 0;
@@ -9041,13 +9042,6 @@ button:disabled :where(span, small, strong, b, p),
 .card-tooltip-arrow.effect-none { --card-tooltip-accent: var(--effect-none); }
 .card-hover-tooltip:is(.effect-attack, .effect-healing-support, .effect-dice, .effect-marked, .effect-speed, .effect-cards, .effect-dispel, .effect-pity, .effect-shield),
 .card-tooltip-arrow:is(.effect-attack, .effect-healing-support, .effect-dice, .effect-marked, .effect-speed, .effect-cards, .effect-dispel, .effect-pity, .effect-shield) { --card-tooltip-accent: var(--semantic-effect-color); }
-
-.gothic-card-result-row.failure.damage :is(.gothic-card-result-icon, b),
-.card-hover-tooltip-results > section.failure.damage :is(span, b) { color: var(--effect-damage) !important; border-color: var(--effect-damage); filter: none; }
-.gothic-card-result-row.failure.shield :is(.gothic-card-result-icon, b),
-.card-hover-tooltip-results > section.failure.shield :is(span, b) { color: var(--effect-shield) !important; border-color: var(--effect-shield); filter: none; }
-.gothic-card-result-row.failure.none :is(.gothic-card-result-icon, b),
-.card-hover-tooltip-results > section.failure.none :is(span, b) { color: var(--effect-none) !important; border-color: var(--effect-none); }
 
 .history-entry.damage,
 .history-entry.aoe { border-left-color: var(--effect-damage); }

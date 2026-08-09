@@ -194,7 +194,7 @@ export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, r
         <p><EffectText text={card.description} card={card}/></p>
       </section>
       <div className="card-hover-tooltip-results">
-        {rows.map((row, index) => <section className={`${row.tone ?? "neutral"} ${row.effectTone ?? ""}`} key={`${row.label}-${index}`}>
+        {rows.map((row, index) => <section className={row.tone ?? "neutral"} key={`${row.label}-${index}`}>
           <span aria-hidden="true">{row.icon ?? <CardEffectIcon card={card}/>}</span>
           <b>{row.label}</b>
           <p><EffectText text={row.result} card={card}/></p>

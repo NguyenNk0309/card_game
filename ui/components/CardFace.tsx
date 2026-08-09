@@ -19,7 +19,6 @@ export type CardResultRow = {
   label: string;
   result: string;
   tone?: "success" | "failure" | "neutral";
-  effectTone?: "damage" | "shield" | "none";
 };
 
 type Props = {
@@ -33,7 +32,7 @@ type Props = {
 
 const defaultRows = (card: ActionCard): CardResultRow[] => [
   { icon: <Check/>, label: "SUCCESS", result: describeCardSuccess(card), tone: "success" },
-  { icon: <X/>, label: "FAILURE", result: describeCardFailure(card), tone: "failure", effectTone: card.failureEffect === "self-damage" || card.failureEffect === "team-damage" ? "damage" : card.failureEffect === "lose-shield" || card.failureEffect === "enemy-shield" ? "shield" : "none" },
+  { icon: <X/>, label: "FAILURE", result: describeCardFailure(card), tone: "failure" },
 ];
 
 export const CardFace = memo(function CardFace({ card, imageLoading = "lazy", imagePriority = "auto", pityCostOverride, previewTrigger = "click", resultRows }: Props) {
@@ -62,7 +61,7 @@ export const CardFace = memo(function CardFace({ card, imageLoading = "lazy", im
       <CardDescription card={card}/>
     </div>
     <div className="gothic-card-results" style={{ "--result-row-count": Math.max(1, rows.length) } as CSSProperties}>
-      {rows.map((row, index) => <div className={`gothic-card-result-row ${row.tone ?? "neutral"} ${row.effectTone ?? ""}`} key={`${row.label}-${index}`}>
+      {rows.map((row, index) => <div className={`gothic-card-result-row ${row.tone ?? "neutral"}`} key={`${row.label}-${index}`}>
         <span className="gothic-card-result-icon" aria-hidden="true">{row.icon ?? <CardEffectIcon card={card}/>}</span>
         <b>{row.label}</b>
         <TruncatedEffectText className="gothic-card-result-text" maxLines={2} text={row.result} card={card}/>
