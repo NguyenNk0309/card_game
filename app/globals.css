@@ -9167,8 +9167,6 @@ button:disabled :where(span, small, strong, b, p),
   margin-top: 36px;
 }
 
-.rival-panel > .rivalry { margin-top: 19px; }
-
 .rival-panel > :is(.rivalry, .battle-history-button, .shop-open-button)::before {
   content: "";
   position: absolute;
