@@ -5971,6 +5971,7 @@ textarea::placeholder { color: #716b61; }
 .character-panel,
 .room-card,
 .history-panel,
+.team-block,
 .turn-queue-card,
 .rivalry,
 .doom-card,
@@ -9155,6 +9156,12 @@ button:disabled :where(span, small, strong, b, p),
 .auto-panel-vfx-action-neutral,
 .auto-panel-vfx-action-outcome-neutral { --panel-vfx-primary: var(--effect-none); }
 .auto-panel-vfx-life-revive { --panel-vfx-primary: var(--effect-heal); }
+
+/* Each roster team is its own app-native panel. */
+.party-rail .team-block {
+  padding: 10px;
+  border: 2px solid #55483d;
+}
 
 /* One consistent divider between the four right-sidebar sections. */
 .rival-panel > :is(.turn-queue-card, .rivalry) {
