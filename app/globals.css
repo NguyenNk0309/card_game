@@ -461,7 +461,7 @@ button:focus-visible {
 
 .hp-meter {
   position: relative;
-  height: 16px;
+  height: 24px;
   flex: 1;
   min-width: 0;
   overflow: hidden;
