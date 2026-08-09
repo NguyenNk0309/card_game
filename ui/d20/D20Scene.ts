@@ -96,12 +96,9 @@ export function mountD20Scene(container: HTMLElement, options: SceneOptions) {
       const camera = new PerspectiveCamera(36, 1, 0.1, 100);
       const cameraTarget = new Vector3(0, config.cameraTargetY, 0);
       const cameraElevation = config.resultCameraElevationDegrees * Math.PI / 180;
-      const positionCamera = (aspect: number) => {
-        const distance = aspect < 0.85
-          ? config.cameraDistancePortrait
-          : aspect < 1.2
-            ? config.cameraDistanceSquare
-            : config.cameraDistanceWide;
+      const cameraHalfFov = camera.fov * Math.PI / 360;
+      const positionCamera = (viewHeight: number) => {
+        const distance = Math.max(config.radius * 2.25, config.radius * viewHeight / (config.screenDiameterPx * Math.tan(cameraHalfFov)));
         camera.position.set(
           0,
           cameraTarget.y + Math.sin(cameraElevation) * distance,
@@ -109,7 +106,6 @@ export function mountD20Scene(container: HTMLElement, options: SceneOptions) {
         );
         camera.lookAt(cameraTarget);
       };
-      positionCamera(16 / 9);
 
       renderer = new WebGLRenderer({ alpha: true, antialias: quality === "high", powerPreference: "high-performance" });
       renderer.setClearColor(0x000000, 0);
@@ -325,7 +321,7 @@ export function mountD20Scene(container: HTMLElement, options: SceneOptions) {
         const anchorRect = viewAnchor.getBoundingClientRect();
         const anchorWidth = Math.max(1, anchorRect.width);
         const anchorHeight = Math.max(1, anchorRect.height);
-        positionCamera(anchorWidth / anchorHeight);
+        positionCamera(anchorHeight);
         camera.setViewOffset(
           anchorWidth,
           anchorHeight,

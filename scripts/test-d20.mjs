@@ -132,6 +132,17 @@ const diceRollerSource = read("ui/components/DiceRoller.tsx");
 const globalStyles = read("app/globals.css");
 const elevationMatch = configSource.match(/resultCameraElevationDegrees:\s*(\d+(?:\.\d+)?)/);
 assert.ok(elevationMatch, "the result camera elevation is centralized in d20 configuration");
+const screenDiameterMatch = configSource.match(/screenDiameterPx:\s*(\d+(?:\.\d+)?)/);
+const radiusMatch = configSource.match(/radius:\s*(\d+(?:\.\d+)?)/);
+assert.ok(screenDiameterMatch && radiusMatch, "the d20 screen diameter and radius are centralized in configuration");
+const screenDiameterPx = Number(screenDiameterMatch[1]);
+const radius = Number(radiusMatch[1]);
+const halfFov = 36 * Math.PI / 360;
+for (const viewHeight of [76, 112, 180, 260]) {
+  const distance = Math.max(radius * 2.25, radius * viewHeight / (screenDiameterPx * Math.tan(halfFov)));
+  const projectedDiameter = radius * viewHeight / (distance * Math.tan(halfFov));
+  assert.ok(Math.abs(projectedDiameter - screenDiameterPx) < 0.01, `the d20 remains ${screenDiameterPx}px tall in a ${viewHeight}px battle viewport`);
+}
 const cameraElevation = Number(elevationMatch[1]) * Math.PI / 180;
 const resultCameraDirection = new Vector3(0, Math.sin(cameraElevation), Math.cos(cameraElevation));
 for (const resultFace of D20_FACE_DEFINITIONS) {
@@ -169,6 +180,8 @@ assert.match(gameAppSource, /rollRequestPendingRef\.current[\s\S]*diceSequencePe
 assert.match(diceSource, /setPortalHost\(document\.body\)[\s\S]*createPortal\(/, "the d20 canvas is portaled above every app stacking context");
 assert.match(diceSource, /viewAnchor: anchorRef\.current|const viewAnchor = anchorRef\.current[\s\S]*viewAnchor,/, "the top-layer canvas receives the existing battle-space anchor");
 assert.match(sceneSource, /viewAnchor\.getBoundingClientRect\(\)[\s\S]*camera\.setViewOffset\(/, "the full-viewport render surface preserves the battle-space camera framing");
+assert.match(sceneSource, /config\.radius \* viewHeight \/ \(config\.screenDiameterPx \* Math\.tan\(cameraHalfFov\)\)[\s\S]*positionCamera\(anchorHeight\)/, "camera distance keeps the d20 at one configured pixel size across battle viewport heights");
+assert.doesNotMatch(sceneSource, /cameraDistanceWide|cameraDistanceSquare|cameraDistancePortrait/, "d20 size no longer varies through resolution-dependent camera presets");
 assert.match(gameAppSource, /className=\{`battle-interaction-space[\s\S]*<D20Dice/, "the d20 anchor remains mounted directly in the battle interaction space");
 assert.match(gameAppSource, /!diceSequencePending && activePlayer/, "the target panel waits for the d20 roll to finish");
 assert.match(globalStyles, /\.d20-roll-anchor\s*\{[\s\S]*?position:\s*absolute;[\s\S]*?inset:\s*0;/, "the d20 portal uses the existing battle space as its geometry anchor");
