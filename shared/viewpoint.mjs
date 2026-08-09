@@ -193,12 +193,13 @@ function historyType(entry, context) {
     : entry.kind === 'heal' ? 'healing'
       : entry.kind === 'guard' ? 'shield'
         : entry.kind === 'support' ? (context.targets.some((target) => actorTeam && target.hero.team !== actorTeam) ? 'debuff' : 'buff')
-          : entry.kind === 'discard' ? 'discard'
-            : entry.kind === 'skip' ? 'pass'
-              : entry.kind === 'timeout' ? 'timeout'
-                : entry.kind === 'forced-skip' ? 'forced skip'
-                  : entry.kind === 'world' ? 'World event'
-                    : 'System';
+          : ['buff', 'debuff', 'item'].includes(entry.kind) ? entry.kind
+            : entry.kind === 'discard' ? 'discard'
+              : entry.kind === 'skip' ? 'pass'
+                : entry.kind === 'timeout' ? 'timeout'
+                  : entry.kind === 'forced-skip' ? 'forced skip'
+                    : entry.kind === 'world' ? 'World event'
+                      : 'System';
   return capitalize(type);
 }
 
@@ -246,13 +247,13 @@ export function formatHistoryPresentation(entry, players) {
     : entry.kind === 'skip' ? 'Passed'
       : entry.kind === 'timeout' ? 'Timed out'
         : entry.kind === 'forced-skip' ? 'Turn skipped'
-          : entry.kind === 'world' || entry.kind === 'system' ? 'Resolved'
+          : ['world', 'system', 'buff', 'debuff', 'item'].includes(entry.kind) ? 'Resolved'
             : entry.success ? 'Success' : 'Failure';
   return {
     type: historyType(entry, context),
     actor,
     target,
-    card: entry.cardName || (entry.kind === 'discard' ? 'Hidden card' : entry.kind === 'world' ? 'World Event' : '—'),
+    card: entry.cardName || entry.eventName || (entry.kind === 'discard' ? 'Hidden card' : entry.kind === 'world' ? 'World Event' : '—'),
     result,
     changes: historyChanges(entry),
     penalty,

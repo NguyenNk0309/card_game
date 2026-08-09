@@ -100,16 +100,18 @@ function addTimedShield(state, amount, expiresAfterTurn) {
   state.shopShieldUntilTurn = expiresAfterTurn;
 }
 
-function appendShopHistory(game, player, message, now = Date.now()) {
+function appendShopUseHistory(game, player, offer, now = Date.now()) {
   if (!game) return;
   game.history = [...(game.history || []), {
-    id: `shop-${player.id}-${now}-${game.history?.length || 0}`,
+    id: `shop-use-${player.id}-${offer.id}-${now}-${game.history?.length || 0}`,
     turn: game.completedTurns || 0,
     phase: game.adventure?.chapter || 1,
-    kind: 'system',
+    kind: offer.category === 'potion' ? 'buff' : 'item',
     actorName: player.displayName,
     actorTeam: player.hero?.team,
-    message,
+    targetName: player.displayName,
+    eventName: offer.name,
+    message: `${player.displayName} used ${offer.name}.`,
     success: true,
     createdAt: now
   }].slice(-80);
@@ -183,8 +185,10 @@ export function purchaseShopOffer(game, players, playerId, offerId, now = Date.n
     state.drawPile = [...(state.drawPile || []), runtimeId];
     state.externalCardsPurchased += 1;
   }
-  appendShopHistory(game, player, `${player.displayName} bought ${offer.name} for ${formatGoldUnits(priceUnits)} Gold.`, now);
-  if (offer.category === 'potion') appendShopUseNotice(game, player, offer, now);
+  if (offer.category === 'potion') {
+    appendShopUseHistory(game, player, offer, now);
+    appendShopUseNotice(game, player, offer, now);
+  }
   return { ok: true, offer, priceUnits };
 }
 
@@ -199,7 +203,6 @@ export function exchangePityForGold(game, players, playerId, now = Date.now()) {
   if (state.goldUnits > MAX_GOLD_UNITS - PITY_EXCHANGE_GOLD_UNITS) return { ok: false, error: `You need room for 2 Gold before exchanging pity (maximum ${MAX_GOLD}).` };
   state.pityPoints -= 1;
   state.goldUnits += PITY_EXCHANGE_GOLD_UNITS;
-  appendShopHistory(game, player, `${player.displayName} exchanged 1 pity point for 2 Gold.`, now);
   return { ok: true };
 }
 
@@ -230,7 +233,7 @@ export function useShopItem(game, players, playerId, itemId, now = Date.now()) {
     game.turnOrder = [...new Set([...(game.turnOrder || []), player.id])];
     game.roundOrder = [...new Set([...(game.roundOrder || []), player.id])];
   }
-  appendShopHistory(game, player, `${player.displayName} used ${offer.name}.`, now);
+  appendShopUseHistory(game, player, offer, now);
   appendShopUseNotice(game, player, offer, now);
   return { ok: true, offer };
 }

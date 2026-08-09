@@ -884,7 +884,7 @@ export function resolveCardTurn(game: SyncedGameState, players: PlayerSession[],
     const reviveMessage = `${names.join(", ")} invoked Foreseen Return and revived with half HP.`;
     detail = `${detail} ${reviveMessage}`;
     actionHistory.message = `${actor.displayName} used ${card.name} (${rollSummary}) — ${detail}`;
-    history.push({ id: `sable-revive-${turn}-${Date.now()}`, turn, phase: actionPhase, kind: "system", actorName: "Foreseen Return", message: reviveMessage, success: true, createdAt: Date.now() });
+    history.push({ id: `sable-revive-${turn}-${Date.now()}`, turn, phase: actionPhase, kind: "buff", actorName: names.join(", "), actorTeam: passiveRevives[0]?.hero.team, targetName: names.join(", "), eventName: "Foreseen Return", message: reviveMessage, success: true, createdAt: Date.now() });
     for (const player of passiveRevives) lifeEvents.push({ id: `life-${turn}-${lifeEventStamp}-second-sight-${player.id}`, kind: "revive", playerId: player.id, playerName: player.displayName, reason: `${player.displayName} invoked Foreseen Return and revived with half HP.` });
   }
   let nextTurnOrder = rotateTurnOrder(turnOrder, actor.id, states);

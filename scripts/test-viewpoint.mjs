@@ -159,6 +159,10 @@ assert.equal(targetHistory.duration, "—");
 assert.equal(targetHistory.details, "Rowan dealt 3 damage to Mira with Slash.");
 assert.equal(formatHistoryPresentation({ ...historyEntry, kind: "support", targetName: elias.displayName }, players).type, "Buff", "friendly support history is labeled Buff");
 assert.equal(formatHistoryPresentation({ ...historyEntry, kind: "support", targetName: mira.displayName }, players).type, "Debuff", "hostile support history is labeled Debuff");
+const itemHistory = formatHistoryPresentation({ ...historyEntry, kind: "item", targetName: rowan.displayName, cardName: undefined, eventName: "Twin-Fate Die" }, players);
+assert.deepEqual({ type: itemHistory.type, card: itemHistory.card, result: itemHistory.result }, { type: "Item", card: "Twin-Fate Die", result: "Resolved" }, "item usage has a named non-card history type");
+const passiveHistory = formatHistoryPresentation({ ...historyEntry, kind: "buff", targetName: rowan.displayName, cardName: undefined, eventName: "Foreseen Return" }, players);
+assert.deepEqual({ type: passiveHistory.type, card: passiveHistory.card, result: passiveHistory.result }, { type: "Buff", card: "Foreseen Return", result: "Resolved" }, "automatic passives have a named Buff history type");
 const bram = player("bram", "Bram Player", "veil");
 bram.hero.name = "Bram Coalhand";
 bram.skillDeck = [

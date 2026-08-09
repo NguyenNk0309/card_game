@@ -176,11 +176,12 @@ export type GameHistoryEntry = {
   id: string;
   turn: number;
   phase?: number;
-  kind: CardEffect | "discard" | "skip" | "timeout" | "forced-skip" | "world" | "system";
+  kind: CardEffect | "buff" | "debuff" | "item" | "discard" | "skip" | "timeout" | "forced-skip" | "world" | "system";
   actorName: string;
   actorTeam?: TeamId;
   targetName?: string;
   cardName?: string;
+  eventName?: string;
   message: string;
   success: boolean;
   amount?: number;

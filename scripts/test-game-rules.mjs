@@ -1162,6 +1162,11 @@ assert.equal(sableRevived.playerStates[oracle.id].hp, Math.ceil(oracle.hero.maxH
 assert.equal(sableRevived.playerStates[oracle.id].passiveReviveUsed, true, "Sable's passive revive is consumed once");
 assert.deepEqual(sableRevived.outcome.lifeEvents.map((event) => event.kind), ["defeat", "revive"], "Foreseen Return queues the defeat panel before the revival panel");
 assert.match(sableRevived.outcome.lifeEvents[1].reason, /Foreseen Return.*half HP/, "the revival panel explains Sable's passive");
+assert.deepEqual(
+  { kind: sableRevived.history.at(-1).kind, actorName: sableRevived.history.at(-1).actorName, targetName: sableRevived.history.at(-1).targetName, eventName: sableRevived.history.at(-1).eventName },
+  { kind: "buff", actorName: oracle.displayName, targetName: oracle.displayName, eventName: "Foreseen Return" },
+  "Foreseen Return records the revived player and passive as a named Buff"
+);
 sableRevived.playerStates[oracle.id].hp = 1;
 sableRevived.turnOrder = [cursedEnemy.id, oracle.id, oracleAlly.id];
 sableRevived.activePlayerIndex = 1;
@@ -2072,6 +2077,11 @@ assert.equal(shieldPotion.ok, true, "a living player can buy a potion at any tim
 assert.equal(shopState.shield, 3, "Aegis Tonic applies immediately");
 assert.equal(shopState.goldUnits, shopRules.MAX_GOLD_UNITS - 4, "the authoritative Shop deducts half-unit Gold prices");
 assert.deepEqual(
+  { kind: shopGame.history.at(-1).kind, eventName: shopGame.history.at(-1).eventName, targetName: shopGame.history.at(-1).targetName, message: shopGame.history.at(-1).message },
+  { kind: "buff", eventName: "Aegis Tonic", targetName: shopFirst.displayName, message: `${shopFirst.displayName} used Aegis Tonic.` },
+  "an immediately activated Potion records use as a named Buff without purchase wording"
+);
+assert.deepEqual(
   { kind: shopGame.outcome.notices.at(-1).kind, actorId: shopGame.outcome.notices.at(-1).actorId, shopOfferId: shopGame.outcome.notices.at(-1).shopOfferId, title: shopGame.outcome.notices.at(-1).title },
   { kind: "shop-use", actorId: shopFirst.id, shopOfferId: "shield-potion", title: `${shopFirst.displayName} used Aegis Tonic` },
   "an immediately activated Potion emits an authoritative use toast with actor and offer identity"
@@ -2080,11 +2090,18 @@ assert.equal(shopRules.purchaseShopOffer(shopGame, [shopFirst, shopSecond], shop
 assert.equal(shopState.goldUnits, shopRules.MAX_GOLD_UNITS - 4, "a rejected purchase spends no Gold");
 
 const potionNoticeCount = shopGame.outcome.notices.length;
+const potionHistoryCount = shopGame.history.length;
 assert.equal(shopRules.purchaseShopOffer(shopGame, [shopFirst, shopSecond], shopFirst.id, "additional-die", 1002).ok, true);
 assert.equal(shopRules.purchaseShopOffer(shopGame, [shopFirst, shopSecond], shopFirst.id, "lucky-die", 1003).ok, true);
 assert.equal(shopGame.outcome.notices.length, potionNoticeCount, "buying an inventory Item does not claim that it was used");
+assert.equal(shopGame.history.length, potionHistoryCount, "buying inventory Items adds no History entries");
 assert.equal(shopRules.useShopItem(shopGame, [shopFirst, shopSecond], shopFirst.id, "additional-die", 1004).ok, true);
 assert.equal(shopState.additionalDieActive, true);
+assert.deepEqual(
+  { kind: shopGame.history.at(-1).kind, eventName: shopGame.history.at(-1).eventName, targetName: shopGame.history.at(-1).targetName },
+  { kind: "item", eventName: "Twin-Fate Die", targetName: shopFirst.displayName },
+  "actual inventory usage records a named Item history entry"
+);
 assert.deepEqual(
   { kind: shopGame.outcome.notices.at(-1).kind, actorId: shopGame.outcome.notices.at(-1).actorId, shopOfferId: shopGame.outcome.notices.at(-1).shopOfferId, title: shopGame.outcome.notices.at(-1).title },
   { kind: "shop-use", actorId: shopFirst.id, shopOfferId: "additional-die", title: `${shopFirst.displayName} used Twin-Fate Die` },
@@ -2096,6 +2113,7 @@ shopState.goldUnits = shopRules.MAX_GOLD_UNITS;
 for (const offerId of ["shield-break", "marked-target", "steal-gold"]) {
   assert.equal(shopRules.purchaseShopOffer(shopGame, [shopFirst, shopSecond], shopFirst.id, offerId, 1100 + shopState.externalCardsPurchased).ok, true);
 }
+assert.equal(shopGame.history.length, potionHistoryCount + 1, "buying External Cards adds no History entries");
 assert.equal(shopState.externalCardsPurchased, shopRules.MAX_EXTERNAL_CARDS);
 assert.equal(shopFirst.skillDeck.filter((card) => card.external).length, 3, "purchased External Cards receive runtime deck definitions");
 assert.equal(new Set(shopFirst.skillDeck.filter((card) => card.external).map((card) => card.id)).size, 3, "External Card runtime IDs are unique");
@@ -2110,6 +2128,7 @@ exchangeState.goldUnits = 0;
 assert.equal(shopRules.exchangePityForGold(exchangeGame, [exchangePlayer, exchangeOther], first.id, 1300).ok, true);
 assert.equal(exchangeState.pityPoints, 1);
 assert.equal(exchangeState.goldUnits, 4, "one pity point exchanges for exactly two Gold");
+assert.equal(exchangeGame.history.length, 0, "pity-to-Gold exchanges add no History entries");
 
 const goldGame = engine.createInitialGame([structuredClone(first), structuredClone(second)], engine.createAdventure("SHOP-GOLD"), 30);
 goldGame.turnOrder = [first.id, second.id];
@@ -2274,6 +2293,7 @@ for (const [label, source] of [["Node", serverAuthoritySource], ["Worker", worke
   assert.match(source, /card\.supportType === 'purge-card'[\s\S]*const specialCandidates = candidates\.filter[\s\S]*const preferredCandidates = specialCandidates\.length \? specialCandidates : candidates[\s\S]*const removedId = preferredCandidates/, `${label} authority makes Mirefield Seizure prefer special cards with common-card fallback`);
   assert.match(source, /returnBorrowedCards\(game, passingPlayer\.id\);[\s\S]*refillHandToMinimum\(game\.playerStates\[passingPlayer\.id\]\)/, `${label} authority refills only after borrowed cards return at turn end`);
   assert.match(source, /purchaseShopOffer[\s\S]*exchangePityForGold[\s\S]*useShopItem/, `${label} authority exposes all three Shop command families`);
+  assert.match(source, /if \(revived\.length\) game\.history\.push\(\{[^\n]+kind: 'buff'[^\n]+eventName: 'Immediate Resurrection'/, `${label} authority records automatic revival as a named Buff`);
   assert.equal(source.match(/normalizeDaganFlintCards\(room\.players\)/g)?.length, 2, `${label} authority migrates Dagan's special cards before publishing state and accepting turns`);
 }
 
