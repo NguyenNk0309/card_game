@@ -9155,3 +9155,27 @@ button:disabled :where(span, small, strong, b, p),
 .auto-panel-vfx-action-neutral,
 .auto-panel-vfx-action-outcome-neutral { --panel-vfx-primary: var(--effect-none); }
 .auto-panel-vfx-life-revive { --panel-vfx-primary: var(--effect-heal); }
+
+/* One consistent divider between the four right-sidebar sections. */
+.rival-panel > :is(.turn-queue-card, .rivalry) {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.rival-panel > :is(.rivalry, .battle-history-button, .shop-open-button) {
+  position: relative;
+  margin-top: 36px;
+}
+
+.rival-panel > :is(.rivalry, .battle-history-button, .shop-open-button)::before {
+  content: "";
+  position: absolute;
+  top: -19px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--line);
+  box-shadow: 0 1px #050506;
+  pointer-events: none;
+}
