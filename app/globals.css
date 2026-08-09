@@ -9,6 +9,19 @@
   --teal: #7fa9a6;
   --ember: #c4774f;
   --danger: #a94e47;
+  --effect-damage: #e5484d;
+  --effect-heal: #35b96f;
+  --effect-shield: #3b82f6;
+  --effect-attack: #f26a3d;
+  --effect-healing-support: #84cc5a;
+  --effect-dice: #8b5cf6;
+  --effect-marked: #d946a8;
+  --effect-turn: #f5a524;
+  --effect-cards: #22b8cf;
+  --effect-dispel: #14b8a6;
+  --effect-support: #eabf32;
+  --effect-none: #8b9098;
+  --effect-pity: #f06292;
 }
 
 * {
@@ -5744,12 +5757,6 @@ input:focus-visible {
   overflow-wrap: anywhere;
 }
 
-.outcome-effect-number {
-  color: #ddb0f5;
-  font-weight: 900;
-  text-shadow: 0 0 8px rgba(158, 91, 196, .42);
-}
-
 .outcome-effect-summary .inline-player-name,
 .outcome-effect-summary .history-card-link {
   font: inherit;
@@ -8950,3 +8957,206 @@ button:disabled :where(span, small, strong, b, p),
 .d20-debug-panel > div { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .d20-debug-panel button { padding: 5px; color: #071016; background: #82cde8; }
 .d20-debug-panel button:disabled { opacity: .45; }
+
+/* Canonical semantic effect palette. Keep every effect surface on these tokens. */
+.effect-damage,
+.effect-aoe { --semantic-effect-color: var(--effect-damage); }
+.effect-heal { --semantic-effect-color: var(--effect-heal); }
+.effect-guard,
+.effect-shield,
+.effect-golden { --semantic-effect-color: var(--effect-shield); }
+.effect-attack { --semantic-effect-color: var(--effect-attack); }
+.effect-healing-support { --semantic-effect-color: var(--effect-healing-support); }
+.effect-dice,
+.effect-penalty { --semantic-effect-color: var(--effect-dice); }
+.effect-marked { --semantic-effect-color: var(--effect-marked); }
+.effect-speed,
+.effect-skip { --semantic-effect-color: var(--effect-turn); }
+.effect-cards { --semantic-effect-color: var(--effect-cards); }
+.effect-dispel { --semantic-effect-color: var(--effect-dispel); }
+.effect-support { --semantic-effect-color: var(--effect-support); }
+.effect-none { --semantic-effect-color: var(--effect-none); }
+.effect-pity { --semantic-effect-color: var(--effect-pity); }
+
+.effect-number.damage { color: var(--effect-damage) !important; }
+.effect-number.heal { color: var(--effect-heal) !important; }
+.effect-number.shield { color: var(--effect-shield) !important; }
+.effect-number.attack { color: var(--effect-attack) !important; }
+.effect-number.healing-support { color: var(--effect-healing-support) !important; }
+.effect-number.dice,
+.effect-number.penalty { color: var(--effect-dice) !important; }
+.effect-number.marked { color: var(--effect-marked) !important; }
+.effect-number.speed { color: var(--effect-turn) !important; }
+.effect-number.cards { color: var(--effect-cards) !important; }
+.effect-number.dispel { color: var(--effect-dispel) !important; }
+.effect-number.support { color: var(--effect-support) !important; }
+.effect-number.none { color: var(--effect-none) !important; }
+.effect-number.pity { color: var(--effect-pity) !important; }
+
+:is(.card-sigil, .gothic-card-action-icon).effect-damage,
+:is(.card-sigil, .gothic-card-action-icon).effect-aoe { color: var(--effect-damage); border-color: color-mix(in srgb, var(--effect-damage) 65%, transparent); background-color: color-mix(in srgb, var(--effect-damage) 14%, transparent); }
+:is(.card-sigil, .gothic-card-action-icon).effect-heal { color: var(--effect-heal); border-color: color-mix(in srgb, var(--effect-heal) 65%, transparent); background-color: color-mix(in srgb, var(--effect-heal) 14%, transparent); }
+:is(.card-sigil, .gothic-card-action-icon).effect-guard { color: var(--effect-shield); border-color: color-mix(in srgb, var(--effect-shield) 65%, transparent); background-color: color-mix(in srgb, var(--effect-shield) 14%, transparent); }
+:is(.card-sigil, .gothic-card-action-icon).effect-support { color: var(--effect-support); border-color: color-mix(in srgb, var(--effect-support) 65%, transparent); background-color: color-mix(in srgb, var(--effect-support) 14%, transparent); }
+:is(.card-sigil, .gothic-card-action-icon).effect-none { color: var(--effect-none); border-color: color-mix(in srgb, var(--effect-none) 65%, transparent); background-color: color-mix(in srgb, var(--effect-none) 14%, transparent); }
+:is(.card-sigil, .gothic-card-action-icon)[class*="effect-"] { color: var(--semantic-effect-color); border-color: color-mix(in srgb, var(--semantic-effect-color) 65%, transparent); background-color: color-mix(in srgb, var(--semantic-effect-color) 14%, transparent); }
+
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-damage,
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-aoe { border-top-color: var(--effect-damage) !important; box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--effect-damage) 58%, transparent); }
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-heal { border-top-color: var(--effect-heal) !important; box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--effect-heal) 58%, transparent); }
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-guard { border-top-color: var(--effect-shield) !important; box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--effect-shield) 58%, transparent); }
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-support { border-top-color: var(--effect-support) !important; box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--effect-support) 58%, transparent); }
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-none { border-top-color: var(--effect-none) !important; box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--effect-none) 48%, transparent); }
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-support:has(.gothic-card-action-icon.effect-attack) { --card-support-tone: var(--effect-attack); }
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-support:has(.gothic-card-action-icon.effect-healing-support) { --card-support-tone: var(--effect-healing-support); }
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-support:has(.gothic-card-action-icon.effect-dice) { --card-support-tone: var(--effect-dice); }
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-support:has(.gothic-card-action-icon.effect-marked) { --card-support-tone: var(--effect-marked); }
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-support:has(.gothic-card-action-icon.effect-speed) { --card-support-tone: var(--effect-turn); }
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-support:has(.gothic-card-action-icon.effect-cards) { --card-support-tone: var(--effect-cards); }
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-support:has(.gothic-card-action-icon.effect-dispel) { --card-support-tone: var(--effect-dispel); }
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-support:has(.gothic-card-action-icon.effect-heal) { --card-support-tone: var(--effect-heal); }
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-support:has(.gothic-card-action-icon.effect-pity) { --card-support-tone: var(--effect-pity); }
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-support:has(.gothic-card-action-icon.effect-shield) { --card-support-tone: var(--effect-shield); }
+:is(.skill-card, .action-card, .public-deck-card, .pile-review-card).effect-support { border-top-color: var(--card-support-tone, var(--effect-support)) !important; box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--card-support-tone, var(--effect-support)) 58%, transparent); }
+
+.gothic-card-effect-wash.effect-damage,
+.gothic-card-effect-wash.effect-aoe { background: radial-gradient(circle at 73% 64%, color-mix(in srgb, var(--effect-damage) 75%, transparent), transparent 24%); }
+.gothic-card-effect-wash.effect-heal { background: radial-gradient(circle at 68% 66%, color-mix(in srgb, var(--effect-heal) 72%, transparent), transparent 25%); }
+.gothic-card-effect-wash.effect-guard { background: radial-gradient(circle at 70% 62%, color-mix(in srgb, var(--effect-shield) 75%, transparent), transparent 25%); }
+.gothic-card-effect-wash.effect-support { background: radial-gradient(circle at 70% 62%, color-mix(in srgb, var(--effect-support) 65%, transparent), transparent 25%); }
+.gothic-card-effect-wash.effect-none { background: linear-gradient(color-mix(in srgb, var(--effect-none) 22%, transparent), rgba(0, 0, 0, .56)); }
+.gothic-card-effect-wash:is(.effect-attack, .effect-healing-support, .effect-dice, .effect-marked, .effect-speed, .effect-cards, .effect-dispel, .effect-pity, .effect-shield) { background: radial-gradient(circle at 70% 62%, color-mix(in srgb, var(--semantic-effect-color) 70%, transparent), transparent 25%); }
+
+.card-hover-tooltip.effect-damage,
+.card-hover-tooltip.effect-aoe,
+.card-tooltip-arrow.effect-damage,
+.card-tooltip-arrow.effect-aoe { --card-tooltip-accent: var(--effect-damage); }
+.card-hover-tooltip.effect-heal,
+.card-tooltip-arrow.effect-heal { --card-tooltip-accent: var(--effect-heal); }
+.card-hover-tooltip.effect-guard,
+.card-tooltip-arrow.effect-guard { --card-tooltip-accent: var(--effect-shield); }
+.card-hover-tooltip.effect-support,
+.card-tooltip-arrow.effect-support { --card-tooltip-accent: var(--effect-support); }
+.card-hover-tooltip.effect-none,
+.card-tooltip-arrow.effect-none { --card-tooltip-accent: var(--effect-none); }
+.card-hover-tooltip:is(.effect-attack, .effect-healing-support, .effect-dice, .effect-marked, .effect-speed, .effect-cards, .effect-dispel, .effect-pity, .effect-shield),
+.card-tooltip-arrow:is(.effect-attack, .effect-healing-support, .effect-dice, .effect-marked, .effect-speed, .effect-cards, .effect-dispel, .effect-pity, .effect-shield) { --card-tooltip-accent: var(--semantic-effect-color); }
+
+.gothic-card-result-row.failure.damage :is(.gothic-card-result-icon, b),
+.card-hover-tooltip-results > section.failure.damage :is(span, b) { color: var(--effect-damage) !important; border-color: var(--effect-damage); filter: none; }
+.gothic-card-result-row.failure.shield :is(.gothic-card-result-icon, b),
+.card-hover-tooltip-results > section.failure.shield :is(span, b) { color: var(--effect-shield) !important; border-color: var(--effect-shield); filter: none; }
+.gothic-card-result-row.failure.none :is(.gothic-card-result-icon, b),
+.card-hover-tooltip-results > section.failure.none :is(span, b) { color: var(--effect-none) !important; border-color: var(--effect-none); }
+
+.history-entry.damage,
+.history-entry.aoe { border-left-color: var(--effect-damage); }
+.history-entry.heal { border-left-color: var(--effect-heal); }
+.history-entry.guard { border-left-color: var(--effect-shield); }
+.history-entry.support { border-left-color: var(--effect-support); }
+.history-entry.discard { border-left-color: var(--effect-cards); }
+.history-entry.skip,
+.history-entry.timeout,
+.history-entry.forced-skip { border-left-color: var(--effect-turn); }
+.history-entry.none { border-left-color: var(--effect-none); }
+
+.active-effects-strip :is(.effect-attack) { color: var(--effect-attack); border-color: color-mix(in srgb, var(--effect-attack) 45%, transparent); }
+.active-effects-strip :is(.effect-dice, .effect-penalty) { color: var(--effect-dice); border-color: color-mix(in srgb, var(--effect-dice) 45%, transparent); }
+.active-effects-strip .effect-marked { color: var(--effect-marked); border-color: color-mix(in srgb, var(--effect-marked) 45%, transparent); }
+.active-effects-strip :is(.effect-speed, .effect-skip) { color: var(--effect-turn); border-color: color-mix(in srgb, var(--effect-turn) 45%, transparent); }
+.active-effects-strip .effect-cards { color: var(--effect-cards); border-color: color-mix(in srgb, var(--effect-cards) 45%, transparent); }
+.active-effects-strip .effect-dispel { color: var(--effect-dispel); border-color: color-mix(in srgb, var(--effect-dispel) 45%, transparent); }
+.active-effects-strip :is(.effect-bonus, .effect-support) { color: var(--effect-support); border-color: color-mix(in srgb, var(--effect-support) 45%, transparent); }
+.active-effects-strip .effect-heal { color: var(--effect-heal); border-color: color-mix(in srgb, var(--effect-heal) 45%, transparent); }
+
+.roster-buff-indicator.effect-attack,
+.roster-buff-tooltip.effect-attack,
+.roster-buff-tooltip > span.effect-attack { color: var(--effect-attack) !important; border-color: color-mix(in srgb, var(--effect-attack) 55%, transparent); }
+.roster-buff-indicator.effect-heal,
+.roster-buff-tooltip.effect-heal,
+.roster-buff-tooltip > span.effect-heal { color: var(--effect-heal) !important; border-color: color-mix(in srgb, var(--effect-heal) 55%, transparent); }
+.roster-buff-indicator.effect-healing-support,
+.roster-buff-tooltip.effect-healing-support,
+.roster-buff-tooltip > span.effect-healing-support { color: var(--effect-healing-support) !important; border-color: color-mix(in srgb, var(--effect-healing-support) 55%, transparent); }
+.roster-buff-indicator.effect-shield,
+.roster-buff-tooltip.effect-shield,
+.roster-buff-tooltip > span.effect-shield { color: var(--effect-shield) !important; border-color: color-mix(in srgb, var(--effect-shield) 55%, transparent); }
+.roster-buff-indicator.effect-dice,
+.roster-buff-tooltip.effect-dice,
+.roster-buff-tooltip > span.effect-dice { color: var(--effect-dice) !important; border-color: color-mix(in srgb, var(--effect-dice) 55%, transparent); }
+.roster-buff-indicator.effect-marked,
+.roster-buff-tooltip.effect-marked,
+.roster-buff-tooltip > span.effect-marked { color: var(--effect-marked) !important; border-color: color-mix(in srgb, var(--effect-marked) 55%, transparent); }
+.roster-buff-indicator.effect-speed,
+.roster-buff-tooltip.effect-speed,
+.roster-buff-tooltip > span.effect-speed { color: var(--effect-turn) !important; border-color: color-mix(in srgb, var(--effect-turn) 55%, transparent); }
+.roster-buff-indicator.effect-cards,
+.roster-buff-tooltip.effect-cards,
+.roster-buff-tooltip > span.effect-cards { color: var(--effect-cards) !important; border-color: color-mix(in srgb, var(--effect-cards) 55%, transparent); }
+.roster-buff-indicator.effect-support:not(.golden),
+.roster-buff-tooltip.effect-support:not(.golden),
+.roster-buff-tooltip:not(.golden) > span.effect-support { color: var(--effect-support) !important; border-color: color-mix(in srgb, var(--effect-support) 55%, transparent); }
+.roster-buff-indicator.effect-pity,
+.roster-buff-tooltip.effect-pity,
+.roster-buff-tooltip > span.effect-pity { color: var(--effect-pity) !important; border-color: color-mix(in srgb, var(--effect-pity) 55%, transparent); }
+.roster-buff-tooltip > span[class*="effect-"] em { color: inherit !important; }
+.roster-buff-indicator.effect-shield.golden { background: color-mix(in srgb, var(--effect-shield) 17%, #131a2b); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--effect-shield) 22%, transparent); }
+
+.dice-modifier-value,
+.dice-modifier-detail.dice b { color: var(--effect-dice); border-color: var(--effect-dice); }
+.dice-modifier-detail.marked b { color: var(--effect-marked); }
+.dice-target b,
+.resolution-equation strong,
+.resolution-content .resolution-metrics strong,
+.history-dice :is(span, strong) { color: var(--effect-dice); }
+.resolution-equation .dice-target-result { border-color: color-mix(in srgb, var(--effect-dice) 60%, transparent); background: color-mix(in srgb, var(--effect-dice) 10%, transparent); }
+.resolution-chips > span[class*="effect-"] { color: var(--semantic-effect-color); border-color: color-mix(in srgb, var(--semantic-effect-color) 55%, transparent); }
+.automatic-success-notice,
+.automatic-success-notice :is(small, strong, b),
+.history-dice.automatic :is(span, strong) { color: var(--effect-pity) !important; border-color: color-mix(in srgb, var(--effect-pity) 55%, transparent); }
+
+.skip-turn-button { color: var(--effect-turn) !important; border-color: var(--effect-turn); }
+.skip-turn-button:hover:not(:disabled) { color: #111719 !important; border-color: var(--effect-turn); background: var(--effect-turn); }
+.discard-card-button { color: var(--effect-cards) !important; border-color: var(--effect-cards); background: color-mix(in srgb, var(--effect-cards) 12%, #160e10); }
+.discard-card-button:hover:not(:disabled) { color: #071417 !important; border-color: var(--effect-cards); background: var(--effect-cards); }
+.action-outcome-discard .action-outcome-event,
+.local-turn-action-content.discard :is(h2, .resolution-outcome-detail) { color: var(--effect-cards); }
+.action-outcome-skip .action-outcome-event,
+.action-outcome-timeout .action-outcome-event,
+.action-outcome-forced-skip .action-outcome-event,
+.local-turn-action-content.skip :is(h2, .resolution-outcome-detail) { color: var(--effect-turn); }
+.action-outcome-discard .resolution-hero.world { --hero-color: var(--effect-cards); color: var(--effect-cards); }
+:is(.action-outcome-skip, .action-outcome-timeout, .action-outcome-forced-skip) .resolution-hero.world { --hero-color: var(--effect-turn); color: var(--effect-turn); }
+.active-effects-strip .effect-golden { color: var(--effect-shield); border-color: color-mix(in srgb, var(--effect-shield) 55%, transparent); background: color-mix(in srgb, var(--effect-shield) 15%, #131a2b); }
+
+.pity-button,
+.pity-button small,
+.pity-cost-badge,
+.gothic-card .pity-cost-badge,
+.history-pity,
+.history-pity strong,
+.resolution-pity,
+.resolution-pity small,
+.resolution-pity strong,
+.card-hover-tooltip-pity,
+.card-hover-tooltip-pity :is(svg, small, b),
+.shop-exchange-copy { color: var(--effect-pity) !important; }
+.pity-button,
+.pity-cost-badge,
+.history-pity,
+.resolution-pity { border-color: var(--effect-pity) !important; background-color: color-mix(in srgb, var(--effect-pity) 13%, #17121c); }
+.pity-button { background: linear-gradient(180deg, color-mix(in srgb, var(--effect-pity) 27%, #261522) 0 50%, #171018 50%); }
+.pity-button:hover:not(:disabled) { color: #1b0c14 !important; border-color: var(--effect-pity) !important; background: var(--effect-pity); }
+.shop-exchange-bar button { color: var(--effect-pity); border-color: var(--effect-pity); }
+.shop-offer[class*="effect-"] .shop-offer-icon { color: var(--semantic-effect-color); border-color: color-mix(in srgb, var(--semantic-effect-color) 65%, transparent); background: color-mix(in srgb, var(--semantic-effect-color) 12%, #21191c); }
+
+.auto-panel-vfx-action-failure,
+.auto-panel-vfx-action-outcome-failure,
+.auto-panel-vfx-life-defeat { --panel-vfx-primary: var(--effect-damage); }
+.auto-panel-vfx-action-skip,
+.auto-panel-vfx-action-outcome-skip { --panel-vfx-primary: var(--effect-turn); --panel-vfx-secondary: color-mix(in srgb, var(--effect-turn) 55%, #382d11); }
+.auto-panel-vfx-action-discard,
+.auto-panel-vfx-action-outcome-discard { --panel-vfx-primary: var(--effect-cards); --panel-vfx-secondary: color-mix(in srgb, var(--effect-cards) 55%, #143942); }
+.auto-panel-vfx-action-neutral,
+.auto-panel-vfx-action-outcome-neutral { --panel-vfx-primary: var(--effect-none); }
+.auto-panel-vfx-life-revive { --panel-vfx-primary: var(--effect-heal); }

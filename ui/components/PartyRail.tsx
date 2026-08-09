@@ -137,10 +137,20 @@ function RosterEffect({ buff, icon, players, localPlayer }: { buff: StatusPresen
     };
   }, [open, portalRoot]);
 
+  const tone = buff.kind === "shield" || buff.kind === "goldenShield" ? "shield"
+    : buff.kind === "attackBuff" || buff.kind === "shopAttack" || buff.kind === "piercingAttack" ? "attack"
+      : buff.kind === "markedTarget" ? "marked"
+        : buff.kind === "diceBuff" || buff.kind === "dicePenalty" || buff.kind === "shopDice" || buff.kind === "additionalDie" || buff.kind === "luckyDie" ? "dice"
+          : buff.kind === "zeroPity" || buff.kind === "shopFreePity" ? "pity"
+            : buff.kind === "skipTurns" ? "speed"
+              : buff.kind === "revive" ? "heal"
+                : buff.kind === "borrowedCards" || buff.kind === "purgedCards" ? "cards"
+                  : "support";
+
   return <>
     <span
       ref={anchorRef}
-      className={`roster-buff-indicator ${buff.negative ? "negative" : ""} ${buff.shield ? "shield" : ""} ${buff.golden ? "golden" : ""} ${buff.kind === "attackBuff" ? "attack" : ""}`}
+      className={`roster-buff-indicator effect-${tone} ${buff.negative ? "negative" : ""} ${buff.shield ? "shield" : ""} ${buff.golden ? "golden" : ""} ${buff.kind === "attackBuff" ? "attack" : ""}`}
       tabIndex={0}
       aria-label={`${buff.label}: ${buff.tooltipValue ?? buff.value}${buff.durationLabel ? ` - ${buff.durationLabel}` : ""}. ${buff.tooltip}`}
       aria-describedby={open ? tooltipId : undefined}
@@ -156,7 +166,7 @@ function RosterEffect({ buff, icon, players, localPlayer }: { buff: StatusPresen
         key="effect-tooltip"
         ref={tooltipRef}
         id={tooltipId}
-        className={`roster-buff-tooltip is-visible ${buff.golden ? "golden" : ""} ${buff.kind === "attackBuff" ? "attack" : ""}`}
+        className={`roster-buff-tooltip is-visible effect-${tone} ${buff.golden ? "golden" : ""} ${buff.kind === "attackBuff" ? "attack" : ""}`}
         role="tooltip"
         style={{ left: position.left, top: position.top, visibility: position.ready ? "visible" : "hidden" }}
         variants={popPresence}
@@ -166,7 +176,7 @@ function RosterEffect({ buff, icon, players, localPlayer }: { buff: StatusPresen
         transition={motionTransition.quick}
       >
         <strong><HighlightPlayerNames text={buff.label} players={players} localPlayer={localPlayer} useActualNames/></strong>
-        <span className={buff.negative ? "negative" : buff.kind === "attackBuff" ? "attack" : ""}><em>{buff.tooltipValue ?? buff.value}</em>{buff.durationLabel && <><i aria-hidden="true">-</i><b>{buff.durationLabel}</b></>}</span>
+        <span className={`effect-${tone} ${buff.negative ? "negative" : buff.kind === "attackBuff" ? "attack" : ""}`}><em>{buff.tooltipValue ?? buff.value}</em>{buff.durationLabel && <><i aria-hidden="true">-</i><b>{buff.durationLabel}</b></>}</span>
         <p>{buff.tooltip}</p>
       </m.span>
       <m.span key="effect-arrow" className={`tooltip-arrow roster-tooltip-arrow placement-${position.placement}`} aria-hidden="true" style={{ left: position.arrowLeft, top: position.arrowTop, visibility: position.ready ? "visible" : "hidden" }} variants={fadePresence} initial="hidden" animate="visible" exit="exit"/>

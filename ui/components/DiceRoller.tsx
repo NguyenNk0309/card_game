@@ -13,6 +13,7 @@ type ConfirmAction = "skip" | "discard" | null;
 type ModifierDetail = {
   label: string;
   value: number;
+  tone?: "dice" | "marked";
 };
 
 function signedModifier(value: number) {
@@ -25,7 +26,7 @@ export function DiceRoller({ rolling, target, passiveBonus = 0, passiveName = "c
     { value: diceBuff, label: "from buff" },
     { value: -dicePenalty, label: "from debuff" },
     { value: shopDiceBonus, label: "from potion/item" },
-    { value: markedTargetBonus, label: "from Marked Target" },
+    { value: markedTargetBonus, label: "from Marked Target", tone: "marked" as const },
   ].filter((detail) => detail.value !== 0);
   const modifier = modifierDetails.reduce((total, detail) => total + detail.value, 0);
   const reducedMotion = useReducedMotion();
@@ -93,7 +94,7 @@ export function DiceRoller({ rolling, target, passiveBonus = 0, passiveName = "c
   return <m.section className="dice-panel" layout>
     <div className="dice-action-check">
       <m.div className={`d20 ${rolling ? "rolling" : ""}`} aria-label={rolling ? "Rolling d20" : "D20"} animate={rolling && !reducedMotion ? { scale: [1, 0.94, 1] } : { scale: 1 }} transition={rolling && !reducedMotion ? { duration: 0.7, ease: "easeInOut", repeat: Infinity } : motionTransition.standard}><span aria-hidden="true">?</span></m.div>
-      <div className="dice-copy"><span className="eyebrow">ACTION CHECK</span><strong className="dice-target">Target <b>{target}</b></strong><em className="dice-total-modifier">Total modifier: <span className="dice-modifier-anchor"><b className="dice-modifier-value" tabIndex={0} aria-describedby="dice-modifier-tooltip">{signedModifier(modifier)}</b><span className="dice-modifier-tooltip" id="dice-modifier-tooltip" role="tooltip"><span className="dice-modifier-tooltip-title">Modifier details</span>{modifierDetails.length ? modifierDetails.map((detail) => <span className="dice-modifier-detail" key={detail.label}><b>{signedModifier(detail.value)}</b> {detail.label}</span>) : <span className="dice-modifier-empty">No active modifiers</span>}</span></span></em></div>
+      <div className="dice-copy"><span className="eyebrow">ACTION CHECK</span><strong className="dice-target">Target <b>{target}</b></strong><em className="dice-total-modifier">Total modifier: <span className="dice-modifier-anchor"><b className="dice-modifier-value" tabIndex={0} aria-describedby="dice-modifier-tooltip">{signedModifier(modifier)}</b><span className="dice-modifier-tooltip" id="dice-modifier-tooltip" role="tooltip"><span className="dice-modifier-tooltip-title">Modifier details</span>{modifierDetails.length ? modifierDetails.map((detail) => <span className={`dice-modifier-detail ${detail.tone ?? "dice"}`} key={detail.label}><b>{signedModifier(detail.value)}</b> {detail.label}</span>) : <span className="dice-modifier-empty">No active modifiers</span>}</span></span></em></div>
     </div>
     <m.button className="roll-button" onClick={onRoll} disabled={rolling || disabled || !hasSelectedCard || !canPlaySelectedCard} title={selectedCardBlockReason || undefined} whileHover={!rolling && !disabled && hasSelectedCard && canPlaySelectedCard ? subtleHover : undefined} whileTap={!rolling && !disabled && hasSelectedCard && canPlaySelectedCard ? subtleTap : undefined}>{rolling ? <Sparkles size={17}/> : <Dices size={18}/>}<span>{rolling ? "Rolling..." : !hasSelectedCard && !disabled ? "Select a card" : selectedCardBlockReason || "Roll the die"}</span></m.button>
     <m.button className="pity-button" onClick={onPity} disabled={rolling || disabled || !hasSelectedCard || !canPlaySelectedCard || pityPoints < pityCost} title={!hasSelectedCard ? "Select a card" : selectedCardBlockReason || (pityPoints < pityCost ? `Need ${pityCost - pityPoints} pity` : `Spend ${pityCost} pity to succeed`)} whileHover={!rolling && !disabled && hasSelectedCard && canPlaySelectedCard && pityPoints >= pityCost ? subtleHover : undefined} whileTap={!rolling && !disabled && hasSelectedCard && canPlaySelectedCard && pityPoints >= pityCost ? subtleTap : undefined}><PityIcon size={18}/><span>Pity roll<small>{pityPoints} available · cost {pityCost}</small></span></m.button>

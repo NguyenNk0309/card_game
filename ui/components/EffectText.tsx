@@ -5,10 +5,29 @@ export type EffectTextSegment = {
   tone?: string;
 };
 
+export function getCardEffectTone(card: Pick<ActionCard, "effect" | "supportType">) {
+  if (card.effect === "damage" || card.effect === "aoe") return "damage";
+  if (card.effect === "heal") return "heal";
+  if (card.effect === "guard") return "shield";
+  if (card.effect === "none") return "none";
+  if (card.supportType === "attack" || card.supportType === "piercing-attack") return "attack";
+  if (card.supportType === "healing") return "healing-support";
+  if (card.supportType === "dice" || card.supportType === "enemy-dice") return "dice";
+  if (card.supportType === "marked-target") return "marked";
+  if (card.supportType === "delay-enemy" || card.supportType === "advance-ally" || card.supportType === "skip-enemy") return "speed";
+  if (card.supportType === "purge-card" || card.supportType === "steal-card" || card.supportType === "steal-gold" || card.supportType === "discard-random-card") return "cards";
+  if (card.supportType === "dispel-enemy") return "dispel";
+  if (card.supportType === "revive") return "heal";
+  if (card.supportType === "zero-pity") return "pity";
+  if (card.supportType === "shield" || card.supportType === "shield-break") return "shield";
+  return "support";
+}
+
 function numberTone(text: string, index: number, length: number, card?: ActionCard) {
   const before = text.slice(Math.max(0, index - 28), index).toLowerCase();
   const after = text.slice(index + length, Math.min(text.length, index + length + 32)).toLowerCase();
   const context = `${before} ${after}`;
+  if (card?.effect === "support" && text === card.description) return getCardEffectTone(card);
   if (/^\s*(damage|backlash)/.test(after)) return "damage";
   if (/^\s*shield/.test(after)) return "shield";
   if (/^\s*hp/.test(after)) {
@@ -42,7 +61,8 @@ export function getEffectTextSegments(text: string, card?: ActionCard): EffectTe
     const index = match.index ?? 0;
     if (index > cursor) parts.push({ text: text.slice(cursor, index) });
     const phrase = match[0].toLowerCase();
-    const tone = phrase === "attack damage bonus" || phrase === "heavy attack card" ? "damage"
+    const tone = phrase === "attack damage bonus" ? "attack"
+      : phrase === "heavy attack card" ? "damage"
       : phrase === "shield card" ? "shield"
       : phrase === "heal card" ? "heal"
       : numberTone(text, index, match[0].length, card);

@@ -11,7 +11,7 @@ import type { ActionCard } from "@/shared/types";
 import type { CardArtwork } from "../cardArtwork";
 import type { CardResultRow } from "./CardFace";
 import { CardEffectIcon } from "./CardEffectIcon";
-import { EffectText } from "./EffectText";
+import { EffectText, getCardEffectTone } from "./EffectText";
 import { PityIcon } from "./PityCost";
 import { fitCardTooltipToViewport } from "./tooltipPosition";
 import { fadePresence, motionTransition, popPresence } from "../motion/presets";
@@ -157,12 +157,13 @@ export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, r
   const portalRoot = typeof document !== "undefined" ? document.body : null;
   if (!portalRoot) return null;
   const pityCost = pityCostOverride ?? getCardPityCost(card);
+  const effectTone = getCardEffectTone(card);
   const rarity = getCardRarity(card);
 
   return createPortal(<AnimatePresence>{open && <><m.aside
     ref={tooltipRef}
     id={tooltipId}
-    className={`card-hover-tooltip effect-${card.effect} placement-${position.placement}`}
+    className={`card-hover-tooltip effect-${effectTone} placement-${position.placement}`}
     role="tooltip"
     aria-label={`${card.name} full card details`}
     style={{ left: position.left, top: position.top, visibility: position.ready ? "visible" : "hidden" }}
@@ -185,7 +186,7 @@ export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, r
         <span className="card-hover-tooltip-pity"><PityIcon size={18}/><small>Pity points</small><b>{pityCost}</b></span>
       </header>
       <div className="card-hover-tooltip-identity">
-        <span className={`card-hover-tooltip-action effect-${card.effect}`}><CardEffectIcon card={card} size={28}/></span>
+        <span className={`card-hover-tooltip-action effect-${effectTone}`}><CardEffectIcon card={card} size={28}/></span>
         <div><small>{getCardEffectLabel(card)}</small><strong>{card.name}</strong></div>
       </div>
       <section className="card-hover-tooltip-description">
@@ -193,12 +194,12 @@ export function CardHoverPreview({ anchorRef, artwork, card, pityCostOverride, r
         <p><EffectText text={card.description} card={card}/></p>
       </section>
       <div className="card-hover-tooltip-results">
-        {rows.map((row, index) => <section className={row.tone ?? "neutral"} key={`${row.label}-${index}`}>
+        {rows.map((row, index) => <section className={`${row.tone ?? "neutral"} ${row.effectTone ?? ""}`} key={`${row.label}-${index}`}>
           <span aria-hidden="true">{row.icon ?? <CardEffectIcon card={card}/>}</span>
           <b>{row.label}</b>
           <p><EffectText text={row.result} card={card}/></p>
         </section>)}
       </div>
     </div>
-  </m.aside><m.span className={`tooltip-arrow card-tooltip-arrow effect-${card.effect} placement-${position.placement}`} aria-hidden="true" style={{ left: position.arrowLeft, top: position.arrowTop, visibility: position.ready ? "visible" : "hidden" }} variants={fadePresence} initial="hidden" animate="visible" exit="exit"/></>}</AnimatePresence>, portalRoot);
+  </m.aside><m.span className={`tooltip-arrow card-tooltip-arrow effect-${effectTone} placement-${position.placement}`} aria-hidden="true" style={{ left: position.arrowLeft, top: position.arrowTop, visibility: position.ready ? "visible" : "hidden" }} variants={fadePresence} initial="hidden" animate="visible" exit="exit"/></>}</AnimatePresence>, portalRoot);
 }

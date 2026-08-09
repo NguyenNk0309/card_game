@@ -29,6 +29,17 @@ function OfferIcon({ id }: { id: string }) {
   return <ShoppingBag size={21}/>;
 }
 
+function offerTone(id: string) {
+  if (id.includes("shield")) return "shield";
+  if (id.includes("attack") || id.includes("blade")) return "attack";
+  if (id.includes("dice") || id.includes("die") || id === "bad-luck") return "dice";
+  if (id.includes("pity")) return "pity";
+  if (id.includes("revive")) return "heal";
+  if (id === "marked-target") return "marked";
+  if (id === "control-cards" || id === "steal-gold") return "cards";
+  return "support";
+}
+
 export function ShopPanel({ player, state, connected, error, onBuy, onExchangePity, onUseItem }: {
   player: PlayerSession;
   state: PlayerRunState;
@@ -70,7 +81,7 @@ export function ShopPanel({ player, state, connected, error, onBuy, onExchangePi
       const full = offer.category === "item" && inventorySize >= SHOP_INVENTORY_CAP;
       const externalFull = offer.category === "external" && externalCount >= MAX_EXTERNAL_CARDS;
       const unavailable = !connected || !alive || remaining <= 0 || (state.goldUnits ?? 0) < priceUnits || full || externalFull;
-      return <m.article layout className={`shop-offer shop-${offer.category}`} variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.layout} key={offer.id}>
+      return <m.article layout className={`shop-offer shop-${offer.category} effect-${offerTone(offer.id)}`} variants={popPresence} initial="hidden" animate="visible" exit="exit" transition={motionTransition.layout} key={offer.id}>
         <div className="shop-offer-icon"><OfferIcon id={offer.id}/></div>
         <div className="shop-offer-copy"><span>{offer.category === "external" ? "EXTERNAL CARD" : offer.category.toUpperCase()}</span><h3>{offer.name}</h3><p>{offer.description}</p></div>
         <div className="shop-stock"><span>Stock {remaining}/{offer.purchaseLimit}</span></div>
@@ -83,7 +94,7 @@ export function ShopPanel({ player, state, connected, error, onBuy, onExchangePi
         if (!offer) return null;
         const defeatedRestriction = !alive && offer.id !== "revive-item";
         const livingReviveRestriction = alive && offer.id === "revive-item";
-        return <m.article layout className="shop-offer shop-inventory-item" variants={popPresence} initial="hidden" animate="visible" exit="exit" key={entry.itemId}><div className="shop-offer-icon"><OfferIcon id={offer.id}/></div><div className="shop-offer-copy"><span>ITEM · OWNED {entry.quantity}</span><h3>{offer.name}</h3><p>{offer.description}</p></div><m.button onClick={() => onUseItem(offer.id)} disabled={!connected || defeatedRestriction || livingReviveRestriction} whileHover={connected && !defeatedRestriction && !livingReviveRestriction ? subtleHover : undefined} whileTap={connected && !defeatedRestriction && !livingReviveRestriction ? subtleTap : undefined}>Use item</m.button></m.article>;
+        return <m.article layout className={`shop-offer shop-inventory-item effect-${offerTone(offer.id)}`} variants={popPresence} initial="hidden" animate="visible" exit="exit" key={entry.itemId}><div className="shop-offer-icon"><OfferIcon id={offer.id}/></div><div className="shop-offer-copy"><span>ITEM · OWNED {entry.quantity}</span><h3>{offer.name}</h3><p>{offer.description}</p></div><m.button onClick={() => onUseItem(offer.id)} disabled={!connected || defeatedRestriction || livingReviveRestriction} whileHover={connected && !defeatedRestriction && !livingReviveRestriction ? subtleHover : undefined} whileTap={connected && !defeatedRestriction && !livingReviveRestriction ? subtleTap : undefined}>Use item</m.button></m.article>;
       })}</div> : <div className="shop-empty-inventory"><Backpack size={30}/><strong><span className="inline-player-name ally">{player.displayName}</span>&apos;s inventory is empty.</strong><span>Buy Items, then activate them here at any time.</span></div>}
       {!alive && <p className="shop-defeated-note"><HeartPulse size={17}/> While defeated, only Phoenix Sigil can be used.</p>}
       </m.div>}</AnimatePresence>
