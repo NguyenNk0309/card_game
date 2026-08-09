@@ -195,7 +195,8 @@ assert.equal(formatHistoryPresentation(shieldforgedHistory, bramHistoryPlayers).
 assert.equal(formatHistoryPresentation(shieldforgedHistory, bramHistoryPlayers).target, "Mira", "Bulwark to Blade history names its enemy target");
 assert.equal(formatHistoryPresentation(shieldforgedHistory, bramHistoryPlayers).changes, "5 damage", "Bulwark to Blade history reports immediate damage");
 assert.equal(formatHistoryPresentation(shieldforgedHistory, bramHistoryPlayers).duration, "—", "Bulwark to Blade history has no delayed-effect duration");
-const failedHistory = { ...historyEntry, id: "history-failure", success: false, failureDetail: "Rowan took 2 backlash damage." };
+const failedHistory = { ...historyEntry, id: "history-failure", success: false, diceRoll: 5, failureDetail: "Rowan took 2 backlash damage." };
+assert.equal(formatHistoryPresentation(failedHistory, players).changes, "—", "failed dice rolls show no successful changes");
 assert.equal(formatHistoryPresentation(failedHistory, players).penalty, "Rowan took 2 backlash damage.");
 const legacyFailedHistory = { ...failedHistory, id: "history-legacy-failure", failureDetail: undefined, message: "Rowan used Slash — The attack failed. Rowan took 2 backlash damage." };
 assert.equal(formatHistoryPresentation(legacyFailedHistory, players).penalty, "Rowan took 2 backlash damage.");

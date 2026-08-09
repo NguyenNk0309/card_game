@@ -204,6 +204,7 @@ function historyType(entry, context) {
 }
 
 function historyChanges(entry) {
+  if (!entry.success && entry.diceRoll != null) return '—';
   const changes = [];
   if ((entry.kind === 'damage' || entry.kind === 'aoe') && entry.amount != null) changes.push(`${entry.amount} damage`);
   if (entry.kind === 'heal' && entry.amount != null) changes.push(`Health +${entry.amount}`);
