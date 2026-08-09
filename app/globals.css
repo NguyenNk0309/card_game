@@ -3240,7 +3240,7 @@ button:focus-visible {
 
 .history-table {
   width: 100%;
-  min-width: 1840px;
+  min-width: 1510px;
   border-collapse: collapse;
   text-align: left;
   font-size: 11px;
@@ -3289,7 +3289,6 @@ button:focus-visible {
 
 .history-table th:last-child,
 .history-table td:last-child { border-right: 0; }
-.history-table td:last-child { min-width: 330px; }
 .history-table tbody tr:hover { background: rgba(255, 255, 255, .025); }
 .history-result { color: #9ccdaf; }
 .history-result.failure,
