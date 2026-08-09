@@ -5972,6 +5972,7 @@ textarea::placeholder { color: #716b61; }
 .room-card,
 .history-panel,
 .turn-queue-card,
+.rivalry,
 .doom-card,
 .faction-card,
 .objective-card,
@@ -9158,23 +9159,23 @@ button:disabled :where(span, small, strong, b, p),
 /* One consistent divider between the four right-sidebar sections. */
 .rival-panel > :is(.turn-queue-card, .rivalry) {
   margin-bottom: 0;
-  padding-bottom: 0;
-  border-bottom: 0;
+  padding: 12px;
+  border: 2px solid #55483d;
 }
 
 .rival-panel > :is(.rivalry, .battle-history-button, .shop-open-button) {
   position: relative;
-  margin-top: 36px;
+  margin-top: 48px;
 }
 
 .rival-panel > :is(.rivalry, .battle-history-button, .shop-open-button)::before {
   content: "";
   position: absolute;
-  top: -19px;
+  top: -25px;
   left: 0;
   right: 0;
-  height: 1px;
-  background: var(--line);
-  box-shadow: 0 1px #050506;
+  height: 2px;
+  background: rgba(212, 181, 110, .45);
+  box-shadow: 0 2px #050506;
   pointer-events: none;
 }
