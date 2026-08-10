@@ -93,7 +93,7 @@ export function mountD20Scene(container: HTMLElement, options: SceneOptions) {
         ? input.finalResult
         : input.rawResult;
       const scene = new Scene();
-      const camera = new PerspectiveCamera(36, 1, 0.1, 100);
+      const camera = new PerspectiveCamera(20, 1, 0.1, 100);
       const cameraTarget = new Vector3(0, config.cameraTargetY, 0);
       const cameraElevation = config.resultCameraElevationDegrees * Math.PI / 180;
       const cameraHalfFov = camera.fov * Math.PI / 360;

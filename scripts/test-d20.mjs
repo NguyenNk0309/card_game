@@ -134,10 +134,12 @@ const elevationMatch = configSource.match(/resultCameraElevationDegrees:\s*(\d+(
 assert.ok(elevationMatch, "the result camera elevation is centralized in d20 configuration");
 const screenDiameterMatch = configSource.match(/screenDiameterPx:\s*(\d+(?:\.\d+)?)/);
 const radiusMatch = configSource.match(/radius:\s*(\d+(?:\.\d+)?)/);
+const cameraFovMatch = sceneSource.match(/new PerspectiveCamera\((\d+(?:\.\d+)?),/);
 assert.ok(screenDiameterMatch && radiusMatch, "the d20 screen diameter and radius are centralized in configuration");
+assert.ok(cameraFovMatch, "the d20 perspective camera declares its vertical field of view");
 const screenDiameterPx = Number(screenDiameterMatch[1]);
 const radius = Number(radiusMatch[1]);
-const halfFov = 36 * Math.PI / 360;
+const halfFov = Number(cameraFovMatch[1]) * Math.PI / 360;
 assert.equal(screenDiameterPx, 300, "the 3D d20 is fixed at 300px");
 for (const viewHeight of [76, 112, 180, 260]) {
   const cameraViewHeight = viewHeight * Math.max(1, screenDiameterPx / viewHeight);
@@ -146,6 +148,9 @@ for (const viewHeight of [76, 112, 180, 260]) {
   assert.ok(Math.abs(projectedDiameter - screenDiameterPx) < 0.01, `the d20 remains ${screenDiameterPx}px tall in a ${viewHeight}px battle viewport`);
 }
 const cameraElevation = Number(elevationMatch[1]) * Math.PI / 180;
+const minimumCameraDistance = radius / Math.tan(halfFov);
+const nearestSpawnDepth = minimumCameraDistance - Math.sin(cameraElevation) * (3.05 + 0.35) - Math.cos(cameraElevation) * 0.7 - radius;
+assert.ok(nearestSpawnDepth > 0.1, "the complete d20 shell stays in front of the camera near plane at the highest, nearest throw spawn");
 const resultCameraDirection = new Vector3(0, Math.sin(cameraElevation), Math.cos(cameraElevation));
 for (const resultFace of D20_FACE_DEFINITIONS) {
   const orientation = getD20Orientation(resultFace.value);
