@@ -2210,6 +2210,28 @@ assert.equal(pityPotionResult.outcome.success, true, "Mercy Tonic makes the next
 assert.equal(pityPotionResult.outcome.pityCost, 0);
 assert.equal(pityPotionResult.playerStates[first.id].shopFreePity, false);
 
+const healingPotionBattle = freshShopEffectGame("SHOP-HEALING-POTION");
+healingPotionBattle.actorState.hp = healingPotionBattle.actorState.maxHp - 4;
+const healingPotion = shopRules.purchaseShopOffer(healingPotionBattle.game, [healingPotionBattle.actor, healingPotionBattle.target], first.id, "healing-potion");
+assert.equal(healingPotion.ok, true);
+assert.equal(healingPotion.priceUnits, 6, "Mending Tonic costs three Gold before repeat increases");
+assert.equal(healingPotionBattle.actorState.hp, healingPotionBattle.actorState.maxHp - 1, "Mending Tonic restores exactly three HP");
+healingPotionBattle.actorState.hp -= 1;
+const repeatedHealingPotion = shopRules.purchaseShopOffer(healingPotionBattle.game, [healingPotionBattle.actor, healingPotionBattle.target], first.id, "healing-potion");
+assert.equal(repeatedHealingPotion.priceUnits, 8, "a repeated Mending Tonic costs four Gold");
+assert.equal(healingPotionBattle.actorState.hp, healingPotionBattle.actorState.maxHp, "Mending Tonic restores three HP without exceeding maximum HP");
+assert.equal(shopRules.purchaseShopOffer(healingPotionBattle.game, [healingPotionBattle.actor, healingPotionBattle.target], first.id, "healing-potion").ok, false, "Mending Tonic cannot be wasted at full HP");
+
+const maxHealthItemBattle = freshShopEffectGame("SHOP-MAX-HEALTH");
+const maxHealthBefore = maxHealthItemBattle.actorState.maxHp;
+maxHealthItemBattle.actorState.hp -= 1;
+const maxHealthItem = shopRules.purchaseShopOffer(maxHealthItemBattle.game, [maxHealthItemBattle.actor, maxHealthItemBattle.target], first.id, "max-health-item");
+assert.equal(maxHealthItem.priceUnits, 12, "Heartstone costs six Gold");
+assert.equal(shopRules.useShopItem(maxHealthItemBattle.game, [maxHealthItemBattle.actor, maxHealthItemBattle.target], first.id, "max-health-item").ok, true);
+assert.equal(maxHealthItemBattle.actorState.maxHp, maxHealthBefore + 2, "Heartstone permanently adds two maximum HP for the battle");
+assert.equal(maxHealthItemBattle.actorState.hp, maxHealthBefore - 1, "Heartstone does not also restore HP");
+assert.equal(shopRules.purchaseShopOffer(maxHealthItemBattle.game, [maxHealthItemBattle.actor, maxHealthItemBattle.target], first.id, "max-health-item").ok, false, "only one Heartstone can be bought per battle");
+
 const reviveItemBattle = freshShopEffectGame("SHOP-REVIVE");
 assert.equal(shopRules.purchaseShopOffer(reviveItemBattle.game, [reviveItemBattle.actor, reviveItemBattle.target], first.id, "revive-item").ok, true);
 reviveItemBattle.actorState.hp = 0;

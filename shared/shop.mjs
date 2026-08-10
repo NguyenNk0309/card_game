@@ -16,10 +16,12 @@ const externalCard = (card) => ({
 
 export const SHOP_CATALOG = Object.freeze([
   { id: 'shield-potion', category: 'potion', name: 'Aegis Tonic', description: 'Immediately gain 3 normal Shield until the end of your next turn.', basePriceUnits: 4, repeatIncreaseUnits: 2, purchaseLimit: 3, amount: 3 },
+  { id: 'healing-potion', category: 'potion', name: 'Mending Tonic', description: 'Immediately restore 3 HP, up to your maximum HP.', basePriceUnits: 6, repeatIncreaseUnits: 2, purchaseLimit: 3, amount: 3 },
   { id: 'attack-potion', category: 'potion', name: 'Warflame Tonic', description: 'Your next successful attack deals +2 damage.', basePriceUnits: 6, repeatIncreaseUnits: 2, purchaseLimit: 2, amount: 2 },
   { id: 'dice-potion', category: 'potion', name: 'Truecast Tonic', description: 'Gain +2 on your next rolled card.', basePriceUnits: 5, repeatIncreaseUnits: 2, purchaseLimit: 2, amount: 2 },
   { id: 'pity-potion', category: 'potion', name: 'Mercy Tonic', description: 'Your next played card has 0 pity cost and succeeds automatically.', basePriceUnits: 6, repeatIncreaseUnits: 2, purchaseLimit: 2, amount: 1 },
   { id: 'golden-shield', category: 'item', name: 'Golden Shield', description: 'Consume to gain 2 permanent Golden Shield. Enemy attacks consume normal Shield first.', basePriceUnits: 12, repeatIncreaseUnits: 0, purchaseLimit: 1, amount: 2 },
+  { id: 'max-health-item', category: 'item', name: 'Heartstone', description: 'Consume to increase your maximum HP by 2 for this battle. Does not restore HP.', basePriceUnits: 12, repeatIncreaseUnits: 0, purchaseLimit: 1, amount: 2 },
   { id: 'revive-item', category: 'item', name: 'Phoenix Sigil', description: 'While defeated, consume to revive once with one-third of maximum HP.', basePriceUnits: 16, repeatIncreaseUnits: 0, purchaseLimit: 1, amount: 1 },
   { id: 'additional-die', category: 'item', name: 'Twin-Fate Die', description: 'Consume to roll twice on your next rolled card and use the higher d20.', basePriceUnits: 10, repeatIncreaseUnits: 3, purchaseLimit: 2, amount: 1 },
   { id: 'piercing-blade', category: 'item', name: 'Piercing Blade', description: 'Consume so your next attack ignores normal and Golden Shield.', basePriceUnits: 8, repeatIncreaseUnits: 2, purchaseLimit: 2, amount: 1 },
@@ -142,6 +144,7 @@ function appendShopUseNotice(game, player, offer, now = Date.now()) {
 
 function offerActivationError(state, offerId) {
   if (offerId === 'shield-potion' && state.shopShieldUntilTurn > (state.completedPlayerTurns || 0)) return 'Aegis Tonic is already active.';
+  if (offerId === 'healing-potion' && state.hp >= state.maxHp) return 'Your HP is already full.';
   if (offerId === 'attack-potion' && (state.shopAttackBonus > 0 || state.attackBuff > 0)) return 'A next-attack damage buff is already active.';
   if (offerId === 'dice-potion' && (state.shopDiceBonus > 0 || state.diceBuff > 0)) return 'A next-roll bonus is already active.';
   if (offerId === 'pity-potion' && (state.shopFreePity || (state.zeroPityUntilTurn || 0) > (state.completedPlayerTurns || 0))) return 'A zero-pity effect is already active.';
@@ -173,6 +176,7 @@ export function purchaseShopOffer(game, players, playerId, offerId, now = Date.n
       const ownActiveTurn = activePlayerId(game, players) === player.id;
       addTimedShield(state, offer.amount, (state.completedPlayerTurns || 0) + (ownActiveTurn ? 2 : 1));
     }
+    if (offer.id === 'healing-potion') state.hp = Math.min(state.maxHp, state.hp + offer.amount);
     if (offer.id === 'attack-potion') state.shopAttackBonus = offer.amount;
     if (offer.id === 'dice-potion') state.shopDiceBonus = offer.amount;
     if (offer.id === 'pity-potion') state.shopFreePity = true;
@@ -224,6 +228,7 @@ export function useShopItem(game, players, playerId, itemId, now = Date.now()) {
 
   removeInventoryItem(state, itemId);
   if (itemId === 'golden-shield') state.goldenShield += offer.amount;
+  if (itemId === 'max-health-item') state.maxHp += offer.amount;
   if (itemId === 'additional-die') state.additionalDieActive = true;
   if (itemId === 'lucky-die') state.luckyDieActive = true;
   if (itemId === 'piercing-blade') state.piercingAttackActive = true;

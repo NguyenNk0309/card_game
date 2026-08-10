@@ -23,7 +23,7 @@ function OfferIcon({ id }: { id: string }) {
   if (id.includes("shield")) return <Shield size={21}/>;
   if (id.includes("dice") || id.includes("die")) return <Dices size={21}/>;
   if (id.includes("pity") || id === "marked-target" || id === "bad-luck") return <Clover size={21}/>;
-  if (id.includes("revive")) return <HeartPulse size={21}/>;
+  if (id.includes("revive") || id.includes("heal")) return <HeartPulse size={21}/>;
   if (id.includes("attack") || id.includes("blade")) return <Sword size={21}/>;
   if (id.includes("gold")) return <Coins size={21}/>;
   return <ShoppingBag size={21}/>;
@@ -34,7 +34,7 @@ function offerTone(id: string) {
   if (id.includes("attack") || id.includes("blade")) return "attack";
   if (id.includes("dice") || id.includes("die") || id === "bad-luck") return "dice";
   if (id.includes("pity")) return "pity";
-  if (id.includes("revive")) return "heal";
+  if (id.includes("revive") || id.includes("heal")) return "heal";
   if (id === "marked-target") return "marked";
   if (id === "control-cards" || id === "steal-gold") return "cards";
   return "support";
